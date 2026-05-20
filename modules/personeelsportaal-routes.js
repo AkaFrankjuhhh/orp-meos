@@ -53,8 +53,12 @@ function createPersoneelsportaalRouteHandler(deps) {
     return Promise.resolve(formsStorage.readState());
   }
 
-  async function sendFormsStateAfterMutation(res, auth, state) {
-    await Promise.resolve(formsStorage.writeState(state));
+  async function sendFormsStateAfterMutation(res, auth, state, targetedWrite) {
+    if (typeof targetedWrite === "function") {
+      await Promise.resolve(targetedWrite());
+    } else {
+      await Promise.resolve(formsStorage.writeState(state));
+    }
     const permissions = permissionsForAuth(auth, state);
     sendJson(res, 200, {
       ok: true,
@@ -225,9 +229,17 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     state.absences = state.absences || [];
     state.activity = state.activity || [];
+    const activityMessages = [];
+    const pushActivity = (message) => {
+      state.activity.push(message);
+      activityMessages.push(message);
+    };
     const absence = {
       id: crypto.randomUUID(),
       memberId: member.id,
+      name: member.name || "",
+      rank: member.rank || "",
+      serviceNumber: member.serviceNumber || "",
       from: body.from,
       to: body.to,
       reason: String(body.reason || "").trim(),
@@ -235,21 +247,26 @@ function createPersoneelsportaalRouteHandler(deps) {
       requestedAt: new Date().toISOString()
     };
     state.absences.push(absence);
-    state.activity.push(`Afwezigheid geregistreerd voor ${member.name}.`);
+    pushActivity(`Afwezigheid geregistreerd voor ${member.name}.`);
     try {
       const webhookResult = await sendDiscordWebhook(
         absenceWebhookUrl(),
         buildAbsenceWebhookPayload(member, absence, auth.profile)
       );
       if (webhookResult.ok) {
-        state.activity.push(`Afwezigheid webhook verzonden voor ${member.name}.`);
+        pushActivity(`Afwezigheid webhook verzonden voor ${member.name}.`);
       } else if (!webhookResult.skipped) {
-        state.activity.push(`Afwezigheid webhook kon niet verzonden worden voor ${member.name}.`);
+        pushActivity(`Afwezigheid webhook kon niet verzonden worden voor ${member.name}.`);
       }
     } catch (error) {
-      state.activity.push(`Afwezigheid webhook kon niet verzonden worden voor ${member.name}.`);
+      pushActivity(`Afwezigheid webhook kon niet verzonden worden voor ${member.name}.`);
     }
-    await sendFormsStateAfterMutation(res, auth, state);
+    await sendFormsStateAfterMutation(
+      res,
+      auth,
+      state,
+      typeof formsStorage.createAbsence === "function" ? () => formsStorage.createAbsence(absence, activityMessages) : null
+    );
     return;
   }
 
@@ -284,9 +301,15 @@ function createPersoneelsportaalRouteHandler(deps) {
     absence.reviewedById = reviewer.id;
     absence.reviewedByName = reviewer.name;
     const member = (state.people || []).find((entry) => entry.id === absence.memberId);
+    const activityMessage = `${reviewer.name} heeft afwezigheid van ${member?.name || "Onbekend"} ${status.toLowerCase()}.`;
     state.activity = state.activity || [];
-    state.activity.push(`${reviewer.name} heeft afwezigheid van ${member?.name || "Onbekend"} ${status.toLowerCase()}.`);
-    await sendFormsStateAfterMutation(res, auth, state);
+    state.activity.push(activityMessage);
+    await sendFormsStateAfterMutation(
+      res,
+      auth,
+      state,
+      typeof formsStorage.updateAbsence === "function" ? () => formsStorage.updateAbsence(absence, [activityMessage]) : null
+    );
     return;
   }
 
@@ -316,9 +339,15 @@ function createPersoneelsportaalRouteHandler(deps) {
     const [absence] = state.absences.splice(index, 1);
     const reviewer = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     const member = (state.people || []).find((entry) => entry.id === absence.memberId);
+    const activityMessage = `${reviewer.name} heeft afwezigheid van ${member?.name || "Onbekend"} verwijderd.`;
     state.activity = state.activity || [];
-    state.activity.push(`${reviewer.name} heeft afwezigheid van ${member?.name || "Onbekend"} verwijderd.`);
-    await sendFormsStateAfterMutation(res, auth, state);
+    state.activity.push(activityMessage);
+    await sendFormsStateAfterMutation(
+      res,
+      auth,
+      state,
+      absence.id && typeof formsStorage.deleteAbsence === "function" ? () => formsStorage.deleteAbsence(absence.id, [activityMessage]) : null
+    );
     return;
   }
   if (url.pathname === "/api/i8-forms" && req.method === "POST") {
@@ -372,9 +401,15 @@ function createPersoneelsportaalRouteHandler(deps) {
     };
     state.i8Forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
     state.i8Forms.push(form);
+    const activityMessage = `${member.name} heeft een I8 formulier ingediend.`;
     state.activity = state.activity || [];
-    state.activity.push(`${member.name} heeft een I8 formulier ingediend.`);
-    await sendFormsStateAfterMutation(res, auth, state);
+    state.activity.push(activityMessage);
+    await sendFormsStateAfterMutation(
+      res,
+      auth,
+      state,
+      typeof formsStorage.createI8Form === "function" ? () => formsStorage.createI8Form(form, [activityMessage]) : null
+    );
     return;
   }
 
@@ -419,11 +454,16 @@ function createPersoneelsportaalRouteHandler(deps) {
     form.rejectionReason = status === "rejected" ? rejectionReason : "";
     state.activity = state.activity || [];
     const actionLabel = status === "approved" ? "goedgekeurd" : status === "rejected" ? "afgekeurd" : "in behandeling gezet";
-    state.activity.push(`${reviewer.name} heeft I8 formulier van ${form.personName || "Onbekend"} ${actionLabel}.`);
-    await sendFormsStateAfterMutation(res, auth, state);
+    const activityMessage = `${reviewer.name} heeft I8 formulier van ${form.personName || "Onbekend"} ${actionLabel}.`;
+    state.activity.push(activityMessage);
+    await sendFormsStateAfterMutation(
+      res,
+      auth,
+      state,
+      typeof formsStorage.updateI8Form === "function" ? () => formsStorage.updateI8Form(form, [activityMessage]) : null
+    );
     return;
-  }
-  if (url.pathname === "/api/fivem/hours" && req.method === "POST") {
+  }  if (url.pathname === "/api/fivem/hours" && req.method === "POST") {
     if (!requireFivemIngest(req, res)) return;
     const state = await readPeopleState();
     const body = await readBody(req);
