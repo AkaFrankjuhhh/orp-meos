@@ -1,0 +1,131 @@
+(function () {
+  const query = (selector, root = document) => root.querySelector(selector);
+  const queryAll = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+  // Gedeelde HTML escape voor alle frontendtemplates.
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function formatDate(value) {
+    if (!value) return "-";
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+    if (!match) return value;
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return formatDate(value);
+    return date.toLocaleString("nl-NL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+
+  // Eén nette dialog-helper voor pManager en Porto, met optionele keuzelijst.
+  function createNoticeDialog(options = {}) {
+    const id = options.id || "siteNoticeDialog";
+    const className = options.className || "site-notice-dialog";
+    const titleAttr = `data-${id}-title`;
+    const messageAttr = `data-${id}-message`;
+    const actionsAttr = `data-${id}-actions`;
+    const choicesAttr = `data-${id}-choices`;
+    const closeAttr = `data-${id}-close`;
+
+    function ensureDialog() {
+      let dialog = document.getElementById(id);
+      if (dialog) return dialog;
+      dialog = document.createElement("dialog");
+      dialog.id = id;
+      dialog.className = className;
+      dialog.innerHTML = `
+        <form method="dialog" class="dialog-form site-notice-card">
+          <div class="panel-head">
+            <h2 ${titleAttr}>Melding</h2>
+            <button class="ghost icon" value="cancel" type="button" ${closeAttr}>&times;</button>
+          </div>
+          <p class="muted" ${messageAttr}></p>
+          <div class="site-choice-list" ${choicesAttr} hidden></div>
+          <menu ${actionsAttr}></menu>
+        </form>`;
+      document.body.appendChild(dialog);
+      dialog.querySelector(`[${closeAttr}]`).addEventListener("click", () => dialog.close("cancel"));
+      return dialog;
+    }
+
+    function showNotice(message, title = "Melding") {
+      return new Promise((resolve) => {
+        const dialog = ensureDialog();
+        dialog.returnValue = "";
+        dialog.querySelector(`[${titleAttr}]`).textContent = title;
+        dialog.querySelector(`[${messageAttr}]`).textContent = message;
+        dialog.querySelector(`[${choicesAttr}]`).hidden = true;
+        dialog.querySelector(`[${actionsAttr}]`).innerHTML = '<button class="primary" value="ok" type="submit">Ok</button>';
+        dialog.addEventListener("close", () => resolve(true), { once: true });
+        dialog.showModal();
+      });
+    }
+
+    function showConfirm(message, title = "Weet je het zeker?") {
+      return new Promise((resolve) => {
+        const dialog = ensureDialog();
+        dialog.returnValue = "";
+        dialog.querySelector(`[${titleAttr}]`).textContent = title;
+        dialog.querySelector(`[${messageAttr}]`).textContent = message;
+        dialog.querySelector(`[${choicesAttr}]`).hidden = true;
+        dialog.querySelector(`[${actionsAttr}]`).innerHTML = `
+          <button class="ghost" value="cancel" type="submit">Annuleren</button>
+          <button class="primary danger" value="confirm" type="submit">Bevestigen</button>`;
+        dialog.addEventListener("close", () => resolve(dialog.returnValue === "confirm"), { once: true });
+        dialog.showModal();
+      });
+    }
+
+    function showChoice(title, items) {
+      return new Promise((resolve) => {
+        const dialog = ensureDialog();
+        dialog.returnValue = "";
+        const choices = dialog.querySelector(`[${choicesAttr}]`);
+        dialog.querySelector(`[${titleAttr}]`).textContent = title;
+        dialog.querySelector(`[${messageAttr}]`).textContent = "Kies een optie hieronder.";
+        choices.hidden = false;
+        choices.innerHTML = items.map((item, index) => `<button type="button" data-choice-index="${index}">${escapeHtml(item.label)}</button>`).join("");
+        dialog.querySelector(`[${actionsAttr}]`).innerHTML = '<button class="ghost" value="cancel" type="submit">Annuleren</button>';
+        const onChoice = (event) => {
+          const button = event.target.closest("[data-choice-index]");
+          if (!button) return;
+          dialog.returnValue = button.dataset.choiceIndex;
+          dialog.close(button.dataset.choiceIndex);
+        };
+        choices.addEventListener("click", onChoice);
+        dialog.addEventListener("close", () => {
+          choices.removeEventListener("click", onChoice);
+          const index = Number(dialog.returnValue);
+          resolve(Number.isInteger(index) && items[index] ? items[index] : null);
+        }, { once: true });
+        dialog.showModal();
+      });
+    }
+
+    return { ensureDialog, showNotice, showConfirm, showChoice };
+  }
+
+  window.PManagerUI = {
+    query,
+    queryAll,
+    escapeHtml,
+    formatDate,
+    formatDateTime,
+    createNoticeDialog
+  };
+}());

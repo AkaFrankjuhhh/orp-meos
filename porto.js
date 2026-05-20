@@ -1,0 +1,299 @@
+﻿const $ = (selector) => document.querySelector(selector);
+
+const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM"];
+const profileOperational = ["OPS", "OPCO", "OVD"];
+const portoStatuses = [
+  { code: "1", title: "Status 1", label: "Beschikbaar", className: "available" },
+  { code: "2", title: "Status 2", label: "Aanrijdend", className: "driving" },
+  { code: "3", title: "Status 3", label: "Ter plaatse", className: "onscene" },
+  { code: "4", title: "Status 4", label: "Niet beschikbaar", className: "unavailable", hasChoices: true },
+  { code: "5", title: "Status 5", label: "Transport aanvraag", className: "transport" },
+  { code: "6", title: "Status 6", label: "Spraak aanvraag", className: "speech" },
+  { code: "7", title: "Status 7", label: "Spraak aanvraag urgent", className: "urgent" },
+  { code: "8", title: "Status 8", label: "Uit dienst", className: "offduty" }
+];
+let portoProfile = null;
+let portoDuty = null;
+let portoVehicleRanges = [];
+let portoCurrentOps = null;
+let portoCanTakeOps = false;
+let portoCanManageOps = false;
+let portoOpsRequests = [];
+let portoAvailableVehicleRanges = [];
+let portoLinkableUnits = [];
+let portoActiveUnits = [];
+let portoOpsContextUnitId = "";
+let portoDutyPoll = null;
+let portoOpsPoll = null;
+let portoOpsRequestInteractionUntil = 0;
+// Porto-audio is verplaatst naar porto/audio.js.
+const PortoAudio = window.PortoAudio;
+
+// Gedeelde Porto pop-up helper komt uit shared-ui.js.
+const portoNotice = PManagerUI.createNoticeDialog({ id: "portoNoticeDialog", className: "site-notice-dialog porto-notice-dialog" });
+const showPortoNotice = portoNotice.showNotice;
+const showPortoConfirm = portoNotice.showConfirm;
+const showPortoChoice = portoNotice.showChoice;
+function positionContextMenu(menu, x, y) {
+  menu.hidden = false;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(Math.max(10, x), window.innerWidth - rect.width - 10);
+  const top = Math.min(Math.max(10, y), window.innerHeight - rect.height - 10);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function showPortoContextChoice(anchorEvent, title, items) {
+  if (!items.length) {
+    return showPortoNotice("Geen opties beschikbaar.", title).then(() => null);
+  }
+  return new Promise((resolve) => {
+    let menu = $("#portoChoiceContextMenu");
+    if (!menu) {
+      menu = document.createElement("div");
+      menu.id = "portoChoiceContextMenu";
+      menu.className = "context-menu porto-ops-context-menu porto-choice-context-menu";
+      menu.hidden = true;
+      document.body.appendChild(menu);
+    }
+    menu.innerHTML = `
+      <strong>${escapeHtml(title)}</strong>
+      ${items.map((item, index) => `<button type="button" data-choice-index="${index}">${escapeHtml(item.label)}</button>`).join("")}
+      <button type="button" class="ghost" data-choice-cancel>Annuleren</button>`;
+
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      menu.hidden = true;
+      menu.removeEventListener("click", onMenuClick);
+      document.removeEventListener("click", onDocumentClick, true);
+      document.removeEventListener("contextmenu", onDocumentContext, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      resolve(value);
+    };
+    const onMenuClick = (event) => {
+      const choice = event.target.closest("[data-choice-index]");
+      if (choice) {
+        finish(items[Number(choice.dataset.choiceIndex)] || null);
+        return;
+      }
+      if (event.target.closest("[data-choice-cancel]")) finish(null);
+    };
+    const onDocumentClick = (event) => {
+      if (!menu.contains(event.target)) finish(null);
+    };
+    const onDocumentContext = (event) => {
+      if (!menu.contains(event.target)) finish(null);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") finish(null);
+    };
+
+    menu.addEventListener("click", onMenuClick);
+    positionContextMenu(menu, anchorEvent?.clientX || window.innerWidth / 2, anchorEvent?.clientY || window.innerHeight / 2);
+    window.setTimeout(() => {
+      document.addEventListener("click", onDocumentClick, true);
+      document.addEventListener("contextmenu", onDocumentContext, true);
+      document.addEventListener("keydown", onKeyDown, true);
+    }, 0);
+  });
+}
+const escapeHtml = PManagerUI.escapeHtml;
+
+function avatarFor(profile) {
+  if (profile?.avatar) return profile.avatar;
+  const initials = String(profile?.name || "P")
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+      <rect width="96" height="96" rx="48" fill="#e17000"/>
+      <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="Segoe UI, Arial" font-size="34" font-weight="800">${initials}</text>
+    </svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function setPortoLocked(locked) {
+  document.body.classList.toggle("porto-locked", locked);
+  if (locked) {
+    document.body.classList.remove("porto-workspace", "porto-ops-workspace", "porto-duty-workspace");
+    setPortoDutyPolling(false);
+    setPortoOpsPolling(false);
+  }
+}
+
+function showPortoLockError() {
+  const errorCode = new URLSearchParams(window.location.search).get("authError");
+  const messages = {
+    "no-profile": "Geen profiel gevonden in pManager.",
+    "no-role": "Geen Discord gekoppeld: je mist de Defensie rol.",
+    "login-failed": "Aanmelden via Discord is mislukt. Probeer opnieuw."
+  };
+  const errorElement = $("#portoLockError");
+  if (!errorElement || !messages[errorCode]) return;
+  errorElement.textContent = messages[errorCode];
+  errorElement.hidden = false;
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+// Begrens zoom en slepen zodat de kaart nooit buiten het paneel schuift.
+document.addEventListener("pointerdown", PortoAudio.unlock, { once: true });
+document.addEventListener("keydown", PortoAudio.unlock, { once: true });
+
+$("#portoLoginBtn").addEventListener("click", () => {
+  window.location.href = "/api/auth/login?returnTo=/porto.html";
+});
+$("#portoProfileOpenBtn").addEventListener("click", openPortoProfileDialog);
+$("#portoProfileOpenText").addEventListener("click", openPortoProfileDialog);
+$("#closePortoProfileDialog").addEventListener("click", () => $("#portoProfileDialog").close());
+$("#cancelPortoProfileDialog").addEventListener("click", () => $("#portoProfileDialog").close());
+$("#portoProfileForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const response = await fetch("/api/porto/profile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ portoPhone: $("#portoPhone").value.trim() })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    await showPortoNotice(payload.error || "Telefoonnummer kon niet worden opgeslagen.", "Opslaan mislukt");
+    return;
+  }
+  portoProfile = payload.profile || portoProfile;
+  renderPortoProfileDialog();
+  renderDutyPanel();
+  $("#portoProfileDialog").close();
+});
+$("#portoLogoutBtn").addEventListener("click", async () => {
+  await fetch("/api/auth/logout", { method: "POST" });
+  setPortoLocked(true);
+});
+$("#portoStatus0Btn").addEventListener("click", () => updatePortoStatus("0"));
+$("#portoCancelPendingBtn").addEventListener("click", () => updatePortoStatus("8"));
+$("#portoDevBypassBtn").addEventListener("click", runPortoDevBypass);
+$("#portoDutyVehicleSelect").addEventListener("change", (event) => updatePortoVehicle(event.target.value));
+$("#portoOpsClaimBtn").addEventListener("click", () => updatePortoOps("claim"));
+$("#portoOpsReleaseBtn").addEventListener("click", () => updatePortoOps("release"));
+$("#portoOpsReleaseWorkspaceBtn").addEventListener("click", () => updatePortoOps("release"));
+$("#portoOpsDevTestBtn").addEventListener("click", runPortoOpsDevTest);
+$("#portoOpsRequests").addEventListener("pointerdown", holdOpsRequestInteraction);
+$("#portoOpsRequests").addEventListener("focusin", holdOpsRequestInteraction);
+$("#portoOpsRequests").addEventListener("change", holdOpsRequestInteraction);
+$("#portoOpsRequests").addEventListener("click", async (event) => {
+  const assignButton = event.target.closest("[data-assign-unit]");
+  const linkButton = event.target.closest("[data-link-unit]");
+  const actionButton = assignButton || linkButton;
+  const unitId = assignButton?.dataset.assignUnit || linkButton?.dataset.linkUnit;
+  if (!unitId) return;
+  event.preventDefault();
+  holdOpsRequestInteraction();
+  const safeUnitId = CSS.escape(unitId);
+  actionButton.disabled = true;
+  try {
+    if (assignButton) {
+      const select = document.querySelector(`[data-category-select="${safeUnitId}"]`);
+      await assignPortoUnit(unitId, { vehiclePrefix: select?.value || "" });
+      return;
+    }
+    const select = document.querySelector(`[data-link-select="${safeUnitId}"]`);
+    await assignPortoUnit(unitId, { linkToVehicleNumber: select?.value || "" });
+  } finally {
+    actionButton.disabled = false;
+  }
+});
+$("#portoOpsUnits").addEventListener("click", (event) => {
+  if (event.target.closest("[data-ops-status-unit]")) event.preventDefault();
+});
+$("#portoOpsUnits").addEventListener("contextmenu", async (event) => {
+  const statusButton = event.target.closest("[data-ops-status-unit]");
+  const numberButton = event.target.closest("[data-ops-number-unit]");
+  const vehicleButton = event.target.closest("[data-ops-vehicle-unit]");
+  if (statusButton?.dataset.opsStatusUnit) {
+    event.preventDefault();
+    await chooseOpsStatusUpdate(statusButton.dataset.opsStatusUnit, event);
+    return;
+  }
+  if (numberButton?.dataset.opsNumberUnit) {
+    event.preventDefault();
+    await chooseOpsNumberUpdate(numberButton.dataset.opsNumberUnit, event);
+    return;
+  }
+  if (vehicleButton?.dataset.opsVehicleUnit) {
+    event.preventDefault();
+    await chooseOpsVehicleUpdate(vehicleButton.dataset.opsVehicleUnit, event);
+    return;
+  }
+  const memberCard = event.target.closest("[data-ops-unit-member]");
+  if (!memberCard) return;
+  // Personen in een gegroepeerd roepnummer openen hun eigen OPS-menu: koppelen of uit dienst melden.
+  event.preventDefault();
+  openPortoOpsContextMenu(event, memberCard.dataset.opsUnitMember);
+});
+
+$("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-ops-context-action]");
+  if (!button || !portoOpsContextUnitId) return;
+  const action = button.dataset.opsContextAction;
+  const unitId = portoOpsContextUnitId;
+  const context = findOpsMember(unitId);
+  if (!context) {
+    closePortoOpsContextMenu();
+    return;
+  }
+  if (action === "link") {
+    const options = portoLinkableUnits
+      .filter((unit) => unit.vehicleNumber !== (context.member.vehicleNumber || context.unit.vehicleNumber))
+      .map((unit) => ({ value: unit.vehicleNumber, label: unit.label }));
+    closePortoOpsContextMenu();
+    const selected = await showPortoContextChoice(event, "Koppelen aan", options);
+    if (selected) await reassignPortoUnit(unitId, { linkToVehicleNumber: selected.value });
+    return;
+  }
+
+  if (action === "offduty") {
+    const callsign = context.member.vehicleNumber || context.unit.vehicleNumber || "deze eenheid";
+    closePortoOpsContextMenu();
+    const confirmed = await showPortoConfirm(
+      `Weet je zeker dat je roepnummer ${callsign} volledig uit dienst wilt melden?`,
+      "Uit dienst melden"
+    );
+    if (confirmed) {
+      // De server krijgt ook het roepnummer mee, zodat het volledige koppel wordt afgemeld als de unit-id tussentijds wijzigt.
+      await reassignPortoUnit(unitId, { offDuty: true, vehicleNumber: callsign });
+    }
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#portoOpsUnitContextMenu")) closePortoOpsContextMenu();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closePortoOpsContextMenu();
+});
+$("#portoStatusGrid").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-status]");
+  if (!button || button.disabled) return;
+  if (button.dataset.status === "4") {
+    $("#portoStatus4Choices").hidden = false;
+    return;
+  }
+  $("#portoStatus4Choices").hidden = true;
+  updatePortoStatus(button.dataset.status);
+});
+$("#portoStatus4Choices").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-status4]");
+  if (!button) return;
+  $("#portoStatus4Choices").hidden = true;
+  updatePortoStatus("4", button.dataset.status4);
+});
+
+showPortoLockError();
+renderStatusButtons();
+renderVehicleRanges();
+renderOpsPanel();
+loadPortoProfile();

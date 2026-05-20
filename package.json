@@ -1,0 +1,21 @@
+{
+  "name": "oranjestad-defensie-personeel",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "db:check": "node scripts/db-check.js",
+    "db:init": "node scripts/db-init.js",
+    "db:import-json": "node scripts/import-data-json.js --replace",
+    "db:export-state": "node scripts/db-export-state.js",
+    "db:compare-json": "node scripts/db-compare-json.js",
+    "prod:check": "node scripts/prod-check.js",
+    "db:backup": "node scripts/db-backup.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

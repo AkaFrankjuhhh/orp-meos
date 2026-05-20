@@ -1,0 +1,537 @@
+/* Shared base styling for pManager and Porto. */
+:root {
+  --bg: #151719;
+  --surface: #202326;
+  --surface-2: #2a2e32;
+  --text: #f1f3ed;
+  --muted: #b8c0c7;
+  --line: #3a4046;
+  --green: #e17000;
+  --green-strong: #ff8a00;
+  --orange: #e17000;
+  --danger: #d9564a;
+  --shadow: none;
+}
+
+[data-theme="light"] {
+  --bg: #eef1f3;
+  --surface: #ffffff;
+  --surface-2: #e5e8eb;
+  --text: #181b1f;
+  --muted: #5d666f;
+  --line: #cbd1d6;
+  --shadow: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, Segoe UI, system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+body.locked .sidebar,
+body.locked .shell {
+  display: none;
+}
+
+body:not(.locked) .lockscreen {
+  display: none;
+}
+
+.lockscreen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.85fr) minmax(0, 1.15fr);
+  background: #151719;
+}
+
+.lock-visual {
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(21, 23, 25, 0.08), rgba(21, 23, 25, 0.82)),
+    url("assets/lockscreen-defensie.png") center / cover;
+}
+
+.lock-content {
+  min-height: 100vh;
+  padding: clamp(28px, 7vw, 84px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+}
+
+.lock-brand {
+  margin-bottom: 18px;
+}
+
+.lock-content h1 {
+  max-width: 620px;
+}
+
+.lock-content p {
+  max-width: 560px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.lock-content .primary {
+  width: fit-content;
+}
+
+.lock-error {
+  max-width: 560px;
+  padding: 13px 14px;
+  border-radius: 8px;
+  background: rgba(217, 86, 74, 0.14);
+  border: 1px solid rgba(217, 86, 74, 0.44);
+  color: #ffd6d2;
+  font-weight: 700;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 280px;
+  padding: 24px;
+  background: linear-gradient(180deg, #0e3d6e, #082947);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  color: #f7fbff;
+}
+
+[data-theme="light"] .sidebar {
+  background: #0e3d6e;
+  color: #f7fbff;
+}
+
+.brand,
+.profile-chip,
+.panel-head,
+.toolbar {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: 12px;
+  padding: 6px 2px;
+}
+
+.brand span,
+.eyebrow,
+.muted,
+.profile-chip span,
+.search span {
+  color: var(--muted);
+}
+
+.sidebar .brand span {
+  color: rgba(247, 251, 255, 0.72);
+}
+
+.nav-list {
+  display: grid;
+  gap: 8px;
+}
+
+.nav-divider {
+  height: 1px;
+  margin: 10px 0;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.nav-mini-divider {
+  height: 1px;
+  margin: -2px 4px 6px;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.nav-section {
+  margin-top: 2px;
+  padding: 0 4px 4px;
+  color: rgba(247, 251, 255, 0.72);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.nav-item,
+.theme-toggle,
+.ghost {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+
+.nav-item {
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.nav-item:hover,
+.nav-item.active,
+.theme-toggle:hover {
+  background: rgba(225, 112, 0, 0.18);
+  border-color: rgba(225, 112, 0, 0.52);
+}
+
+.theme-toggle {
+  margin-top: auto;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.shell {
+  margin-left: 280px;
+  padding: 28px;
+}
+
+.topbar {
+  min-height: 76px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 26px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.05;
+}
+
+h2 {
+  font-size: 18px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.profile-chip {
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 220px;
+  box-shadow: var(--shadow);
+}
+
+.profile-open {
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.profile-open-text {
+  display: grid;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-open:hover,
+.profile-open-text:hover {
+  opacity: 0.86;
+}
+
+.profile-chip .small {
+  padding: 7px 9px;
+  margin-left: auto;
+}
+
+.profile-chip img,
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--green);
+}
+
+.page {
+  display: none;
+}
+
+.auth-notice {
+  margin-bottom: 20px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: rgba(241, 132, 36, 0.12);
+  border: 1px solid rgba(241, 132, 36, 0.35);
+  border-radius: 8px;
+}
+
+.auth-notice[hidden] {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+
+/* Shared notification pop-ups. */
+/* Website notification pop-ups */
+.site-notice-dialog {
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 16px;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.site-notice-dialog::backdrop {
+  background: rgba(3, 7, 18, 0.66);
+  backdrop-filter: blur(6px);
+}
+
+.site-notice-card {
+  width: 100%;
+  margin: 0;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.site-notice-card .panel-head {
+  margin-bottom: 12px;
+}
+
+.site-notice-card menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.site-choice-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(420px, 55dvh);
+  overflow: auto;
+  margin-top: 14px;
+}
+
+.site-choice-list[hidden] {
+  display: none;
+}
+
+.site-choice-list button {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.76);
+  color: #e5e7eb;
+  padding: 11px 13px;
+  text-align: left;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.site-choice-list button:hover {
+  border-color: rgba(245, 158, 11, 0.62);
+  background: rgba(245, 158, 11, 0.14);
+  color: #f8c471;
+}
+
+[data-theme="light"] .site-notice-card {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+[data-theme="light"] .site-choice-list button {
+  background: rgba(248, 250, 252, 0.94);
+  color: #0f172a;
+}
+
+/* Shared button styling used by pManager and Porto dialogs/actions. */
+.primary {
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--green), var(--green-strong));
+  color: #fff;
+  padding: 12px 16px;
+  font-weight: 800;
+}
+
+.ghost {
+  padding: 10px 12px;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.danger {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.login-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* Gedeelde contextmenu-basis: Porto laadt pmanager.css niet, dus deze positie/hidden-regels moeten globaal beschikbaar zijn. */
+.context-menu {
+  position: fixed;
+  z-index: 2000;
+  display: grid;
+  gap: 4px;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.92));
+}
+
+.context-menu[hidden] {
+  display: none !important;
+}
+
+.context-menu button {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e5e7eb;
+  font-weight: 900;
+  text-align: left;
+}
+
+.context-menu button:hover {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.context-menu .danger-option {
+  color: #fecaca;
+}
+
+/* Shared notice dialogs: nette, vaste opmaak voor confirm/alert pop-ups in pManager en Porto. */
+.site-notice-card {
+  box-sizing: border-box;
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  color: #e5e7eb;
+}
+
+.site-notice-card .panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0;
+}
+
+.site-notice-card .panel-head h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 20px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.site-notice-card .panel-head .ghost.icon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.site-notice-card p {
+  margin: 0;
+  max-width: 100%;
+  color: #cbd5e1;
+  font-size: 16px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.site-notice-card menu {
+  padding: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.site-notice-card menu button {
+  min-width: 112px;
+  min-height: 44px;
+  justify-content: center;
+  text-align: center;
+}
+
+.site-notice-card .primary.danger {
+  background: #ef4444;
+  color: #fff;
+}
+
+@media (max-width: 520px) {
+  .site-notice-card {
+    padding: 18px;
+  }
+
+  .site-notice-card menu {
+    justify-content: stretch;
+  }
+
+  .site-notice-card menu button {
+    flex: 1 1 140px;
+  }
+}

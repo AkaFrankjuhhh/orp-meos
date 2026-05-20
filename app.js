@@ -1,0 +1,1090 @@
+﻿// Statische pManager configuratie komt uit pmanager-data.js.
+const {
+  ranks,
+  rankCategories,
+  rankWeight,
+  today,
+  profileTrainings,
+  profileOperational,
+  mentorRanks,
+  mentorChecklistGroups,
+  mentorChecklistLabels,
+  extraTasks,
+  extraFunctions,
+  disciplineTypes,
+  profileDistinctions,
+  autoFunctionByRanks,
+  rankColors,
+  defaultState
+} = window.PManagerData;
+let state = structuredClone(defaultState);
+let authProfile = null;
+let serverBacked = false;
+let canViewLogbook = false;
+let permissions = {};
+let pendingDismissalId = "";
+let pendingRestoreId = "";
+let selectedProfileId = "";
+let pendingDisciplineAction = null;
+let pendingI8ReviewAction = null;
+let pendingAbsenceId = "";
+let selectedMentorProfileId = "";
+let activeI8Tab = "list";
+const pageStorageKey = "orp-defensie-current-page";
+const profileStorageKey = "orp-defensie-current-profile";
+const mentorStorageKey = "orp-defensie-current-mentor";
+const openProfileFlagKey = "orp-defensie-open-own-profile";
+const pmanagerWindowName = "pmanager-main";
+const pmanagerChannelName = "orp-pmanager-window";
+let reviewCounterPoll = null;
+
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+function registerPmanagerTab() {
+  window.name = pmanagerWindowName;
+  const markOpen = () => localStorage.setItem("orp-pmanager-window-seen", String(Date.now()));
+  const focusSelf = (requestId = Date.now()) => {
+    markOpen();
+    localStorage.setItem("orp-pmanager-focus-ack", String(requestId));
+    window.focus();
+  };
+  markOpen();
+  window.addEventListener("focus", markOpen);
+  document.addEventListener("visibilitychange", markOpen);
+  window.addEventListener("storage", (event) => {
+    if (event.key === "orp-pmanager-focus-request") focusSelf(Number(event.newValue) || Date.now());
+  });
+  try {
+    const channel = new BroadcastChannel(pmanagerChannelName);
+    channel.addEventListener("message", (event) => {
+      if (event.data?.type === "focus-pmanager") focusSelf(Number(event.data.requestId) || Date.now());
+    });
+  } catch (error) {
+    // BroadcastChannel is optional; the named tab fallback still opens pManager correctly.
+  }
+}
+function currentProfile() {
+  if (!authProfile) return null;
+  return (
+    state.people.find((person) => person.id === authProfile.id || person.discordId === authProfile.discordId) ||
+    authProfile
+  );
+}
+
+function visibleProfile() {
+  return state.people.find((person) => person.id === selectedProfileId && person.status === "Actief") || currentProfile();
+}
+
+function hasKaderAccess() {
+  return Boolean(permissions.canManagePeople || canViewLogbook);
+}
+
+function canManageProfileBadges() {
+  return Boolean(permissions.canManageProfileBadges || hasKaderAccess());
+}
+
+function canManageQualifications() {
+  return Boolean(permissions.canManageQualifications || hasKaderAccess());
+}
+
+function canViewAllDiscipline() {
+  return Boolean(permissions.canViewAllDiscipline || hasKaderAccess());
+}
+
+function canViewI8Discipline() {
+  return Boolean(permissions.canViewI8Discipline || canViewAllDiscipline());
+}
+
+function canManageDiscipline() {
+  return Boolean(permissions.canManageDiscipline || hasKaderAccess());
+}
+
+function isOwnProfile(person) {
+  const current = currentProfile();
+  return Boolean(current && person && current.id === person.id);
+}
+
+function canViewDisciplineFor(person) {
+  return Boolean(isOwnProfile(person) || canViewAllDiscipline() || canViewI8Discipline());
+}
+
+function canViewAllDisciplineFor(person) {
+  return Boolean(isOwnProfile(person) || canViewAllDiscipline());
+}
+
+function canViewI8DisciplineFor(person) {
+  return Boolean(isOwnProfile(person) || canViewI8Discipline());
+}
+
+function canViewHours(person) {
+  const current = currentProfile();
+  return Boolean(permissions.canViewAllHours || (current && person && current.id === person.id));
+}
+function canViewOvJChannels() {
+  return Boolean(permissions.canViewOvJChannels || hasKaderAccess());
+}
+
+function canViewMentorOverview() {
+  return Boolean(permissions.canViewMentorOverview || hasKaderAccess());
+}
+
+function canManageMentorOverview() {
+  return Boolean(permissions.canManageMentorOverview || hasKaderAccess());
+}
+
+function canViewOwnMentorTrajectory() {
+  const current = currentProfile();
+  return Boolean(current && current.status === "Actief" && mentorRanks.includes(current.rank));
+}
+
+function canViewMentorSection() {
+  return Boolean(canViewMentorOverview() || canViewOwnMentorTrajectory());
+}
+
+function canRecruitPeople() {
+  return Boolean(permissions.canRecruitPeople || hasKaderAccess());
+}
+
+function resetPermissions() {
+  canViewLogbook = false;
+  permissions = {};
+}
+
+function updateDeviceMode() {
+  const width = window.innerWidth || document.documentElement.clientWidth || 0;
+  const device = width <= 640 ? "mobile" : width <= 1024 ? "tablet" : "desktop";
+  document.body.dataset.device = device;
+}
+
+// Gedeelde pop-up en formatter helpers komen uit shared-ui.js.
+const siteNotice = PManagerUI.createNoticeDialog({ id: "siteNoticeDialog", className: "site-notice-dialog" });
+const showSiteNotice = siteNotice.showNotice;
+const showSiteConfirm = siteNotice.showConfirm;
+const escapeHtml = PManagerUI.escapeHtml;
+const formatDate = PManagerUI.formatDate;
+const formatDateTime = PManagerUI.formatDateTime;
+function formatMinutes(minutes) {
+  const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+  const hours = Math.floor(safeMinutes / 60);
+  const remainder = safeMinutes % 60;
+  return `${hours}u ${String(remainder).padStart(2, "0")}m`;
+}
+
+async function loadState() {
+  try {
+    const response = await fetch("/api/state");
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      serverBacked = false;
+      const errorElement = $("#lockError");
+      const shouldShowStateError = response.status !== 401 || freshLoginRedirected() || payload.error !== "Niet ingelogd";
+      if (errorElement && shouldShowStateError) {
+        errorElement.textContent = payload.error || "Server data kon niet geladen worden.";
+        errorElement.hidden = false;
+      }
+      return false;
+    }
+    state = { ...structuredClone(defaultState), ...payload };
+    serverBacked = true;
+    return true;
+  } catch (error) {
+    serverBacked = false;
+    const errorElement = $("#lockError");
+    if (errorElement) {
+      errorElement.textContent = "Server data kon niet geladen worden. Controleer of de server draait.";
+      errorElement.hidden = false;
+    }
+    return false;
+  }
+}
+
+function applyServerState(payload) {
+  if (!payload?.state) return;
+  state = { ...structuredClone(defaultState), ...payload.state };
+  if ("canViewLogbook" in payload) {
+    canViewLogbook = Boolean(payload.canViewLogbook);
+  }
+  if (payload.permissions) {
+    permissions = payload.permissions;
+  }
+  localStorage.setItem("orp-defensie-state", JSON.stringify(state));
+}
+
+async function runAction(path, body = {}) {
+  if (!serverBacked) return false;
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (response.status === 401) {
+    authProfile = null;
+    resetPermissions();
+    setLocked(true);
+    return false;
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    await showSiteNotice(payload.error || "Actie kon niet worden uitgevoerd.", "Actie mislukt");
+    await loadState();
+    return false;
+  }
+  applyServerState(payload);
+  return true;
+}
+
+async function loadAuth() {
+  try {
+    const response = await fetch("/api/auth/me");
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      authProfile = null;
+      resetPermissions();
+      setLocked(true);
+      const errorElement = $("#lockError");
+      const shouldShowAuthError = payload.error && payload.error !== "Niet ingelogd";
+      if (errorElement && shouldShowAuthError) {
+        errorElement.textContent = payload.error;
+        errorElement.hidden = false;
+      }
+      return false;
+    }
+    const auth = await response.json();
+    authProfile = auth.profile;
+    canViewLogbook = Boolean(auth.canViewLogbook);
+    permissions = auth.permissions || {};
+    setLocked(false);
+    return true;
+  } catch (error) {
+    authProfile = null;
+    resetPermissions();
+    setLocked(true);
+    const errorElement = $("#lockError");
+    if (errorElement) {
+      errorElement.textContent = "Auth controle mislukt. Herstart de server of probeer opnieuw.";
+      errorElement.hidden = false;
+    }
+    return false;
+  }
+}
+function setLocked(locked) {
+  document.body.classList.toggle("locked", locked);
+  const notice = $("#authNotice");
+  if (notice) notice.hidden = !locked;
+}
+
+function showLockError() {
+  const errorCode = new URLSearchParams(window.location.search).get("authError");
+  const messages = {
+    "no-profile": "Geen profiel gevonden in pManager.",
+    "no-role": "Geen Discord gekoppeld: je mist de Defensie rol.",
+    "login-failed": "Aanmelden via Discord is mislukt. Controleer Client Secret, callback URL en probeer opnieuw.",
+    "rate-limited": "Discord blokkeert tijdelijk door te veel pogingen. Wacht 5 tot 10 minuten en probeer opnieuw."
+  };
+  const errorElement = $("#lockError");
+  if (!errorElement || !messages[errorCode]) return;
+  errorElement.textContent = messages[errorCode];
+  errorElement.hidden = false;
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+function avatarFor(member) {
+  if (member.avatar) return member.avatar;
+  const initials = member.name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+      <rect width="96" height="96" rx="48" fill="#e17000"/>
+      <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="Segoe UI, Arial" font-size="34" font-weight="800">${initials}</text>
+    </svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function hiredDateFor(person) {
+  return person.hiredDate || person.rankHistory?.[0]?.date || person.rankDate || "-";
+}
+
+function pageTitle(page) {
+  if (page === "mijn-profiel") {
+    const own = currentProfile();
+    const viewed = visibleProfile();
+    return viewed && own && viewed.id !== own.id ? "Profiel" : "Mijn profiel";
+  }
+  return {
+    dashboard: "Dashboard",
+    medewerkers: "Medewerkers",
+    personeel: "Personeel",
+    "mentor-overzicht": "Mentor-Overzicht",
+    "mentor-traject": "Mentor-Traject",
+    "mentor-checklist": "Mentor-Checklist",
+    afwezigheid: "Afwezigheid",
+    "i8-opstellen": "I8-Formulier",
+    "ontslag-formulier": "Ontslag-Formulier",
+    "i8-controleren": "I8-Controleren",
+    "i8-archief": "I8-Archief",
+    "afwezigheid-overzicht": "Afwezigheid overzicht",
+    "ontslag-overzicht": "Ontslag-Overzicht",
+    "personeel-aannemen": "Personeel Aannemen",
+    archief: "Personeels-Archief",
+    logboek: "Logboek"
+  }[page];
+}
+
+function validPage(page) {
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "mentor-overzicht", "mentor-traject", "mentor-checklist", "personeel-aannemen", "personeel", "archief", "logboek"]);
+  return visiblePages.has(page) ? page : "dashboard";
+}
+
+function saveCurrentPage(page) {
+  sessionStorage.setItem(pageStorageKey, page);
+  if (page === "mijn-profiel") {
+    if (selectedProfileId) {
+      sessionStorage.setItem(profileStorageKey, selectedProfileId);
+    } else {
+      sessionStorage.removeItem(profileStorageKey);
+    }
+  } else {
+    sessionStorage.removeItem(profileStorageKey);
+  }
+  if (page === "mentor-checklist" && selectedMentorProfileId) {
+    sessionStorage.setItem(mentorStorageKey, selectedMentorProfileId);
+  } else {
+    sessionStorage.removeItem(mentorStorageKey);
+  }
+}
+
+function resetSavedPage() {
+  selectedProfileId = "";
+  selectedMentorProfileId = "";
+  sessionStorage.removeItem(profileStorageKey);
+  sessionStorage.removeItem(mentorStorageKey);
+  sessionStorage.setItem(pageStorageKey, "dashboard");
+}
+
+function freshLoginRedirected() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("login") === "1";
+}
+
+function shouldOpenOwnProfile() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("openProfile") === "1" || localStorage.getItem(openProfileFlagKey) === "1";
+}
+
+function cleanOpenProfileRedirect() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("openProfile")) return;
+  url.searchParams.delete("openProfile");
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, document.title, next || "/");
+}
+
+function captureOpenProfileRequest() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("openProfile") !== "1") return;
+  localStorage.setItem(openProfileFlagKey, "1");
+  cleanOpenProfileRedirect();
+}
+
+function authLoginUrl() {
+  return "/api/auth/login";
+}
+
+function cleanLoginRedirect() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("login")) return;
+  url.searchParams.delete("login");
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, document.title, next || "/");
+}
+
+function setPage(page) {
+  page = validPage(page);
+  if (["logboek", "archief", "personeel", "afwezigheid-overzicht", "ontslag-overzicht"].includes(page) && !hasKaderAccess()) {
+    page = "dashboard";
+  }
+  if (["i8-controleren", "i8-archief"].includes(page) && !canViewOvJChannels()) {
+    page = "dashboard";
+  }
+  if (["mentor-overzicht", "mentor-checklist"].includes(page) && !canViewMentorOverview()) {
+    page = "dashboard";
+  }
+  if (page === "personeel-aannemen" && !canRecruitPeople()) {
+    page = "dashboard";
+  }
+  if (page === "mentor-traject" && !canViewOwnMentorTrajectory()) {
+    page = canViewMentorOverview() ? "mentor-overzicht" : "dashboard";
+  }
+  $$(".page").forEach((element) => element.classList.toggle("active", element.id === page));
+  $$(".nav-item").forEach((element) => element.classList.toggle("active", element.dataset.page === page));
+  $("#pageTitle").textContent = pageTitle(page);
+  saveCurrentPage(page);
+}
+
+function restoreSavedPage() {
+  if (shouldOpenOwnProfile()) {
+    selectedProfileId = "";
+    sessionStorage.setItem(pageStorageKey, "mijn-profiel");
+    sessionStorage.removeItem(profileStorageKey);
+    localStorage.removeItem(openProfileFlagKey);
+    cleanOpenProfileRedirect();
+    openProfilePage("");
+    return;
+  }
+
+  if (freshLoginRedirected()) {
+    resetSavedPage();
+    cleanLoginRedirect();
+    setPage("dashboard");
+    return;
+  }
+
+  const savedPage = validPage(sessionStorage.getItem(pageStorageKey) || "dashboard");
+  if (savedPage === "mijn-profiel") {
+    selectedProfileId = sessionStorage.getItem(profileStorageKey) || "";
+    renderProfile();
+  }
+  setPage(savedPage);
+}
+
+function renderDashboard() {
+  const activePeople = state.people.filter((person) => person.status === "Actief");
+  $("#statActive").textContent = activePeople.length;
+  $("#statAbsent").textContent = state.absences.filter(absenceIsActive).length;
+
+  const rankCounts = ranks
+    .map((rank) => ({
+      rank,
+      count: activePeople.filter((person) => person.rank === rank).length
+    }))
+    .filter((item) => item.count > 0);
+
+  if (!rankCounts.length) {
+    $("#rankPie").style.background = "var(--surface-2)";
+    $("#rankLegend").innerHTML = '<div class="feed-item">Nog geen actieve leden.</div>';
+  } else {
+    const sortedRankCounts = rankCounts;
+    let cursor = 0;
+    const segments = sortedRankCounts.map((item) => {
+      const start = cursor;
+      const end = cursor + (item.count / activePeople.length) * 100;
+      cursor = end;
+      return `${rankColors[item.rank]} ${start}% ${end}%`;
+    });
+    $("#rankPie").style.background = `conic-gradient(${segments.join(", ")})`;
+    $("#rankLegend").innerHTML = sortedRankCounts
+      .map((item) => `
+        <div class="rank-legend-item">
+          <span class="rank-swatch" style="background:${rankColors[item.rank]}"></span>
+          <span>${escapeHtml(item.rank)}</span>
+          <span class="rank-count">${item.count}</span>
+        </div>
+      `)
+      .join("");
+  }
+
+  $("#serviceRangeRows").innerHTML = rankCategories
+    .map((category) => {
+      const count = activePeople.filter((person) => category.ranks.includes(person.rank)).length;
+      return `
+        <div class="range-row">
+          <strong>${escapeHtml(category.serviceRange)}</strong>
+          <span>${escapeHtml(category.title)}</span>
+          <span>${count}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+}
+
+function renderKaderNavigation() {
+  const isKader = hasKaderAccess();
+  const showOvJ = canViewOvJChannels();
+  const showMentorOverview = canViewMentorOverview();
+  const showMentorTrajectory = canViewOwnMentorTrajectory();
+  const showMentorSection = canViewMentorSection();
+  const showWs = canRecruitPeople();
+  $$('[data-kader-only="true"]').forEach((element) => {
+    element.hidden = !isKader;
+  });
+  $$('[data-ovj-only="true"]').forEach((element) => {
+    element.hidden = !showOvJ;
+  });
+  $$('[data-mentor-section="true"]').forEach((element) => {
+    element.hidden = !showMentorSection;
+  });
+  $$('[data-mentor-overview-only="true"]').forEach((element) => {
+    element.hidden = !showMentorOverview;
+  });
+  $$('[data-mentor-traject-only="true"]').forEach((element) => {
+    element.hidden = !showMentorTrajectory;
+  });
+  $$('[data-ws-only="true"]').forEach((element) => {
+    element.hidden = !showWs;
+  });
+  $$('[data-restricted-divider="true"]').forEach((element) => {
+    element.hidden = !(isKader || showOvJ || showMentorSection || showWs);
+  });
+  renderNavigationCounters();
+  if (!isKader && ($("#logboek").classList.contains("active") || $("#archief").classList.contains("active") || $("#personeel").classList.contains("active") || $("#afwezigheid-overzicht").classList.contains("active") || $("#ontslag-overzicht").classList.contains("active"))) {
+    setPage("dashboard");
+  }
+  if (!showOvJ && ($("#i8-controleren").classList.contains("active") || $("#i8-archief").classList.contains("active"))) {
+    setPage("dashboard");
+  }
+  if (!showMentorOverview && ($("#mentor-overzicht").classList.contains("active") || $("#mentor-checklist").classList.contains("active"))) {
+    setPage("dashboard");
+  }
+  if (!showMentorTrajectory && $("#mentor-traject").classList.contains("active")) {
+    setPage(showMentorOverview ? "mentor-overzicht" : "dashboard");
+  }
+  if (!showWs && $("#personeel-aannemen")?.classList.contains("active")) {
+    setPage("dashboard");
+  }
+}
+
+function openI8ReviewCount() {
+  return (state.i8Forms || []).filter((form) => ["pending", "in_review"].includes(form.status || "pending")).length;
+}
+
+function setNavCounter(selector, count, visible) {
+  const badge = $(selector);
+  if (!badge) return;
+  badge.textContent = String(count);
+  badge.hidden = !visible || count <= 0;
+}
+
+function renderNavigationCounters() {
+  // Sidebar-tellers volgen dezelfde openstaande items als de achterliggende overzichtspagina's.
+  setNavCounter("#absenceOverviewCounter", openAbsenceRequestCount(), hasKaderAccess());
+  setNavCounter("#i8ReviewCounter", openI8ReviewCount(), canViewOvJChannels());
+}
+
+function activePageId() {
+  return $(".page.active")?.id || "dashboard";
+}
+
+async function refreshReviewCounters() {
+  if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
+  const loaded = await loadState();
+  if (!loaded) return;
+  renderNavigationCounters();
+  const page = activePageId();
+  if (page === "i8-controleren") renderI8Forms();
+  if (page === "afwezigheid-overzicht") renderAbsenceOverview();
+  if (page === "ontslag-overzicht") renderResignationOverview();
+  if (page === "dashboard") renderDashboard();
+}
+
+function startReviewCounterPolling() {
+  if (reviewCounterPoll) return;
+  reviewCounterPoll = window.setInterval(refreshReviewCounters, 4000);
+}
+
+// Houdt het ontslagformulier gekoppeld aan het eigen actieve profiel.
+// Houdt het W&S-formulier gekoppeld aan het ingelogde profiel en de huidige datum.
+function renderLogbook() {
+  const isKader = hasKaderAccess();
+  $("#activityFeed").innerHTML = isKader
+    ? (state.activity || [])
+        .slice(-25)
+        .reverse()
+        .map((item) => `<div class="feed-item">${escapeHtml(item)}</div>`)
+        .join("")
+    : '<div class="feed-item">Geen toegang.</div>';
+}
+
+function memberName(id) {
+  return state.people.find((person) => person.id === id)?.name || "Onbekend";
+}
+
+function render() {
+  if (!authProfile) {
+    setLocked(true);
+    return;
+  }
+  setLocked(false);
+  document.documentElement.dataset.theme = "dark";
+  renderKaderNavigation();
+  renderProfile();
+  renderDashboard();
+  renderLogbook();
+  renderEmployeeDirectory();
+  renderMentorOverview();
+  renderMentorChecklist();
+  renderMentorTrajectory();
+  renderRecruitment();
+  renderPeople();
+  renderArchive();
+  renderI8Forms();
+  renderAbsenceOverview();
+  renderResignationOverview();
+}
+
+function wireEvents() {
+  window.addEventListener("resize", updateDeviceMode);
+  $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+  const portoButton = $("[data-open-porto]");
+  if (portoButton) {
+    portoButton.addEventListener("click", () => window.open("/porto.html", "_blank", "noopener"));
+  }
+  $("#loginBtn").addEventListener("click", () => {
+    window.location.href = authLoginUrl();
+  });
+  $("#lockLoginBtn").addEventListener("click", () => {
+    window.location.href = authLoginUrl();
+  });
+  $("#authLoginBtn").addEventListener("click", () => {
+    window.location.href = authLoginUrl();
+  });
+  $("#profileOpenBtn").addEventListener("click", () => openProfilePage(""));
+  $("#profileOpenText").addEventListener("click", () => openProfilePage(""));
+  $("#employeeDirectory").addEventListener("click", (event) => {
+    const openProfileId = event.target.closest("[data-open-profile]")?.dataset.openProfile;
+    if (openProfileId) openProfilePage(openProfileId);
+  });
+  $("#addDisciplineBtn").addEventListener("click", openDisciplineDialog);
+  $("#closeDisciplineDialog").addEventListener("click", () => $("#disciplineDialog").close());
+  $("#cancelDisciplineDialog").addEventListener("click", () => $("#disciplineDialog").close());
+  $("#closeEditDisciplineDialog").addEventListener("click", () => $("#editDisciplineDialog").close());
+  $("#cancelEditDisciplineDialog").addEventListener("click", () => $("#editDisciplineDialog").close());
+  $("#closeDeleteDisciplineDialog").addEventListener("click", () => $("#deleteDisciplineDialog").close());
+  $("#cancelDeleteDisciplineDialog").addEventListener("click", () => $("#deleteDisciplineDialog").close());
+  $("#closeI8DetailDialog").addEventListener("click", () => $("#i8DetailDialog").close());
+  $("#closeI8DetailFooter").addEventListener("click", () => $("#i8DetailDialog").close());
+  $("#closeI8ReviewDialog").addEventListener("click", () => $("#i8ReviewDialog").close());
+  $("#cancelI8ReviewDialog").addEventListener("click", () => $("#i8ReviewDialog").close());
+  $("#closeDeleteAbsenceDialog").addEventListener("click", () => $("#deleteAbsenceDialog").close());
+  $("#cancelDeleteAbsenceDialog").addEventListener("click", () => $("#deleteAbsenceDialog").close());
+  $("#disciplineForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const personId = $("#disciplinePersonId").value;
+    const type = $("#disciplineType").value;
+    const reason = $("#disciplineReason").value.trim();
+    if (!personId || !reason) return;
+    if (await runAction(`/api/people/${encodeURIComponent(personId)}/discipline`, { type, reason })) {
+      $("#disciplineDialog").close();
+      render();
+    }
+  });
+  $("#editDisciplineForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const personId = $("#editDisciplinePersonId").value;
+    const disciplineId = $("#editDisciplineEntryId").value;
+    const type = $("#editDisciplineType").value;
+    const reason = $("#editDisciplineReason").value.trim();
+    if (!personId || !disciplineId || !type || !reason) return;
+    if (await runAction(`/api/people/${encodeURIComponent(personId)}/discipline/${encodeURIComponent(disciplineId)}`, { action: "update", type, reason })) {
+      $("#editDisciplineDialog").close();
+      render();
+    }
+  });
+  $("#deleteDisciplineForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const personId = $("#deleteDisciplinePersonId").value;
+    const disciplineId = $("#deleteDisciplineEntryId").value;
+    if (!personId || !disciplineId) return;
+    if (await runAction(`/api/people/${encodeURIComponent(personId)}/discipline/${encodeURIComponent(disciplineId)}`, { action: "delete" })) {
+      $("#deleteDisciplineDialog").close();
+      render();
+    }
+  });
+  $("#disciplineTypeFilter").addEventListener("change", () => {
+    const viewed = visibleProfile();
+    if (viewed) renderProfileDiscipline(viewed);
+  });
+  $("#disciplineDateSort").addEventListener("change", () => {
+    const viewed = visibleProfile();
+    if (viewed) renderProfileDiscipline(viewed);
+  });
+  $("#profileDisciplineLog").addEventListener("contextmenu", (event) => {
+    const item = event.target.closest(".discipline-item[data-discipline-id]");
+    if (!item || !canManageDiscipline()) return;
+    event.preventDefault();
+    openDisciplineContextMenu(event, item);
+  });
+  $("#disciplineContextMenu").addEventListener("click", async (event) => {
+    const action = event.target.dataset.disciplineContext;
+    if (action === "edit") openEditDisciplineDialog();
+    if (action === "delete") openDeleteDisciplineDialog();
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#disciplineContextMenu")) hideDisciplineContextMenu();
+  });
+  window.addEventListener("scroll", hideDisciplineContextMenu, true);
+  window.addEventListener("resize", hideDisciplineContextMenu);
+  $("#mijn-profiel").addEventListener("contextmenu", (event) => {
+    if (!event.target.closest("[data-profile-manage]")) return;
+    if (!canManageProfileBadges()) return;
+    event.preventDefault();
+    openProfileBadgeDialog();
+  });
+  $("#closeProfileBadgeDialog").addEventListener("click", () => $("#profileBadgeDialog").close());
+  $("#cancelProfileBadgeDialog").addEventListener("click", () => $("#profileBadgeDialog").close());
+  $("#profileBadgeForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const personId = $("#profileBadgePersonId").value;
+    const extraFunctions = $$("#profileBadgeFunctionOptions input:checked").map((input) => input.value);
+    const badges = $$("#profileBadgeTaskOptions input:checked").map((input) => input.value);
+    if (await runAction(`/api/people/${encodeURIComponent(personId)}/profile-badges`, { extraFunctions, badges })) {
+      $("#profileBadgeDialog").close();
+      render();
+    }
+  });
+  $("#mijn-profiel").addEventListener("change", async (event) => {
+    if (!event.target.matches("[data-profile-check]")) return;
+    const viewed = visibleProfile();
+    if (!viewed || !canManageQualifications()) {
+      renderProfile();
+      return;
+    }
+    const completedTrainings = $$("[data-profile-check='training']:checked").map((input) => input.value);
+    const completedOperational = $$("[data-profile-check='operational']:checked").map((input) => input.value);
+    if (await runAction(`/api/people/${encodeURIComponent(viewed.id)}/qualifications`, { completedTrainings, completedOperational })) {
+      render();
+    }
+  });
+  $("#logoutBtn").addEventListener("click", async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    authProfile = null;
+    resetPermissions();
+    resetSavedPage();
+    setLocked(true);
+    render();
+  });
+  $("#searchInput").addEventListener("input", renderPeople);
+  $("#employeeSearchInput").addEventListener("input", renderEmployeeDirectory);
+  $("#archiveSearchInput").addEventListener("input", renderArchive);
+  $("#resignationOverview")?.addEventListener("click", async (event) => {
+    const formId = event.target.closest("[data-resignation-process]")?.dataset.resignationProcess;
+    if (!formId || !hasKaderAccess()) return;
+    const form = (state.resignationForms || []).find((entry) => entry.id === formId);
+    const name = form?.name || memberName(form?.memberId);
+    const confirmed = await showSiteConfirm(
+      `Weet je zeker dat je het ontslagformulier van ${name} wil verwerken?`,
+      "Ontslag verwerken"
+    );
+    if (!confirmed) return;
+    if (await runAction(`/api/resignation-forms/${encodeURIComponent(formId)}/process`, {})) render();
+  });
+  $("#i8ArchiveSearchInput").addEventListener("input", renderI8Forms);
+  $$('[data-i8-tab]').forEach((button) => {
+    button.addEventListener("click", () => {
+      setI8Tab(button.dataset.i8Tab);
+      if (button.dataset.i8Tab === "create") resetI8Form();
+    });
+  });
+  $("#i8DetailBody").addEventListener("click", (event) => {
+    const status = event.target.dataset.i8DetailStatus;
+    const formId = event.target.closest("[data-i8-detail-form]")?.dataset.i8DetailForm;
+    if (!formId || !status || !canViewOvJChannels()) return;
+    $("#i8DetailDialog").close();
+    openI8ReviewDialog(formId, status);
+  });
+  $("#i8OwnList").addEventListener("click", openI8DetailFromEvent);
+  $("#i8OwnList").addEventListener("keydown", (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    openI8DetailFromEvent(event);
+  });
+  $("#i8Form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const saved = await runAction("/api/i8-forms", {
+      violenceDate: $("#i8Date").value,
+      violenceTime: $("#i8Time").value,
+      location: $("#i8Location").value.trim(),
+      opcoOvdName: $("#i8OpcoOvd").value.trim(),
+      description: $("#i8Description").value.trim(),
+      forceUsed: $("#i8ForceUsed").value.trim(),
+      vehicleViolence: $("#i8Vehicle").value.trim(),
+      thirdPartyInjury: $("#i8Injury").value.trim(),
+      truthConfirmed: $("#i8Truth").checked
+    });
+    if (!saved) return;
+    resetI8Form();
+    setI8Tab("list");
+    render();
+  });
+  $("#i8ReviewList").addEventListener("click", openI8DetailFromEvent);
+  $("#i8ArchiveList").addEventListener("click", openI8DetailFromEvent);
+  $("#i8ArchiveList").addEventListener("keydown", (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    openI8DetailFromEvent(event);
+  });
+  $("#i8ReviewList").addEventListener("keydown", (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    openI8DetailFromEvent(event);
+  });
+  $("#i8ReviewForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formId = $("#i8ReviewFormId").value || pendingI8ReviewAction?.formId;
+    const status = $("#i8ReviewStatus").value || pendingI8ReviewAction?.status;
+    if (!formId || !status) return;
+    const rejectionReason = $("#i8RejectReason")?.value.trim() || "";
+    if (status === "rejected" && !rejectionReason) {
+      await showSiteNotice("Vul een reden in waarom dit I8 formulier wordt afgekeurd.", "Reden verplicht");
+      $("#i8RejectReason")?.focus();
+      return;
+    }
+    if (await runAction(`/api/i8-forms/${encodeURIComponent(formId)}/status`, { status, rejectionReason })) {
+      pendingI8ReviewAction = null;
+      $("#i8ReviewDialog").close();
+      render();
+    }
+  });
+  $("#absenceOverview").addEventListener("click", async (event) => {
+    const approveId = event.target.dataset.absenceApprove;
+    const rejectId = event.target.dataset.absenceReject;
+    const absenceId = approveId || rejectId;
+    if (!absenceId || !hasKaderAccess()) return;
+    const status = approveId ? "Goedgekeurd" : "Afgekeurd";
+    if (await runAction(`/api/absences/${encodeURIComponent(absenceId)}/status`, { status })) render();
+  });
+  $("#absenceOverview").addEventListener("contextmenu", (event) => {
+    const row = event.target.closest("[data-absence-id]");
+    if (!row) return;
+    openAbsenceContextMenu(event, row.dataset.absenceId);
+  });
+  $("#absenceContextMenu").addEventListener("click", (event) => {
+    if (event.target.dataset.absenceContext === "delete") openDeleteAbsenceDialog();
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#absenceContextMenu")) hideAbsenceContextMenu();
+  });
+  window.addEventListener("scroll", hideAbsenceContextMenu, true);
+  $("#deleteAbsenceForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const absenceId = $("#deleteAbsenceId").value || pendingAbsenceId;
+    if (!absenceId || !hasKaderAccess()) return;
+    if (await runAction(`/api/absences/${encodeURIComponent(absenceId)}`, { action: "delete" })) {
+      pendingAbsenceId = "";
+      $("#deleteAbsenceDialog").close();
+      render();
+    }
+  });
+  $("#mentorSearchInput").addEventListener("input", renderMentorOverview);
+  $("#mentorOverviewList").addEventListener("click", (event) => {
+    const row = event.target.closest("[data-open-mentor]");
+    if (!row) return;
+    openMentorChecklist(row.dataset.openMentor);
+  });
+  $("#mentorBackBtn").addEventListener("click", () => setPage("mentor-overzicht"));
+  $("#mentorChecklistItems").addEventListener("change", (event) => {
+    if (!event.target.matches("[data-mentor-item]")) return;
+    event.target.closest(".mentor-check-row")?.classList.toggle("is-completed", event.target.checked);
+  });
+  async function saveCurrentMentorChecklist(includeNote = false) {
+    if (!selectedMentorProfileId) return;
+    const person = state.people.find((entry) => entry.id === selectedMentorProfileId);
+    if (!person) return;
+    const items = mentorChecklistLabels.map((_, index) => Boolean($(`[data-mentor-item='${index}']`)?.checked));
+    const payload = { items };
+    if (includeNote) payload.newNote = $("#mentorNotes").value.trim();
+    const saved = await saveMentorChecklist(selectedMentorProfileId, payload);
+    if (saved) render();
+  }
+  $("#saveMentorChecklistBtn").addEventListener("click", () => saveCurrentMentorChecklist(false));
+  $("#saveMentorNotesBtn").addEventListener("click", () => saveCurrentMentorChecklist(true));
+  $("#addMemberBtn").addEventListener("click", () => openMemberDialog());
+  $("#closeDialog").addEventListener("click", () => $("#memberDialog").close());
+  $("#dismissDialog").addEventListener("click", () => $("#memberDialog").close());
+  $("#closeDismissalDialog").addEventListener("click", () => $("#dismissalDialog").close());
+  $("#cancelDismissal").addEventListener("click", () => $("#dismissalDialog").close());
+  $("#closeRestoreDialog").addEventListener("click", () => $("#restoreDialog").close());
+  $("#cancelRestoreDialog").addEventListener("click", () => $("#restoreDialog").close());
+  $("#restoreForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const personId = $("#restorePersonId").value || pendingRestoreId;
+    const rank = $("#restoreRank").value;
+    if (!personId || !rank) return;
+    if (await runAction(`/api/people/${encodeURIComponent(personId)}/restore`, { rank })) {
+      pendingRestoreId = "";
+      $("#restoreDialog").close();
+      render();
+    }
+  });
+  $("#memberRank").addEventListener("change", () => fillServiceSelect());
+
+  $("#peopleList").addEventListener("click", async (event) => {
+    const editId = event.target.dataset.edit;
+    const clearHistoryId = event.target.dataset.clearHistory;
+    const promoteId = event.target.dataset.promote;
+    const demoteId = event.target.dataset.demote;
+    const dismissId = event.target.dataset.dismiss;
+    if (editId) openMemberDialog(state.people.find((person) => person.id === editId));
+    if (clearHistoryId) {
+      const person = state.people.find((entry) => entry.id === clearHistoryId);
+      if (!person || !(await showSiteConfirm(`Rang geschiedenis wissen voor ${person.name}?`, "Rang geschiedenis wissen"))) return;
+      if (await runAction(`/api/people/${encodeURIComponent(clearHistoryId)}/clear-history`)) render();
+    }
+    if (promoteId) {
+      if (await runAction(`/api/people/${encodeURIComponent(promoteId)}/promote`)) render();
+    }
+    if (demoteId) {
+      if (await runAction(`/api/people/${encodeURIComponent(demoteId)}/demote`)) render();
+    }
+    if (dismissId) {
+      const person = state.people.find((entry) => entry.id === dismissId);
+      if (person) openDismissalDialog(person);
+    }
+  });
+
+  $("#dismissalForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const person = state.people.find((entry) => entry.id === pendingDismissalId);
+    const reason = $("#dismissalReason").value.trim();
+    if (!person || !reason) return;
+    const dismissed = await runAction(`/api/people/${encodeURIComponent(person.id)}/dismiss`, { reason });
+    if (!dismissed) return;
+    pendingDismissalId = "";
+    $("#dismissalDialog").close();
+    render();
+  });
+
+  $("#archiveList").addEventListener("click", async (event) => {
+    const restoreId = event.target.dataset.restore;
+    const deleteArchiveId = event.target.dataset.deleteArchive;
+    if (!hasKaderAccess()) return;
+    if (restoreId) {
+      const person = state.people.find((entry) => entry.id === restoreId);
+      if (person) openRestoreDialog(person);
+    }
+    if (deleteArchiveId) {
+      const person = state.people.find((entry) => entry.id === deleteArchiveId);
+      if (!person) return;
+      const confirmed = await showSiteConfirm(
+        `Weet je zeker dat je ${person.name} wil verwijderen uit het archief?`,
+        "Personeels-Archief verwijderen"
+      );
+      if (!confirmed) return;
+      if (await runAction(`/api/people/${encodeURIComponent(deleteArchiveId)}/delete-archive`)) render();
+    }
+  });
+
+  $("#memberForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const id = $("#memberId").value || crypto.randomUUID();
+    const person = {
+      id,
+      name: $("#memberName").value.trim(),
+      discordId: $("#memberDiscord").value.trim(),
+      avatar: $("#memberAvatar").value.trim(),
+      rank: $("#memberRank").value,
+      serviceNumber: $("#memberService").value,
+      hiredDate: $("#memberHiredDate").value,
+      rankDate: $("#memberRankDate").value,
+      promotionDate: $("#memberPromotionDate").value,
+      tasks: $("#memberTasks").value.trim()
+    };
+
+    const existing = state.people.find((entry) => entry.id === id);
+    const path = existing ? `/api/people/${encodeURIComponent(id)}` : "/api/people";
+    if (!(await runAction(path, { person }))) return;
+    $("#memberDialog").close();
+    render();
+  });
+
+  // W&S maakt een basisprofiel aan; de server kiest rang en eerste vrije 74-dienstnummer.
+  $("#recruitmentForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = $("#recruitmentMessage");
+    if (message) {
+      message.hidden = true;
+      message.textContent = "";
+    }
+    const saved = await runAction("/api/recruitment/hire", {
+      name: $("#recruitmentName").value.trim(),
+      hiredDate: $("#recruitmentHiredDate").value,
+      discordId: $("#recruitmentDiscordId").value.trim()
+    });
+    if (!saved) return;
+    event.target.reset();
+    $("#recruitmentHiredDate").value = today;
+    render();
+    if (message) {
+      message.textContent = "Medewerker aangenomen en toegevoegd aan Personeel en Medewerkers.";
+      message.hidden = false;
+    }
+  });
+
+  $("#absenceForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const from = $("#absenceFrom").value;
+    const to = $("#absenceTo").value;
+    const reason = $("#absenceReason").value.trim();
+    const saved = await runAction("/api/absences", { from, to, reason });
+    if (!saved) return;
+
+    // Na indienen brengen we het lid terug naar het dashboard met een duidelijke bevestiging.
+    const dateText = from === to ? formatDate(from) : `${formatDate(from)} t/m ${formatDate(to)}`;
+    event.target.reset();
+    $("#absenceFrom").value = today;
+    $("#absenceTo").value = today;
+    render();
+    setPage("dashboard");
+    await showSiteNotice(`Je afwezigheid is geregistreerd voor ${dateText} met reden: ${reason || "-"}.`, "Afwezigheid geregistreerd");
+  });
+  $("#resignationForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const reason = $("#resignationReason").value.trim();
+    const saved = await runAction("/api/resignation-forms", { reason });
+    if (!saved) return;
+    event.target.reset();
+    renderResignationForm();
+    const message = $("#resignationFormMessage");
+    if (message) {
+      message.textContent = "Ontslagformulier ingediend.";
+      message.hidden = false;
+    }
+  });
+}
+
+async function init() {
+  registerPmanagerTab();
+  updateDeviceMode();
+  showLockError();
+  captureOpenProfileRequest();
+  fillRankSelect();
+  fillRestoreRankSelect();
+  ["#absenceFrom", "#absenceTo", "#recruitmentHiredDate"].forEach((selector) => {
+    const element = $(selector);
+    if (element) element.value = today;
+  });
+  wireEvents();
+  const isAuthenticated = await loadAuth();
+  if (!isAuthenticated) {
+    return;
+  }
+  const hasState = await loadState();
+  if (!hasState) {
+    authProfile = null;
+    resetPermissions();
+    setLocked(true);
+    return;
+  }
+  render();
+  restoreSavedPage();
+  startReviewCounterPolling();
+}
+
+init().catch((error) => {
+  const errorElement = $("#lockError");
+  if (errorElement) {
+    errorElement.textContent = `Browserfout: ${error?.message || error}`;
+    errorElement.hidden = false;
+  }
+  fetch("/api/client-error", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: error?.stack || error?.message || String(error), source: "init", page: location.href })
+  }).catch(() => {});
+});
+

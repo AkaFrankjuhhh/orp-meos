@@ -1,0 +1,205 @@
+﻿<!doctype html>
+<html lang="nl" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Porto-Systeem | Defensie Oranjestad</title>
+    <link rel="stylesheet" href="shared.css?v=20260519-notice-polish" />
+    <link rel="stylesheet" href="porto.css?v=20260519-presence" />
+  </head>
+  <body class="porto-blank porto-locked">
+    <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
+      <div class="lock-visual" aria-hidden="true"></div>
+      <div class="lock-content">
+        <div class="brand lock-brand">
+          <div>
+            <strong>Porto-Systeem</strong>
+            <span>Defensie Oranjestad</span>
+          </div>
+        </div>
+        <h1>Porto-Systeem</h1>
+        <p>Alleen aangemelde Defensie leden met een gekoppeld pManager-profiel kunnen het Porto-Systeem openen.</p>
+        <div id="portoLockError" class="lock-error" hidden></div>
+        <button id="portoLoginBtn" class="primary" type="button">Aanmelden met Discord</button>
+      </div>
+    </section>
+
+    <header class="porto-topbar" aria-label="Porto profielbalk">
+      <section class="profile-chip" aria-label="Ingelogd profiel">
+        <button id="portoProfileOpenBtn" class="profile-open" type="button" aria-label="Open persoonlijk profiel">
+          <img id="portoCurrentAvatar" alt="" />
+        </button>
+        <button id="portoProfileOpenText" class="profile-open-text" type="button" aria-label="Open persoonlijk profiel">
+          <strong id="portoCurrentName">-</strong>
+          <span id="portoCurrentService">-</span>
+        </button>
+        <button id="portoLogoutBtn" class="ghost small" type="button">Uitloggen</button>
+      </section>
+    </header>
+
+    <main class="porto-empty" aria-label="Porto-Systeem">
+      <div class="porto-wall-brand" aria-hidden="true">
+        <img class="porto-wall-logo" src="assets/defensielogo-wall-clean.png" alt="" />
+        <div class="porto-wall-text">
+          <span class="porto-wall-title">DEFENSIE</span>
+          <span class="porto-wall-subtitle">ORANJESTAD</span>
+        </div>
+      </div>
+      <section class="porto-status-center" aria-label="Porto status">
+        <div id="portoStatusIntro" class="porto-status-intro">
+          <h1>Defensie Porto-Systeem</h1>
+          <p>Meld je hieronder aan via de status 0 knop om je aan te melden in dienst.</p>
+          <button id="portoStatus0Btn" class="porto-status-button" type="button">Status 0</button>
+          <div class="porto-current-ops">
+            <span id="portoCurrentOpsText">Huidige OPS:</span>
+            <button id="portoOpsClaimBtn" class="porto-ops-action" type="button" hidden>OPS oppakken</button>
+            <button id="portoOpsReleaseBtn" class="porto-ops-action ghost" type="button" hidden>OPS afsluiten</button>
+          </div>
+        </div>
+
+        <section id="portoPendingPanel" class="porto-pending-panel" aria-label="Aanmelding wordt verwerkt" hidden>
+          <div class="porto-pending-card">
+            <div class="porto-spinner" aria-hidden="true"></div>
+            <h2>Uw aanmelding wordt verwerkt</h2>
+            <button id="portoCancelPendingBtn" class="porto-pending-cancel" type="button">Aanmelding annuleren</button>
+            <button id="portoDevBypassBtn" class="porto-dev-bypass" type="button" hidden>Dev bypass</button>
+          </div>
+        </section>
+
+        <section id="portoDutyPanel" class="porto-duty-panel" aria-label="Porto bediening" hidden>
+          <div id="portoDutyAssignment" class="porto-duty-assignment">
+            <div class="porto-callsign-card">
+              <span>Roepnummer</span>
+              <strong id="portoDutyCallsign">-</strong>
+              <small id="portoDutyVehicleType">-</small>
+            </div>
+            <label class="porto-vehicle-choice">
+              <span>Voertuig</span>
+              <select id="portoDutyVehicleSelect"></select>
+            </label>
+          </div>
+          <div id="portoUnitMemberBar" class="porto-unit-member-bar"></div>
+
+          <div class="porto-duty-layout">
+            <section class="porto-duty-card">
+              <div class="panel-head compact-head">
+                <h2>Statussen</h2>
+                <span id="portoDutyCurrentStatus" class="porto-status-pill">Status 0</span>
+              </div>
+              <div id="portoStatusGrid" class="porto-status-grid"></div>
+              <div id="portoStatus4Choices" class="porto-status-choices" hidden>
+                <span>Status 4 reden</span>
+                <button type="button" data-status4="Afhandeling">Afhandeling</button>
+                <button type="button" data-status4="In hoofd">In hoofd</button>
+                <button type="button" data-status4="Overige">Overige</button>
+              </div>
+            </section>
+
+            <aside class="porto-duty-card porto-number-card">
+              <div class="panel-head compact-head">
+                <h2>Dienstnummers</h2>
+              </div>
+              <div id="portoVehicleRangeTable" class="porto-number-table" aria-label="Voertuignummer reeksen">
+                <div>Nummer</div><div>Voertuig</div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      
+        <section id="portoOpsPanel" class="porto-duty-panel porto-ops-panel" aria-label="OPS bediening" hidden>
+          <div class="porto-ops-grid">
+            <div class="porto-ops-left-stack">
+              <div class="porto-duty-card">
+                <div class="panel-head compact-head">
+                  <div>
+                    <h2>OPS Bediening</h2>
+                    <p class="muted">Deel Status 0-aanmeldingen in op een vrij voertuignummer.</p>
+                  </div>
+                  <div class="porto-ops-head-actions">
+                    <span id="portoOpsCount" class="porto-status-pill">0 verzoeken</span>
+                    <button id="portoOpsDevTestBtn" class="porto-ops-action ghost dev-test" type="button">Dev test</button>
+                    <button id="portoOpsReleaseWorkspaceBtn" class="porto-ops-action ghost" type="button">OPS neerleggen</button>
+                  </div>
+                </div>
+                <div id="portoOpsRequests" class="porto-ops-requests"></div>
+              </div>
+
+              <div class="porto-duty-card porto-ops-units-card">
+                <div class="panel-head compact-head">
+                  <div>
+                    <h2>Eenheden</h2>
+                    <p class="muted">Actieve roepnummers, voertuigen en koppels.</p>
+                  </div>
+                  <span id="portoOpsUnitsCount" class="porto-status-pill pending">0 actief</span>
+                </div>
+                <div id="portoOpsUnits" class="porto-ops-units"></div>
+              </div>
+            </div>
+
+            <aside class="porto-duty-card porto-map-card" aria-label="GTA V kaart">
+              <div class="panel-head compact-head">
+                <div>
+                  <h2>Kaart</h2>
+                  <p class="muted">GTA V porto-overzicht</p>
+                </div>
+              </div>
+              <div id="portoOpsMap" class="porto-map-surface" aria-label="Actieve eenheden op kaart"></div>
+            </aside>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="portoProfileDialog" class="porto-profile-dialog">
+      <form id="portoProfileForm" method="dialog" class="dialog-form porto-profile-form">
+        <div class="panel-head">
+          <h2>Mijn profiel</h2>
+          <button class="ghost icon" type="button" id="closePortoProfileDialog">&times;</button>
+        </div>
+        <section class="porto-profile-head">
+          <img id="portoProfileAvatar" alt="" />
+          <div>
+            <span class="person-label">Naam - Dienstnummer</span>
+            <h3 id="portoProfileNameService">-</h3>
+            <p id="portoProfileRank" class="muted">-</p>
+          </div>
+        </section>
+        <label class="full">Telefoonnummer voor Porto<input id="portoPhone" type="tel" placeholder="Bijv. 06-12345678" /></label>
+        <section>
+          <div class="panel-head compact-head">
+            <h3>Behaalde trainingen</h3>
+          </div>
+          <div id="portoTrainingList" class="porto-training-list"></div>
+        </section>
+        <section>
+          <div class="panel-head compact-head">
+            <h3>Operationeel</h3>
+          </div>
+          <div id="portoOperationalList" class="porto-training-list compact"></div>
+        </section>
+        <menu>
+          <button id="cancelPortoProfileDialog" class="ghost" type="button">Sluiten</button>
+          <button class="primary" type="submit">Telefoon opslaan</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <div id="portoOpsUnitContextMenu" class="context-menu porto-ops-context-menu" hidden>
+      <strong data-ops-context-title>Eenheid</strong>
+      <button type="button" data-ops-context-action="link">Koppelen aan</button>
+      <button type="button" class="danger-option" data-ops-context-action="offduty">Uit dienst melden</button>
+    </div>
+    <script src="shared-ui.js?v=20260518-frontend-split"></script>
+    <script src="porto/module-registry.js?v=20260518-module-split"></script>
+    <script src="porto/audio.js?v=20260518-module-split"></script>
+    <script src="porto/map.js?v=20260518-module-split"></script>
+    <script src="porto/ops.js?v=20260519-presence"></script>
+    <script src="porto/duty.js?v=20260519-presence"></script>
+    <script src="porto/profile.js?v=20260518-module-split"></script>
+    <script src="porto.js?v=20260519-presence"></script>
+  </body>
+</html>
+
+
+
+

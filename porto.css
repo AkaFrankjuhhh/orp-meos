@@ -1,0 +1,1761 @@
+﻿/* Porto-Systeem page styling. Shared variables/base live in shared.css. */
+/* Porto systeem startpagina */
+.nav-spacer {
+  height: 14px;
+}
+
+.nav-external {
+  font-weight: 900;
+}
+
+.porto-blank {
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(8, 12, 17, 0.42), rgba(8, 12, 17, 0.78)),
+    url("assets/lockscreen-defensie.png") center / cover fixed;
+  color: var(--text);
+}
+
+.porto-topbar {
+  height: 76px;
+  min-height: 76px;
+  padding: 14px 28px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.porto-empty {
+  position: relative;
+  height: calc(100dvh - 76px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .porto-topbar {
+    height: 66px;
+    min-height: 66px;
+    padding: 10px 16px;
+  }
+
+  .porto-empty {
+    height: calc(100dvh - 66px);
+  }
+
+  .porto-topbar .profile-chip {
+    width: 100%;
+  }
+}
+
+body.porto-locked .porto-topbar,
+body.porto-locked .porto-empty {
+  overflow: hidden;
+}
+body:not(.porto-locked) .porto-lockscreen {
+  display: none;
+}
+body.porto-locked .porto-lockscreen {
+  display: grid;
+}
+/* Porto profiel pop-up */
+.porto-profile-dialog {
+  width: min(620px, calc(100vw - 28px));
+}
+
+.porto-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.porto-profile-head img {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--orange);
+}
+
+.porto-profile-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.porto-training-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 38px;
+  align-items: center;
+}
+
+.porto-training-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid rgba(52, 168, 83, 0.52);
+  border-radius: 999px;
+  background: rgba(52, 168, 83, 0.14);
+  color: #d9f8e1;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.porto-profile-form input[type="tel"] {
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .porto-profile-head {
+    align-items: flex-start;
+  }
+
+  .porto-profile-head h3 {
+    font-size: 22px;
+  }
+}
+
+.porto-status-center {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 2.4vh, 28px);
+  transform: translateY(clamp(-58px, -7vh, -28px));
+}
+
+.porto-status-button {
+  margin-top: 22px;
+  width: min(118px, 38vw);
+  min-height: 48px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--green), var(--green-strong));
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+.porto-status-button:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #ff8a00, #f59e0b);
+}
+.porto-status-intro {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  max-width: 620px;
+  text-align: center;
+}
+
+.porto-status-intro h1 {
+  font-size: clamp(30px, 4vw, 48px);
+  text-shadow: none;
+}
+
+
+.porto-current-ops {
+  margin-top: 8px;
+  color: rgba(229, 231, 235, 0.86);
+  font-size: 15px;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+.porto-status-intro p {
+  max-width: 520px;
+  color: rgba(229, 231, 235, 0.86);
+  font-size: 16px;
+  line-height: 1.5;
+  text-shadow: none;
+}
+
+
+
+body.porto-workspace {
+  background: #0f172a;
+}
+
+body.porto-workspace .porto-empty {
+  background: #0f172a;
+}
+
+body.porto-workspace .porto-wall-brand,
+body.porto-workspace .porto-status-intro,
+body.porto-workspace .porto-pending-panel {
+  display: none;
+}
+
+body.porto-workspace .porto-status-center {
+  place-items: start center;
+  align-content: start;
+  transform: none;
+  padding: clamp(16px, 2.4vw, 28px);
+}
+
+body.porto-workspace .porto-duty-panel {
+  width: min(1320px, calc(100vw - 56px));
+  margin-top: 0;
+}
+
+body.porto-workspace .porto-duty-card {
+  background: #1e293b;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+body.porto-ops-workspace .porto-status-center {
+  align-content: start;
+  padding: clamp(84px, 9vh, 112px) clamp(16px, 2.4vw, 28px) 28px;
+}
+
+body.porto-ops-workspace .porto-ops-panel {
+  height: calc(100dvh - clamp(112px, 13vh, 140px));
+  overflow: hidden;
+}
+
+body.porto-ops-workspace .porto-ops-grid {
+  display: grid;
+  grid-template-columns: minmax(760px, 0.9fr) minmax(980px, 1.1fr);
+  gap: 20px;
+  height: 100%;
+}
+
+body.porto-ops-workspace .porto-ops-left-stack {
+  max-height: 100%;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+body.porto-ops-workspace .porto-map-card {
+  height: 100%;
+  min-height: 0;
+}
+
+body.porto-ops-workspace .porto-map-surface {
+  position: relative;
+  height: calc(100dvh - 188px);
+  min-height: min(760px, calc(100dvh - 188px));
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  background: #07111f;
+  --porto-map-marker-scale: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.porto-map-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background: #144873;
+}
+
+.porto-map-viewport.is-dragging,
+body.porto-ops-workspace .porto-map-surface.is-dragging {
+  cursor: grabbing;
+}
+
+.porto-map-layer {
+  position: absolute;
+  inset: 0;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.porto-map-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+  background: #144873;
+}
+
+.porto-map-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.porto-map-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 8;
+  display: flex;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  padding: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.42);
+  border-radius: 999px;
+  background: rgba(7, 17, 31, 0.94);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(10px);
+}
+
+.porto-map-controls button {
+  min-width: 42px;
+  min-height: 40px;
+  border: 1px solid rgba(245, 158, 11, 0.42);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.98);
+  color: #f8fafc;
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 1000;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.porto-map-controls button:hover {
+  border-color: rgba(245, 158, 11, 0.88);
+  background: #f59e0b;
+  color: #07111f;
+}
+
+.porto-map-marker {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, -50%) scale(var(--porto-map-marker-scale));
+  transform-origin: center;
+  border: 1px solid rgba(245, 158, 11, 0.88);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.96);
+  color: #07111f;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 1000;
+  cursor: default;
+  pointer-events: auto;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.16), 0 10px 22px rgba(0, 0, 0, 0.28);
+}
+@media (max-width: 1120px) {
+  .porto-ops-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .porto-map-card,
+  .porto-map-surface {
+    min-height: 360px;
+  }
+}
+
+@media (max-width: 760px) {
+  .porto-ops-unit-actions {
+    grid-template-columns: 1fr;
+  }
+}
+.porto-ops-panel {
+  width: min(2160px, calc(100vw - 16px));
+  margin-top: 0;
+}
+
+body.porto-ops-workspace .porto-duty-panel:not(.porto-ops-panel),
+body.porto-duty-workspace .porto-ops-panel {
+  display: none;
+}
+
+body.porto-duty-workspace,
+body.porto-ops-workspace {
+  background:
+    radial-gradient(circle at center, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.76) 58%, rgba(8, 12, 17, 0.92) 100%),
+    linear-gradient(180deg, rgba(8, 12, 17, 0.18), rgba(8, 12, 17, 0.58)),
+    url("assets/porto-dispatch-background.png") center / cover fixed;
+}
+
+body.porto-ops-workspace .porto-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  background: transparent;
+  pointer-events: none;
+}
+
+body.porto-ops-workspace .porto-topbar .profile-chip {
+  pointer-events: auto;
+}
+
+body.porto-ops-workspace .porto-empty {
+  height: 100dvh;
+  background: transparent;
+}
+body.porto-duty-workspace .porto-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  background: transparent;
+  pointer-events: none;
+}
+
+body.porto-duty-workspace .porto-topbar .profile-chip {
+  pointer-events: auto;
+}
+
+body.porto-duty-workspace .porto-empty {
+  height: 100dvh;
+  background: transparent;
+}
+
+body.porto-duty-workspace .porto-duty-card,
+body.porto-duty-workspace .porto-unit-member-bar,
+body.porto-duty-workspace .porto-callsign-card,
+body.porto-duty-workspace .porto-vehicle-choice {
+  backdrop-filter: blur(10px);
+}
+body.porto-duty-workspace .porto-empty {
+  overflow: hidden;
+}
+
+.porto-pending-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(6, 10, 16, 0.24);
+  backdrop-filter: blur(7px);
+}
+
+.porto-pending-panel[hidden] {
+  display: none;
+}
+
+.porto-pending-card {
+  width: min(420px, calc(100vw - 44px));
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  padding: 30px 26px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #e5e7eb;
+  text-align: center;
+}
+
+.porto-pending-card h2 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 30px);
+}
+
+
+.porto-pending-cancel {
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--green), var(--green-strong));
+  color: #fff;
+  padding: 9px 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.porto-pending-cancel:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #ff8a00, #f59e0b);
+}
+
+
+.porto-dev-bypass {
+  min-height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.porto-dev-bypass:hover {
+  transform: translateY(-1px);
+  background: #fff;
+}
+
+.porto-dev-bypass[hidden] {
+  display: none;
+}
+.porto-spinner {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 5px solid rgba(229, 231, 235, 0.22);
+  border-top-color: var(--green);
+  animation: porto-spin 0.85s linear infinite;
+}
+
+@keyframes porto-spin {
+  to { transform: rotate(360deg); }
+}
+
+.porto-duty-panel {
+  width: min(1120px, calc(100vw - 56px));
+  display: grid;
+  gap: 16px;
+  margin-top: clamp(120px, 18vh, 210px);
+}
+
+.porto-duty-card {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+  padding: 18px;
+}
+
+
+.porto-duty-assignment {
+  width: min(820px, 100%);
+  justify-self: center;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.72fr) minmax(260px, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.porto-callsign-card,
+.porto-vehicle-choice {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.9));
+}
+
+.porto-callsign-card span,
+.porto-vehicle-choice span {
+  color: #9fb8d6;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-callsign-card strong {
+  color: #f8fafc;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1;
+}
+
+.porto-callsign-card small {
+  color: #f59e0b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.porto-vehicle-choice select {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 12px;
+  background: rgba(10, 17, 30, 0.88);
+  color: #e5e7eb;
+  padding: 10px 12px;
+  font-weight: 900;
+}
+
+.porto-vehicle-choice select:focus {
+  border-color: rgba(245, 158, 11, 0.8);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+}
+.porto-unit-member-bar {
+  width: min(1120px, 100%);
+  justify-self: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.94));
+}
+
+.porto-unit-member {
+  display: grid;
+  gap: 10px;
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.64);
+}
+
+.porto-unit-member.empty {
+  opacity: 0.5;
+  border-style: dashed;
+}
+
+.porto-unit-slot {
+  color: #f59e0b;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-unit-member div {
+  display: grid;
+  grid-template-columns: 134px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.porto-unit-member div span {
+  color: #9fb8d6;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.porto-unit-member div strong {
+  min-width: 0;
+  color: #f8fafc;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+body.porto-duty-workspace .porto-status-center {
+  place-items: center;
+  align-content: center;
+  transform: none;
+  padding: clamp(16px, 2.4vw, 28px);
+}
+
+body.porto-duty-workspace .porto-duty-panel {
+  width: min(1120px, calc(100vw - 56px));
+  min-height: 100dvh;
+  align-self: stretch;
+  justify-self: center;
+  align-content: start;
+  gap: 20px;
+  padding-top: clamp(84px, 9vh, 116px);
+  position: relative;
+}
+
+body.porto-duty-workspace .porto-duty-layout {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(820px, calc(100vw - 56px));
+  display: block;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+body.porto-duty-workspace .porto-duty-assignment,
+body.porto-duty-workspace .porto-unit-member-bar {
+  position: relative;
+  z-index: 3;
+}
+
+body.porto-duty-workspace .porto-number-card {
+  display: none;
+}
+
+body.porto-duty-workspace .porto-duty-card {
+  border-radius: 18px;
+  background: rgba(30, 41, 59, 0.94);
+}
+
+body.porto-duty-workspace .porto-status-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(82px, 1fr));
+  gap: 12px;
+}
+
+body.porto-duty-workspace .porto-status-tile {
+  min-height: 76px;
+  border-radius: 14px;
+}
+
+body.porto-duty-workspace .porto-status-tile:nth-child(1) {
+  grid-column: 1 / span 3;
+}
+
+body.porto-duty-workspace .porto-status-tile:nth-child(2) {
+  grid-column: 4 / span 3;
+}
+
+body.porto-duty-workspace .porto-status-tile:nth-child(n+3) {
+  grid-column: span 2;
+}
+
+body.porto-duty-workspace .porto-status-choices {
+  justify-content: center;
+}
+
+@media (max-width: 760px) {
+  body.porto-duty-workspace .porto-duty-panel {
+    width: min(100% - 28px, 520px);
+    padding-top: 84px;
+  }
+
+  body.porto-duty-workspace .porto-duty-layout {
+    width: min(100% - 28px, 520px);
+  }
+
+  body.porto-duty-workspace .porto-status-grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  body.porto-duty-workspace .porto-status-tile,
+  body.porto-duty-workspace .porto-status-tile:nth-child(n) {
+    grid-column: auto;
+  }
+
+  .porto-unit-member div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}
+.porto-member-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.porto-kicker {
+  display: block;
+  margin-bottom: 6px;
+  color: #9fb8d6;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-member-card h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1;
+}
+
+.porto-member-card p {
+  margin: 8px 0 0;
+  color: #b9c7d8;
+  font-weight: 800;
+}
+
+.porto-duty-meta {
+  min-width: min(320px, 100%);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  align-items: center;
+  color: #9fb8d6;
+  font-size: 13px;
+}
+
+.porto-duty-meta strong {
+  justify-self: end;
+  color: #e5e7eb;
+  font-size: 15px;
+}
+
+.porto-duty-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 16px;
+  align-items: start;
+}
+
+.porto-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(8, 112, 154, 0.20);
+  border: 1px solid rgba(8, 112, 154, 0.45);
+  color: #d8f1ff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.porto-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(128px, 1fr));
+  gap: 12px;
+}
+
+.porto-status-tile {
+  min-height: 84px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  padding: 12px;
+  color: #07111f;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.porto-status-tile strong {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.porto-status-tile span {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: center;
+}
+
+.porto-status-tile:hover,
+.porto-status-tile.active {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.34), 0 0 0 2px rgba(255, 255, 255, 0.18) inset;
+}
+
+.porto-status-pill.pending { background: rgba(148, 163, 184, 0.18); border-color: rgba(148, 163, 184, 0.38); color: #e5e7eb; }
+.porto-status-pill.available { background: linear-gradient(135deg, #7bbf5b, #4d9b3e); border-color: rgba(123, 191, 91, 0.72); color: #07111f; }
+.porto-status-pill.driving { background: linear-gradient(135deg, #48c9d9, #1eabc2); border-color: rgba(72, 201, 217, 0.72); color: #07111f; }
+.porto-status-pill.onscene { background: linear-gradient(135deg, #5a99ed, #3f7fdc); border-color: rgba(90, 153, 237, 0.72); color: #fff; }
+.porto-status-pill.unavailable { background: linear-gradient(135deg, #e5e7eb, #b8c0ca); border-color: rgba(229, 231, 235, 0.72); color: #07111f; }
+.porto-status-pill.transport { background: linear-gradient(135deg, #c8dcff, #91b7f1); border-color: rgba(200, 220, 255, 0.72); color: #07111f; }
+.porto-status-pill.speech { background: linear-gradient(135deg, #f5a343, #e17000); border-color: rgba(245, 163, 67, 0.72); color: #07111f; }
+.porto-status-pill.urgent { background: linear-gradient(135deg, #ff3030, #d60000); border-color: rgba(255, 48, 48, 0.72); color: #fff; }
+.porto-status-pill.offduty { background: linear-gradient(135deg, #bababa, #8d8d8d); border-color: rgba(186, 186, 186, 0.72); color: #07111f; }
+.porto-status-tile.available { background: linear-gradient(135deg, #7bbf5b, #4d9b3e); }
+.porto-status-tile.driving { background: linear-gradient(135deg, #48c9d9, #1eabc2); }
+.porto-status-tile.onscene { background: linear-gradient(135deg, #5a99ed, #3f7fdc); }
+.porto-status-tile.unavailable { background: linear-gradient(135deg, #e5e7eb, #b8c0ca); }
+.porto-status-tile.transport { background: linear-gradient(135deg, #c8dcff, #91b7f1); }
+.porto-status-tile.speech { background: linear-gradient(135deg, #f5a343, #e17000); }
+.porto-status-tile.urgent { background: linear-gradient(135deg, #ff3030, #d60000); color: #fff; }
+.porto-status-tile.offduty { background: linear-gradient(135deg, #bababa, #8d8d8d); }
+
+.porto-status-choices {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: #b9c7d8;
+  font-weight: 900;
+}
+
+.porto-status-choices[hidden] {
+  display: none;
+}
+
+.porto-status-choices button {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #e5e7eb;
+  padding: 8px 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.porto-status-choices button:hover {
+  border-color: rgba(245, 158, 11, 0.75);
+  color: #f8c471;
+}
+
+.porto-number-table {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(52, 168, 83, 0.45);
+  background: rgba(255, 255, 255, 0.92);
+  color: #08111f;
+  font-size: 13px;
+  text-align: center;
+}
+
+.porto-number-table > div {
+  background: #34a853;
+  color: #06110b;
+  font-weight: 900;
+  padding: 7px 8px;
+}
+
+.porto-number-table strong,
+.porto-number-table span {
+  padding: 6px 8px;
+  font-weight: 900;
+}
+
+.porto-number-table strong:nth-of-type(even),
+.porto-number-table strong:nth-of-type(even) + span {
+  background: #b7d8aa;
+}
+
+@media (max-width: 980px) {
+  .porto-duty-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .porto-status-grid {
+    grid-template-columns: repeat(2, minmax(130px, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .porto-duty-panel {
+    width: min(100% - 28px, 520px);
+    margin-top: 142px;
+  }
+
+  .porto-member-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .porto-duty-meta {
+    width: 100%;
+  }
+
+  .porto-status-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.porto-current-ops {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.porto-ops-action {
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--green), var(--green-strong));
+  color: #fff;
+  padding: 8px 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.porto-ops-action.ghost {
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(15, 23, 42, 0.62);
+  color: #e5e7eb;
+}
+
+.porto-status-tile:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+  filter: grayscale(0.32);
+}
+
+.porto-ops-panel {
+  margin-top: 16px;
+}
+
+.porto-ops-requests {
+  display: grid;
+  gap: 10px;
+}
+
+
+.porto-ops-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+}
+
+.porto-ops-choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  min-width: 0;
+}
+
+.porto-ops-choice label {
+  display: grid;
+  gap: 5px;
+}
+
+.porto-ops-assign.secondary {
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(15, 23, 42, 0.72);
+  color: #e5e7eb;
+}
+
+.porto-ops-assign.secondary:hover {
+  border-color: rgba(245, 158, 11, 0.72);
+  color: #f8c471;
+}
+
+.porto-ops-request {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(280px, 1fr) minmax(280px, 1fr);
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+body.porto-ops-workspace .porto-ops-requests,
+body.porto-ops-workspace .porto-ops-request {
+  width: 100%;
+}
+
+body.porto-ops-workspace .porto-ops-request {
+  padding: 16px;
+}
+body.porto-ops-workspace .porto-ops-request {
+  max-width: 100%;
+}
+
+body.porto-ops-workspace .porto-ops-choice select {
+  min-width: 0;
+}
+.porto-ops-request strong,
+.porto-ops-request span {
+  display: block;
+}
+
+.porto-ops-request > div > span,
+.porto-ops-request label > span {
+  color: #9fb8d6;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.porto-ops-request select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 10px;
+  background: rgba(10, 17, 30, 0.86);
+  color: #e5e7eb;
+  padding: 8px 10px;
+  font-weight: 800;
+}
+
+.porto-ops-assign {
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--green), var(--green-strong));
+  color: #fff;
+  padding: 8px 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.porto-ops-empty {
+  padding: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.26);
+  border-radius: 12px;
+  color: #9fb8d6;
+  text-align: center;
+  font-weight: 800;
+}
+
+@media (max-width: 840px) {
+  .porto-ops-request {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+.porto-wall-brand {
+  position: absolute;
+  top: clamp(54px, 9vh, 108px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: clamp(24px, 3vw, 48px);
+  transform: translateX(-50%);
+  opacity: 0.82;
+  pointer-events: none;
+  user-select: none;
+}
+
+.porto-wall-logo {
+  width: clamp(122px, 13vw, 210px);
+  filter: saturate(0.96) contrast(0.98);
+}
+
+.porto-wall-text {
+  display: grid;
+  justify-items: start;
+  line-height: 0.86;
+  color: #08709a;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  text-shadow: none;
+}
+
+.porto-wall-title {
+  font-size: clamp(48px, 8vw, 118px);
+  font-weight: 500;
+}
+
+.porto-wall-subtitle {
+  justify-self: center;
+  font-size: clamp(24px, 3.7vw, 56px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+
+@media (max-height: 760px) {
+  .porto-wall-brand {
+    top: clamp(34px, 5vh, 58px);
+    transform: translateX(-50%) scale(0.82);
+  }
+
+  .porto-status-center {
+    transform: translateY(-18px);
+  }
+
+  .porto-status-intro {
+    gap: 10px;
+  }
+
+  .porto-status-intro h1 {
+    font-size: clamp(24px, 4vh, 36px);
+  }
+
+  .porto-status-button {
+    margin-top: 10px;
+    min-height: 42px;
+  }
+
+  .porto-duty-panel {
+    margin-top: clamp(84px, 14vh, 128px);
+    gap: 10px;
+  }
+
+  .porto-duty-card {
+    padding: 12px;
+  }
+
+  .porto-status-tile {
+    min-height: 66px;
+  }
+}
+
+@media (max-width: 720px) {
+  .porto-wall-brand {
+    top: clamp(82px, 13vh, 128px);
+    gap: 14px;
+  }
+
+  .porto-wall-logo {
+    width: clamp(86px, 22vw, 128px);
+  }
+
+  .porto-wall-title {
+    font-size: clamp(30px, 10vw, 52px);
+  }
+
+  .porto-wall-subtitle {
+    font-size: clamp(15px, 4.8vw, 25px);
+  }
+}
+/* Compact OPS unit overview */
+.porto-ops-units {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.porto-ops-unit-card.compact {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+ .porto-ops-unit-member.compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.58);
+  cursor: context-menu;
+}
+
+.porto-ops-unit-member.compact:hover {
+  border-color: rgba(245, 158, 11, 0.42);
+  background: rgba(30, 41, 59, 0.62);
+}
+
+.porto-ops-unit-left,
+.porto-ops-unit-right {
+  display: grid;
+  gap: 7px;
+}
+
+.porto-ops-unit-left > div,
+.porto-ops-unit-right > div {
+  display: grid;
+  gap: 3px;
+}
+
+.porto-ops-unit-left span,
+.porto-ops-unit-right span,
+.porto-ops-context-menu label > span {
+  color: #9fb8d6;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-ops-unit-left strong,
+.porto-ops-unit-right strong {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.porto-ops-unit-right {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-items: start;
+  text-align: left;
+}
+
+.porto-ops-unit-right .porto-status-pill {
+  min-height: 26px;
+  padding: 5px 9px;
+  font-size: 11px;
+  white-space: normal;
+  justify-content: center;
+  text-align: center;
+}
+
+.porto-ops-specialties > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.porto-specialty-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid rgba(8, 112, 154, 0.44);
+  border-radius: 999px;
+  background: rgba(8, 112, 154, 0.16);
+  color: #d8f1ff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.porto-ops-context-menu {
+  min-width: 300px;
+  gap: 8px;
+}
+
+.porto-ops-context-menu > strong {
+  padding: 4px 6px 2px;
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.porto-ops-context-menu label {
+  display: grid;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.porto-ops-context-menu select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(8, 13, 22, 0.92);
+  color: #e5e7eb;
+  padding: 7px 9px;
+  font-weight: 800;
+}
+
+.porto-ops-context-menu button {
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #f8c471;
+}
+
+@media (max-width: 760px) {
+  .porto-ops-unit-member.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .porto-ops-unit-right {
+    justify-items: start;
+    text-align: left;
+  }
+}
+.porto-ops-request-specialties {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.porto-ops-request-specialties > span {
+  color: #9fb8d6;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-ops-request-specialties > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.porto-ops-request-specialties em {
+  color: #9fb8d6;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+.porto-map-controls [data-map-reset] {
+  min-width: 68px;
+}
+@media (max-width: 1040px) {
+  .porto-ops-units {
+    grid-template-columns: 1fr;
+  }
+}
+
+.porto-ops-context-menu {
+  min-width: 220px;
+}
+
+.porto-ops-context-menu button {
+  text-align: left;
+}
+.porto-ops-status-button {
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.porto-ops-status-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+/* Porto map frame cleanup */
+body.porto-ops-workspace .porto-map-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+body.porto-ops-workspace .porto-map-surface {
+  width: 100%;
+  height: 100%;
+  min-height: 560px;
+  isolation: isolate;
+  background: #0f4770;
+}
+
+.porto-map-viewport {
+  border-radius: inherit;
+  background: #0f4770;
+}
+
+.porto-map-layer {
+  overflow: hidden;
+}
+
+.porto-map-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  background: #0f4770;
+}
+
+@media (max-width: 1120px) {
+  body.porto-ops-workspace .porto-map-surface {
+    height: min(78dvh, 760px);
+    min-height: 420px;
+  }
+}
+
+/* Porto map hard frame: keep the OPS map inside its card on every viewport. */
+body.porto-ops-workspace .porto-ops-grid {
+  grid-template-columns: minmax(420px, 0.9fr) minmax(0, 1.4fr);
+  min-width: 0;
+  overflow: hidden;
+}
+
+body.porto-ops-workspace .porto-map-card {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+body.porto-ops-workspace .porto-map-card .panel-head {
+  min-width: 0;
+}
+
+body.porto-ops-workspace .porto-map-surface {
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
+  align-self: stretch;
+  overflow: hidden;
+  contain: paint;
+  border-radius: 14px;
+}
+
+.porto-map-viewport,
+.porto-map-layer,
+.porto-map-markers {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.porto-map-viewport {
+  clip-path: inset(0 round 14px);
+}
+
+.porto-map-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+@media (max-width: 1320px) {
+  body.porto-ops-workspace .porto-ops-grid {
+    grid-template-columns: minmax(360px, 0.86fr) minmax(0, 1.14fr);
+  }
+}
+
+@media (max-width: 1040px) {
+  body.porto-ops-workspace .porto-ops-grid {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  body.porto-ops-workspace .porto-map-surface {
+    height: min(70dvh, 720px);
+    min-height: 420px;
+  }
+}
+/* Porto OPS layout: vaste verhouding tussen bediening links en kaart rechts. */
+@media (min-width: 1041px) {
+  body.porto-ops-workspace .porto-ops-panel {
+    transform: none;
+    width: min(2160px, calc(100vw - 16px));
+  }
+
+  body.porto-ops-workspace .porto-ops-grid {
+    grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
+  }
+}
+/* Porto OPS test en eenheden-grid: kaarten vullen links/rechts per rij. */
+body.porto-ops-workspace .porto-ops-units {
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  grid-auto-flow: row;
+}
+
+body.porto-ops-workspace .porto-ops-empty {
+  grid-column: 1 / -1;
+}
+
+.porto-ops-action.dev-test {
+  border-color: rgba(245, 158, 11, 0.42);
+  color: #f8c471;
+}
+/* Porto OPS grouped unit cards: gekoppelde leden blijven binnen hetzelfde roepnummerblok. */
+.porto-ops-unit-card.grouped {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.42);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.porto-ops-unit-group-head {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 4px 2px 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.porto-ops-unit-group-head div {
+  display: grid;
+  gap: 3px;
+}
+
+.porto-ops-unit-group-head span {
+  color: #9fb8d6;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-ops-unit-group-head strong {
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.porto-ops-unit-group-members {
+  display: grid;
+  gap: 8px;
+}
+
+.porto-ops-unit-card.grouped .porto-ops-unit-member.compact {
+  border-color: rgba(148, 163, 184, 0.14);
+  background: rgba(8, 13, 22, 0.38);
+}
+@media (min-width: 1180px) {
+  .porto-ops-unit-group-members {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 760px) and (max-width: 1179px) {
+  .porto-ops-unit-group-members {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 760px) {
+  .porto-ops-unit-group-members.two-members {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .porto-ops-unit-group-members.three-members {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 759px) {
+  .porto-ops-unit-group-members,
+  .porto-ops-unit-group-members.two-members,
+  .porto-ops-unit-group-members.three-members {
+    grid-template-columns: 1fr;
+  }
+}
+/* Porto OPS unit header: roepnummer links, status midden, voertuig rechts. */
+.porto-ops-unit-group-head.three-columns {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.porto-ops-unit-group-head.three-columns > div:nth-child(2) {
+  justify-items: center;
+  text-align: center;
+}
+
+.porto-ops-unit-group-head.three-columns > div:nth-child(3) {
+  justify-items: end;
+  text-align: right;
+}
+
+.porto-ops-unit-group-head .porto-status-pill {
+  width: max-content;
+  max-width: 100%;
+}
+
+.porto-ops-unit-card.grouped .porto-ops-unit-group-members {
+  padding-top: 2px;
+}
+
+.porto-ops-unit-card.grouped .porto-ops-unit-member.compact {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 10px;
+}
+
+.porto-ops-unit-card.grouped .porto-ops-unit-member.compact + .porto-ops-unit-member.compact {
+  border-left: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+@media (max-width: 759px) {
+  .porto-ops-unit-group-head.three-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .porto-ops-unit-group-head.three-columns > div:nth-child(2),
+  .porto-ops-unit-group-head.three-columns > div:nth-child(3) {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .porto-ops-unit-card.grouped .porto-ops-unit-member.compact + .porto-ops-unit-member.compact {
+    border-left: 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+  }
+}
+/* Porto OPS unit header typography: zelfde balk, grotere inhoud. */
+.porto-ops-unit-group-head.three-columns span {
+  font-size: 12px;
+}
+
+.porto-ops-unit-group-head.three-columns strong {
+  font-size: 16px;
+}
+
+.porto-ops-unit-group-head.three-columns .porto-status-pill {
+  min-height: 34px;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+/* Porto OPS header actions: nummer en voertuig zijn klikbaar zonder als grote knoppen te ogen. */
+.porto-unit-header-action {
+  width: fit-content;
+  max-width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #f8fafc;
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 1000;
+  text-align: left;
+  cursor: pointer;
+}
+
+.porto-unit-header-action.align-right {
+  justify-self: end;
+  text-align: right;
+}
+
+.porto-unit-header-action:hover {
+  color: #f8c471;
+}
+/* Porto OPS IBT signalering */
+.porto-specialty-pill.no-ibt {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(127, 29, 29, 0.34);
+  color: #fecaca;
+}
+/* Porto visibility guard: panels met het hidden-attribuut mogen nooit door display:grid/flex regels zichtbaar worden. */
+#portoStatusIntro[hidden],
+#portoPendingPanel[hidden],
+#portoDutyPanel[hidden],
+#portoOpsPanel[hidden],
+#portoOpsClaimBtn[hidden],
+#portoOpsReleaseBtn[hidden],
+#portoDevBypassBtn[hidden] {
+  display: none !important;
+}
+/* Porto status header: voorkom overlap tussen titel en huidige-status pill. */
+.porto-duty-card .panel-head.compact-head {
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  min-height: 42px;
+  margin-bottom: 10px;
+}
+
+.porto-duty-card .panel-head.compact-head .porto-status-pill {
+  position: static;
+  margin-left: 0;
+}
+
+body.porto-duty-workspace .porto-status-grid {
+  margin-top: 4px;
+}
+
+/* OPS context targets: deze velden werken via rechtermuisknop, dus cursor en hint horen daarbij. */
+.porto-ops-unit-group-head [data-ops-number-unit],
+.porto-ops-unit-group-head [data-ops-status-unit],
+.porto-ops-unit-group-head [data-ops-vehicle-unit],
+.porto-ops-status-button,
+.porto-unit-header-action {
+  cursor: context-menu;
+}
+
+/* Porto auto-afmelding: na 15 minuten zonder heartbeat blijft de OPS-kaart nog 5 minuten zichtbaar met rood kruis. */
+.porto-status-pill.auto-offline {
+  background: rgba(127, 29, 29, 0.42);
+  border-color: rgba(239, 68, 68, 0.72);
+  color: #fecaca;
+}
+
+.porto-ops-unit-card.grouped.auto-offline,
+.porto-ops-unit-member.auto-offline {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+.porto-ops-unit-member.auto-offline .porto-ops-unit-left {
+  opacity: 0.48;
+}
+
+.porto-ops-unit-member.auto-offline::before,
+.porto-ops-unit-member.auto-offline::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.94);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.porto-ops-unit-member.auto-offline::before {
+  transform: rotate(15deg);
+}
+
+.porto-ops-unit-member.auto-offline::after {
+  transform: rotate(-15deg);
+}

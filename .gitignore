@@ -1,0 +1,28 @@
+﻿# Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Runtime logs
+*.log
+server.run.log
+auth.debug.log
+server.out.log
+server.err.log
+
+# Local backups and exports
+data.json
+backups/
+db/postgres-state-export.json
+
+# Temporary files
+.data-*.tmp
+npm-debug.log*
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/

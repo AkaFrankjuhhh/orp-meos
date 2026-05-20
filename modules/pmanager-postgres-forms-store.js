@@ -1,0 +1,161 @@
+﻿const { readPostgresState } = require("./postgres-state");
+const { withClient } = require("./db");
+
+function json(value, fallback) {
+  return JSON.stringify(value == null ? fallback : value);
+}
+
+function asDateTime(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function absenceIdList(absences) {
+  return (absences || []).map((item) => item.id).filter(Boolean);
+}
+
+function i8IdList(forms) {
+  return (forms || []).map((form) => form.id).filter(Boolean);
+}
+
+function createPostgresFormsStore(options = {}) {
+  const afterWrite = typeof options.afterWrite === "function" ? options.afterWrite : null;
+  async function readState() {
+    return readPostgresState();
+  }
+
+  async function writeState(state) {
+    // Deze store schrijft bewust alleen formulierdata en logboekregels weg.
+    // Personeel/profielen blijven hierdoor buiten deze migratiestap.
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        const absences = Array.isArray(state.absences) ? state.absences : [];
+        const absenceIds = absenceIdList(absences);
+        if (absenceIds.length) {
+          await client.query("delete from absences where not (id = any($1::text[]))", [absenceIds]);
+        } else {
+          await client.query("delete from absences");
+        }
+        for (const absence of absences) {
+          await client.query(`
+            insert into absences(
+              id, member_id, name, rank, service_number, from_date, to_date, reason, status,
+              requested_at, reviewed_at, reviewed_by_id, reviewed_by_name, raw, updated_at
+            ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,now())
+            on conflict(id) do update set
+              member_id = excluded.member_id,
+              name = excluded.name,
+              rank = excluded.rank,
+              service_number = excluded.service_number,
+              from_date = excluded.from_date,
+              to_date = excluded.to_date,
+              reason = excluded.reason,
+              status = excluded.status,
+              requested_at = excluded.requested_at,
+              reviewed_at = excluded.reviewed_at,
+              reviewed_by_id = excluded.reviewed_by_id,
+              reviewed_by_name = excluded.reviewed_by_name,
+              raw = excluded.raw,
+              updated_at = now()
+          `, [
+            absence.id,
+            absence.memberId || null,
+            absence.name || "",
+            absence.rank || "",
+            absence.serviceNumber || "",
+            absence.from || "",
+            absence.to || "",
+            absence.reason || "",
+            absence.status || "",
+            asDateTime(absence.requestedAt),
+            asDateTime(absence.reviewedAt),
+            absence.reviewedById || "",
+            absence.reviewedByName || "",
+            json(absence, {})
+          ]);
+        }
+
+        const forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
+        const formIds = i8IdList(forms);
+        if (formIds.length) {
+          await client.query("delete from i8_forms where not (id = any($1::text[]))", [formIds]);
+        } else {
+          await client.query("delete from i8_forms");
+        }
+        for (const form of forms) {
+          await client.query(`
+            insert into i8_forms(
+              id, person_id, person_name, service_number, rank, violence_date, violence_time,
+              location, opco_ovd_name, description, force_used, vehicle_violence,
+              third_party_injury, truth_confirmed, status, rejection_reason, created_at,
+              reviewed_at, reviewed_by_id, reviewed_by_name, raw, updated_at
+            ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,now())
+            on conflict(id) do update set
+              person_id = excluded.person_id,
+              person_name = excluded.person_name,
+              service_number = excluded.service_number,
+              rank = excluded.rank,
+              violence_date = excluded.violence_date,
+              violence_time = excluded.violence_time,
+              location = excluded.location,
+              opco_ovd_name = excluded.opco_ovd_name,
+              description = excluded.description,
+              force_used = excluded.force_used,
+              vehicle_violence = excluded.vehicle_violence,
+              third_party_injury = excluded.third_party_injury,
+              truth_confirmed = excluded.truth_confirmed,
+              status = excluded.status,
+              rejection_reason = excluded.rejection_reason,
+              created_at = excluded.created_at,
+              reviewed_at = excluded.reviewed_at,
+              reviewed_by_id = excluded.reviewed_by_id,
+              reviewed_by_name = excluded.reviewed_by_name,
+              raw = excluded.raw,
+              updated_at = now()
+          `, [
+            form.id,
+            form.personId || null,
+            form.personName || "",
+            form.serviceNumber || "",
+            form.rank || "",
+            form.violenceDate || "",
+            form.violenceTime || "",
+            form.location || "",
+            form.opcoOvdName || "",
+            form.description || "",
+            form.forceUsed || "",
+            form.vehicleViolence || "",
+            form.thirdPartyInjury || "",
+            Boolean(form.truthConfirmed),
+            form.status || "pending",
+            form.rejectionReason || "",
+            asDateTime(form.createdAt),
+            asDateTime(form.reviewedAt),
+            form.reviewedById || "",
+            form.reviewedByName || "",
+            json(form, {})
+          ]);
+        }
+
+        await client.query("delete from activity_log");
+        const activity = Array.isArray(state.activity) ? state.activity : [];
+        for (let index = 0; index < activity.length; index += 1) {
+          await client.query("insert into activity_log(position, message) values($1, $2)", [index, String(activity[index])]);
+        }
+
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return state;
+  }
+
+  return { readState, writeState };
+}
+
+module.exports = { createPostgresFormsStore };
