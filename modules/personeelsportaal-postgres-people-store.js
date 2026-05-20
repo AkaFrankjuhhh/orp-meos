@@ -1,4 +1,4 @@
-﻿const { readPostgresState } = require("./postgres-state");
+const { readPostgresState } = require("./postgres-state");
 const { withClient } = require("./db");
 
 function json(value, fallback) {
@@ -145,6 +145,48 @@ function createPostgresPeopleStore(options = {}) {
     }
   }
 
+  async function upsertHourEntry(client, entry) {
+    const hoursValue = Number(entry.hours || 0);
+    const minutes = Number(entry.minutes || entry.durationMinutes || Math.round(hoursValue * 60) || 0);
+    await client.query(`
+      insert into hours(
+        id, person_id, discord_id, job, started_at, ended_at, minutes,
+        week_year, week_number, hours_value, entered_by_id, entered_by_name, entered_at,
+        raw, updated_at
+      ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,now())
+      on conflict(id) do update set
+        person_id = excluded.person_id,
+        discord_id = excluded.discord_id,
+        job = excluded.job,
+        started_at = excluded.started_at,
+        ended_at = excluded.ended_at,
+        minutes = excluded.minutes,
+        week_year = excluded.week_year,
+        week_number = excluded.week_number,
+        hours_value = excluded.hours_value,
+        entered_by_id = excluded.entered_by_id,
+        entered_by_name = excluded.entered_by_name,
+        entered_at = excluded.entered_at,
+        raw = excluded.raw,
+        updated_at = now()
+    `, [
+      entry.id,
+      entry.personId || null,
+      entry.discordId || "",
+      entry.job || "Manual",
+      asDateTime(entry.startedAt),
+      asDateTime(entry.endedAt),
+      minutes,
+      Number(entry.weekYear || 0) || null,
+      Number(entry.weekNumber || 0) || null,
+      Number.isFinite(hoursValue) ? hoursValue : 0,
+      entry.enteredById || "",
+      entry.enteredByName || "",
+      asDateTime(entry.enteredAt),
+      json(entry, {})
+    ]);
+  }
+
   async function writeHours(client, hours) {
     const hourIds = ids(hours);
     if (hourIds.length) {
@@ -153,28 +195,7 @@ function createPostgresPeopleStore(options = {}) {
       await client.query("delete from hours");
     }
     for (const entry of hours) {
-      await client.query(`
-        insert into hours(id, person_id, discord_id, job, started_at, ended_at, minutes, raw, updated_at)
-        values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,now())
-        on conflict(id) do update set
-          person_id = excluded.person_id,
-          discord_id = excluded.discord_id,
-          job = excluded.job,
-          started_at = excluded.started_at,
-          ended_at = excluded.ended_at,
-          minutes = excluded.minutes,
-          raw = excluded.raw,
-          updated_at = now()
-      `, [
-        entry.id,
-        entry.personId || null,
-        entry.discordId || "",
-        entry.job || "",
-        asDateTime(entry.startedAt),
-        asDateTime(entry.endedAt),
-        Number(entry.minutes || entry.durationMinutes || 0),
-        json(entry, {})
-      ]);
+      await upsertHourEntry(client, entry);
     }
   }
 
@@ -278,7 +299,31 @@ function createPostgresPeopleStore(options = {}) {
     if (afterWrite) afterWrite();
     return person;
   }
-  return { readState, writeState, writePersonQualifications, writePersonDiscipline };
+
+  async function writeManualHoursEntries(entries, activityMessages = []) {
+    // Handmatige weekuren zijn losse rijen per profiel/week, zodat bulk invoer niet de rest van de state overschrijft.
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        for (const entry of entries) {
+          await upsertHourEntry(client, entry);
+        }
+        for (const message of activityMessages.filter(Boolean)) {
+          await client.query(`
+            insert into activity_log(position, message)
+            values((select coalesce(max(position), -1) + 1 from activity_log), $1)
+          `, [String(message)]);
+        }
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return entries;
+  }
+  return { readState, writeState, writePersonQualifications, writePersonDiscipline, writeManualHoursEntries };
 }
 
 module.exports = { createPostgresPeopleStore };

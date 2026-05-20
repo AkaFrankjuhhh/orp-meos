@@ -1,4 +1,4 @@
-﻿const { withClient } = require("./db");
+const { withClient } = require("./db");
 
 function parseJson(value, fallback) {
   if (value == null) return fallback;
@@ -114,17 +114,27 @@ async function readPostgresState() {
       processedByName: row.processed_by_name || ""
     }));
 
-    const hoursResult = await client.query("select * from hours order by started_at nulls last, id asc");
-    const hours = hoursResult.rows.map((row) => ({
-      ...parseJson(row.raw, {}),
-      id: row.id,
-      personId: row.person_id || "",
-      discordId: row.discord_id || "",
-      job: row.job || "",
-      startedAt: iso(row.started_at),
-      endedAt: iso(row.ended_at),
-      minutes: Number(row.minutes || 0)
-    }));
+    const hoursResult = await client.query("select * from hours order by week_year desc nulls last, week_number desc nulls last, started_at nulls last, id asc");
+    const hours = hoursResult.rows.map((row) => {
+      const raw = parseJson(row.raw, {});
+      const hoursValue = row.hours_value != null ? Number(row.hours_value) : Number(raw.hours || row.minutes / 60 || 0);
+      return {
+        ...raw,
+        id: row.id,
+        personId: row.person_id || "",
+        discordId: row.discord_id || "",
+        job: row.job || "",
+        startedAt: iso(row.started_at),
+        endedAt: iso(row.ended_at),
+        minutes: Number(row.minutes || 0),
+        weekYear: row.week_year || raw.weekYear || null,
+        weekNumber: row.week_number || raw.weekNumber || null,
+        hours: Number.isFinite(hoursValue) ? hoursValue : 0,
+        enteredById: row.entered_by_id || raw.enteredById || "",
+        enteredByName: row.entered_by_name || raw.enteredByName || "",
+        enteredAt: iso(row.entered_at) || raw.enteredAt || ""
+      };
+    });
 
     const portoResult = await client.query("select * from porto_units order by requested_at nulls last, id asc");
     const portoUnits = portoResult.rows.map((row) => ({

@@ -1,4 +1,4 @@
-﻿function normalizeDiscordId(value) {
+function normalizeDiscordId(value) {
   return String(value || "").replace(/^discord:/i, "").trim();
 }
 
@@ -41,6 +41,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const taskBadges = effectiveTaskBadges(profile);
     const isDevOverride = isDevOverrideProfile(profile);
     const isKader = functionBadges.includes("Kader") || isDevOverride;
+    const isHoofdofficier = functionBadges.includes("Hoofdofficier");
+    const isOfficiersraad = functionBadges.includes("Officiersraad");
     const isInterneZaken = taskBadges.includes("Interne-Zaken");
     const isOvJ = taskBadges.includes("OvJ") || taskBadges.includes("hOvJ");
     const isTrainer = taskBadges.includes("Trainer");
@@ -56,7 +58,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewAllDiscipline: isKader || isInterneZaken,
       canViewI8Discipline: isKader || isInterneZaken || isOvJ,
       canManageDiscipline: isKader || isInterneZaken,
-      canViewAllHours: isKader,
+      canViewAllHours: isKader || isHoofdofficier || isOfficiersraad,
+      canManageHours: isKader || isHoofdofficier || isOfficiersraad,
       canViewOvJChannels: isKader || isOvJ,
       canViewMentorOverview: isKader || isMentor,
       canManageMentorOverview: isKader || isMentor,

@@ -1,4 +1,4 @@
-﻿// Statische Defensie Personeelsportaal configuratie komt uit personeelsportaal-data.js.
+// Statische Defensie Personeelsportaal configuratie komt uit personeelsportaal-data.js.
 const {
   ranks,
   rankCategories,
@@ -37,6 +37,8 @@ const openProfileFlagKey = "orp-defensie-open-own-profile";
 const portalWindowName = "defensie-personeelsportaal-main";
 const portalChannelName = "orp-defensie-portaal-window";
 let reviewCounterPoll = null;
+let liveEventSource = null;
+let liveRefreshTimer = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -120,6 +122,10 @@ function canViewI8DisciplineFor(person) {
 function canViewHours(person) {
   const current = currentProfile();
   return Boolean(permissions.canViewAllHours || (current && person && current.id === person.id));
+}
+
+function canManageHours() {
+  return Boolean(permissions.canManageHours || hasKaderAccess());
 }
 function canViewOvJChannels() {
   return Boolean(permissions.canViewOvJChannels || hasKaderAccess());
@@ -589,6 +595,40 @@ function startReviewCounterPolling() {
 
 // Houdt het ontslagformulier gekoppeld aan het eigen actieve profiel.
 // Houdt het W&S-formulier gekoppeld aan het ingelogde profiel en de huidige datum.
+
+function scheduleLiveRefresh(scope = "state") {
+  if (liveRefreshTimer) return;
+  liveRefreshTimer = window.setTimeout(async () => {
+    liveRefreshTimer = null;
+    if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
+    const loaded = await loadState();
+    if (!loaded) return;
+    render();
+    const page = activePageId();
+    if (page) setPage(page);
+  }, 350);
+}
+
+function startLiveUpdates() {
+  if (liveEventSource || typeof EventSource === "undefined") return;
+  liveEventSource = new EventSource("/api/events");
+  liveEventSource.addEventListener("state:update", (event) => {
+    const payload = JSON.parse(event.data || "{}");
+    scheduleLiveRefresh(payload.scope || "state");
+  });
+  liveEventSource.onerror = () => {
+    liveEventSource?.close();
+    liveEventSource = null;
+    window.setTimeout(startLiveUpdates, 5000);
+  };
+}
+
+function stopLiveUpdates() {
+  liveEventSource?.close();
+  liveEventSource = null;
+  if (liveRefreshTimer) window.clearTimeout(liveRefreshTimer);
+  liveRefreshTimer = null;
+}
 function renderLogbook() {
   const isKader = hasKaderAccess();
   $("#activityFeed").innerHTML = isKader
@@ -751,6 +791,7 @@ function wireEvents() {
     }
   });
   $("#logoutBtn").addEventListener("click", async () => {
+    stopLiveUpdates();
     await fetch("/api/auth/logout", { method: "POST" });
     authProfile = null;
     resetPermissions();
@@ -893,6 +934,35 @@ function wireEvents() {
   }
   $("#saveMentorChecklistBtn").addEventListener("click", () => saveCurrentMentorChecklist(false));
   $("#saveMentorNotesBtn").addEventListener("click", () => saveCurrentMentorChecklist(true));
+  $("#bulkHoursBtn")?.addEventListener("click", openBulkHoursDialog);
+  $("#closeBulkHoursDialog")?.addEventListener("click", () => $("#bulkHoursDialog").close());
+  $("#cancelBulkHoursDialog")?.addEventListener("click", () => $("#bulkHoursDialog").close());
+  $("#profileHoursEntry")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const personId = $("#profileHoursPersonId").value;
+    const weekYear = Number($("#profileHoursWeekYear").value);
+    const weekNumber = Number($("#profileHoursWeekNumber").value);
+    const hours = Number($("#profileHoursInput").value || 0);
+    if (!personId || !canManageHours()) return;
+    if (await saveManualHours([{ personId, hours }], weekYear, weekNumber)) render();
+  });
+  $("#bulkHoursForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!canManageHours()) return;
+    const weekYear = Number($("#bulkHoursWeekYear").value);
+    const weekNumber = Number($("#bulkHoursWeekNumber").value);
+    const entries = $$("[data-bulk-hours-person]")
+      .filter((input) => input.value !== "")
+      .map((input) => ({ personId: input.dataset.bulkHoursPerson, hours: Number(input.value || 0) }));
+    if (!entries.length) {
+      await showSiteNotice("Vul minimaal Ã©Ã©n urenregel in.", "Geen uren ingevuld");
+      return;
+    }
+    if (await saveManualHours(entries, weekYear, weekNumber)) {
+      $("#bulkHoursDialog").close();
+      render();
+    }
+  });
   $("#addMemberBtn").addEventListener("click", () => openMemberDialog());
   $("#closeDialog").addEventListener("click", () => $("#memberDialog").close());
   $("#dismissDialog").addEventListener("click", () => $("#memberDialog").close());
@@ -1073,6 +1143,7 @@ async function init() {
   render();
   restoreSavedPage();
   startReviewCounterPolling();
+  startLiveUpdates();
 }
 
 init().catch((error) => {
@@ -1087,4 +1158,3 @@ init().catch((error) => {
     body: JSON.stringify({ message: error?.stack || error?.message || String(error), source: "init", page: location.href })
   }).catch(() => {});
 });
-

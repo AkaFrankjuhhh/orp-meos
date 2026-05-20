@@ -130,6 +130,14 @@ CREATE TABLE IF NOT EXISTS hours (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+
+ALTER TABLE hours ADD COLUMN IF NOT EXISTS week_year integer;
+ALTER TABLE hours ADD COLUMN IF NOT EXISTS week_number integer;
+ALTER TABLE hours ADD COLUMN IF NOT EXISTS hours_value numeric(6,2);
+ALTER TABLE hours ADD COLUMN IF NOT EXISTS entered_by_id text;
+ALTER TABLE hours ADD COLUMN IF NOT EXISTS entered_by_name text;
+ALTER TABLE hours ADD COLUMN IF NOT EXISTS entered_at timestamptz;
+CREATE INDEX IF NOT EXISTS hours_week_idx ON hours(person_id, week_year, week_number);
 CREATE TABLE IF NOT EXISTS porto_units (
   id text PRIMARY KEY,
   member_id text REFERENCES people(id) ON DELETE SET NULL,

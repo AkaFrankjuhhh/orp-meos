@@ -1,11 +1,11 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="nl" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260518-style-split" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260519-i8-reject-reason" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260521-manual-hours" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -167,24 +167,21 @@
               <div class="panel-head">
                 <h2>Diensturen</h2>
               </div>
-              <div class="hours-summary">
-                <div>
-                  <span>Deze maand</span>
-                  <strong id="profileMonthHours">0u 00m</strong>
-                </div>
-                <div>
-                  <span>Deze week</span>
-                  <strong id="profileWeekHours">0u 00m</strong>
-                </div>
-                <div>
-                  <span>Vorige week</span>
-                  <strong id="profilePreviousWeekHours">0u 00m</strong>
-                </div>
-                <div>
-                  <span>2 weken geleden</span>
-                  <strong id="profileTwoWeeksAgoHours">0u 00m</strong>
-                </div>
+              <div class="manual-hours-total">
+                <span>Totaal deze maand</span>
+                <strong id="profileMonthHours">0 uur</strong>
               </div>
+              <div class="manual-hours-spacer" aria-hidden="true"></div>
+              <div class="manual-hours-heading">Weeknummers</div>
+              <form id="profileHoursEntry" class="manual-hours-entry" hidden>
+                <input id="profileHoursPersonId" type="hidden" />
+                <input id="profileHoursWeekYear" type="hidden" />
+                <input id="profileHoursWeekNumber" type="hidden" />
+                <span id="profileHoursCurrentWeekLabel">Week -</span>
+                <input id="profileHoursInput" type="number" min="0" max="99" step="0.5" placeholder="0" />
+                <button class="primary small" type="submit">Opslaan</button>
+              </form>
+              <div id="profileHoursWeeks" class="manual-hours-weeks"></div>
             </section>
           </div>
 
@@ -209,7 +206,7 @@
                 <button id="addDisciplineBtn" class="ghost small" type="button">Registreren</button>
               </div>
               <div class="discipline-summary">
-                <div><span>OfficiÃ«le Waarschuwing</span><strong id="regularWarningCount">0</strong></div>
+                <div><span>OfficiÃƒÂ«le Waarschuwing</span><strong id="regularWarningCount">0</strong></div>
                 <div><span>Strike</span><strong id="regularStrikeCount">0</strong></div>
                 <div><span>I8 Waarschuwing</span><strong id="i8WarningCount">0</strong></div>
                 <div><span>I8 Strike</span><strong id="i8StrikeCount">0</strong></div>
@@ -220,7 +217,7 @@
                   <select id="disciplineTypeFilter">
                     <option value="all">Alles</option>
                     <option value="i8">Alle I8 sancties</option>
-                    <option value="official">OfficiÃ«le waarschuwingen & strikes</option>
+                    <option value="official">OfficiÃƒÂ«le waarschuwingen & strikes</option>
                   </select>
                 </label>
                 <label>Datum
@@ -328,6 +325,7 @@
             <span>Zoeken</span>
             <input id="searchInput" type="search" placeholder="Naam, rang, dienstnummer..." />
           </label>
+          <button id="bulkHoursBtn" class="ghost secondary" type="button" hidden>Uren invoeren</button>
           <button id="addMemberBtn" class="primary" type="button">+ Personeel toevoegen</button>
         </div>
         <div id="peopleList" class="people-list"></div>
@@ -462,6 +460,25 @@
       </section>
     </main>
 
+
+    <dialog id="bulkHoursDialog">
+      <form id="bulkHoursForm" method="dialog" class="dialog-form bulk-hours-dialog">
+        <div class="panel-head">
+          <div>
+            <h2>Uren invoeren</h2>
+            <p id="bulkHoursWeekLabel" class="muted">Week -</p>
+          </div>
+          <button class="ghost icon" type="button" id="closeBulkHoursDialog">&times;</button>
+        </div>
+        <input id="bulkHoursWeekYear" type="hidden" />
+        <input id="bulkHoursWeekNumber" type="hidden" />
+        <div id="bulkHoursRows" class="bulk-hours-rows"></div>
+        <menu>
+          <button id="cancelBulkHoursDialog" class="ghost" type="button">Annuleren</button>
+          <button class="primary" type="submit">Uren opslaan</button>
+        </menu>
+      </form>
+    </dialog>
     <dialog id="memberDialog">
       <form id="memberForm" method="dialog" class="dialog-form">
         <div class="panel-head">
@@ -694,15 +711,13 @@
     </script>    <script src="shared-ui.js?v=20260518-frontend-split"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/profile.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/people.js?v=20260518-module-split"></script>
+    <script src="personeelsportaal/hours.js?v=20260521-manual-hours"></script>
+    <script src="personeelsportaal/people.js?v=20260521-manual-hours"></script>
     <script src="personeelsportaal/i8.js?v=20260519-i8-reject-reason"></script>
     <script src="personeelsportaal/mentor.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/absence.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/archive.js?v=20260518-module-split"></script>
     <script src="personeelsportaal-data.js?v=20260518-app-split"></script>
-    <script src="app.js?v=20260520-absence-confirm"></script>
+    <script src="app.js?v=20260521-manual-hours"></script>
   </body>
 </html>
-
-
-

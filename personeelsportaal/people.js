@@ -1,4 +1,4 @@
-﻿/* Defensie Personeelsportaal personeelmodule: personeel, medewerkers, W&S en personeelsdialogen. */
+/* Defensie Personeelsportaal personeelmodule: personeel, medewerkers, W&S en personeelsdialogen. */
 
 function getGroupForRank(rank) {
   if (["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"].includes(rank)) {
@@ -81,8 +81,9 @@ function renderRecruitment() {
 }
 
 function renderPeople() {
-  const query = $("#searchInput")?.value.toLowerCase() || "";
-  const people = state.people
+  const bulkHoursBtn = $("#bulkHoursBtn");
+  if (bulkHoursBtn) bulkHoursBtn.hidden = !canManageHours();
+  const query = $("#searchInput")?.value.toLowerCase() || "";  const people = state.people
     .filter((person) => person.status === "Actief")
     .filter((person) => {
       const haystack = `${person.name} ${person.rank} ${person.serviceNumber} ${person.permRole}`.toLowerCase();

@@ -1,4 +1,4 @@
-﻿/* Defensie Personeelsportaal page styling. Shared variables/base live in shared.css. */
+/* Defensie Personeelsportaal page styling. Shared variables/base live in shared.css. */
 .dashboard-grid {
   display: grid;
   gap: 16px;
@@ -3499,4 +3499,110 @@ body[data-device="mobile"] .profile-person-name {
 
 body[data-device="mobile"] .profile-rank-number {
   font-size: 28px;
+}
+/* Handmatige diensturen tonen weekuren als eigen compacte module in dezelfde panelstijl. */
+.manual-hours-total {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.manual-hours-total span,
+.manual-hours-heading,
+.manual-hours-entry span,
+.bulk-hours-row small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.manual-hours-total strong {
+  color: var(--text);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.manual-hours-spacer {
+  height: 18px;
+}
+
+.manual-hours-heading {
+  margin-bottom: 10px;
+}
+
+.manual-hours-entry,
+.manual-hours-week,
+.bulk-hours-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.manual-hours-entry {
+  margin-bottom: 10px;
+}
+
+.manual-hours-entry input,
+.bulk-hours-row input {
+  width: 92px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.manual-hours-weeks {
+  display: grid;
+  gap: 10px;
+}
+
+.manual-hours-week {
+  grid-template-columns: 1fr auto;
+  border-color: color-mix(in srgb, var(--hours-tone) 62%, var(--border));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--hours-tone) 28%, rgba(15, 23, 42, 0.72)), rgba(15, 23, 42, 0.7));
+}
+
+.manual-hours-week strong {
+  color: #fff;
+  font-size: 18px;
+}
+
+.bulk-hours-dialog {
+  width: min(760px, calc(100vw - 28px));
+}
+
+.bulk-hours-rows {
+  display: grid;
+  gap: 10px;
+  max-height: min(58vh, 620px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.bulk-hours-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bulk-hours-row span {
+  display: grid;
+  gap: 4px;
+}
+
+body[data-device="mobile"] .manual-hours-entry,
+body[data-device="mobile"] .manual-hours-week,
+body[data-device="mobile"] .bulk-hours-row {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+body[data-device="mobile"] .manual-hours-entry input,
+body[data-device="mobile"] .bulk-hours-row input {
+  width: 100%;
 }

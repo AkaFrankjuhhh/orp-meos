@@ -1,10 +1,9 @@
-﻿// Defensie Personeelsportaal API-routes staan los van Porto, zodat beide websites apart kunnen groeien.
+// Defensie Personeelsportaal API-routes staan los van Porto, zodat beide websites apart kunnen groeien.
 const crypto = require("node:crypto");
 
 function createPersoneelsportaalRouteHandler(deps) {
   const {
     requireAuth,
-    requireFivemIngest,
     readState,
     writeState,
     readBody,
@@ -15,8 +14,6 @@ function createPersoneelsportaalRouteHandler(deps) {
     permissionsForAuth,
     stateForProfile,
     normalizeDiscordId,
-    isAllowedFivemJob,
-    minutesBetween,
     today,
     addMonths,
     autoSortServiceNumbers,
@@ -112,6 +109,45 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
   }
 
+
+  function isoWeekStart(weekYear, weekNumber) {
+    const simple = new Date(Date.UTC(Number(weekYear), 0, 1 + (Number(weekNumber) - 1) * 7));
+    const day = simple.getUTCDay() || 7;
+    if (day <= 4) simple.setUTCDate(simple.getUTCDate() - day + 1);
+    else simple.setUTCDate(simple.getUTCDate() + 8 - day);
+    return simple;
+  }
+
+  function normalizeManualHourEntry(person, weekYear, weekNumber, hours, enteredBy) {
+    const start = isoWeekStart(weekYear, weekNumber);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 7);
+    const cleanHours = Math.max(0, Math.min(99, Number(hours) || 0));
+    return {
+      id: `manual-${person.id}-${weekYear}-${weekNumber}`,
+      personId: person.id,
+      discordId: person.discordId || "",
+      job: "Handmatig",
+      weekYear,
+      weekNumber,
+      hours: cleanHours,
+      minutes: Math.round(cleanHours * 60),
+      startedAt: start.toISOString(),
+      endedAt: end.toISOString(),
+      source: "Handmatig",
+      sessionId: `week-${weekYear}-${weekNumber}`,
+      enteredById: enteredBy.id || "",
+      enteredByName: enteredBy.name || "Onbekend",
+      enteredAt: new Date().toISOString()
+    };
+  }
+
+  function upsertStateHourEntry(state, entry) {
+    state.hours = Array.isArray(state.hours) ? state.hours : [];
+    const index = state.hours.findIndex((item) => item.id === entry.id);
+    if (index >= 0) state.hours[index] = entry;
+    else state.hours.push(entry);
+  }
   async function handlePersoneelsportaalApi(req, res, url) {
   if (url.pathname === "/api/resignation-forms" && req.method === "POST") {
     const auth = requireAuth(req, res);
@@ -463,68 +499,58 @@ function createPersoneelsportaalRouteHandler(deps) {
       typeof formsStorage.updateI8Form === "function" ? () => formsStorage.updateI8Form(form, [activityMessage]) : null
     );
     return;
-  }  if (url.pathname === "/api/fivem/hours" && req.method === "POST") {
-    if (!requireFivemIngest(req, res)) return;
+  }
+
+
+  if (url.pathname === "/api/hours/week" && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
     const state = await readPeopleState();
+    if (!(await hasPermission(auth, state, "canManageHours"))) {
+      sendJson(res, 403, { error: "Alleen Kader, Hoofdofficier of Officiersraad mag diensturen invoeren." });
+      return;
+    }
     const body = await readBody(req);
-    const discordId = normalizeDiscordId(body.discordId);
-    const job = String(body.job || body.activeJob || "").trim();
-    if (!discordId) {
-      sendJson(res, 400, { error: "discordId is verplicht." });
+    const weekYear = Number(body.weekYear);
+    const weekNumber = Number(body.weekNumber);
+    if (!Number.isInteger(weekYear) || !Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 53) {
+      sendJson(res, 400, { error: "Ongeldig weeknummer." });
       return;
     }
-    if (!isAllowedFivemJob(job)) {
-      sendJson(res, 200, { ok: true, tracked: false, reason: "Job telt niet mee voor Defensie diensturen." });
+    const rawEntries = Array.isArray(body.entries) ? body.entries : [];
+    const enteredBy = (state.people || []).find((person) => person.id === auth.profile.id) || auth.profile;
+    const entries = [];
+    for (const item of rawEntries) {
+      const person = (state.people || []).find((entry) => entry.id === item.personId && entry.status === "Actief");
+      if (!person) continue;
+      const hours = Number(item.hours);
+      if (!Number.isFinite(hours) || hours < 0 || hours > 99) continue;
+      const entry = normalizeManualHourEntry(person, weekYear, weekNumber, hours, enteredBy);
+      upsertStateHourEntry(state, entry);
+      entries.push(entry);
+    }
+    if (!entries.length) {
+      sendJson(res, 400, { error: "Geen geldige urenregels meegegeven." });
       return;
     }
-
-    const person = (state.people || []).find((entry) => entry.discordId === discordId && entry.status === "Actief");
-    if (!person) {
-      sendJson(res, 404, { error: "Geen actief Defensie Personeelsportaal-profiel gevonden voor deze Discord ID." });
-      return;
-    }
-
-    const startedAt = body.startedAt || body.startTime || new Date().toISOString();
-    const endedAt = body.endedAt || body.endTime || new Date().toISOString();
-    const minutes = Math.round(Number(body.durationMinutes || body.minutes || minutesBetween(startedAt, endedAt)));
-    if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 1440) {
-      sendJson(res, 400, { error: "Ongeldige duur. Geef minuten of start/eindtijd mee." });
-      return;
-    }
-
-    const source = String(body.source || "FiveM").trim();
-    const sessionId = String(body.sessionId || body.id || "").trim();
-    state.hours = Array.isArray(state.hours) ? state.hours : [];
-    const existing = sessionId
-      ? state.hours.find((entry) => entry.source === source && entry.sessionId === sessionId)
-      : null;
-    const hourEntry = {
-      id: existing?.id || crypto.randomUUID(),
-      personId: person.id,
-      discordId,
-      job,
-      minutes,
-      startedAt,
-      endedAt,
-      source,
-      sessionId,
-      syncedAt: new Date().toISOString()
-    };
-    if (existing) {
-      Object.assign(existing, hourEntry);
+    state.activity = state.activity || [];
+    const activityMessage = `${enteredBy.name} heeft diensturen ingevoerd voor week ${weekNumber} (${entries.length} regels).`;
+    state.activity.push(activityMessage);
+    if (typeof peopleStorage.writeManualHoursEntries === "function") {
+      await peopleStorage.writeManualHoursEntries(entries, [activityMessage]);
     } else {
-      state.hours.push(hourEntry);
+      await peopleStorage.writeState(state);
     }
-    await Promise.resolve(peopleStorage.writeState(state));
+    const latestState = await readPeopleState();
+    const permissions = permissionsForAuth(auth, latestState);
     sendJson(res, 200, {
       ok: true,
-      tracked: true,
-      person: { id: person.id, name: person.name, serviceNumber: person.serviceNumber },
-      minutes
+      state: stateForProfile(latestState, permissions, auth.profile.id),
+      canViewLogbook: permissions.canViewLogbook,
+      permissions
     });
     return;
   }
-
   // W&S-aanname maakt bewust alleen basisprofielen aan; verdere details lopen via Personeel/profielbeheer.
   if (url.pathname === "/api/recruitment/hire" && req.method === "POST") {
     const auth = requireAuth(req, res);
@@ -1041,5 +1067,3 @@ function createPersoneelsportaalRouteHandler(deps) {
 }
 
 module.exports = { createPersoneelsportaalRouteHandler };
-
-

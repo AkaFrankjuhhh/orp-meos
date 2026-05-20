@@ -16,6 +16,7 @@ const { createPersoneelsportaalRouteHandler } = require("./modules/personeelspor
 const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-domain");
 const { withClient, closePool } = require("./modules/db");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
+const { createEventBus } = require("./modules/event-bus");
 
 loadEnv();
 
@@ -28,6 +29,7 @@ const port = Number(process.env.PORT || 3000);
 const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
 const sessions = createSessionStore();
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 1024 * 1024);
+const eventBus = createEventBus();
 const {
   parseCookies,
   createSession,
@@ -68,7 +70,6 @@ const {
   hasKaderAccess,
   resolveSyncedPermRole
 } = createPermissionServices({ extraFunctions, extraTasks, readState });
-const defaultFivemJobs = ["kmar", "defensie", "marechaussee", "koninklijke marechaussee"];
 const requiredDiscordEnv = [
   "DISCORD_CLIENT_ID",
   "DISCORD_CLIENT_SECRET",
@@ -100,27 +101,12 @@ function allowDevUnauth() {
   return process.env.DEV_ALLOW_UNAUTH !== "false";
 }
 
-function allowedFivemJobs() {
-  return (process.env.FIVEM_ALLOWED_JOBS || defaultFivemJobs.join(","))
-    .split(",")
-    .map((job) => job.trim().toLowerCase())
-    .filter(Boolean);
-}
 
 function normalizeDiscordId(value) {
   return String(value || "").replace(/^discord:/i, "").trim();
 }
 
-function isAllowedFivemJob(job) {
-  return allowedFivemJobs().includes(String(job || "").trim().toLowerCase());
-}
 
-function minutesBetween(start, end) {
-  const startedAt = new Date(start);
-  const endedAt = new Date(end);
-  if (Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime())) return 0;
-  return Math.round((endedAt.getTime() - startedAt.getTime()) / 60000);
-}
 
 function logServerError(label, error) {
   const message = `[${new Date().toISOString()}] ${label}: ${error?.stack || error?.message || error}\n`;
@@ -194,21 +180,6 @@ function requireAuth(req, res) {
   return auth;
 }
 
-function requireFivemIngest(req, res) {
-  const configuredSecret = process.env.FIVEM_INGEST_SECRET;
-  if (!configuredSecret) {
-    sendJson(res, 503, { error: "FiveM uren koppeling is nog niet geconfigureerd." });
-    return false;
-  }
-  const authHeader = req.headers.authorization || "";
-  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  const providedSecret = req.headers["x-personeelsportaal-secret"] || bearerToken;
-  if (providedSecret !== configuredSecret) {
-    sendJson(res, 401, { error: "Ongeldige FiveM koppeling secret." });
-    return false;
-  }
-  return true;
-}
 
 function syncProfileFromDiscord(state, profile, user, member) {
   const roles = member.roles || [];
@@ -302,7 +273,11 @@ async function healthPayload() {
 
 
 // Porto gebruikt in database-modus een directe PostgreSQL-store; de rest van Defensie Personeelsportaal blijft voorlopig via de centrale storage lopen.
-const portoStorage = storageMode === "postgres" ? createPostgresPortoStore({ afterWrite: storage.resetStateCache }) : { readState, writeState };
+function afterStorageWrite(scope) {
+  storage.resetStateCache?.();
+  eventBus.publish("state:update", { scope });
+}
+const portoStorage = storageMode === "postgres" ? createPostgresPortoStore({ afterWrite: () => afterStorageWrite("porto") }) : { readState, writeState };
 const handlePortoApi = createPortoRouteHandler({
   requireAuth,
   readState: portoStorage.readState,
@@ -314,14 +289,13 @@ const handlePortoApi = createPortoRouteHandler({
   sendJson
 });
 // Formulierstromen krijgen in database-modus hun eigen PostgreSQL-pad voor betere gelijktijdigheid.
-const formsStorage = storageMode === "postgres" ? createPostgresFormsStore({ afterWrite: storage.resetStateCache }) : { readState, writeState };
+const formsStorage = storageMode === "postgres" ? createPostgresFormsStore({ afterWrite: () => afterStorageWrite("forms") }) : { readState, writeState };
 // Personeel/profielen krijgen in database-modus ook hun eigen directe PostgreSQL-pad.
-const peopleStorage = storageMode === "postgres" ? createPostgresPeopleStore({ afterWrite: storage.resetStateCache }) : { readState, writeState };
+const peopleStorage = storageMode === "postgres" ? createPostgresPeopleStore({ afterWrite: () => afterStorageWrite("people") }) : { readState, writeState };
 const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   peopleStorage,
   formsStorage,
   requireAuth,
-  requireFivemIngest,
   readState,
   writeState,
   readBody,
@@ -332,8 +306,6 @@ const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   permissionsForAuth,
   stateForProfile,
   normalizeDiscordId,
-  isAllowedFivemJob,
-  minutesBetween,
   today,
   addMonths,
   autoSortServiceNumbers,
@@ -417,6 +389,12 @@ function redirectWithAuthError(req, res, code) {
 }
 
 async function handleApi(req, res, url) {
+  if (url.pathname === "/api/events" && req.method === "GET") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    eventBus.addClient(req, res, auth.profile);
+    return;
+  }
   if (url.pathname === "/api/health" && req.method === "GET") {
     const payload = await healthPayload();
     sendJson(res, payload.ok ? 200 : 503, payload);

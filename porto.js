@@ -1,4 +1,4 @@
-﻿const $ = (selector) => document.querySelector(selector);
+const $ = (selector) => document.querySelector(selector);
 
 const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
@@ -26,6 +26,38 @@ let portoOpsContextUnitId = "";
 let portoDutyPoll = null;
 let portoOpsPoll = null;
 let portoOpsRequestInteractionUntil = 0;
+let portoEventSource = null;
+let portoLiveRefreshTimer = null;
+
+function schedulePortoLiveRefresh() {
+  if (portoLiveRefreshTimer) return;
+  portoLiveRefreshTimer = window.setTimeout(async () => {
+    portoLiveRefreshTimer = null;
+    if (document.body.classList.contains("porto-locked")) return;
+    await loadPortoDuty();
+  }, 250);
+}
+
+function startPortoLiveUpdates() {
+  if (portoEventSource || typeof EventSource === "undefined") return;
+  portoEventSource = new EventSource("/api/events");
+  portoEventSource.addEventListener("state:update", (event) => {
+    const payload = JSON.parse(event.data || "{}");
+    if (["porto", "people", "forms"].includes(payload.scope || "")) schedulePortoLiveRefresh();
+  });
+  portoEventSource.onerror = () => {
+    portoEventSource?.close();
+    portoEventSource = null;
+    window.setTimeout(startPortoLiveUpdates, 5000);
+  };
+}
+
+function stopPortoLiveUpdates() {
+  portoEventSource?.close();
+  portoEventSource = null;
+  if (portoLiveRefreshTimer) window.clearTimeout(portoLiveRefreshTimer);
+  portoLiveRefreshTimer = null;
+}
 // Porto-audio is verplaatst naar porto/audio.js.
 const PortoAudio = window.PortoAudio;
 
@@ -296,4 +328,6 @@ showPortoLockError();
 renderStatusButtons();
 renderVehicleRanges();
 renderOpsPanel();
-loadPortoProfile();
+loadPortoProfile().then(() => {
+  if (!document.body.classList.contains("porto-locked")) startPortoLiveUpdates();
+});
