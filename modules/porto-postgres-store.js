@@ -81,6 +81,57 @@ function portoUnitFromRow(row) {
   };
 }
 
+async function upsertPortoUnit(client, unit) {
+  await client.query(
+    `insert into porto_units(
+      id, member_id, name, rank, service_number, phone, status, status_detail,
+      vehicle_number, vehicle_code, vehicle_type, vehicle_name, linked_with, active,
+      requested_at, assigned_at, ended_at, last_seen_at, raw, updated_at
+    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18,$19::jsonb,now())
+    on conflict(id) do update set
+      member_id = excluded.member_id,
+      name = excluded.name,
+      rank = excluded.rank,
+      service_number = excluded.service_number,
+      phone = excluded.phone,
+      status = excluded.status,
+      status_detail = excluded.status_detail,
+      vehicle_number = excluded.vehicle_number,
+      vehicle_code = excluded.vehicle_code,
+      vehicle_type = excluded.vehicle_type,
+      vehicle_name = excluded.vehicle_name,
+      linked_with = excluded.linked_with,
+      active = excluded.active,
+      requested_at = excluded.requested_at,
+      assigned_at = excluded.assigned_at,
+      ended_at = excluded.ended_at,
+      last_seen_at = excluded.last_seen_at,
+      raw = excluded.raw,
+      updated_at = now()`,
+    [
+      unit.id,
+      unit.memberId || null,
+      unit.name || "",
+      unit.rank || "",
+      unit.serviceNumber || "",
+      unit.phone || "",
+      unit.status || "",
+      unit.statusDetail || "",
+      unit.vehicleNumber || "",
+      unit.vehicleCode || "",
+      unit.vehicleType || "",
+      unit.vehicleName || "",
+      json(unit.linkedWith, []),
+      unit.active !== false,
+      asDateTime(unit.requestedAt),
+      asDateTime(unit.assignedAt),
+      asDateTime(unit.endedAt),
+      asDateTime(unit.lastSeenAt),
+      json(unit, {})
+    ]
+  );
+}
+
 function createPostgresPortoStore(options = {}) {
   const afterWrite = typeof options.afterWrite === "function" ? options.afterWrite : null;
   async function readState() {
@@ -99,8 +150,7 @@ function createPostgresPortoStore(options = {}) {
     });
   }
 
-  async function writeState(state) {
-    // Porto gebruikt in PostgreSQL-modus alleen deze tabellen/settings, zodat personeelsportaal-data niet onbedoeld wordt overschreven.
+  async function writePortoSettings(state) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
@@ -111,48 +161,10 @@ function createPostgresPortoStore(options = {}) {
           portoVehicleRanges: state.portoVehicleRanges || [],
           portoCurrentOps: state.portoCurrentOps || null
         };
-
         await client.query(
           "insert into app_settings(key, value, updated_at) values('main', $1::jsonb, now()) on conflict(key) do update set value = excluded.value, updated_at = now()",
           [json(nextSettings, {})]
         );
-
-        for (const person of state.people || []) {
-          await client.query("update people set porto_phone = $2, updated_at = now() where id = $1", [person.id, person.portoPhone || ""]);
-        }
-
-        await client.query("delete from porto_units");
-        for (const unit of state.portoUnits || []) {
-          await client.query(
-            `insert into porto_units(
-              id, member_id, name, rank, service_number, phone, status, status_detail,
-              vehicle_number, vehicle_code, vehicle_type, vehicle_name, linked_with, active,
-              requested_at, assigned_at, ended_at, last_seen_at, raw, updated_at
-            ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18,$19::jsonb,now())`,
-            [
-              unit.id,
-              unit.memberId || null,
-              unit.name || "",
-              unit.rank || "",
-              unit.serviceNumber || "",
-              unit.phone || "",
-              unit.status || "",
-              unit.statusDetail || "",
-              unit.vehicleNumber || "",
-              unit.vehicleCode || "",
-              unit.vehicleType || "",
-              unit.vehicleName || "",
-              json(unit.linkedWith, []),
-              unit.active !== false,
-              asDateTime(unit.requestedAt),
-              asDateTime(unit.assignedAt),
-              asDateTime(unit.endedAt),
-              asDateTime(unit.lastSeenAt),
-              json(unit, {})
-            ]
-          );
-        }
-
         await client.query("commit");
       } catch (error) {
         await client.query("rollback");
@@ -163,7 +175,41 @@ function createPostgresPortoStore(options = {}) {
     return state;
   }
 
-  return { readState, writeState };
+  async function writePortoPhone(personId, portoPhone) {
+    await withClient((client) => client.query("update people set porto_phone = $2, updated_at = now() where id = $1", [personId, portoPhone || ""]));
+    if (afterWrite) afterWrite();
+    return { personId, portoPhone };
+  }
+
+  async function writePortoUnits(units) {
+    const uniqueUnits = [...new Map((units || []).filter((unit) => unit?.id).map((unit) => [unit.id, unit])).values()];
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        for (const unit of uniqueUnits) {
+          await upsertPortoUnit(client, unit);
+        }
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return uniqueUnits;
+  }
+
+  async function writeState(state) {
+    // Fallbackpad: upsert alleen bekende Porto units en instellingen, zonder de hele porto_units tabel te verwijderen.
+    await writePortoSettings(state);
+    for (const person of state.people || []) {
+      await writePortoPhone(person.id, person.portoPhone || "");
+    }
+    await writePortoUnits(state.portoUnits || []);
+    return state;
+  }
+
+  return { readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits };
 }
 
 module.exports = { createPostgresPortoStore };

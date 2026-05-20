@@ -5,7 +5,7 @@ function activePersonForAuth(state, auth) {
   return (state.people || []).find((entry) => entry.id === auth.profile.id && entry.status === "Actief");
 }
 
-function createPortoRouteHandler({ requireAuth, readState, writeState, readBody, sendJson }) {
+function createPortoRouteHandler({ requireAuth, readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits, readBody, sendJson }) {
   const {
     ensurePortoVehicleRanges,
     canUsePortoDevBypass,
@@ -21,10 +21,24 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
     portoOpsPayload
   } = createPortoServices();
 
+  async function persistPortoState(state, options = {}) {
+    const units = options.units || null;
+    const settings = Boolean(options.settings);
+    const phonePerson = options.phonePerson || null;
+    if (typeof writePortoUnits === "function" || typeof writePortoSettings === "function" || typeof writePortoPhone === "function") {
+      if (settings && typeof writePortoSettings === "function") await Promise.resolve(writePortoSettings(state));
+      if (phonePerson && typeof writePortoPhone === "function") await Promise.resolve(writePortoPhone(phonePerson.id, phonePerson.portoPhone || ""));
+      if (units && typeof writePortoUnits === "function") await Promise.resolve(writePortoUnits(units));
+      return state;
+    }
+    await Promise.resolve(writeState(state));
+    return state;
+  }
+
   async function maintainPortoPresence(state, person, { touch = true } = {}) {
     const changedBySweep = sweepPortoPresence(state);
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
-    if (changedBySweep || changedByTouch) await Promise.resolve(writeState(state));
+    if (changedBySweep || changedByTouch) await persistPortoState(state, { units: state.portoUnits });
     return changedBySweep || changedByTouch;
   }
 
@@ -60,7 +74,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
       const { state, person } = context;
       const body = await readBody(req);
       person.portoPhone = String(body.portoPhone || "").trim().slice(0, 40);
-      await Promise.resolve(writeState(state));
+      await persistPortoState(state, { phonePerson: person });
       sendJson(res, 200, { profile: person });
       return true;
     }
@@ -73,7 +87,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
       const presenceChanged = await maintainPortoPresence(state, person);
       const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
-      if (vehicleRangesChanged && !presenceChanged) await Promise.resolve(writeState(state));
+      if (vehicleRangesChanged && !presenceChanged) await persistPortoState(state, { settings: true });
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -134,7 +148,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
         unit.endedAt = now;
         if (releasedVehicleNumber) syncPortoLinkedNames(state, releasedVehicleNumber);
       }
-      await Promise.resolve(writeState(state));
+      await persistPortoState(state, { units: state.portoUnits });
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -179,7 +193,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
         updatedAt: now
       });
       syncPortoLinkedNames(state, vehicleNumber);
-      await Promise.resolve(writeState(state));
+      await persistPortoState(state, { units: state.portoUnits });
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -222,7 +236,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
         createdById: person.id,
         createdByName: person.name
       });
-      await Promise.resolve(writeState(state));
+      await persistPortoState(state, { units: state.portoUnits });
       sendJson(res, 200, { devTestPerson: { id: picked.id, name: picked.name }, vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
       return true;
     }
@@ -255,7 +269,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
           entry.updatedAt = now;
         }
       }
-      await Promise.resolve(writeState(state));
+      await persistPortoState(state, { units: state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber) });
       await sendPortoState(res, state, person, state.portoUnits.find((entry) => entry.id === unit.id));
       return true;
     }
@@ -277,7 +291,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
           return true;
         }
         state.portoCurrentOps = { memberId: person.id, name: person.name, serviceNumber: person.serviceNumber, startedAt: currentOps?.startedAt || new Date().toISOString(), active: true };
-        await Promise.resolve(writeState(state));
+        await persistPortoState(state, { settings: true });
         sendJson(res, 200, portoOpsPayload(state, person));
         return true;
       }
@@ -287,7 +301,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
           return true;
         }
         state.portoCurrentOps = { ...currentOps, active: false, endedAt: new Date().toISOString() };
-        await Promise.resolve(writeState(state));
+        await persistPortoState(state, { settings: true });
         sendJson(res, 200, portoOpsPayload(state, person));
         return true;
       }
@@ -341,7 +355,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
           updatedAt: endedAt
         }));
         syncPortoLinkedNames(state, oldVehicleNumber);
-        await Promise.resolve(writeState(state));
+        await persistPortoState(state, { units: state.portoUnits });
         sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
         return true;
       }
@@ -361,7 +375,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
           entry.statusUpdatedById = person.id;
           entry.statusUpdatedByName = person.name;
         }
-        await Promise.resolve(writeState(state));
+        await persistPortoState(state, { units: state.portoUnits });
         sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
         return true;
       }
@@ -424,7 +438,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
       unit.lastSeenAt = unit.lastSeenAt || unit.assignedAt;
       syncPortoLinkedNames(state, oldVehicleNumber);
       syncPortoLinkedNames(state, vehicleNumber);
-      await Promise.resolve(writeState(state));
+      await persistPortoState(state, { units: state.portoUnits });
       sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
       return true;
     }
@@ -491,7 +505,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, readBody,
       unit.updatedAt = unit.assignedAt;
       unit.lastSeenAt = unit.lastSeenAt || unit.assignedAt;
       syncPortoLinkedNames(state, vehicleNumber);
-      await Promise.resolve(writeState(state));
+      await persistPortoState(state, { units: state.portoUnits });
       sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
       return true;
     }

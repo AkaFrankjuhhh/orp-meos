@@ -306,6 +306,9 @@ const handlePortoApi = createPortoRouteHandler({
   requireAuth,
   readState: portoStorage.readState,
   writeState: portoStorage.writeState,
+  writePortoSettings: portoStorage.writePortoSettings,
+  writePortoPhone: portoStorage.writePortoPhone,
+  writePortoUnits: portoStorage.writePortoUnits,
   readBody,
   sendJson
 });
