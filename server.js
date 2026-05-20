@@ -14,7 +14,7 @@ const { createPostgresFormsStore } = require("./modules/personeelsportaal-postgr
 const { createPostgresPeopleStore } = require("./modules/personeelsportaal-postgres-people-store");
 const { createPersoneelsportaalRouteHandler } = require("./modules/personeelsportaal-routes");
 const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-domain");
-const { withClient } = require("./modules/db");
+const { withClient, closePool } = require("./modules/db");
 
 loadEnv();
 
@@ -26,6 +26,7 @@ const { readState, writeState } = storage;
 const port = Number(process.env.PORT || 3000);
 const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
 const sessions = new Map();
+const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 1024 * 1024);
 const {
   parseCookies,
   createSession,
@@ -134,9 +135,40 @@ function logAuthDebug(message, details = {}) {
   fs.appendFile(path.join(root, "auth.debug.log"), line, { encoding: "utf8" }, () => {});
 }
 
+function securityHeaders(contentType = "") {
+  const headers = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  };
+  if (appBaseUrl.startsWith("https://")) {
+    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+  }
+  if (contentType.includes("text/html")) {
+    headers["Content-Security-Policy"] = [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https://cdn.discordapp.com https://*.discordapp.com",
+      "connect-src 'self' https://discord.com https://discordapp.com",
+      "font-src 'self' data:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'"
+    ].join("; ");
+  }
+  return headers;
+}
+
+function writeHeadSecure(res, status, headers = {}) {
+  res.writeHead(status, { ...securityHeaders(headers["Content-Type"] || ""), ...headers });
+}
+
 function sendJson(res, status, body) {
   const payload = JSON.stringify(body);
-  res.writeHead(status, {
+  writeHeadSecure(res, status, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(payload)
   });
@@ -144,7 +176,7 @@ function sendJson(res, status, body) {
 }
 
 function sendHtml(res, status, html) {
-  res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
+  writeHeadSecure(res, status, { "Content-Type": "text/html; charset=utf-8" });
   res.end(html);
 }
 
@@ -221,9 +253,25 @@ function sendStateAfterMutation(req, res, auth, state) {
 
 async function readBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let totalBytes = 0;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > maxBodyBytes) {
+      const error = new Error("Request body is te groot.");
+      error.status = 413;
+      throw error;
+    }
+    chunks.push(chunk);
+  }
   const body = Buffer.concat(chunks).toString("utf8");
-  return body ? JSON.parse(body) : {};
+  if (!body) return {};
+  try {
+    return JSON.parse(body);
+  } catch (error) {
+    const parseError = new Error("Ongeldige JSON body.");
+    parseError.status = 400;
+    throw parseError;
+  }
 }
 
 async function healthPayload() {
@@ -574,14 +622,14 @@ function serveStatic(req, res, url) {
   const isPublicRootFile = publicRootFiles.has(normalizedRelative);
 
   if (isOutsideRoot || (!isPublicRootFile && !isAsset && !isFeatureScript) || path.basename(filePath).startsWith(".")) {
-    res.writeHead(403);
+    writeHeadSecure(res, 403);
     res.end("Forbidden");
     return;
   }
 
   fs.readFile(filePath, (error, data) => {
     if (error) {
-      res.writeHead(404);
+      writeHeadSecure(res, 404);
       res.end("Not found");
       return;
     }
@@ -596,7 +644,7 @@ function serveStatic(req, res, url) {
       ".webp": "image/webp",
       ".svg": "image/svg+xml; charset=utf-8"
     }[extension] || "application/octet-stream";
-    res.writeHead(200, {
+    writeHeadSecure(res, 200, {
       "Content-Type": contentType,
       "Cache-Control": "no-store"
     });
@@ -613,7 +661,7 @@ const server = http.createServer(async (req, res) => {
     }
     serveStatic(req, res, url);
   } catch (error) {
-    sendJson(res, 500, { error: error.message });
+    sendJson(res, error.status || 500, { error: error.message });
   }
 });
 
@@ -627,3 +675,14 @@ server.listen(port, () => {
 
 
 
+
+async function shutdown() {
+  try {
+    await closePool();
+  } finally {
+    process.exit(0);
+  }
+}
+
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);

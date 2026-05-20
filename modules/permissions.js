@@ -1,3 +1,15 @@
+﻿function normalizeDiscordId(value) {
+  return String(value || "").replace(/^discord:/i, "").trim();
+}
+
+function configuredDevDiscordIds() {
+  return new Set(String(process.env.DEV_OVERRIDE_DISCORD_IDS || "").split(",").map(normalizeDiscordId).filter(Boolean));
+}
+
+function isDevOverrideProfile(profile) {
+  return Boolean(profile?.status === "Actief" && configuredDevDiscordIds().has(normalizeDiscordId(profile.discordId)));
+}
+
 function automaticFunctionBadges(profile) {
   const rank = profile?.rank || "";
   const badges = [];
@@ -21,13 +33,14 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
   }
 
   function isKaderProfile(profile) {
-    return effectiveFunctionBadges(profile).includes("Kader");
+    return isDevOverrideProfile(profile) || effectiveFunctionBadges(profile).includes("Kader");
   }
 
   function permissionsForProfile(profile) {
     const functionBadges = effectiveFunctionBadges(profile);
     const taskBadges = effectiveTaskBadges(profile);
-    const isKader = functionBadges.includes("Kader");
+    const isDevOverride = isDevOverrideProfile(profile);
+    const isKader = functionBadges.includes("Kader") || isDevOverride;
     const isInterneZaken = taskBadges.includes("Interne-Zaken");
     const isOvJ = taskBadges.includes("OvJ") || taskBadges.includes("hOvJ");
     const isTrainer = taskBadges.includes("Trainer");
@@ -47,7 +60,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewOvJChannels: isKader || isOvJ,
       canViewMentorOverview: isKader || isMentor,
       canManageMentorOverview: isKader || isMentor,
-      canRecruitPeople: isKader || isWs
+      canRecruitPeople: isKader || isWs,
+      canUseDevTools: isDevOverride
     };
   }
 
@@ -106,6 +120,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     hasPermission,
     hasKaderAccess,
     getPermRoleMappings,
+    isDevOverrideProfile,
     resolveSyncedPermRole
   };
 }

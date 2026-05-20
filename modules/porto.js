@@ -2,6 +2,18 @@
 const PORTO_PRESENCE_GRACE_MS = 5 * 60 * 1000;
 const PORTO_HEARTBEAT_WRITE_MS = 60 * 1000;
 
+function normalizeDiscordId(value) {
+  return String(value || "").replace(/^discord:/i, "").trim();
+}
+
+function configuredDevDiscordIds() {
+  return new Set(String(process.env.DEV_OVERRIDE_DISCORD_IDS || "").split(",").map(normalizeDiscordId).filter(Boolean));
+}
+
+function isDevOverrideProfile(person) {
+  return Boolean(person?.status === "Actief" && configuredDevDiscordIds().has(normalizeDiscordId(person.discordId)));
+}
+
 function timestampMs(value) {
   const time = Date.parse(value || "");
   return Number.isFinite(time) ? time : 0;
@@ -89,7 +101,7 @@ function createPortoServices() {
     return Boolean(
       person &&
         person.status === "Actief" &&
-        (process.env.PORTO_DEV_BYPASS === "1" || person.name === "Frank Bright" || person.serviceNumber === "71-01")
+        isDevOverrideProfile(person)
     );
   }
 
@@ -97,7 +109,7 @@ function createPortoServices() {
     return Boolean(
       person &&
         person.status === "Actief" &&
-        ((person.completedOperational || []).includes("OPS") || (person.extraFunctions || []).includes("Kader"))
+        ((person.completedOperational || []).includes("OPS") || (person.extraFunctions || []).includes("Kader") || isDevOverrideProfile(person))
     );
   }
 

@@ -1,6 +1,8 @@
 ﻿const fs = require("node:fs");
 const path = require("node:path");
 
+let sharedPool = null;
+
 function loadEnv() {
   const envPath = path.join(__dirname, "..", ".env");
   if (!fs.existsSync(envPath)) return;
@@ -32,13 +34,21 @@ function databaseConfig() {
   const sslEnabled = String(process.env.DATABASE_SSL || "false").toLowerCase() === "true";
   return {
     connectionString,
+    max: Number(process.env.DATABASE_POOL_MAX || 10),
+    idleTimeoutMillis: Number(process.env.DATABASE_POOL_IDLE_MS || 30000),
+    connectionTimeoutMillis: Number(process.env.DATABASE_POOL_CONNECT_MS || 10000),
     ssl: sslEnabled ? { rejectUnauthorized: false } : false
   };
 }
 
 function createPool() {
+  if (sharedPool) return sharedPool;
   const { Pool } = requirePg();
-  return new Pool(databaseConfig());
+  sharedPool = new Pool(databaseConfig());
+  sharedPool.on("error", (error) => {
+    console.error("PostgreSQL pool error:", error.message || error);
+  });
+  return sharedPool;
 }
 
 async function withClient(callback) {
@@ -48,8 +58,14 @@ async function withClient(callback) {
     return await callback(client);
   } finally {
     client.release();
-    await pool.end();
   }
 }
 
-module.exports = { loadEnv, createPool, withClient };
+async function closePool() {
+  if (!sharedPool) return;
+  const pool = sharedPool;
+  sharedPool = null;
+  await pool.end();
+}
+
+module.exports = { loadEnv, createPool, withClient, closePool };
