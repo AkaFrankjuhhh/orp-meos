@@ -745,7 +745,19 @@ function createPersoneelsportaalRouteHandler(deps) {
     person.discipline = Array.isArray(person.discipline) ? person.discipline : [];
     person.discipline.push(entry);
     state.activity = state.activity || [];
-    state.activity.push(`${issuer.name} schreef ${disciplineLabels[type]} uit voor ${person.name}.`);
+    const activityMessage = `${issuer.name} schreef ${disciplineLabels[type]} uit voor ${person.name}.`;
+    state.activity.push(activityMessage);
+    if (typeof peopleStorage.writePersonDiscipline === "function") {
+      await Promise.resolve(peopleStorage.writePersonDiscipline(person, activityMessage));
+      const permissions = permissionsForAuth(auth, state);
+      sendJson(res, 200, {
+        ok: true,
+        state: stateForProfile(state, permissions, auth.profile.id),
+        canViewLogbook: permissions.canViewLogbook,
+        permissions
+      });
+      return;
+    }
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
@@ -779,7 +791,19 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (action === "delete") {
       person.discipline.splice(entryIndex, 1);
       state.activity = state.activity || [];
-      state.activity.push(`${issuer.name} verwijderde een sanctie van ${person.name}.`);
+      const activityMessage = `${issuer.name} verwijderde een sanctie van ${person.name}.`;
+      state.activity.push(activityMessage);
+      if (typeof peopleStorage.writePersonDiscipline === "function") {
+        await Promise.resolve(peopleStorage.writePersonDiscipline(person, activityMessage));
+        const permissions = permissionsForAuth(auth, state);
+        sendJson(res, 200, {
+          ok: true,
+          state: stateForProfile(state, permissions, auth.profile.id),
+          canViewLogbook: permissions.canViewLogbook,
+          permissions
+        });
+        return;
+      }
       await sendPeopleStateAfterMutation(res, auth, state);
       return;
     }
@@ -800,7 +824,19 @@ function createPersoneelsportaalRouteHandler(deps) {
     entry.updatedById = issuer.id;
     entry.updatedByName = issuer.name;
     state.activity = state.activity || [];
-    state.activity.push(`${issuer.name} paste een sanctie aan voor ${person.name}.`);
+    const activityMessage = `${issuer.name} paste een sanctie aan voor ${person.name}.`;
+    state.activity.push(activityMessage);
+    if (typeof peopleStorage.writePersonDiscipline === "function") {
+      await Promise.resolve(peopleStorage.writePersonDiscipline(person, activityMessage));
+      const permissions = permissionsForAuth(auth, state);
+      sendJson(res, 200, {
+        ok: true,
+        state: stateForProfile(state, permissions, auth.profile.id),
+        canViewLogbook: permissions.canViewLogbook,
+        permissions
+      });
+      return;
+    }
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }

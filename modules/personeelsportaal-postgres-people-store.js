@@ -1,4 +1,4 @@
-const { readPostgresState } = require("./postgres-state");
+﻿const { readPostgresState } = require("./postgres-state");
 const { withClient } = require("./db");
 
 function json(value, fallback) {
@@ -242,7 +242,43 @@ function createPostgresPeopleStore(options = {}) {
     return person;
   }
 
-  return { readState, writeState, writePersonQualifications };
+
+  async function writePersonDiscipline(person, activityMessage) {
+    // Sancties/waarschuwingen raken alleen het disciplineveld van één profiel.
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        const result = await client.query(`
+          update people
+          set
+            discipline = $2::jsonb,
+            raw = $3::jsonb,
+            updated_at = now()
+          where id = $1
+        `, [
+          person.id,
+          json(person.discipline, []),
+          json(person, {})
+        ]);
+        if (result.rowCount !== 1) {
+          throw new Error("Personeelslid niet gevonden voor sanctie-update.");
+        }
+        if (activityMessage) {
+          await client.query(`
+            insert into activity_log(position, message)
+            values((select coalesce(max(position), -1) + 1 from activity_log), $1)
+          `, [String(activityMessage)]);
+        }
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return person;
+  }
+  return { readState, writeState, writePersonQualifications, writePersonDiscipline };
 }
 
 module.exports = { createPostgresPeopleStore };
