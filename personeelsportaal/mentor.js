@@ -1,4 +1,4 @@
-/* pManager mentormodule: mentoroverzicht, checklist, traject en mentor-notities. */
+﻿/* Defensie Personeelsportaal mentormodule: mentoroverzicht, checklist, traject en mentor-notities. */
 
 function openMentorChecklist(profileId) {
   selectedMentorProfileId = profileId;
@@ -159,4 +159,4 @@ async function saveMentorChecklist(personId, patch = {}) {
   return runAction(`/api/people/${encodeURIComponent(personId)}/mentor`, body);
 }
 
-window.PManagerModules.registerFeature("mentor", { ready: true });
+window.DefensiePortalModules.registerFeature("mentor", { ready: true });

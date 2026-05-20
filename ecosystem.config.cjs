@@ -1,7 +1,7 @@
-module.exports = {
+﻿module.exports = {
   apps: [
     {
-      name: "pmanager",
+      name: "defensie-personeelsportaal",
       script: "server.js",
       instances: 1,
       exec_mode: "fork",

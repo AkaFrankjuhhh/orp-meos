@@ -1,8 +1,8 @@
-# FiveM urenregistratie
+﻿# FiveM urenregistratie
 
-Deze opzet gebruikt een push-koppeling: de FiveM resource bepaalt wanneer iemand met een actieve overheidsjob in dienst is en stuurt na afloop van die dienst een urenregistratie naar pManager.
+Deze opzet gebruikt een push-koppeling: de FiveM resource bepaalt wanneer iemand met een actieve overheidsjob in dienst is en stuurt na afloop van die dienst een urenregistratie naar Defensie Personeelsportaal.
 
-## pManager configuratie
+## Defensie Personeelsportaal configuratie
 
 Zet in `.env`:
 
@@ -36,11 +36,11 @@ Body:
 }
 ```
 
-`durationMinutes` mag gebruikt worden in plaats van rekenen met `startedAt` en `endedAt`. Als `sessionId` hetzelfde blijft, werkt pManager de bestaande registratie bij in plaats van dubbel te registreren.
+`durationMinutes` mag gebruikt worden in plaats van rekenen met `startedAt` en `endedAt`. Als `sessionId` hetzelfde blijft, werkt Defensie Personeelsportaal de bestaande registratie bij in plaats van dubbel te registreren.
 
 ## Belangrijk
 
-- pManager koppelt uren aan het profiel via `discordId`.
+- Defensie Personeelsportaal koppelt uren aan het profiel via `discordId`.
 - Alleen actieve profielen tellen mee.
 - Alleen jobs uit `FIVEM_ALLOWED_JOBS` tellen mee.
 - Een registratie mag maximaal 1440 minuten zijn.

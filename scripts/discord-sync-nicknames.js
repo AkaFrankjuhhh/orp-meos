@@ -59,7 +59,7 @@ async function main() {
     }
 
     try {
-      await bot.syncNicknameForPerson(person, "pManager bulk nickname sync");
+      await bot.syncNicknameForPerson(person, "Defensie Personeelsportaal bulk nickname sync");
       changed += 1;
       console.log(`[ok] ${person.serviceNumber || "-"} ${person.name} -> ${nickname}`);
       await sleep(450);

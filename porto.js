@@ -30,7 +30,7 @@ let portoOpsRequestInteractionUntil = 0;
 const PortoAudio = window.PortoAudio;
 
 // Gedeelde Porto pop-up helper komt uit shared-ui.js.
-const portoNotice = PManagerUI.createNoticeDialog({ id: "portoNoticeDialog", className: "site-notice-dialog porto-notice-dialog" });
+const portoNotice = DefensiePortalUI.createNoticeDialog({ id: "portoNoticeDialog", className: "site-notice-dialog porto-notice-dialog" });
 const showPortoNotice = portoNotice.showNotice;
 const showPortoConfirm = portoNotice.showConfirm;
 const showPortoChoice = portoNotice.showChoice;
@@ -99,7 +99,7 @@ function showPortoContextChoice(anchorEvent, title, items) {
     }, 0);
   });
 }
-const escapeHtml = PManagerUI.escapeHtml;
+const escapeHtml = DefensiePortalUI.escapeHtml;
 
 function avatarFor(profile) {
   if (profile?.avatar) return profile.avatar;
@@ -129,7 +129,7 @@ function setPortoLocked(locked) {
 function showPortoLockError() {
   const errorCode = new URLSearchParams(window.location.search).get("authError");
   const messages = {
-    "no-profile": "Geen profiel gevonden in pManager.",
+    "no-profile": "Geen profiel gevonden in Defensie Personeelsportaal.",
     "no-role": "Geen Discord gekoppeld: je mist de Defensie rol.",
     "login-failed": "Aanmelden via Discord is mislukt. Probeer opnieuw."
   };

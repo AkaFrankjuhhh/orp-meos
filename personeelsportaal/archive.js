@@ -1,4 +1,4 @@
-/* pManager archiefmodule: personeelsarchief en ontslag-overzicht. */
+﻿/* Defensie Personeelsportaal archiefmodule: personeelsarchief en ontslag-overzicht. */
 
 function renderArchive() {
   const query = $("#archiveSearchInput")?.value.toLowerCase() || "";
@@ -73,4 +73,4 @@ function renderResignationOverview() {
     : '<div class="feed-item">Geen openstaande ontslagformulieren.</div>';
 }
 
-window.PManagerModules.registerFeature("archive", { ready: true });
+window.DefensiePortalModules.registerFeature("archive", { ready: true });

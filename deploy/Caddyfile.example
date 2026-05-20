@@ -1,5 +1,5 @@
-# Vervang pmanager.jouwdomein.nl door jouw domein.
-pmanager.jouwdomein.nl {
+﻿# Vervang personeelsportaal.jouwdomein.nl door jouw domein.
+personeelsportaal.jouwdomein.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000
 

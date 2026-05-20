@@ -1,4 +1,4 @@
-﻿-- pManager PostgreSQL basis schema.
+﻿-- Defensie Personeelsportaal PostgreSQL basis schema.
 -- Dit schema is bedoeld als eerste migratiestap: data.json kan hierin worden geimporteerd,
 -- waarna we de applicatie per onderdeel gecontroleerd van JSON naar tabellen ombouwen.
 

@@ -1,4 +1,4 @@
-﻿/* pManager I8-module: eigen I8 formulieren, controle en archief. */
+﻿/* Defensie Personeelsportaal I8-module: eigen I8 formulieren, controle en archief. */
 
 function i8StatusLabel(status) {
   return {
@@ -275,6 +275,6 @@ function openI8ReviewDialog(formId, status) {
   if (status === "rejected") reasonInput?.focus();
 }
 
-window.PManagerModules.registerFeature("i8", { ready: true });
+window.DefensiePortalModules.registerFeature("i8", { ready: true });
 
 

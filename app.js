@@ -1,4 +1,4 @@
-﻿// Statische pManager configuratie komt uit pmanager-data.js.
+﻿// Statische Defensie Personeelsportaal configuratie komt uit personeelsportaal-data.js.
 const {
   ranks,
   rankCategories,
@@ -16,7 +16,7 @@ const {
   autoFunctionByRanks,
   rankColors,
   defaultState
-} = window.PManagerData;
+} = window.DefensiePortalData;
 let state = structuredClone(defaultState);
 let authProfile = null;
 let serverBacked = false;
@@ -34,34 +34,34 @@ const pageStorageKey = "orp-defensie-current-page";
 const profileStorageKey = "orp-defensie-current-profile";
 const mentorStorageKey = "orp-defensie-current-mentor";
 const openProfileFlagKey = "orp-defensie-open-own-profile";
-const pmanagerWindowName = "pmanager-main";
-const pmanagerChannelName = "orp-pmanager-window";
+const portalWindowName = "defensie-personeelsportaal-main";
+const portalChannelName = "orp-defensie-portaal-window";
 let reviewCounterPoll = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-function registerPmanagerTab() {
-  window.name = pmanagerWindowName;
-  const markOpen = () => localStorage.setItem("orp-pmanager-window-seen", String(Date.now()));
+function registerPersoneelsportaalTab() {
+  window.name = portalWindowName;
+  const markOpen = () => localStorage.setItem("orp-defensie-portaal-window-seen", String(Date.now()));
   const focusSelf = (requestId = Date.now()) => {
     markOpen();
-    localStorage.setItem("orp-pmanager-focus-ack", String(requestId));
+    localStorage.setItem("orp-defensie-personeelsportaal-focus-ack", String(requestId));
     window.focus();
   };
   markOpen();
   window.addEventListener("focus", markOpen);
   document.addEventListener("visibilitychange", markOpen);
   window.addEventListener("storage", (event) => {
-    if (event.key === "orp-pmanager-focus-request") focusSelf(Number(event.newValue) || Date.now());
+    if (event.key === "orp-defensie-personeelsportaal-focus-request") focusSelf(Number(event.newValue) || Date.now());
   });
   try {
-    const channel = new BroadcastChannel(pmanagerChannelName);
+    const channel = new BroadcastChannel(portalChannelName);
     channel.addEventListener("message", (event) => {
-      if (event.data?.type === "focus-pmanager") focusSelf(Number(event.data.requestId) || Date.now());
+      if (event.data?.type === "focus-defensie-portaal") focusSelf(Number(event.data.requestId) || Date.now());
     });
   } catch (error) {
-    // BroadcastChannel is optional; the named tab fallback still opens pManager correctly.
+    // BroadcastChannel is optional; the named tab fallback still opens Defensie Personeelsportaal correctly.
   }
 }
 function currentProfile() {
@@ -158,12 +158,12 @@ function updateDeviceMode() {
 }
 
 // Gedeelde pop-up en formatter helpers komen uit shared-ui.js.
-const siteNotice = PManagerUI.createNoticeDialog({ id: "siteNoticeDialog", className: "site-notice-dialog" });
+const siteNotice = DefensiePortalUI.createNoticeDialog({ id: "siteNoticeDialog", className: "site-notice-dialog" });
 const showSiteNotice = siteNotice.showNotice;
 const showSiteConfirm = siteNotice.showConfirm;
-const escapeHtml = PManagerUI.escapeHtml;
-const formatDate = PManagerUI.formatDate;
-const formatDateTime = PManagerUI.formatDateTime;
+const escapeHtml = DefensiePortalUI.escapeHtml;
+const formatDate = DefensiePortalUI.formatDate;
+const formatDateTime = DefensiePortalUI.formatDateTime;
 function formatMinutes(minutes) {
   const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
   const hours = Math.floor(safeMinutes / 60);
@@ -277,7 +277,7 @@ function setLocked(locked) {
 function showLockError() {
   const errorCode = new URLSearchParams(window.location.search).get("authError");
   const messages = {
-    "no-profile": "Geen profiel gevonden in pManager.",
+    "no-profile": "Geen profiel gevonden in Defensie Personeelsportaal.",
     "no-role": "Geen Discord gekoppeld: je mist de Defensie rol.",
     "login-failed": "Aanmelden via Discord is mislukt. Controleer Client Secret, callback URL en probeer opnieuw.",
     "rate-limited": "Discord blokkeert tijdelijk door te veel pogingen. Wacht 5 tot 10 minuten en probeer opnieuw."
@@ -1048,7 +1048,7 @@ function wireEvents() {
 }
 
 async function init() {
-  registerPmanagerTab();
+  registerPersoneelsportaalTab();
   updateDeviceMode();
   showLockError();
   captureOpenProfileRequest();

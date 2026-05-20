@@ -1,7 +1,7 @@
-(function () {
+﻿(function () {
   const features = new Map();
 
-  // pManager feature registry: elke pagina/functie kan zichzelf hier aanmelden.
+  // Defensie Personeelsportaal feature registry: elke pagina/functie kan zichzelf hier aanmelden.
   function registerFeature(name, api = {}) {
     features.set(name, api);
     return api;
@@ -15,5 +15,5 @@
     return [...features.keys()];
   }
 
-  window.PManagerModules = { registerFeature, getFeature, listFeatures };
+  window.DefensiePortalModules = { registerFeature, getFeature, listFeatures };
 }());

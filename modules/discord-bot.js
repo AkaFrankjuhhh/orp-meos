@@ -66,7 +66,7 @@ function formatNameForDiscordNickname(name) {
   return `${firstName} ${surnameParticle}${lastName.charAt(0).toUpperCase()}.`.trim();
 }
 
-function buildPmanagerNickname(person) {
+function buildServiceNicknameDefault(person) {
   const serviceNumber = person?.serviceNumber || person?.previousServiceNumber || "-";
   const symbols = rankSymbolsFor(person?.rank);
   const name = formatNameForDiscordNickname(person?.name || person?.discordUsername || "");
@@ -181,7 +181,7 @@ function createDiscordBotServices(options = {}) {
     return discordBotFetch(`/guilds/${guildId()}/members/${memberId}`);
   }
 
-  async function addRole(discordId, roleId, auditReason = "pManager rol toegevoegd") {
+  async function addRole(discordId, roleId, auditReason = "Defensie Personeelsportaal rol toegevoegd") {
     const memberId = normalizeDiscordId(discordId);
     const targetRole = String(roleId || "").trim();
     if (!memberId || !targetRole) return { skipped: true, reason: "Discord ID of role ID ontbreekt." };
@@ -191,7 +191,7 @@ function createDiscordBotServices(options = {}) {
     });
   }
 
-  async function removeRole(discordId, roleId, auditReason = "pManager rol verwijderd") {
+  async function removeRole(discordId, roleId, auditReason = "Defensie Personeelsportaal rol verwijderd") {
     const memberId = normalizeDiscordId(discordId);
     const targetRole = String(roleId || "").trim();
     if (!memberId || !targetRole) return { skipped: true, reason: "Discord ID of role ID ontbreekt." };
@@ -201,7 +201,7 @@ function createDiscordBotServices(options = {}) {
     });
   }
 
-  async function syncRoleSet(discordId, desiredRoleIds, managedRoleIds, auditReason = "pManager rollen gesynchroniseerd") {
+  async function syncRoleSet(discordId, desiredRoleIds, managedRoleIds, auditReason = "Defensie Personeelsportaal rollen gesynchroniseerd") {
     const memberId = normalizeDiscordId(discordId);
     const desired = compactRoleIds(desiredRoleIds);
     const managed = compactRoleIds(managedRoleIds);
@@ -227,8 +227,8 @@ function createDiscordBotServices(options = {}) {
     return { ok: true, changes };
   }
 
-  function buildServiceNickname(person, template = process.env.DISCORD_NICKNAME_TEMPLATE || "pmanager") {
-    if (!template || template === "pmanager") return buildPmanagerNickname(person);
+  function buildServiceNickname(person, template = process.env.DISCORD_NICKNAME_TEMPLATE || "personeelsportaal") {
+    if (!template || template === "personeelsportaal") return buildServiceNicknameDefault(person);
     const serviceNumber = person?.serviceNumber || person?.previousServiceNumber || "";
     const name = person?.name || person?.discordUsername || "";
     const symbols = rankSymbolsFor(person?.rank);
@@ -240,10 +240,10 @@ function createDiscordBotServices(options = {}) {
       .replaceAll("{symbols}", symbols)
       .replace(/\s+/g, " ")
       .trim();
-    return truncateDiscordNickname(nickname || buildPmanagerNickname(person));
+    return truncateDiscordNickname(nickname || buildServiceNicknameDefault(person));
   }
 
-  async function setNickname(discordId, nickname, auditReason = "pManager nickname aangepast") {
+  async function setNickname(discordId, nickname, auditReason = "Defensie Personeelsportaal nickname aangepast") {
     const memberId = normalizeDiscordId(discordId);
     const nick = truncateDiscordNickname(nickname);
     if (!memberId || !nick) return { skipped: true, reason: "Discord ID of nickname ontbreekt." };
@@ -254,7 +254,7 @@ function createDiscordBotServices(options = {}) {
     });
   }
 
-  async function syncNicknameForPerson(person, auditReason = "pManager dienstnummer nickname gesynchroniseerd") {
+  async function syncNicknameForPerson(person, auditReason = "Defensie Personeelsportaal dienstnummer nickname gesynchroniseerd") {
     return setNickname(person?.discordId, buildServiceNickname(person), auditReason);
   }
 
@@ -289,7 +289,7 @@ function createDiscordBotServices(options = {}) {
     syncRoleSet,
     rankSymbolsFor,
     formatNameForDiscordNickname,
-    buildPmanagerNickname,
+    buildServiceNicknameDefault,
     buildServiceNickname,
     setNickname,
     syncNicknameForPerson,

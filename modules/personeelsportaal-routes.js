@@ -1,7 +1,7 @@
-// pManager API-routes staan los van Porto, zodat beide websites apart kunnen groeien.
+﻿// Defensie Personeelsportaal API-routes staan los van Porto, zodat beide websites apart kunnen groeien.
 const crypto = require("node:crypto");
 
-function createPmanagerRouteHandler(deps) {
+function createPersoneelsportaalRouteHandler(deps) {
   const {
     requireAuth,
     requireFivemIngest,
@@ -108,7 +108,7 @@ function createPmanagerRouteHandler(deps) {
     }
   }
 
-  async function handlePmanagerApi(req, res, url) {
+  async function handlePersoneelsportaalApi(req, res, url) {
   if (url.pathname === "/api/resignation-forms" && req.method === "POST") {
     const auth = requireAuth(req, res);
     if (!auth) return;
@@ -440,7 +440,7 @@ function createPmanagerRouteHandler(deps) {
 
     const person = (state.people || []).find((entry) => entry.discordId === discordId && entry.status === "Actief");
     if (!person) {
-      sendJson(res, 404, { error: "Geen actief pManager profiel gevonden voor deze Discord ID." });
+      sendJson(res, 404, { error: "Geen actief Defensie Personeelsportaal-profiel gevonden voor deze Discord ID." });
       return;
     }
 
@@ -961,9 +961,9 @@ function createPmanagerRouteHandler(deps) {
     return false;
   }
 
-  return handlePmanagerApi;
+  return handlePersoneelsportaalApi;
 }
 
-module.exports = { createPmanagerRouteHandler };
+module.exports = { createPersoneelsportaalRouteHandler };
 
 

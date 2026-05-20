@@ -42,7 +42,7 @@ async function run() {
   const url = databaseUrl();
   const backupDir = path.join(__dirname, '..', 'backups', 'postgres');
   fs.mkdirSync(backupDir, { recursive: true });
-  const outputPath = path.join(backupDir, `pmanager-${timestampForFile()}.dump`);
+  const outputPath = path.join(backupDir, `defensie-personeelsportaal-${timestampForFile()}.dump`);
   const env = { ...process.env, PGPASSWORD: decodeURIComponent(url.password || '') };
   const child = spawn(pgDumpCommand(), pgDumpArgs(url, outputPath), { env, stdio: ['ignore', 'pipe', 'pipe'] });
 

@@ -27,7 +27,7 @@ function databaseConfig() {
   loadEnv();
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error("DATABASE_URL ontbreekt in .env. Voor lokaal: postgres://postgres:WACHTWOORD@localhost:5432/pmanager");
+    throw new Error("DATABASE_URL ontbreekt in .env. Voor lokaal: postgres://postgres:WACHTWOORD@localhost:5432/personeelsportaal");
   }
   const sslEnabled = String(process.env.DATABASE_SSL || "false").toLowerCase() === "true";
   return {

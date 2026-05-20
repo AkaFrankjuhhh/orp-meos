@@ -1,4 +1,4 @@
-/* pManager personeelmodule: personeel, medewerkers, W&S en personeelsdialogen. */
+﻿/* Defensie Personeelsportaal personeelmodule: personeel, medewerkers, W&S en personeelsdialogen. */
 
 function getGroupForRank(rank) {
   if (["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"].includes(rank)) {
@@ -257,4 +257,4 @@ function openRestoreDialog(person) {
   $("#restoreDialog").showModal();
 }
 
-window.PManagerModules.registerFeature("people", { ready: true });
+window.DefensiePortalModules.registerFeature("people", { ready: true });

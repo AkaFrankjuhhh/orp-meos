@@ -100,7 +100,7 @@ function createPostgresPortoStore(options = {}) {
   }
 
   async function writeState(state) {
-    // Porto gebruikt in PostgreSQL-modus alleen deze tabellen/settings, zodat pManager-data niet onbedoeld wordt overschreven.
+    // Porto gebruikt in PostgreSQL-modus alleen deze tabellen/settings, zodat personeelsportaal-data niet onbedoeld wordt overschreven.
     await withClient(async (client) => {
       await client.query("begin");
       try {

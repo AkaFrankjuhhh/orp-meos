@@ -26,7 +26,7 @@ function mask(value) {
   if (String(process.env.DEV_ALLOW_UNAUTH || '').toLowerCase() !== 'false') warnings.push('DEV_ALLOW_UNAUTH staat niet expliciet op false.');
   if (!String(process.env.APP_BASE_URL || '').startsWith('https://')) warnings.push('APP_BASE_URL gebruikt geen https URL.');
 
-  console.log('pManager productiecheck');
+  console.log('Defensie Personeelsportaal productiecheck');
   console.log(`Storage mode: ${storageMode}`);
   console.log(`APP_BASE_URL: ${process.env.APP_BASE_URL || '-'}`);
   console.log(`DATABASE_URL: ${mask(process.env.DATABASE_URL || '') || '-'}`);

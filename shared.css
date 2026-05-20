@@ -1,4 +1,4 @@
-/* Shared base styling for pManager and Porto. */
+﻿/* Shared base styling for Defensie Personeelsportaal and Porto. */
 :root {
   --bg: #151719;
   --surface: #202326;
@@ -389,7 +389,7 @@ h2 {
   color: #0f172a;
 }
 
-/* Shared button styling used by pManager and Porto dialogs/actions. */
+/* Shared button styling used by Defensie Personeelsportaal and Porto dialogs/actions. */
 .primary {
   border: 0;
   border-radius: 8px;
@@ -418,7 +418,7 @@ h2 {
   text-decoration: none;
 }
 
-/* Gedeelde contextmenu-basis: Porto laadt pmanager.css niet, dus deze positie/hidden-regels moeten globaal beschikbaar zijn. */
+/* Gedeelde contextmenu-basis: Porto laadt personeelsportaal.css niet, dus deze positie/hidden-regels moeten globaal beschikbaar zijn. */
 .context-menu {
   position: fixed;
   z-index: 2000;
@@ -454,7 +454,7 @@ h2 {
   color: #fecaca;
 }
 
-/* Shared notice dialogs: nette, vaste opmaak voor confirm/alert pop-ups in pManager en Porto. */
+/* Shared notice dialogs: nette, vaste opmaak voor confirm/alert pop-ups in Defensie Personeelsportaal en Porto. */
 .site-notice-card {
   box-sizing: border-box;
   display: grid;

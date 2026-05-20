@@ -1,4 +1,4 @@
-﻿/* pManager profielmodule: profielkaart, trainingen, badges, uren en sancties. */
+﻿/* Defensie Personeelsportaal-profielmodule: profielkaart, trainingen, badges, uren en sancties. */
 
 function openProfilePage(profileId = "") {
   selectedProfileId = profileId;
@@ -294,4 +294,4 @@ function renderProfile() {
   $("#logoutBtn").hidden = !authProfile;
 }
 
-window.PManagerModules.registerFeature("profile", { ready: true });
+window.DefensiePortalModules.registerFeature("profile", { ready: true });

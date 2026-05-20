@@ -1,4 +1,4 @@
-/* pManager afwezigheidsmodule: statussen, overzicht en verwijdercontext. */
+﻿/* Defensie Personeelsportaal afwezigheidsmodule: statussen, overzicht en verwijdercontext. */
 
 function openAbsenceRequestCount() {
   return (state.absences || []).filter((entry) => absenceStatus(entry) === "In afwachting").length;
@@ -92,4 +92,4 @@ function openDeleteAbsenceDialog() {
   $("#deleteAbsenceDialog").showModal();
 }
 
-window.PManagerModules.registerFeature("absence", { ready: true });
+window.DefensiePortalModules.registerFeature("absence", { ready: true });

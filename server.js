@@ -1,4 +1,4 @@
-const http = require("node:http");
+﻿const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -10,10 +10,10 @@ const { createDiscordWebhookServices } = require("./modules/discord-webhooks");
 const { createDiscordBotServices } = require("./modules/discord-bot");
 const { createPortoRouteHandler } = require("./modules/porto-routes");
 const { createPostgresPortoStore } = require("./modules/porto-postgres-store");
-const { createPostgresFormsStore } = require("./modules/pmanager-postgres-forms-store");
-const { createPostgresPeopleStore } = require("./modules/pmanager-postgres-people-store");
-const { createPmanagerRouteHandler } = require("./modules/pmanager-routes");
-const { createPmanagerDomain } = require("./modules/pmanager-domain");
+const { createPostgresFormsStore } = require("./modules/personeelsportaal-postgres-forms-store");
+const { createPostgresPeopleStore } = require("./modules/personeelsportaal-postgres-people-store");
+const { createPersoneelsportaalRouteHandler } = require("./modules/personeelsportaal-routes");
+const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-domain");
 const { withClient } = require("./modules/db");
 
 loadEnv();
@@ -59,7 +59,7 @@ const {
   promotePerson,
   demotePerson,
   normalizeMentorNotes
-} = createPmanagerDomain();
+} = createPersoneelsportaalDomain();
 const {
   permissionsForAuth,
   hasPermission,
@@ -169,7 +169,7 @@ function requireFivemIngest(req, res) {
   }
   const authHeader = req.headers.authorization || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  const providedSecret = req.headers["x-pmanager-secret"] || bearerToken;
+  const providedSecret = req.headers["x-personeelsportaal-secret"] || bearerToken;
   if (providedSecret !== configuredSecret) {
     sendJson(res, 401, { error: "Ongeldige FiveM koppeling secret." });
     return false;
@@ -252,7 +252,7 @@ async function healthPayload() {
 }
 
 
-// Porto gebruikt in database-modus een directe PostgreSQL-store; de rest van pManager blijft voorlopig via de centrale storage lopen.
+// Porto gebruikt in database-modus een directe PostgreSQL-store; de rest van Defensie Personeelsportaal blijft voorlopig via de centrale storage lopen.
 const portoStorage = storageMode === "postgres" ? createPostgresPortoStore({ afterWrite: storage.resetStateCache }) : { readState, writeState };
 const handlePortoApi = createPortoRouteHandler({
   requireAuth,
@@ -265,7 +265,7 @@ const handlePortoApi = createPortoRouteHandler({
 const formsStorage = storageMode === "postgres" ? createPostgresFormsStore({ afterWrite: storage.resetStateCache }) : { readState, writeState };
 // Personeel/profielen krijgen in database-modus ook hun eigen directe PostgreSQL-pad.
 const peopleStorage = storageMode === "postgres" ? createPostgresPeopleStore({ afterWrite: storage.resetStateCache }) : { readState, writeState };
-const handlePmanagerApi = createPmanagerRouteHandler({
+const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   peopleStorage,
   formsStorage,
   requireAuth,
@@ -557,7 +557,7 @@ async function handleApi(req, res, url) {
 
   if (await handlePortoApi(req, res, url)) return;
 
-  if (await handlePmanagerApi(req, res, url) !== false) return;
+  if (await handlePersoneelsportaalApi(req, res, url) !== false) return;
 
   sendJson(res, 404, { error: "API route niet gevonden" });
 }
@@ -568,9 +568,9 @@ function serveStatic(req, res, url) {
   const relativePath = path.relative(root, filePath);
   const isOutsideRoot = relativePath.startsWith("..") || path.isAbsolute(relativePath);
   const normalizedRelative = relativePath.replaceAll("\\", "/");
-  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "pmanager.css", "porto.css", "app.js", "pmanager-data.js", "porto.html", "porto.js", "shared-ui.js"]);
+  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "porto.css", "app.js", "personeelsportaal-data.js", "porto.html", "porto.js", "shared-ui.js"]);
   const isAsset = normalizedRelative.startsWith("assets/");
-  const isFeatureScript = /^(pmanager|porto)\/[^/]+\.js$/.test(normalizedRelative);
+  const isFeatureScript = /^(personeelsportaal|porto)\/[^/]+\.js$/.test(normalizedRelative);
   const isPublicRootFile = publicRootFiles.has(normalizedRelative);
 
   if (isOutsideRoot || (!isPublicRootFile && !isAsset && !isFeatureScript) || path.basename(filePath).startsWith(".")) {

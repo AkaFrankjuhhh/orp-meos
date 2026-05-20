@@ -1,6 +1,6 @@
-﻿# Data-opslag pManager en Porto
+﻿# Data-opslag Defensie Personeelsportaal en Porto
 
-pManager en het Porto-Systeem worden behandeld als twee losse websites binnen hetzelfde project.
+Defensie Personeelsportaal en het Porto-Systeem worden behandeld als twee losse websites binnen hetzelfde project.
 Ze delen dezelfde Discord-login, personeelsprofielen en PostgreSQL database.
 
 ## Huidige live-opzet
@@ -14,8 +14,8 @@ STORAGE_MODE=postgres
 In deze modus leest de algemene applicatiestate direct uit PostgreSQL. Schrijfacties lopen via gerichte stores:
 
 - `modules/porto-postgres-store.js` voor Porto, OPS, statussen, voertuigen en koppels.
-- `modules/pmanager-postgres-forms-store.js` voor afwezigheid en I8 formulieren.
-- `modules/pmanager-postgres-people-store.js` voor personeel, profielen, trainingen, badges, sancties, W&S, ontslag, herintrede en uren.
+- `modules/personeelsportaal-postgres-forms-store.js` voor afwezigheid en I8 formulieren.
+- `modules/personeelsportaal-postgres-people-store.js` voor personeel, profielen, trainingen, badges, sancties, W&S, ontslag, herintrede en uren.
 
 Hierdoor hoeft de server niet meer via een tijdelijke JSON-export/import brug te werken.
 

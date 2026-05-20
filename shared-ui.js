@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   const query = (selector, root = document) => root.querySelector(selector);
   const queryAll = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -32,7 +32,7 @@
     });
   }
 
-  // Eén nette dialog-helper voor pManager en Porto, met optionele keuzelijst.
+  // EÃ©n nette dialog-helper voor Defensie Personeelsportaal en Porto, met optionele keuzelijst.
   function createNoticeDialog(options = {}) {
     const id = options.id || "siteNoticeDialog";
     const className = options.className || "site-notice-dialog";
@@ -120,7 +120,7 @@
     return { ensureDialog, showNotice, showConfirm, showChoice };
   }
 
-  window.PManagerUI = {
+  window.DefensiePortalUI = {
     query,
     queryAll,
     escapeHtml,

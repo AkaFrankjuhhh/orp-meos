@@ -1,6 +1,6 @@
-const crypto = require("node:crypto");
+﻿const crypto = require("node:crypto");
 
-// Centrale pManager domeinregels: rangen, dienstnummers, profieldata en mutaties.
+// Centrale Defensie Personeelsportaal domeinregels: rangen, dienstnummers, profieldata en mutaties.
 const ranks = [
   "Luitenant-Generaal",
   "Generaal-Majoor",
@@ -32,7 +32,7 @@ const mentorTrainingName = "Mentor-Traject";
 const mentorChecklistCount = 13;
 const disciplineTypes = new Set(["regular-warning", "regular-strike", "i8-warning", "i8-strike"]);
 const disciplineLabels = {
-  "regular-warning": "Officiële Waarschuwing",
+  "regular-warning": "OfficiÃ«le Waarschuwing",
   "regular-strike": "Strike",
   "i8-warning": "I8 Waarschuwing",
   "i8-strike": "I8 Strike"
@@ -317,7 +317,7 @@ function stateForProfile(state, permissions, profileId = "") {
   return nextState;
 }
 
-function createPmanagerDomain() {
+function createPersoneelsportaalDomain() {
   return {
     ranks,
     profileTrainings,
@@ -347,4 +347,4 @@ function createPmanagerDomain() {
   };
 }
 
-module.exports = { createPmanagerDomain };
+module.exports = { createPersoneelsportaalDomain };

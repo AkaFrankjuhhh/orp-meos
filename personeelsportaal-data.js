@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
 const ranks = [
   "Luitenant-Generaal",
   "Generaal-Majoor",
@@ -203,8 +203,8 @@ const defaultState = {
     "Perm rollen Kader, Hoofdofficier en Officiersraad toegevoegd."
   ]
 };
-// Exporteer statische pManager configuratie naar app.js zonder alles in één bestand te houden.
-window.PManagerData = {
+// Exporteer statische Defensie Personeelsportaal configuratie naar app.js zonder alles in Ã©Ã©n bestand te houden.
+window.DefensiePortalData = {
   ranks,
   rankCategories,
   rankWeight,

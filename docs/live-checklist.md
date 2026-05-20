@@ -1,11 +1,11 @@
-﻿# Live checklist pManager
+﻿# Live checklist Defensie Personeelsportaal
 
 Gebruik deze checklist voordat je de website 24/7 online zet.
 
 ## 1. Database
 
 - PostgreSQL draait op de server.
-- Database `pmanager` bestaat.
+- Database `defensie_portaal` bestaat.
 - Schema is aangemaakt met:
 
 ```powershell
@@ -33,7 +33,7 @@ PORT=3000
 APP_BASE_URL=https://jouwdomein.nl
 STORAGE_MODE=postgres
 DEV_ALLOW_UNAUTH=false
-DATABASE_URL=postgres://USER:WACHTWOORD@HOST:5432/pmanager
+DATABASE_URL=postgres://USER:WACHTWOORD@HOST:5432/defensie_portaal
 DATABASE_SSL=false
 DISCORD_CLIENT_ID=
 DISCORD_CLIENT_SECRET=
