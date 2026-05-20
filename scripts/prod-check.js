@@ -1,4 +1,4 @@
-﻿const fs = require('node:fs');
+const fs = require('node:fs');
 const path = require('node:path');
 const { loadEnv, withClient } = require('../modules/db');
 
@@ -45,6 +45,7 @@ function mask(value) {
         (select count(*) from i8_forms) as i8_forms,
         (select count(*) from resignation_forms) as resignation_forms,
         (select count(*) from porto_units) as porto_units,
+        (select count(*) from app_sessions where expires_at > now()) as active_sessions,
         (select count(*) from hours) as hours
     `);
     console.log(`Database: ${version.rows[0].version.split(' on ')[0]}`);

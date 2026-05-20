@@ -1,4 +1,4 @@
-﻿const http = require("node:http");
+const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -15,6 +15,7 @@ const { createPostgresPeopleStore } = require("./modules/personeelsportaal-postg
 const { createPersoneelsportaalRouteHandler } = require("./modules/personeelsportaal-routes");
 const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-domain");
 const { withClient, closePool } = require("./modules/db");
+const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 
 loadEnv();
 
@@ -25,7 +26,7 @@ const storage = storageMode === "postgres" ? createPostgresReadStorage() : creat
 const { readState, writeState } = storage;
 const port = Number(process.env.PORT || 3000);
 const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
-const sessions = new Map();
+const sessions = createSessionStore();
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 1024 * 1024);
 const {
   parseCookies,
@@ -36,7 +37,7 @@ const {
   exchangeCode,
   getDiscordUser,
   getCurrentUserGuildMember
-} = createAuthServices({ sessions, readState, discordConfigured, allowDevUnauth });
+} = createAuthServices({ sessions, readState, discordConfigured, allowDevUnauth, sessionMaxAgeSeconds });
 
 const {
   ranks,
@@ -508,6 +509,7 @@ async function handleApi(req, res, url) {
     const permissionState = authState || await Promise.resolve(peopleStorage.readState());
     const authPermissions = permissionsForAuth(auth, permissionState);
     auth.session.profile = { ...auth.profile };
+    if (!auth.session.dev && typeof sessions.save === "function") sessions.save(auth.session.id, auth.session);
     sendJson(res, 200, {
       authenticated: true,
       profile: auth.profile,
@@ -668,12 +670,23 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => {
-  console.log(`Oranjestad Defensie draait op ${appBaseUrl}`);
-  console.log(`Storage mode: ${storageMode}`);
-  if (!discordConfigured()) {
-    console.log("Discord is nog niet volledig ingesteld. DEV_ALLOW_UNAUTH bepaalt of lokale demo-toegang werkt.");
-  }
+async function startServer() {
+  await sessions.load?.();
+  await sessions.cleanup?.();
+  server.listen(port, () => {
+    console.log(`Oranjestad Defensie draait op ${appBaseUrl}`);
+    console.log(`Storage mode: ${storageMode}`);
+    console.log(`Actieve sessies geladen: ${typeof sessions.size === "function" ? sessions.size() : "onbekend"}`);
+    if (!discordConfigured()) {
+      console.log("Discord is nog niet volledig ingesteld. DEV_ALLOW_UNAUTH bepaalt of lokale demo-toegang werkt.");
+    }
+  });
+}
+
+startServer().catch((error) => {
+  logServerError("Server start failed", error);
+  console.error(error);
+  process.exit(1);
 });
 
 

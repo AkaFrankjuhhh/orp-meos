@@ -40,7 +40,7 @@ async function discordFetch(url, options = {}) {
   return body;
 }
 
-function createAuthServices({ sessions, readState, discordConfigured, allowDevUnauth }) {
+function createAuthServices({ sessions, readState, discordConfigured, allowDevUnauth, sessionMaxAgeSeconds = () => 604800 }) {
   function getSession(req) {
     const sid = parseCookies(req).orp_session;
     if (!sid) return null;
@@ -49,6 +49,7 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
 
   function createSession(res, user, profile, discordAuth = {}) {
     const sid = crypto.randomBytes(32).toString("hex");
+    // Sessies blijven server-side; de browser krijgt alleen een willekeurige sessie-id.
     sessions.set(sid, {
       user,
       profileId: profile.id,
@@ -59,7 +60,7 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
       createdAt: Date.now()
     });
     const secure = process.env.APP_BASE_URL?.startsWith("https://") ? "; Secure" : "";
-    res.setHeader("Set-Cookie", `orp_session=${sid}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${secure}`);
+    res.setHeader("Set-Cookie", `orp_session=${sid}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionMaxAgeSeconds()}${secure}`);
   }
 
   function clearSession(req, res) {

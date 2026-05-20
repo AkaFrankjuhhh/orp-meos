@@ -1,4 +1,4 @@
-﻿-- Defensie Personeelsportaal PostgreSQL basis schema.
+-- Defensie Personeelsportaal PostgreSQL basis schema.
 -- Dit schema is bedoeld als eerste migratiestap: data.json kan hierin worden geimporteerd,
 -- waarna we de applicatie per onderdeel gecontroleerd van JSON naar tabellen ombouwen.
 
@@ -8,6 +8,17 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+
+-- Browser logins worden server-side bewaard zodat herstarts niet direct iedereen uitloggen.
+CREATE TABLE IF NOT EXISTS app_sessions (
+  id text PRIMARY KEY,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS app_sessions_expires_at_idx ON app_sessions(expires_at);
 CREATE TABLE IF NOT EXISTS people (
   id text PRIMARY KEY,
   name text NOT NULL,
