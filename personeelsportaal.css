@@ -3606,3 +3606,10 @@ body[data-device="mobile"] .manual-hours-entry input,
 body[data-device="mobile"] .bulk-hours-row input {
   width: 100%;
 }
+
+/* Diensturenpaneel groeit mee met de weekregels; geen interne scrollbar in het profielblok. */
+#mijn-profiel .profile-hours-panel {
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
