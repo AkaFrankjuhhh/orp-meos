@@ -43,6 +43,7 @@ let liveRefreshTimer = null;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
+
 function registerPersoneelsportaalTab() {
   window.name = portalWindowName;
   const markOpen = () => localStorage.setItem("orp-defensie-portaal-window-seen", String(Date.now()));

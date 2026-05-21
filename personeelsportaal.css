@@ -3487,7 +3487,7 @@ body[data-device="mobile"] .profile-person-name {
 .profile-rank-number {
   display: block;
   color: #f8fafc;
-  font-size: clamp(28px, 3.4vw, 42px);
+  font-size: clamp(24px, 2.6vw, 34px);
   font-weight: 950;
   line-height: 1.05;
   letter-spacing: 0;
@@ -3498,7 +3498,7 @@ body[data-device="mobile"] .profile-person-name {
 }
 
 body[data-device="mobile"] .profile-rank-number {
-  font-size: 28px;
+  font-size: 24px;
 }
 /* Handmatige diensturen tonen weekuren als eigen compacte module in dezelfde panelstijl. */
 .manual-hours-total {
@@ -3614,16 +3614,26 @@ body[data-device="mobile"] .bulk-hours-row input {
   overflow: visible;
 }
 
+#hoursOverviewDialog {
+  overflow-x: hidden;
+}
+
 .hours-overview-dialog {
-  width: min(720px, calc(100vw - 28px));
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hours-overview-rows {
   display: grid;
   gap: 10px;
   max-height: min(62vh, 620px);
-  overflow: auto;
-  padding-right: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 8px;
+  min-width: 0;
 }
 
 .hours-overview-row {
@@ -3631,6 +3641,7 @@ body[data-device="mobile"] .bulk-hours-row input {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
+  min-width: 0;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--hours-tone) 62%, var(--border));
   border-radius: 12px;
@@ -3640,19 +3651,164 @@ body[data-device="mobile"] .bulk-hours-row input {
 .hours-overview-row div {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .hours-overview-row span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .hours-overview-row b {
   color: #fff;
   font-size: 18px;
+  white-space: nowrap;
 }
 
 body[data-device="mobile"] .hours-overview-row {
   grid-template-columns: 1fr;
+}
+
+/* Definitieve typografie-laag voor consistente teksthierarchie in het portaal. */
+html[data-typography="system"] body {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+html[data-typography="system"] .topbar h1,
+html[data-typography="system"] .lock-content h1 {
+  font-size: clamp(30px, 3.2vw, 40px);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+html[data-typography="system"] .panel-head h2,
+html[data-typography="system"] .rank-category-title h2,
+html[data-typography="system"] .employee-group h2,
+html[data-typography="system"] .profile-left-column > .panel > h2,
+html[data-typography="system"] .profile-progress-column > .panel > h2,
+html[data-typography="system"] .profile-discipline-panel > h2 {
+  font-size: 20px;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+html[data-typography="system"] .rank-group-title h3,
+html[data-typography="system"] .person-card h2,
+html[data-typography="system"] .i8-card h3,
+html[data-typography="system"] .mentor-row strong,
+html[data-typography="system"] .employee-row strong,
+html[data-typography="system"] .range-row strong,
+html[data-typography="system"] .feed-item strong {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+html[data-typography="system"] .person-card,
+html[data-typography="system"] .employee-row,
+html[data-typography="system"] .mentor-row,
+html[data-typography="system"] .table-row,
+html[data-typography="system"] .range-row,
+html[data-typography="system"] .feed-item,
+html[data-typography="system"] input,
+html[data-typography="system"] select,
+html[data-typography="system"] textarea,
+html[data-typography="system"] button {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+html[data-typography="system"] .eyebrow,
+html[data-typography="system"] .nav-section,
+html[data-typography="system"] .search span,
+html[data-typography="system"] label > span,
+html[data-typography="system"] .profile-hero-dates span,
+html[data-typography="system"] .profile-hero-distinctions span,
+html[data-typography="system"] .manual-hours-heading,
+html[data-typography="system"] .manual-hours-total span,
+html[data-typography="system"] .bulk-hours-row small,
+html[data-typography="system"] .person-meta span,
+html[data-typography="system"] .employee-row-head,
+html[data-typography="system"] .table-row-head,
+html[data-typography="system"] .range-header {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+html[data-typography="system"] .nav-item {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+html[data-typography="system"] .profile-chip strong,
+html[data-typography="system"] .profile-open-text strong {
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.1;
+}
+
+html[data-typography="system"] .profile-chip span,
+html[data-typography="system"] .profile-open-text span {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+html[data-typography="system"] .profile-rank-number {
+  font-size: clamp(24px, 2.45vw, 32px);
+  font-weight: 900;
+  line-height: 1.08;
+}
+
+html[data-typography="system"] .profile-person-name {
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 850;
+  line-height: 1.1;
+}
+
+html[data-typography="system"] .profile-badge,
+html[data-typography="system"] .status,
+html[data-typography="system"] .rank-count,
+html[data-typography="system"] .nav-counter,
+html[data-typography="system"] .i8-status-pill {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+html[data-typography="system"] .stat-card strong,
+html[data-typography="system"] .manual-hours-total strong,
+html[data-typography="system"] .hours-summary strong,
+html[data-typography="system"] .discipline-summary strong {
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 900;
+  line-height: 1;
+}
+
+html[data-typography="system"] .profile-hero-dates strong,
+html[data-typography="system"] .manual-hours-week strong,
+html[data-typography="system"] .hours-overview-row b {
+  font-size: 17px;
+  font-weight: 850;
+}
+
+html[data-typography="system"] .primary,
+html[data-typography="system"] .ghost,
+html[data-typography="system"] .person-actions button,
+html[data-typography="system"] .card-menu-panel button,
+html[data-typography="system"] .context-menu button {
+  font-weight: 800;
+}
+
+html[data-typography="system"] body[data-device="mobile"] .profile-rank-number {
+  font-size: 23px;
+}
+
+html[data-typography="system"] body[data-device="mobile"] .profile-person-name {
+  font-size: 22px;
 }

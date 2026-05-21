@@ -1,9 +1,25 @@
-﻿/* Defensie Personeelsportaal-profielmodule: profielkaart, trainingen, badges, uren en sancties. */
+/* Defensie Personeelsportaal-profielmodule: profielkaart, trainingen, badges, uren en sancties. */
 
 function openProfilePage(profileId = "") {
   selectedProfileId = profileId;
   renderProfile();
   setPage("mijn-profiel");
+}
+
+const profileRankLabels = {
+  "Marechaussee 4de Klasser": "Mar 4de Klasser",
+  "Marrechaussee 4de Klasser": "Mar 4de Klasser",
+  "Marechaussee 3de Klasser": "Mar 3de Klasser",
+  "Marrechaussee 3de Klasser": "Mar 3de Klasser",
+  "Marechaussee 2de Klasser": "Mar 2de Klasser",
+  "Marrechaussee 2de Klasser": "Mar 2de Klasser",
+  "Marechaussee 1ste Klasser": "Mar 1de Klasser",
+  "Marrechaussee 1de Klasser": "Mar 1de Klasser",
+  "Marrechaussee 1ste Klasser": "Mar 1de Klasser"
+};
+
+function profileRankLabel(rank) {
+  return profileRankLabels[rank] || rank || "-";
 }
 
 function renderProfileChecks(current) {
@@ -280,7 +296,7 @@ function renderProfile() {
   $("#absenceMemberDisplay").value = `${current.serviceNumber || "-"} - ${current.name}`;
   renderResignationForm();
   $("#profilePageAvatar").src = avatarFor(viewed);
-  $("#profilePageRankNumber").textContent = `${viewed.rank || "-"} - ${viewed.serviceNumber || "-"}`;
+  $("#profilePageRankNumber").textContent = `${profileRankLabel(viewed.rank)} - ${viewed.serviceNumber || "-"}`;
   $("#profilePageDisplayName").textContent = viewed.name || "-";
   renderProfileBadges(viewed);
   renderProfileDistinctions();
