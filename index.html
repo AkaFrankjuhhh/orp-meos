@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260518-style-split" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260521-typography-final" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260521-log-count-14" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -44,10 +44,12 @@
         <div class="nav-section" data-ovj-only="true">(h)OvJ</div>
         <button class="nav-item" data-page="i8-controleren" data-ovj-only="true" type="button"><span>I8-Controleren</span><span id="i8ReviewCounter" class="nav-counter" hidden>0</span></button>
         <button class="nav-item" data-page="i8-archief" data-ovj-only="true" type="button">I8-Archief</button>
+        <button class="nav-item" data-page="ovj-logboek" data-ovj-leadership-only="true" type="button">hOvJ-Logboek</button>
         <div class="nav-divider" data-ovj-only="true" aria-hidden="true"></div>
         <div class="nav-section" data-mentor-section="true">Mentor</div>
         <button class="nav-item" data-page="mentor-overzicht" data-mentor-overview-only="true" type="button">Mentor-Overzicht</button>
         <button class="nav-item" data-page="mentor-traject" data-mentor-traject-only="true" type="button">Mentor-Traject</button>
+        <button class="nav-item" data-page="mentor-logboek" data-mentor-leadership-only="true" type="button">Mentor-Logboek</button>
         <div class="nav-divider" data-ws-only="true" aria-hidden="true"></div>
         <div class="nav-section" data-ws-only="true">W&S</div>
         <button class="nav-item" data-page="personeel-aannemen" data-ws-only="true" type="button">Personeel Aannemen</button>
@@ -111,7 +113,7 @@
               <h2>Rangverdeling</h2>
             </div>
             <div class="rank-chart-layout">
-              <div id="rankPie" class="rank-pie" role="img" aria-label="Cirkeldiagram rangverdeling"></div>
+              <div id="rankPie" class="rank-pie" role="img" aria-label="Cirkeldiagram rangverdeling"><div id="rankPieTooltip" class="rank-pie-tooltip" hidden></div></div>
               <div class="rank-legend-wrap">
                 <h3>Legenda</h3>
                 <div id="rankLegend" class="rank-legend"></div>
@@ -206,7 +208,7 @@
                 <button id="addDisciplineBtn" class="ghost small" type="button">Registreren</button>
               </div>
               <div class="discipline-summary">
-                <div><span>OfficiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â«le Waarschuwing</span><strong id="regularWarningCount">0</strong></div>
+                <div><span>Offici&#235;le Waarschuwing</span><strong id="regularWarningCount">0</strong></div>
                 <div><span>Strike</span><strong id="regularStrikeCount">0</strong></div>
                 <div><span>I8 Waarschuwing</span><strong id="i8WarningCount">0</strong></div>
                 <div><span>I8 Strike</span><strong id="i8StrikeCount">0</strong></div>
@@ -217,7 +219,7 @@
                   <select id="disciplineTypeFilter">
                     <option value="all">Alles</option>
                     <option value="i8">Alle I8 sancties</option>
-                    <option value="official">OfficiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â«le waarschuwingen & strikes</option>
+                    <option value="official">Offici&#235;le waarschuwingen & strikes</option>
                   </select>
                 </label>
                 <label>Datum
@@ -270,6 +272,17 @@
         </section>
       </section>
 
+      <section id="mentor-logboek" class="page">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Mentor-Logboek</h2>
+              <p class="muted">Overzicht van koppeldiensten per mentor</p>
+            </div>
+          </div>
+          <div id="mentorLeadershipLogList" class="leadership-list"></div>
+        </section>
+      </section>
       <section id="mentor-checklist" class="page mentor-checklist-page">
         <section class="panel mentor-detail-panel">
           <div class="panel-head">
@@ -415,12 +428,28 @@
             </div>
           </div>
           <div class="i8-archive-toolbar">
+            <div class="i8-archive-status-toggle" role="group" aria-label="I8 archief statusfilter">
+              <button class="approved" type="button" data-i8-archive-status="approved">Goedgekeurd</button>
+              <button class="all active" type="button" data-i8-archive-status="all">Alles</button>
+              <button class="rejected" type="button" data-i8-archive-status="rejected">Afgekeurd</button>
+            </div>
             <label class="search i8-archive-search">
               <span>Zoeken</span>
               <input id="i8ArchiveSearchInput" type="search" placeholder="Naam, rang, I8-nummer, status, locatie..." />
             </label>
           </div>
           <div id="i8ArchiveList" class="i8-list i8-compact-list"></div>
+        </section>
+      </section>
+      <section id="ovj-logboek" class="page">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>hOvJ-Logboek</h2>
+              <p class="muted">Overzicht van gekeurde I8 formulieren per beoordelaar</p>
+            </div>
+          </div>
+          <div id="ovjLeadershipLogList" class="leadership-list"></div>
         </section>
       </section>
       <section id="afwezigheid-overzicht" class="page">
@@ -679,6 +708,29 @@
       </form>
     </dialog>
 
+    <dialog id="leadershipLogDialog">
+      <div class="dialog-form leadership-log-dialog">
+        <div class="panel-head">
+          <div>
+            <h2 id="leadershipLogTitle">Logboek</h2>
+            <p id="leadershipLogSubtitle" class="muted">-</p>
+          </div>
+          <button class="ghost icon" type="button" id="closeLeadershipLogDialog">&times;</button>
+        </div>
+        <label class="full">Periode
+          <select id="leadershipLogPeriod">
+            <option value="week">Afgelopen week</option>
+            <option value="month">Afgelopen maand</option>
+            <option value="quarter">Afgelopen 3 maanden</option>
+            <option value="halfyear">Afgelopen 6 maanden</option>
+          </select>
+        </label>
+        <div id="leadershipLogRows" class="leadership-detail-list"></div>
+        <menu>
+          <button id="closeLeadershipLogFooter" class="ghost" type="button">Sluiten</button>
+        </menu>
+      </div>
+    </dialog>
     <dialog id="deleteAbsenceDialog">
       <form id="deleteAbsenceForm" method="dialog" class="dialog-form">
         <div class="panel-head">
@@ -729,11 +781,11 @@
     <script src="personeelsportaal/profile.js?v=20260521-profile-rank-labels"></script>
     <script src="personeelsportaal/hours.js?v=20260521-hours-overview"></script>
     <script src="personeelsportaal/people.js?v=20260521-manual-hours"></script>
-    <script src="personeelsportaal/i8.js?v=20260519-i8-reject-reason"></script>
-    <script src="personeelsportaal/mentor.js?v=20260518-module-split"></script>
+    <script src="personeelsportaal/i8.js?v=20260521-mentor-overview-tests"></script>
+    <script src="personeelsportaal/mentor.js?v=20260521-mentor-test-complete"></script>
     <script src="personeelsportaal/absence.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/archive.js?v=20260518-module-split"></script>
     <script src="personeelsportaal-data.js?v=20260518-app-split"></script>
-    <script src="app.js?v=20260521-typography-final"></script>
+    <script src="app.js?v=20260521-mentor-overview-tests"></script>
   </body>
 </html>

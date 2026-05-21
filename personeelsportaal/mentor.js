@@ -1,9 +1,21 @@
-﻿/* Defensie Personeelsportaal mentormodule: mentoroverzicht, checklist, traject en mentor-notities. */
+/* Defensie Personeelsportaal mentormodule: mentoroverzicht, checklist, traject en mentor-notities. */
+
+let mentorLogDetailContext = null;
+const leadershipPeriodLabels = {
+  week: "Afgelopen week",
+  month: "Afgelopen maand",
+  quarter: "Afgelopen 3 maanden",
+  halfyear: "Afgelopen 6 maanden"
+};
 
 function openMentorChecklist(profileId) {
   selectedMentorProfileId = profileId;
   renderMentorChecklist();
   setPage("mentor-checklist");
+}
+
+function canViewMentorLeadershipLog() {
+  return Boolean(permissions.canViewMentorLeadershipLog || hasKaderAccess());
 }
 
 function mentorChecklistFor(person) {
@@ -21,8 +33,14 @@ function mentorChecklistFor(person) {
         ]
       : [];
   const normalizedItems = mentorChecklistLabels.map((_, index) => Boolean(items[index]));
+  const allItemsCompleted = normalizedItems.length > 0 && normalizedItems.every(Boolean);
+  const testSent = Boolean(checklist.testSent);
+  const testApproved = Boolean(checklist.testApproved);
   return {
-    completed: normalizedItems.length > 0 && normalizedItems.every(Boolean),
+    completed: allItemsCompleted && testSent && testApproved,
+    allItemsCompleted,
+    testSent,
+    testApproved,
     items: normalizedItems,
     notes
   };
@@ -31,11 +49,51 @@ function mentorChecklistFor(person) {
 function mentorPeople() {
   return state.people
     .filter((person) => person.status === "Actief" && mentorRanks.includes(person.rank))
+    .filter((person) => !mentorChecklistFor(person).completed)
     .sort((a, b) => {
       const rankDelta = rankWeight.get(b.rank) - rankWeight.get(a.rank);
       if (rankDelta !== 0) return rankDelta;
       return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
     });
+}
+
+function mentorProgressColor(completed, total) {
+  const ratio = total ? completed / total : 0;
+  const hue = Math.round(4 + ratio * 126);
+  const lightness = Math.round(43 + ratio * 7);
+  return `hsl(${hue} 72% ${lightness}%)`;
+}
+
+function renderMentorProgressBars(completed, total) {
+  const color = mentorProgressColor(completed, total);
+  const ratio = total ? completed / total : 0;
+  const filledBars = completed <= 0 ? 1 : Math.max(1, Math.ceil(ratio * 4));
+  return `
+    <span class="mentor-progress-wrap" title="${escapeHtml(completed)}/${escapeHtml(total)} voltooid">
+      <span class="mentor-progress-mini" aria-label="${escapeHtml(completed)} van ${escapeHtml(total)} mentorpunten voltooid">
+        ${Array.from({ length: 4 }, (_, index) => `<i class="${index < filledBars ? "done" : ""}" style="--mentor-progress-color:${color}"></i>`).join("")}
+      </span>
+      <b>${escapeHtml(completed)}/${escapeHtml(total)}</b>
+    </span>
+  `;
+}
+
+function renderMentorTestOverview(person, checklist) {
+  const locked = !checklist.allItemsCompleted;
+  const sentDisabled = locked ? "disabled" : "";
+  const approvedDisabled = locked || !checklist.testSent ? "disabled" : "";
+  return `
+    <span class="mentor-test-overview ${locked ? "is-locked" : ""}" aria-label="Toetsstatus">
+      <label class="mentor-test-mini ${checklist.testSent ? "is-completed" : ""}">
+        <input type="checkbox" data-mentor-test="sent" data-mentor-test-person="${escapeHtml(person.id)}" ${checklist.testSent ? "checked" : ""} ${sentDisabled} />
+        <span>Toets gestuurd</span>
+      </label>
+      <label class="mentor-test-mini ${checklist.testApproved ? "is-completed" : ""}">
+        <input type="checkbox" data-mentor-test="approved" data-mentor-test-person="${escapeHtml(person.id)}" ${checklist.testApproved ? "checked" : ""} ${approvedDisabled} />
+        <span>Toets goedgekeurd</span>
+      </label>
+    </span>
+  `;
 }
 
 function renderMentorOverview() {
@@ -52,20 +110,22 @@ function renderMentorOverview() {
       <div class="mentor-row mentor-row-head">
         <span>Naam</span>
         <span>Rang</span>
-        <span>Aangenomen op</span>
+        <span>Aangenomen</span>
         <span>Voortgang</span>
+        <span>Toets</span>
       </div>
       ${people
         .map((person) => {
           const checklist = mentorChecklistFor(person);
           const completedItems = checklist.items.filter(Boolean).length;
           return `
-            <button class="mentor-row mentor-row-button ${checklist.completed ? "is-completed" : ""}" type="button" data-open-mentor="${person.id}">
+            <div class="mentor-row mentor-row-button" role="button" tabindex="0" data-open-mentor="${person.id}">
               <strong>${escapeHtml(person.name)}</strong>
               <span>${escapeHtml(person.rank)}</span>
               <span>${escapeHtml(formatDate(hiredDateFor(person)))}</span>
-              <span>${completedItems}/${mentorChecklistLabels.length}</span>
-            </button>
+              ${renderMentorProgressBars(completedItems, mentorChecklistLabels.length)}
+              ${renderMentorTestOverview(person, checklist)}
+            </div>
           `;
         })
         .join("")}
@@ -153,10 +213,111 @@ async function saveMentorChecklist(personId, patch = {}) {
   if (!person || !canManageMentorOverview()) return false;
   const checklist = mentorChecklistFor(person);
   const body = {
-    items: patch.items || checklist.items
+    items: patch.items || checklist.items,
+    testSent: "testSent" in patch ? patch.testSent : checklist.testSent,
+    testApproved: "testApproved" in patch ? patch.testApproved : checklist.testApproved
   };
   if ("newNote" in patch) body.newNote = patch.newNote;
   return runAction(`/api/people/${encodeURIComponent(personId)}/mentor`, body);
+}
+
+function periodStartDate(period) {
+  const now = new Date();
+  const start = new Date(now);
+  if (period === "week") {
+    const day = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - day);
+  } else if (period === "month") {
+    start.setDate(start.getDate() - 30);
+  } else if (period === "quarter") {
+    start.setDate(start.getDate() - 90);
+  } else {
+    start.setDate(start.getDate() - 180);
+  }
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function inLeadershipPeriod(dateValue, period) {
+  if (period === "all") return true;
+  const date = new Date(dateValue || 0);
+  if (Number.isNaN(date.getTime())) return false;
+  return date >= periodStartDate(period);
+}
+
+function mentorLogRowsForPerson(person, period = "halfyear") {
+  return (state.people || [])
+    .flatMap((trainee) => {
+      const checklist = mentorChecklistFor(trainee);
+      return checklist.notes.map((note) => ({ ...note, trainee }));
+    })
+    .filter((note) => (note.authorId && note.authorId === person.id) || (!note.authorId && note.authorName === person.name))
+    .filter((note) => inLeadershipPeriod(note.createdAt, period))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+function mentorLogPeople() {
+  return (state.people || [])
+    .filter((person) => person.status === "Actief")
+    .filter((person) => (person.badges || []).some((badge) => ["Mentor", "Mentor-Leiding"].includes(badge)))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "nl"));
+}
+
+function renderMentorLeadershipLog() {
+  const list = $("#mentorLeadershipLogList");
+  if (!list) return;
+  if (!canViewMentorLeadershipLog()) {
+    list.innerHTML = '<div class="feed-item">Geen toegang.</div>';
+    return;
+  }
+  const people = mentorLogPeople();
+  list.innerHTML = people.length
+    ? `
+      <div class="leadership-row leadership-row-head">
+        <span>Naam</span>
+        <span>Rang</span>
+        <span>Koppeldiensten</span>
+      </div>
+      ${people
+        .map((person) => `
+          <button class="leadership-row leadership-row-button" type="button" data-mentor-log-person="${escapeHtml(person.id)}">
+            <strong>${escapeHtml(person.name)}</strong>
+            <span>${escapeHtml(person.rank || "-")}</span>
+            <span class="rank-count"><span>${mentorLogRowsForPerson(person, "all").length}</span></span>
+          </button>
+        `)
+        .join("")}
+    `
+    : '<div class="feed-item">Geen mentoren gevonden.</div>';
+}
+
+function openMentorLogDetail(personId) {
+  const person = state.people.find((entry) => entry.id === personId);
+  if (!person || !canViewMentorLeadershipLog()) return;
+  mentorLogDetailContext = { personId };
+  $("#leadershipLogTitle").textContent = `Mentor-log ${person.name}`;
+  $("#leadershipLogSubtitle").textContent = `${person.rank || "-"} - ${person.serviceNumber || "-"}`;
+  $("#leadershipLogPeriod").value = "week";
+  renderMentorLogDetailRows();
+  $("#leadershipLogDialog").showModal();
+}
+
+function renderMentorLogDetailRows() {
+  if (!mentorLogDetailContext) return;
+  const person = state.people.find((entry) => entry.id === mentorLogDetailContext.personId);
+  const list = $("#leadershipLogRows");
+  if (!person || !list) return;
+  const period = $("#leadershipLogPeriod")?.value || "week";
+  const rows = mentorLogRowsForPerson(person, period);
+  list.innerHTML = rows.length
+    ? rows.map((row) => `
+      <article class="leadership-detail-row">
+        <strong>${escapeHtml(row.trainee?.name || "Onbekend")}</strong>
+        <span>${escapeHtml(formatDateTime(row.createdAt))} - ${escapeHtml(leadershipPeriodLabels[period])}</span>
+        <p>${escapeHtml(row.text || "-")}</p>
+      </article>
+    `).join("")
+    : '<div class="feed-item">Geen koppeldiensten gevonden voor deze periode.</div>';
 }
 
 window.DefensiePortalModules.registerFeature("mentor", { ready: true });

@@ -1,4 +1,4 @@
-﻿const crypto = require("node:crypto");
+const crypto = require("node:crypto");
 
 // Centrale Defensie Personeelsportaal domeinregels: rangen, dienstnummers, profieldata en mutaties.
 const ranks = [
@@ -25,14 +25,14 @@ const ranks = [
 const rankWeight = new Map(ranks.map((rank, index) => [rank, ranks.length - index]));
 const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
-const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S"];
+const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "OvJ-Leiding", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding"];
 const extraFunctions = ["Kader", "Hoofdofficier", "Officiersraad"];
 const mentorRanks = ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"];
 const mentorTrainingName = "Mentor-Traject";
 const mentorChecklistCount = 13;
 const disciplineTypes = new Set(["regular-warning", "regular-strike", "i8-warning", "i8-strike"]);
 const disciplineLabels = {
-  "regular-warning": "OfficiÃ«le Waarschuwing",
+  "regular-warning": "Offici\u00eble Waarschuwing",
   "regular-strike": "Strike",
   "i8-warning": "I8 Waarschuwing",
   "i8-strike": "I8 Strike"
@@ -164,7 +164,7 @@ function savePerson(state, payload) {
     completedOperational: existing?.completedOperational || [],
     portoPhone: existing?.portoPhone || "",
     discipline: existing?.discipline || [],
-    mentorChecklist: existing?.mentorChecklist || { completed: false, items: Array.from({ length: mentorChecklistCount }, () => false), notes: [] },
+    mentorChecklist: existing?.mentorChecklist || { completed: false, testSent: false, testApproved: false, items: Array.from({ length: mentorChecklistCount }, () => false), notes: [] },
     status: existing?.status || "Actief",
     rankHistory: existing?.rankHistory || []
   };
@@ -309,7 +309,7 @@ function stateForProfile(state, permissions, profileId = "") {
           items: isOwnMentorTrajectory && Array.isArray(checklist.items)
             ? Array.from({ length: mentorChecklistCount }, (_, index) => Boolean(checklist.items[index]))
             : [],
-          notes: ""
+          notes: permissions?.canViewMentorLeadershipLog ? normalizeMentorNotes(checklist) : ""
         }
       };
     });

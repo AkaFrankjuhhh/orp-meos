@@ -1,4 +1,11 @@
-﻿/* Defensie Personeelsportaal I8-module: eigen I8 formulieren, controle en archief. */
+/* Defensie Personeelsportaal I8-module: eigen I8 formulieren, controle en archief. */
+
+let i8ArchiveStatusFilter = "all";
+let ovjLogDetailContext = null;
+
+function canViewOvJLeadershipLog() {
+  return Boolean(permissions.canViewOvJLeadershipLog || hasKaderAccess());
+}
 
 function i8StatusLabel(status) {
   return {
@@ -200,6 +207,12 @@ function renderI8StatusMeta(form) {
   return `${prefix}: ${escapeHtml(form.reviewedByName)} op ${escapeHtml(formatDateTime(form.reviewedAt))}`;
 }
 
+function setI8ArchiveStatusFilter(value) {
+  i8ArchiveStatusFilter = ["approved", "all", "rejected"].includes(value) ? value : "all";
+  $$('[data-i8-archive-status]').forEach((button) => button.classList.toggle("active", button.dataset.i8ArchiveStatus === i8ArchiveStatusFilter));
+  renderI8Forms();
+}
+
 function renderI8Forms() {
   const current = currentProfile();
   const ownList = $("#i8OwnList");
@@ -207,6 +220,7 @@ function renderI8Forms() {
   const archiveList = $("#i8ArchiveList");
   if ($("#i8Name")) $("#i8Name").value = currentMemberName();
   setI8Tab(activeI8Tab);
+  $$('[data-i8-archive-status]').forEach((button) => button.classList.toggle("active", button.dataset.i8ArchiveStatus === i8ArchiveStatusFilter));
 
   const forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
   if (ownList) {
@@ -238,6 +252,7 @@ function renderI8Forms() {
       const archiveQuery = $("#i8ArchiveSearchInput")?.value.toLowerCase().trim() || "";
       const archivedForms = forms
         .filter((form) => ["approved", "rejected"].includes(form.status))
+        .filter((form) => i8ArchiveStatusFilter === "all" || form.status === i8ArchiveStatusFilter)
         .filter((form) => i8ArchiveMatchesQuery(form, forms, archiveQuery))
         .sort((a, b) => i8NumberValue(b, forms) - i8NumberValue(a, forms));
       archiveList.innerHTML = archivedForms.length
@@ -275,6 +290,78 @@ function openI8ReviewDialog(formId, status) {
   if (status === "rejected") reasonInput?.focus();
 }
 
+function reviewedI8FormsForPerson(person, period = "halfyear") {
+  return (state.i8Forms || [])
+    .filter((form) => ["approved", "rejected"].includes(form.status))
+    .filter((form) => (form.reviewedById && form.reviewedById === person.id) || (!form.reviewedById && form.reviewedByName === person.name))
+    .filter((form) => inLeadershipPeriod(form.reviewedAt, period))
+    .sort((a, b) => new Date(b.reviewedAt || 0) - new Date(a.reviewedAt || 0));
+}
+
+function ovjLogPeople() {
+  return (state.people || [])
+    .filter((person) => person.status === "Actief")
+    .filter((person) => (person.badges || []).some((badge) => ["OvJ", "hOvJ", "OvJ-Leiding"].includes(badge)))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "nl"));
+}
+
+function renderOvJLeadershipLog() {
+  const list = $("#ovjLeadershipLogList");
+  if (!list) return;
+  if (!canViewOvJLeadershipLog()) {
+    list.innerHTML = '<div class="feed-item">Geen toegang.</div>';
+    return;
+  }
+  const people = ovjLogPeople();
+  list.innerHTML = people.length
+    ? `
+      <div class="leadership-row leadership-row-head">
+        <span>Naam</span>
+        <span>Rang</span>
+        <span>Gekeurde I8</span>
+      </div>
+      ${people
+        .map((person) => `
+          <button class="leadership-row leadership-row-button" type="button" data-ovj-log-person="${escapeHtml(person.id)}">
+            <strong>${escapeHtml(person.name)}</strong>
+            <span>${escapeHtml(person.rank || "-")}</span>
+            <span class="rank-count"><span>${reviewedI8FormsForPerson(person, "all").length}</span></span>
+          </button>
+        `)
+        .join("")}
+    `
+    : '<div class="feed-item">Geen OvJ/hOvJ medewerkers gevonden.</div>';
+}
+
+function openOvJLogDetail(personId) {
+  const person = state.people.find((entry) => entry.id === personId);
+  if (!person || !canViewOvJLeadershipLog()) return;
+  ovjLogDetailContext = { personId };
+  if (typeof mentorLogDetailContext !== "undefined") mentorLogDetailContext = null;
+  $("#leadershipLogTitle").textContent = `hOvJ-log ${person.name}`;
+  $("#leadershipLogSubtitle").textContent = `${person.rank || "-"} - ${person.serviceNumber || "-"}`;
+  $("#leadershipLogPeriod").value = "week";
+  renderOvJLogDetailRows();
+  $("#leadershipLogDialog").showModal();
+}
+
+function renderOvJLogDetailRows() {
+  if (!ovjLogDetailContext) return;
+  const person = state.people.find((entry) => entry.id === ovjLogDetailContext.personId);
+  const list = $("#leadershipLogRows");
+  if (!person || !list) return;
+  const period = $("#leadershipLogPeriod")?.value || "week";
+  const rows = reviewedI8FormsForPerson(person, period);
+  const forms = state.i8Forms || [];
+  list.innerHTML = rows.length
+    ? rows.map((form) => `
+      <article class="leadership-detail-row" data-i8-open="${escapeHtml(form.id)}" role="button" tabindex="0">
+        <strong>I8 ${escapeHtml(i8NumberFor(form, forms))} - ${escapeHtml(form.personName || memberName(form.personId))}</strong>
+        <span>${escapeHtml(i8StatusLabel(form.status))} op ${escapeHtml(formatDateTime(form.reviewedAt))}</span>
+        <p>${escapeHtml(form.location || "-")} - ${escapeHtml(i8DateTime(form))}</p>
+      </article>
+    `).join("")
+    : '<div class="feed-item">Geen gekeurde I8 formulieren gevonden voor deze periode.</div>';
+}
+
 window.DefensiePortalModules.registerFeature("i8", { ready: true });
-
-

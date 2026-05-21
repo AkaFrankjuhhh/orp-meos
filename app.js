@@ -39,6 +39,7 @@ const portalChannelName = "orp-defensie-portaal-window";
 let reviewCounterPoll = null;
 let liveEventSource = null;
 let liveRefreshTimer = null;
+let rankPieSegments = [];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -329,11 +330,13 @@ function pageTitle(page) {
     "mentor-overzicht": "Mentor-Overzicht",
     "mentor-traject": "Mentor-Traject",
     "mentor-checklist": "Mentor-Checklist",
+    "mentor-logboek": "Mentor-Logboek",
     afwezigheid: "Afwezigheid",
     "i8-opstellen": "I8-Formulier",
     "ontslag-formulier": "Ontslag-Formulier",
     "i8-controleren": "I8-Controleren",
     "i8-archief": "I8-Archief",
+    "ovj-logboek": "hOvJ-Logboek",
     "afwezigheid-overzicht": "Afwezigheid overzicht",
     "ontslag-overzicht": "Ontslag-Overzicht",
     "personeel-aannemen": "Personeel Aannemen",
@@ -343,7 +346,7 @@ function pageTitle(page) {
 }
 
 function validPage(page) {
-  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "mentor-overzicht", "mentor-traject", "mentor-checklist", "personeel-aannemen", "personeel", "archief", "logboek"]);
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "personeel", "archief", "logboek"]);
   return visiblePages.has(page) ? page : "dashboard";
 }
 
@@ -418,6 +421,9 @@ function setPage(page) {
   if (["i8-controleren", "i8-archief"].includes(page) && !canViewOvJChannels()) {
     page = "dashboard";
   }
+  if (page === "ovj-logboek" && !canViewOvJLeadershipLog()) {
+    page = canViewOvJChannels() ? "i8-controleren" : "dashboard";
+  }
   if (["mentor-overzicht", "mentor-checklist"].includes(page) && !canViewMentorOverview()) {
     page = "dashboard";
   }
@@ -425,6 +431,9 @@ function setPage(page) {
     page = "dashboard";
   }
   if (page === "mentor-traject" && !canViewOwnMentorTrajectory()) {
+    page = canViewMentorOverview() ? "mentor-overzicht" : "dashboard";
+  }
+  if (page === "mentor-logboek" && !canViewMentorLeadershipLog()) {
     page = canViewMentorOverview() ? "mentor-overzicht" : "dashboard";
   }
   $$(".page").forEach((element) => element.classList.toggle("active", element.id === page));
@@ -472,15 +481,18 @@ function renderDashboard() {
     .filter((item) => item.count > 0);
 
   if (!rankCounts.length) {
+    rankPieSegments = [];
     $("#rankPie").style.background = "var(--surface-2)";
     $("#rankLegend").innerHTML = '<div class="feed-item">Nog geen actieve leden.</div>';
   } else {
     const sortedRankCounts = rankCounts;
     let cursor = 0;
+    rankPieSegments = [];
     const segments = sortedRankCounts.map((item) => {
       const start = cursor;
       const end = cursor + (item.count / activePeople.length) * 100;
       cursor = end;
+      rankPieSegments.push({ rank: item.rank, count: item.count, start, end });
       return `${rankColors[item.rank]} ${start}% ${end}%`;
     });
     $("#rankPie").style.background = `conic-gradient(${segments.join(", ")})`;
@@ -510,6 +522,38 @@ function renderDashboard() {
 
 }
 
+function rankPieSegmentFromEvent(event) {
+  const pie = event.currentTarget;
+  const rect = pie.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const dx = event.clientX - centerX;
+  const dy = event.clientY - centerY;
+  const radius = rect.width / 2;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  if (distance > radius || distance < radius * 0.3) return null;
+  const percent = ((Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360) / 3.6;
+  return rankPieSegments.find((segment, index) => percent >= segment.start && (percent < segment.end || index === rankPieSegments.length - 1)) || null;
+}
+
+function moveRankPieTooltip(event) {
+  const tooltip = $("#rankPieTooltip");
+  const segment = rankPieSegmentFromEvent(event);
+  if (!tooltip || !segment) {
+    hideRankPieTooltip();
+    return;
+  }
+  const pieRect = event.currentTarget.getBoundingClientRect();
+  tooltip.innerHTML = `<strong>${escapeHtml(segment.rank)}</strong><span>${segment.count} ${segment.count === 1 ? "lid" : "leden"}</span>`;
+  tooltip.style.left = `${event.clientX - pieRect.left + 12}px`;
+  tooltip.style.top = `${event.clientY - pieRect.top + 12}px`;
+  tooltip.hidden = false;
+}
+
+function hideRankPieTooltip() {
+  const tooltip = $("#rankPieTooltip");
+  if (tooltip) tooltip.hidden = true;
+}
 function renderKaderNavigation() {
   const isKader = hasKaderAccess();
   const showOvJ = canViewOvJChannels();
@@ -517,6 +561,8 @@ function renderKaderNavigation() {
   const showMentorTrajectory = canViewOwnMentorTrajectory();
   const showMentorSection = canViewMentorSection();
   const showWs = canRecruitPeople();
+  const showOvJLeadership = canViewOvJLeadershipLog();
+  const showMentorLeadership = canViewMentorLeadershipLog();
   $$('[data-kader-only="true"]').forEach((element) => {
     element.hidden = !isKader;
   });
@@ -535,8 +581,14 @@ function renderKaderNavigation() {
   $$('[data-ws-only="true"]').forEach((element) => {
     element.hidden = !showWs;
   });
+  $$('[data-ovj-leadership-only="true"]').forEach((element) => {
+    element.hidden = !showOvJLeadership;
+  });
+  $$('[data-mentor-leadership-only="true"]').forEach((element) => {
+    element.hidden = !showMentorLeadership;
+  });
   $$('[data-restricted-divider="true"]').forEach((element) => {
-    element.hidden = !(isKader || showOvJ || showMentorSection || showWs);
+    element.hidden = !(isKader || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
   });
   renderNavigationCounters();
   if (!isKader && ($("#logboek").classList.contains("active") || $("#archief").classList.contains("active") || $("#personeel").classList.contains("active") || $("#afwezigheid-overzicht").classList.contains("active") || $("#ontslag-overzicht").classList.contains("active"))) {
@@ -545,10 +597,16 @@ function renderKaderNavigation() {
   if (!showOvJ && ($("#i8-controleren").classList.contains("active") || $("#i8-archief").classList.contains("active"))) {
     setPage("dashboard");
   }
+  if (!showOvJLeadership && $("#ovj-logboek")?.classList.contains("active")) {
+    setPage(showOvJ ? "i8-controleren" : "dashboard");
+  }
   if (!showMentorOverview && ($("#mentor-overzicht").classList.contains("active") || $("#mentor-checklist").classList.contains("active"))) {
     setPage("dashboard");
   }
   if (!showMentorTrajectory && $("#mentor-traject").classList.contains("active")) {
+    setPage(showMentorOverview ? "mentor-overzicht" : "dashboard");
+  }
+  if (!showMentorLeadership && $("#mentor-logboek")?.classList.contains("active")) {
     setPage(showMentorOverview ? "mentor-overzicht" : "dashboard");
   }
   if (!showWs && $("#personeel-aannemen")?.classList.contains("active")) {
@@ -660,10 +718,12 @@ function render() {
   renderMentorOverview();
   renderMentorChecklist();
   renderMentorTrajectory();
+  renderMentorLeadershipLog();
   renderRecruitment();
   renderPeople();
   renderArchive();
   renderI8Forms();
+  renderOvJLeadershipLog();
   renderAbsenceOverview();
   renderResignationOverview();
 }
@@ -671,6 +731,9 @@ function render() {
 function wireEvents() {
   window.addEventListener("resize", updateDeviceMode);
   $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+  const rankPie = $("#rankPie");
+  rankPie?.addEventListener("mousemove", moveRankPieTooltip);
+  rankPie?.addEventListener("mouseleave", hideRankPieTooltip);
   const portoButton = $("[data-open-porto]");
   if (portoButton) {
     portoButton.addEventListener("click", () => window.open("/porto.html", "_blank", "noopener"));
@@ -816,6 +879,7 @@ function wireEvents() {
     if (await runAction(`/api/resignation-forms/${encodeURIComponent(formId)}/process`, {})) render();
   });
   $("#i8ArchiveSearchInput").addEventListener("input", renderI8Forms);
+  $$('[data-i8-archive-status]').forEach((button) => button.addEventListener("click", () => setI8ArchiveStatusFilter(button.dataset.i8ArchiveStatus)));
   $$('[data-i8-tab]').forEach((button) => {
     button.addEventListener("click", () => {
       setI8Tab(button.dataset.i8Tab);
@@ -914,9 +978,43 @@ function wireEvents() {
   });
   $("#mentorSearchInput").addEventListener("input", renderMentorOverview);
   $("#mentorOverviewList").addEventListener("click", (event) => {
+    if (event.target.closest(".mentor-test-overview")) return;
     const row = event.target.closest("[data-open-mentor]");
     if (!row) return;
     openMentorChecklist(row.dataset.openMentor);
+  });
+  $("#mentorOverviewList").addEventListener("keydown", (event) => {
+    if (!event.target.matches("[data-open-mentor]")) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openMentorChecklist(event.target.dataset.openMentor);
+  });
+  $("#mentorOverviewList").addEventListener("change", async (event) => {
+    const input = event.target.closest("[data-mentor-test]");
+    if (!input) return;
+    event.stopPropagation();
+    const person = state.people.find((entry) => entry.id === input.dataset.mentorTestPerson);
+    if (!person) return;
+    const checklist = mentorChecklistFor(person);
+    if (!checklist.allItemsCompleted) {
+      input.checked = false;
+      return;
+    }
+    const row = input.closest("[data-open-mentor]");
+    const sentInput = row?.querySelector('[data-mentor-test="sent"]');
+    const approvedInput = row?.querySelector('[data-mentor-test="approved"]');
+    let testSent = Boolean(sentInput?.checked);
+    let testApproved = Boolean(approvedInput?.checked);
+    if (input.dataset.mentorTest === "approved" && testApproved) {
+      const confirmed = await showSiteConfirm(`${person.name} heeft de toets goedgekeurd. Mentor-Traject afronden?`, "Mentor-Traject afronden");
+      if (!confirmed) {
+        input.checked = false;
+        return;
+      }
+    }
+    if (!testSent) testApproved = false;
+    const saved = await saveMentorChecklist(person.id, { items: checklist.items, testSent, testApproved });
+    if (saved) render();
   });
   $("#mentorBackBtn").addEventListener("click", () => setPage("mentor-overzicht"));
   $("#mentorChecklistItems").addEventListener("change", (event) => {
@@ -935,6 +1033,21 @@ function wireEvents() {
   }
   $("#saveMentorChecklistBtn").addEventListener("click", () => saveCurrentMentorChecklist(false));
   $("#saveMentorNotesBtn").addEventListener("click", () => saveCurrentMentorChecklist(true));
+  $("#mentorLeadershipLogList")?.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-mentor-log-person]");
+    if (row) openMentorLogDetail(row.dataset.mentorLogPerson);
+  });
+  $("#ovjLeadershipLogList")?.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-ovj-log-person]");
+    if (row) openOvJLogDetail(row.dataset.ovjLogPerson);
+  });
+  $("#leadershipLogPeriod")?.addEventListener("change", () => {
+    renderMentorLogDetailRows();
+    renderOvJLogDetailRows();
+  });
+  $("#leadershipLogRows")?.addEventListener("click", openI8DetailFromEvent);
+  $("#closeLeadershipLogDialog")?.addEventListener("click", () => $("#leadershipLogDialog").close());
+  $("#closeLeadershipLogFooter")?.addEventListener("click", () => $("#leadershipLogDialog").close());
   $("#bulkHoursBtn")?.addEventListener("click", openBulkHoursDialog);
   $("#closeHoursOverviewDialog")?.addEventListener("click", () => $("#hoursOverviewDialog").close());
   $("#closeHoursOverviewFooter")?.addEventListener("click", () => $("#hoursOverviewDialog").close());

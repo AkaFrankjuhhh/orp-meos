@@ -890,7 +890,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     const existing = person.mentorChecklist || {};
     const incomingItems = Array.isArray(body.items) ? body.items : existing.items || [];
     const items = Array.from({ length: mentorChecklistCount }, (_, index) => Boolean(incomingItems[index]));
-    const completed = items.length === mentorChecklistCount && items.every(Boolean);
+    const allItemsCompleted = items.length === mentorChecklistCount && items.every(Boolean);
+    const testSent = allItemsCompleted ? Boolean(body.testSent ?? existing.testSent) : false;
+    const testApproved = allItemsCompleted && testSent ? Boolean(body.testApproved ?? existing.testApproved) : false;
+    const completed = allItemsCompleted && testSent && testApproved;
     const updatedAt = new Date().toISOString();
     const notes = normalizeMentorNotes(existing);
     const newNote = String(body.newNote || "").trim();
@@ -905,6 +908,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     person.mentorChecklist = {
       completed,
+      testSent,
+      testApproved,
       items,
       notes,
       updatedAt,
