@@ -935,6 +935,14 @@ function wireEvents() {
   $("#saveMentorChecklistBtn").addEventListener("click", () => saveCurrentMentorChecklist(false));
   $("#saveMentorNotesBtn").addEventListener("click", () => saveCurrentMentorChecklist(true));
   $("#bulkHoursBtn")?.addEventListener("click", openBulkHoursDialog);
+  $("#closeHoursOverviewDialog")?.addEventListener("click", () => $("#hoursOverviewDialog").close());
+  $("#closeHoursOverviewFooter")?.addEventListener("click", () => $("#hoursOverviewDialog").close());
+  $(".profile-hours-panel")?.addEventListener("contextmenu", (event) => {
+    const viewed = visibleProfile();
+    if (!viewed || !canViewHours(viewed)) return;
+    event.preventDefault();
+    openHoursOverviewDialog(viewed);
+  });
   $("#closeBulkHoursDialog")?.addEventListener("click", () => $("#bulkHoursDialog").close());
   $("#cancelBulkHoursDialog")?.addEventListener("click", () => $("#bulkHoursDialog").close());
   $("#profileHoursEntry")?.addEventListener("submit", async (event) => {
@@ -955,7 +963,7 @@ function wireEvents() {
       .filter((input) => input.value !== "")
       .map((input) => ({ personId: input.dataset.bulkHoursPerson, hours: Number(input.value || 0) }));
     if (!entries.length) {
-      await showSiteNotice("Vul minimaal Ã©Ã©n urenregel in.", "Geen uren ingevuld");
+      await showSiteNotice("Vul minimaal ÃƒÂ©ÃƒÂ©n urenregel in.", "Geen uren ingevuld");
       return;
     }
     if (await saveManualHours(entries, weekYear, weekNumber)) {

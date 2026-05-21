@@ -3613,3 +3613,46 @@ body[data-device="mobile"] .bulk-hours-row input {
   height: auto;
   overflow: visible;
 }
+
+.hours-overview-dialog {
+  width: min(720px, calc(100vw - 28px));
+}
+
+.hours-overview-rows {
+  display: grid;
+  gap: 10px;
+  max-height: min(62vh, 620px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.hours-overview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--hours-tone) 62%, var(--border));
+  border-radius: 12px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--hours-tone) 22%, rgba(15, 23, 42, 0.78)), rgba(15, 23, 42, 0.76));
+}
+
+.hours-overview-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.hours-overview-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hours-overview-row b {
+  color: #fff;
+  font-size: 18px;
+}
+
+body[data-device="mobile"] .hours-overview-row {
+  grid-template-columns: 1fr;
+}

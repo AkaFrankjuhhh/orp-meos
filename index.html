@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260518-style-split" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260521-hours-no-scroll" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260521-hours-overview" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -206,7 +206,7 @@
                 <button id="addDisciplineBtn" class="ghost small" type="button">Registreren</button>
               </div>
               <div class="discipline-summary">
-                <div><span>OfficiÃƒÂ«le Waarschuwing</span><strong id="regularWarningCount">0</strong></div>
+                <div><span>OfficiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â«le Waarschuwing</span><strong id="regularWarningCount">0</strong></div>
                 <div><span>Strike</span><strong id="regularStrikeCount">0</strong></div>
                 <div><span>I8 Waarschuwing</span><strong id="i8WarningCount">0</strong></div>
                 <div><span>I8 Strike</span><strong id="i8StrikeCount">0</strong></div>
@@ -217,7 +217,7 @@
                   <select id="disciplineTypeFilter">
                     <option value="all">Alles</option>
                     <option value="i8">Alle I8 sancties</option>
-                    <option value="official">OfficiÃƒÂ«le waarschuwingen & strikes</option>
+                    <option value="official">OfficiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â«le waarschuwingen & strikes</option>
                   </select>
                 </label>
                 <label>Datum
@@ -461,6 +461,22 @@
     </main>
 
 
+
+    <dialog id="hoursOverviewDialog">
+      <form method="dialog" class="dialog-form hours-overview-dialog">
+        <div class="panel-head">
+          <div>
+            <h2 id="hoursOverviewTitle">Diensturen</h2>
+            <p id="hoursOverviewSubtitle" class="muted">-</p>
+          </div>
+          <button class="ghost icon" type="button" id="closeHoursOverviewDialog">&times;</button>
+        </div>
+        <div id="hoursOverviewRows" class="hours-overview-rows"></div>
+        <menu>
+          <button id="closeHoursOverviewFooter" class="ghost" type="button">Sluiten</button>
+        </menu>
+      </form>
+    </dialog>
     <dialog id="bulkHoursDialog">
       <form id="bulkHoursForm" method="dialog" class="dialog-form bulk-hours-dialog">
         <div class="panel-head">
@@ -711,13 +727,13 @@
     </script>    <script src="shared-ui.js?v=20260518-frontend-split"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/profile.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/hours.js?v=20260521-manual-hours"></script>
+    <script src="personeelsportaal/hours.js?v=20260521-hours-overview"></script>
     <script src="personeelsportaal/people.js?v=20260521-manual-hours"></script>
     <script src="personeelsportaal/i8.js?v=20260519-i8-reject-reason"></script>
     <script src="personeelsportaal/mentor.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/absence.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/archive.js?v=20260518-module-split"></script>
     <script src="personeelsportaal-data.js?v=20260518-app-split"></script>
-    <script src="app.js?v=20260521-manual-hours"></script>
+    <script src="app.js?v=20260521-hours-overview"></script>
   </body>
 </html>

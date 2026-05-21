@@ -99,6 +99,47 @@ function renderProfileHours(person) {
     .join("");
 }
 
+
+function allHourEntriesForPerson(person) {
+  return (state.hours || [])
+    .filter((entry) => entry.personId === person.id)
+    .filter((entry) => Number(entry.weekYear) && Number(entry.weekNumber))
+    .sort((a, b) => {
+      const yearDelta = Number(b.weekYear) - Number(a.weekYear);
+      if (yearDelta !== 0) return yearDelta;
+      return Number(b.weekNumber) - Number(a.weekNumber);
+    });
+}
+
+function openHoursOverviewDialog(person = visibleProfile()) {
+  if (!person || !canViewHours(person)) return;
+  const entries = allHourEntriesForPerson(person);
+  const title = $("#hoursOverviewTitle");
+  const subtitle = $("#hoursOverviewSubtitle");
+  const list = $("#hoursOverviewRows");
+  if (!title || !subtitle || !list) return;
+  title.textContent = `Diensturen ${person.name || "Onbekend"}`;
+  subtitle.textContent = `${person.rank || "-"} - ${person.serviceNumber || "-"}`;
+  list.innerHTML = entries.length
+    ? entries
+        .map((entry) => {
+          const hours = Number(entry.hours) || 0;
+          const entered = entry.enteredAt ? `Ingevoerd: ${formatDateTime(entry.enteredAt)}` : "Nog geen invoertijd";
+          const author = entry.enteredByName ? `Door: ${entry.enteredByName}` : "";
+          return `
+            <article class="hours-overview-row" style="--hours-tone:${hourToneColor(hours)}">
+              <div>
+                <strong>Week ${escapeHtml(entry.weekNumber)} (${escapeHtml(entry.weekYear)})</strong>
+                <span>${escapeHtml([entered, author].filter(Boolean).join(" · "))}</span>
+              </div>
+              <b>${escapeHtml(displayHourValue(hours))} uur</b>
+            </article>
+          `;
+        })
+        .join("")
+    : '<div class="feed-item">Nog geen diensturen geregistreerd.</div>';
+  $("#hoursOverviewDialog").showModal();
+}
 function sortedActivePeopleForHours() {
   return state.people
     .filter((person) => person.status === "Actief")
