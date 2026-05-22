@@ -84,7 +84,7 @@ const mentorChecklistGroups = [
   }
 ];
 const mentorChecklistLabels = mentorChecklistGroups.flatMap((group) => group.items);
-const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "OvJ-Leiding", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding"];
+const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding"];
 const extraFunctions = ["Kader", "Hoofdofficier", "Officiersraad"];
 const disciplineTypes = {
   "regular-warning": { label: "Offici\u00eble Waarschuwing", tone: "warning" },

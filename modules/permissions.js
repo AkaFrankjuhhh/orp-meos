@@ -48,7 +48,6 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isTrainer = taskBadges.includes("Trainer");
     const isMentor = taskBadges.includes("Mentor");
     const isWs = taskBadges.includes("W&S");
-    const isOvJLeadership = taskBadges.includes("OvJ-Leiding");
     const isMentorLeadership = taskBadges.includes("Mentor-Leiding");
     const isIzLeadership = taskBadges.includes("IZ-Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
@@ -64,11 +63,11 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageDiscipline: isKader || isInterneZaken,
       canViewAllHours: isKader || isHoofdofficier || isOfficiersraad,
       canManageHours: isKader || isHoofdofficier || isOfficiersraad,
-      canViewOvJChannels: isKader || isOvJ || isOvJLeadership,
+      canViewOvJChannels: isKader || isOvJ,
       canViewMentorOverview: isKader || isMentor || isMentorLeadership,
       canManageMentorOverview: isKader || isMentor || isMentorLeadership,
       canRecruitPeople: isKader || isWs,
-      canViewOvJLeadershipLog: isKader || isOvJLeadership,
+      canViewOvJLeadershipLog: isKader || taskBadges.includes("OvJ"),
       canViewMentorLeadershipLog: isKader || isMentorLeadership,
       canUseDevTools: isDevOverride
     };

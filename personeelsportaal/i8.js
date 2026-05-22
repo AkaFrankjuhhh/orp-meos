@@ -301,7 +301,7 @@ function reviewedI8FormsForPerson(person, period = "halfyear") {
 function ovjLogPeople() {
   return (state.people || [])
     .filter((person) => person.status === "Actief")
-    .filter((person) => (person.badges || []).some((badge) => ["OvJ", "hOvJ", "OvJ-Leiding"].includes(badge)))
+    .filter((person) => (person.badges || []).some((badge) => ["OvJ", "hOvJ"].includes(badge)))
     .sort((a, b) => (a.name || "").localeCompare(b.name || "", "nl"));
 }
 

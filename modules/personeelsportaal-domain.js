@@ -25,7 +25,7 @@ const ranks = [
 const rankWeight = new Map(ranks.map((rank, index) => [rank, ranks.length - index]));
 const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
-const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "OvJ-Leiding", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding"];
+const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding"];
 const extraFunctions = ["Kader", "Hoofdofficier", "Officiersraad"];
 const mentorRanks = ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"];
 const mentorTrainingName = "Mentor-Traject";
@@ -275,6 +275,10 @@ function normalizeMentorNotes(checklist) {
 
 function stateForProfile(state, permissions, profileId = "") {
   const nextState = JSON.parse(JSON.stringify(state));
+  nextState.people = (nextState.people || []).map((person) => ({
+    ...person,
+    notifications: person.id === profileId ? (Array.isArray(person.notifications) ? person.notifications : []) : []
+  }));
   if (!permissions?.canViewLogbook) {
     nextState.activity = [];
   }

@@ -708,6 +708,60 @@ function memberName(id) {
   return state.people.find((person) => person.id === id)?.name || "Onbekend";
 }
 
+function ownNotifications() {
+  const current = currentProfile();
+  return Array.isArray(current?.notifications) ? [...current.notifications] : [];
+}
+
+
+function notificationTypeLabel(type) {
+  return {
+    i8: "I8",
+    absence: "Verlof",
+    training: "Training"
+  }[type] || "Melding";
+}
+
+function renderNotifications() {
+  const notifications = ownNotifications().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  const unread = notifications.filter((notification) => !notification.readAt).length;
+  const counter = $("#notificationCounter");
+  const list = $("#notificationList");
+  const readAll = $("#notificationReadAll");
+  if (counter) {
+    counter.textContent = String(unread);
+    counter.hidden = unread <= 0;
+  }
+  if (readAll) readAll.disabled = unread <= 0;
+  if (!list) return;
+  list.innerHTML = notifications.length
+    ? notifications.slice(0, 20).map((notification) => `
+      <article class="notification-item ${notification.readAt ? "is-read" : "is-unread"}">
+        <span>${escapeHtml(notificationTypeLabel(notification.type))}</span>
+        <strong>${escapeHtml(notification.title || "Nieuwe melding")}</strong>
+        <p>${escapeHtml(notification.message || "")}</p>
+        <time>${escapeHtml(formatDateTime(notification.createdAt))}</time>
+      </article>
+    `).join("")
+    : '<div class="notification-empty">Geen meldingen.</div>';
+}
+
+function closeNotificationPanel() {
+  const panel = $("#notificationPanel");
+  const bell = $("#notificationBell");
+  if (panel) panel.hidden = true;
+  if (bell) bell.setAttribute("aria-expanded", "false");
+}
+
+function toggleNotificationPanel() {
+  const panel = $("#notificationPanel");
+  const bell = $("#notificationBell");
+  if (!panel || !bell) return;
+  const nextOpen = panel.hidden;
+  panel.hidden = !nextOpen;
+  bell.setAttribute("aria-expanded", String(nextOpen));
+}
+
 function render() {
   if (!authProfile) {
     setLocked(true);
@@ -717,6 +771,7 @@ function render() {
   document.documentElement.dataset.theme = "dark";
   renderKaderNavigation();
   renderProfile();
+  renderNotifications();
   renderDashboard();
   renderLogbook();
   renderEmployeeDirectory();
@@ -754,6 +809,18 @@ function wireEvents() {
   });
   $("#profileOpenBtn").addEventListener("click", () => openProfilePage(""));
   $("#profileOpenText").addEventListener("click", () => openProfilePage(""));
+  $("#notificationBell")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleNotificationPanel();
+  });
+  $("#notificationPanel")?.addEventListener("click", (event) => event.stopPropagation());
+  $("#notificationReadAll")?.addEventListener("click", async () => {
+    if (await runAction("/api/notifications/read", {})) render();
+  });
+  document.addEventListener("click", closeNotificationPanel);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeNotificationPanel();
+  });
   $("#employeeDirectory").addEventListener("click", (event) => {
     const openProfileId = event.target.closest("[data-open-profile]")?.dataset.openProfile;
     if (openProfileId) openProfilePage(openProfileId);

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260518-style-split" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260522-resignation-actions" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260522-personal-notifications" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -69,17 +69,35 @@
           <p class="eyebrow">Koninklijke Marechaussee</p>
           <h1 id="pageTitle">Dashboard</h1>
         </div>
-        <section class="profile-chip" aria-label="Ingelogd profiel">
-          <button id="profileOpenBtn" class="profile-open" type="button" aria-label="Open persoonlijk profiel">
-            <img id="currentAvatar" alt="" />
-          </button>
-          <button id="profileOpenText" class="profile-open-text" type="button" aria-label="Open persoonlijk profiel">
-            <strong id="currentName">Kader Commandant</strong>
-            <span id="currentService">70-01</span>
-          </button>
-          <a id="loginBtn" class="ghost small login-link" href="/api/auth/login">Discord</a>
-          <button id="logoutBtn" class="ghost small" type="button" hidden>Uitloggen</button>
-        </section>
+        <div class="topbar-actions">
+          <section class="notification-center" aria-label="Persoonlijke meldingen">
+            <button id="notificationBell" class="notification-bell" type="button" aria-label="Open meldingen" aria-expanded="false">
+              <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                <path d="M10 21h4" />
+              </svg>
+              <span id="notificationCounter" class="notification-counter" hidden>0</span>
+            </button>
+            <div id="notificationPanel" class="notification-panel" hidden>
+              <div class="notification-head">
+                <strong>Meldingen</strong>
+                <button id="notificationReadAll" class="ghost small" type="button">Alles gelezen</button>
+              </div>
+              <div id="notificationList" class="notification-list"></div>
+            </div>
+          </section>
+          <section class="profile-chip" aria-label="Ingelogd profiel">
+            <button id="profileOpenBtn" class="profile-open" type="button" aria-label="Open persoonlijk profiel">
+              <img id="currentAvatar" alt="" />
+            </button>
+            <button id="profileOpenText" class="profile-open-text" type="button" aria-label="Open persoonlijk profiel">
+              <strong id="currentName">Kader Commandant</strong>
+              <span id="currentService">70-01</span>
+            </button>
+            <a id="loginBtn" class="ghost small login-link" href="/api/auth/login">Discord</a>
+            <button id="logoutBtn" class="ghost small" type="button" hidden>Uitloggen</button>
+          </section>
+        </div>
       </header>
 
       <section id="authNotice" class="auth-notice" hidden>
@@ -786,6 +804,6 @@
     <script src="personeelsportaal/absence.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/archive.js?v=20260522-resignation-actions"></script>
     <script src="personeelsportaal-data.js?v=20260518-app-split"></script>
-    <script src="app.js?v=20260522-resignation-actions"></script>
+    <script src="app.js?v=20260522-personal-notifications"></script>
   </body>
 </html>

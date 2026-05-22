@@ -264,6 +264,21 @@ function createPostgresPeopleStore(options = {}) {
   }
 
 
+  async function writePersonNotifications(person) {
+    // Persoonsgebonden meldingen zitten in raw, zodat er geen losse notificatietabel nodig is.
+    await withClient(async (client) => {
+      const result = await client.query(`
+        update people
+        set raw = $2::jsonb, updated_at = now()
+        where id = $1
+      `, [person.id, json(person, {})]);
+      if (result.rowCount !== 1) {
+        throw new Error("Personeelslid niet gevonden voor notificatie-update.");
+      }
+    });
+    if (afterWrite) afterWrite();
+    return person;
+  }
   async function writePersonDiscipline(person, activityMessage) {
     // Sancties/waarschuwingen raken alleen het disciplineveld van één profiel.
     await withClient(async (client) => {
@@ -323,7 +338,7 @@ function createPostgresPeopleStore(options = {}) {
     if (afterWrite) afterWrite();
     return entries;
   }
-  return { readState, writeState, writePersonQualifications, writePersonDiscipline, writeManualHoursEntries };
+  return { readState, writeState, writePersonQualifications, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries };
 }
 
 module.exports = { createPostgresPeopleStore };
