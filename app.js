@@ -41,6 +41,7 @@ let reviewCounterPoll = null;
 let liveEventSource = null;
 let liveRefreshTimer = null;
 let rankPieSegments = [];
+let mentorChecklistEditingUntil = 0;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -663,9 +664,12 @@ function hasOpenTransientMenu() {
   );
 }
 
+function hasActiveMentorChecklistInteraction() {
+  return activePageId() === "mentor-checklist" && Date.now() < mentorChecklistEditingUntil;
+}
 async function refreshReviewCounters() {
   if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
-  if (hasOpenTransientMenu()) return;
+  if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction()) return;
   const loaded = await loadState();
   if (!loaded) return;
   renderNavigationCounters();
@@ -689,7 +693,7 @@ function scheduleLiveRefresh(scope = "state") {
   liveRefreshTimer = window.setTimeout(async () => {
     liveRefreshTimer = null;
     if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
-    if (hasOpenTransientMenu()) {
+    if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction()) {
       scheduleLiveRefresh(scope);
       return;
     }
@@ -1198,9 +1202,15 @@ function wireEvents() {
     if (saved) render();
   });
   $("#mentorBackBtn").addEventListener("click", () => setPage("mentor-overzicht"));
-  $("#mentorChecklistItems").addEventListener("change", (event) => {
-    if (!event.target.matches("[data-mentor-item]")) return;
-    event.target.closest(".mentor-check-row")?.classList.toggle("is-completed", event.target.checked);
+  $("#mentorChecklistItems").addEventListener("change", async (event) => {
+    const input = event.target.closest("[data-mentor-item]");
+    if (!input) return;
+    mentorChecklistEditingUntil = Date.now() + 2500;
+    const row = input.closest(".mentor-check-row");
+    row?.classList.toggle("is-completed", input.checked);
+    const saved = await saveMentorChecklistItemsFromDom();
+    mentorChecklistEditingUntil = Date.now() + 500;
+    if (!saved) renderMentorChecklist();
   });
   async function saveCurrentMentorChecklist(includeNote = false) {
     if (!selectedMentorProfileId) return;
@@ -1212,6 +1222,7 @@ function wireEvents() {
     const saved = await saveMentorChecklist(selectedMentorProfileId, payload);
     if (saved) render();
   }
+  $("#saveMentorChecklistBtn").hidden = true;
   $("#saveMentorChecklistBtn").addEventListener("click", () => saveCurrentMentorChecklist(false));
   $("#saveMentorNotesBtn").addEventListener("click", () => saveCurrentMentorChecklist(true));
   $("#mentorLeadershipLogList")?.addEventListener("click", (event) => {

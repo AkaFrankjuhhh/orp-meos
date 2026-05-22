@@ -174,6 +174,31 @@ function renderMentorChecklistItems(checklist, readOnly = false) {
     .join("");
 }
 
+function mentorChecklistItemsFromDom() {
+  return mentorChecklistLabels.map((_, index) => Boolean($(`[data-mentor-item='${index}']`)?.checked));
+}
+
+async function saveMentorChecklistItemsFromDom() {
+  if (!selectedMentorProfileId || !canManageMentorOverview()) return false;
+  const items = mentorChecklistItemsFromDom();
+  const person = state.people.find((entry) => entry.id === selectedMentorProfileId);
+  if (person) {
+    const existing = mentorChecklistFor(person);
+    const allItemsCompleted = items.length > 0 && items.every(Boolean);
+    person.mentorChecklist = {
+      ...(person.mentorChecklist || {}),
+      items,
+      testSent: allItemsCompleted ? existing.testSent : false,
+      testApproved: allItemsCompleted && existing.testSent ? existing.testApproved : false
+    };
+  }
+  const saved = await saveMentorChecklist(selectedMentorProfileId, { items });
+  if (saved) {
+    renderMentorOverview();
+    renderMentorTrajectory();
+  }
+  return saved;
+}
 function renderMentorChecklist() {
   const person = state.people.find((entry) => entry.id === selectedMentorProfileId && entry.status === "Actief");
   if (!person || !canViewMentorOverview()) {

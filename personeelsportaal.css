@@ -4374,3 +4374,28 @@ body[data-device="mobile"] .profile-audit-item div {
   border-color: rgba(225, 112, 0, 0.5);
   background: rgba(225, 112, 0, 0.14);
 }
+
+/* Stabiele hover states voor klikbare lijsten: geen transform, zodat rijen niet onder de cursor wegschuiven. */
+.employee-row:hover,
+.mentor-row-button:hover,
+.leadership-row-button:hover,
+.leadership-detail-row[data-i8-open]:hover,
+.i8-compact-row[data-i8-open]:hover,
+.i8-archive-row[data-i8-open]:hover,
+.notification-item.is-clickable:hover,
+.range-row:hover,
+.table-row:hover {
+  transform: none !important;
+}
+
+.i8-compact-row[data-i8-open],
+.i8-archive-row[data-i8-open],
+.leadership-detail-row[data-i8-open],
+.employee-row,
+.mentor-row-button,
+.leadership-row-button,
+.notification-item.is-clickable,
+.range-row,
+.table-row {
+  transition: border-color 0.12s ease, background-color 0.12s ease, background 0.12s ease;
+}
