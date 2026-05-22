@@ -618,6 +618,10 @@ function openI8ReviewCount() {
   return (state.i8Forms || []).filter((form) => ["pending", "in_review"].includes(form.status || "pending")).length;
 }
 
+function openResignationFormCount() {
+  return (state.resignationForms || []).filter((form) => !["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend")).length;
+}
+
 function setNavCounter(selector, count, visible) {
   const badge = $(selector);
   if (!badge) return;
@@ -628,6 +632,7 @@ function setNavCounter(selector, count, visible) {
 function renderNavigationCounters() {
   // Sidebar-tellers volgen dezelfde openstaande items als de achterliggende overzichtspagina's.
   setNavCounter("#absenceOverviewCounter", openAbsenceRequestCount(), hasKaderAccess());
+  setNavCounter("#resignationOverviewCounter", openResignationFormCount(), hasKaderAccess());
   setNavCounter("#i8ReviewCounter", openI8ReviewCount(), canViewOvJChannels());
 }
 
@@ -867,16 +872,26 @@ function wireEvents() {
   $("#employeeSearchInput").addEventListener("input", renderEmployeeDirectory);
   $("#archiveSearchInput").addEventListener("input", renderArchive);
   $("#resignationOverview")?.addEventListener("click", async (event) => {
-    const formId = event.target.closest("[data-resignation-process]")?.dataset.resignationProcess;
+    const processId = event.target.closest("[data-resignation-process]")?.dataset.resignationProcess;
+    const cancelId = event.target.closest("[data-resignation-cancel]")?.dataset.resignationCancel;
+    const deleteId = event.target.closest("[data-resignation-delete]")?.dataset.resignationDelete;
+    const formId = processId || cancelId || deleteId;
     if (!formId || !hasKaderAccess()) return;
     const form = (state.resignationForms || []).find((entry) => entry.id === formId);
     const name = form?.name || memberName(form?.memberId);
+    const action = processId ? "verwerken" : cancelId ? "annuleren" : "verwijderen";
+    const title = processId ? "Ontslag verwerken" : cancelId ? "Ontslag annuleren" : "Ontslag verwijderen";
     const confirmed = await showSiteConfirm(
-      `Weet je zeker dat je het ontslagformulier van ${name} wil verwerken?`,
-      "Ontslag verwerken"
+      `Weet je zeker dat je het ontslagformulier van ${name} wil ${action}?`,
+      title
     );
     if (!confirmed) return;
-    if (await runAction(`/api/resignation-forms/${encodeURIComponent(formId)}/process`, {})) render();
+    const endpoint = processId
+      ? `/api/resignation-forms/${encodeURIComponent(formId)}/process`
+      : cancelId
+        ? `/api/resignation-forms/${encodeURIComponent(formId)}/cancel`
+        : `/api/resignation-forms/${encodeURIComponent(formId)}/delete`;
+    if (await runAction(endpoint, {})) render();
   });
   $("#i8ArchiveSearchInput").addEventListener("input", renderI8Forms);
   $$('[data-i8-archive-status]').forEach((button) => button.addEventListener("click", () => setI8ArchiveStatusFilter(button.dataset.i8ArchiveStatus)));
@@ -1106,11 +1121,13 @@ function wireEvents() {
   $("#memberRank").addEventListener("change", () => fillServiceSelect());
 
   $("#peopleList").addEventListener("click", async (event) => {
+    const openPersonProfileId = event.target.dataset.openPersonProfile;
     const editId = event.target.dataset.edit;
     const clearHistoryId = event.target.dataset.clearHistory;
     const promoteId = event.target.dataset.promote;
     const demoteId = event.target.dataset.demote;
     const dismissId = event.target.dataset.dismiss;
+    if (openPersonProfileId) openProfilePage(openPersonProfileId);
     if (editId) openMemberDialog(state.people.find((person) => person.id === editId));
     if (clearHistoryId) {
       const person = state.people.find((entry) => entry.id === clearHistoryId);
@@ -1127,6 +1144,21 @@ function wireEvents() {
       const person = state.people.find((entry) => entry.id === dismissId);
       if (person) openDismissalDialog(person);
     }
+  });
+  $("#peopleList").addEventListener("contextmenu", (event) => {
+    const card = event.target.closest("[data-person-card]");
+    if (!card) return;
+    const menu = card.querySelector(".card-menu-panel");
+    if (!menu) return;
+    event.preventDefault();
+    $$(".card-menu-panel.is-context-open").forEach((panel) => {
+      if (panel !== menu) panel.classList.remove("is-context-open");
+    });
+    menu.classList.add("is-context-open");
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".card-menu-wrap")) return;
+    $$(".card-menu-panel.is-context-open").forEach((panel) => panel.classList.remove("is-context-open"));
   });
 
   $("#dismissalForm").addEventListener("submit", async (event) => {

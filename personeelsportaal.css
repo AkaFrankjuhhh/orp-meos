@@ -784,6 +784,52 @@ dialog::backdrop {
   min-height: 280px;
   overflow-y: visible;
 }
+/* Profielpagina: voorkom overlap op halve desktopvensters en small-desktop breedtes. */
+.profile-main-layout,
+.profile-left-column,
+.profile-progress-column,
+.profile-main-layout .panel,
+.profile-main-layout > *,
+.profile-hero > * {
+  min-width: 0;
+}
+
+@media (max-width: 1700px) {
+  #mijn-profiel .profile-main-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #mijn-profiel .profile-progress-column {
+    grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr);
+  }
+}
+
+@media (max-width: 1180px) {
+  #mijn-profiel .profile-hero {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  #mijn-profiel .profile-hero-distinctions {
+    grid-column: 1 / -1;
+    transform: none;
+    width: 100%;
+  }
+}
+
+@media (max-width: 980px) {
+  #mijn-profiel .profile-progress-column,
+  #mijn-profiel .profile-hero {
+    grid-template-columns: 1fr;
+  }
+
+  #mijn-profiel .profile-hero-distinctions {
+    transform: none;
+  }
+
+  #mijn-profiel .profile-hero-dates {
+    justify-self: start;
+  }
+}
 
 .discipline-summary {
   display: grid;
@@ -2093,7 +2139,7 @@ body[data-device="mobile"] .rank-chart-layout {
 }
 
 .rank-pie {
-  overflow: hidden;
+  overflow: visible;
   border: 0;
   box-shadow: none;
   background-clip: padding-box;
@@ -3353,6 +3399,13 @@ body[data-device="mobile"] #archief .sticky-toolbar {
   align-items: center;
 }
 
+.resignation-overview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .resignation-overview-head strong {
   color: #f8fafc;
   font-size: 16px;
@@ -3389,7 +3442,16 @@ body[data-device="mobile"] #archief .sticky-toolbar {
 body[data-device="mobile"] .resignation-overview-head {
   grid-template-columns: 1fr;
 }
-.resignation-overview-head .primary {
+
+.resignation-overview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.resignation-overview-head .primary,
+.resignation-overview-head .ghost,
+.resignation-overview-head .danger {
   justify-self: end;
 }
 
@@ -3815,7 +3877,7 @@ html[data-typography="system"] body[data-device="mobile"] .profile-person-name {
 
 .rank-pie-tooltip {
   position: absolute;
-  z-index: 4;
+  z-index: 30;
   display: grid;
   gap: 2px;
   min-width: 150px;
@@ -4090,4 +4152,13 @@ body[data-device="mobile"] #mentor-overzicht .mentor-row,
 body[data-device="mobile"] .leadership-row,
 body[data-device="mobile"] .i8-archive-status-toggle {
   grid-template-columns: 1fr;
+}
+
+/* Personeelskaart: hetzelfde optiemenu ook via rechtermuisknop tonen. */
+.card-menu-panel.is-context-open {
+  display: grid;
+  gap: 4px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }

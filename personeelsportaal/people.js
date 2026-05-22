@@ -122,10 +122,11 @@ function renderPeople() {
               </div>
               <div class="rank-group-list">
                 ${group.people.map((person) => `
-      <article class="person-card">
+      <article class="person-card" data-person-card="${person.id}">
         <div class="card-menu-wrap">
           <button class="card-menu" type="button" aria-label="Meer opties">...</button>
           <div class="card-menu-panel">
+            <button type="button" data-open-person-profile="${person.id}">Profiel openen</button>
             <button type="button" data-edit="${person.id}">Bewerken</button>
             <button type="button" data-clear-history="${person.id}">Rang geschiedenis wissen</button>
           </div>

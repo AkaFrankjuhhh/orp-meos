@@ -1,4 +1,4 @@
-﻿/* Defensie Personeelsportaal archiefmodule: personeelsarchief en ontslag-overzicht. */
+/* Defensie Personeelsportaal archiefmodule: personeelsarchief en ontslag-overzicht. */
 
 function renderArchive() {
   const query = $("#archiveSearchInput")?.value.toLowerCase() || "";
@@ -53,7 +53,7 @@ function renderResignationOverview() {
     return;
   }
   const forms = (state.resignationForms || [])
-    .filter((form) => form.status !== "Verwerkt")
+    .filter((form) => !["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend"))
     .sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
   container.innerHTML = forms.length
     ? forms.map((form) => `
@@ -62,7 +62,11 @@ function renderResignationOverview() {
           <strong>${escapeHtml(form.name || memberName(form.memberId))}</strong>
           <span>${escapeHtml(form.rank || "-")}</span>
           <span>${escapeHtml(formatDate(form.requestedAt))}</span>
-          <button class="primary small" type="button" data-resignation-process="${escapeHtml(form.id)}">Verwerkt</button>
+          <div class="resignation-overview-actions">
+            <button class="primary small" type="button" data-resignation-process="${escapeHtml(form.id)}">Verwerkt</button>
+            <button class="ghost small" type="button" data-resignation-cancel="${escapeHtml(form.id)}">Annuleren</button>
+            <button class="danger small" type="button" data-resignation-delete="${escapeHtml(form.id)}">Verwijderen</button>
+          </div>
         </div>
         <div class="resignation-overview-reason">
           <span>Reden</span>

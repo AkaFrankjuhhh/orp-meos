@@ -73,7 +73,6 @@ function createDiscordWebhookServices({ formatDate }) {
             { name: "Nieuwe medewerker", value: `${member.serviceNumber || "-"} - ${member.name}`, inline: false },
             { name: "Rang", value: member.rank || "-", inline: true },
             { name: "Aangenomen op", value: formatDate(member.hiredDate), inline: true },
-            { name: "Discord ID", value: member.discordId || "-", inline: true },
             { name: "Aangenomen door", value: recruiter?.name || "W&S", inline: false }
           ],
           timestamp: new Date().toISOString()

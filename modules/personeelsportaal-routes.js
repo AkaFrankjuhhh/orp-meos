@@ -253,6 +253,59 @@ function createPersoneelsportaalRouteHandler(deps) {
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
+  const resignationCancelMatch = url.pathname.match(/^\/api\/resignation-forms\/([^/]+)\/cancel$/);
+  if (resignationCancelMatch && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const state = await readPeopleState();
+    if (!(await hasKaderAccess(auth, state))) {
+      sendJson(res, 403, { error: "Alleen Kader mag ontslagformulieren annuleren." });
+      return;
+    }
+    state.resignationForms = Array.isArray(state.resignationForms) ? state.resignationForms : [];
+    const form = state.resignationForms.find((entry) => entry.id === decodeURIComponent(resignationCancelMatch[1]));
+    if (!form) {
+      sendJson(res, 404, { error: "Ontslagformulier niet gevonden." });
+      return;
+    }
+    if (["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend")) {
+      sendJson(res, 409, { error: "Dit ontslagformulier is al afgehandeld." });
+      return;
+    }
+    const cancelledBy = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    form.status = "Geannuleerd";
+    form.cancelledAt = new Date().toISOString();
+    form.cancelledById = cancelledBy.id;
+    form.cancelledByName = cancelledBy.name;
+    state.activity = state.activity || [];
+    state.activity.push(`${cancelledBy.name} heeft het ontslagformulier van ${form.name || "onbekend"} geannuleerd.`);
+    await sendPeopleStateAfterMutation(res, auth, state);
+    return;
+  }
+
+  const resignationDeleteMatch = url.pathname.match(/^\/api\/resignation-forms\/([^/]+)\/delete$/);
+  if (resignationDeleteMatch && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const state = await readPeopleState();
+    if (!(await hasKaderAccess(auth, state))) {
+      sendJson(res, 403, { error: "Alleen Kader mag ontslagformulieren verwijderen." });
+      return;
+    }
+    state.resignationForms = Array.isArray(state.resignationForms) ? state.resignationForms : [];
+    const formId = decodeURIComponent(resignationDeleteMatch[1]);
+    const form = state.resignationForms.find((entry) => entry.id === formId);
+    if (!form) {
+      sendJson(res, 404, { error: "Ontslagformulier niet gevonden." });
+      return;
+    }
+    const deletedBy = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    state.resignationForms = state.resignationForms.filter((entry) => entry.id !== formId);
+    state.activity = state.activity || [];
+    state.activity.push(`${deletedBy.name} heeft het ontslagformulier van ${form.name || "onbekend"} verwijderd.`);
+    await sendPeopleStateAfterMutation(res, auth, state);
+    return;
+  }
   if (url.pathname === "/api/absences" && req.method === "POST") {
     const auth = requireAuth(req, res);
     if (!auth) return;
@@ -637,11 +690,30 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     const body = await readBody(req);
+    const personPayload = body.person || {};
+    const existingBeforeSave = (state.people || []).find((person) => person.id === personPayload.id);
     const previousNicknames = discordNicknameSnapshot(state);
-    const result = savePerson(state, body.person || {});
+    const result = savePerson(state, personPayload);
     if (result.error) {
       sendJson(res, 400, { error: result.error });
       return;
+    }
+    // Nieuwe Kader-aanmaak gebruikt dezelfde aanname-webhook als W&S, zonder Discord ID in de embed.
+    if (!existingBeforeSave) {
+      const recruiter = (state.people || []).find((person) => person.id === auth.profile.id) || auth.profile;
+      try {
+        const webhookResult = await sendDiscordWebhook(
+          personnelWebhookUrl("hire"),
+          buildRecruitmentWebhookPayload(result.person, recruiter)
+        );
+        if (webhookResult.ok) {
+          state.activity.push(`Aanname webhook verzonden voor ${result.person.name}.`);
+        } else if (!webhookResult.skipped) {
+          state.activity.push(`Aanname webhook kon niet verzonden worden voor ${result.person.name}.`);
+        }
+      } catch (error) {
+        state.activity.push(`Aanname webhook kon niet verzonden worden voor ${result.person.name}.`);
+      }
     }
     await syncChangedDiscordNicknames(state, previousNicknames);
     await sendPeopleStateAfterMutation(res, auth, state);
