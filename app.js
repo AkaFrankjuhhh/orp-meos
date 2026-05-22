@@ -35,6 +35,29 @@ const pageStorageKey = "orp-defensie-current-page";
 const profileStorageKey = "orp-defensie-current-profile";
 const mentorStorageKey = "orp-defensie-current-mentor";
 const openProfileFlagKey = "orp-defensie-open-own-profile";
+const pageRouteMap = {
+  dashboard: "/",
+  medewerkers: "/medewerkers",
+  afwezigheid: "/afwezigheid",
+  "i8-opstellen": "/i8-formulier",
+  "ontslag-formulier": "/ontslag-formulier",
+  "i8-controleren": "/i8-controleren",
+  "i8-archief": "/i8-archief",
+  "mentor-overzicht": "/mentor-overzicht",
+  "mentor-traject": "/mentor-traject",
+  "mentor-checklist": "/mentor-checklist",
+  "mentor-logboek": "/mentor-logboek",
+  "ovj-logboek": "/hovj-logboek",
+  "personeel-aannemen": "/personeel-aannemen",
+  personeel: "/personeel",
+  "afwezigheid-overzicht": "/afwezigheid-overzicht",
+  "ontslag-overzicht": "/ontslag-overzicht",
+  archief: "/personeels-archief",
+  logboek: "/logboek",
+  "mijn-profiel": "/mijn-profiel"
+};
+const routePageMap = Object.fromEntries(Object.entries(pageRouteMap).map(([page, route]) => [route, page]));
+let suppressRouteSync = false;
 const portalWindowName = "defensie-personeelsportaal-main";
 const portalChannelName = "orp-defensie-portaal-window";
 let reviewCounterPoll = null;
@@ -331,6 +354,63 @@ function hiredDateFor(person) {
   return person.hiredDate || person.rankHistory?.[0]?.date || person.rankDate || "-";
 }
 
+function slugForPerson(person) {
+  const base = String(person?.name || person?.serviceNumber || person?.id || "profiel").trim() || "profiel";
+  return encodeURIComponent(base.replace(/\s+/g, "_"));
+}
+
+function normalizeRouteSlug(value) {
+  return decodeURIComponent(String(value || "")).replace(/_/g, " ").trim().toLowerCase();
+}
+
+function personFromRouteSlug(slug) {
+  const normalized = normalizeRouteSlug(slug);
+  return (state.people || []).find((person) => {
+    const name = String(person.name || "").trim().toLowerCase();
+    const serviceNumber = String(person.serviceNumber || "").trim().toLowerCase();
+    const id = String(person.id || "").trim().toLowerCase();
+    return person.status === "Actief" && (name === normalized || serviceNumber === normalized || id === normalized);
+  }) || null;
+}
+
+function routeForPage(page) {
+  if (page === "mijn-profiel") {
+    const own = currentProfile();
+    const viewed = visibleProfile();
+    if (viewed && own && viewed.id !== own.id) return `/medewerkers/${slugForPerson(viewed)}`;
+  }
+  return pageRouteMap[page] || "/";
+}
+
+function routeStateFromLocation() {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  const parts = path.split("/").filter(Boolean);
+  if (parts[0]?.toLowerCase() === "medewerkers" && parts[1]) {
+    const person = personFromRouteSlug(parts.slice(1).join("/"));
+    return person ? { page: "mijn-profiel", profileId: person.id } : { page: "medewerkers", profileId: "" };
+  }
+  const normalizedPath = path.toLowerCase();
+  return { page: routePageMap[normalizedPath] || "dashboard", profileId: "" };
+}
+
+function syncBrowserRoute(page, mode = "push") {
+  if (suppressRouteSync || document.body.classList.contains("locked")) return;
+  const nextPath = routeForPage(page);
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (current === nextPath) return;
+  const method = mode === "replace" ? "replaceState" : "pushState";
+  window.history[method]({ page, profileId: selectedProfileId || "" }, "", nextPath);
+}
+
+function applyRouteState(mode = "replace") {
+  const route = routeStateFromLocation();
+  suppressRouteSync = true;
+  selectedProfileId = route.profileId || "";
+  if (route.page === "mijn-profiel") renderProfile();
+  const resolvedPage = setPage(route.page);
+  suppressRouteSync = false;
+  syncBrowserRoute(resolvedPage || activePageId(), mode);
+}
 function pageTitle(page) {
   if (page === "mijn-profiel") {
     const own = currentProfile();
@@ -454,6 +534,8 @@ function setPage(page) {
   $$(".nav-item").forEach((element) => element.classList.toggle("active", element.dataset.page === page));
   $("#pageTitle").textContent = pageTitle(page);
   saveCurrentPage(page);
+  syncBrowserRoute(page);
+  return page;
 }
 
 function restoreSavedPage() {
@@ -471,6 +553,12 @@ function restoreSavedPage() {
     resetSavedPage();
     cleanLoginRedirect();
     setPage("dashboard");
+    return;
+  }
+
+  const hasDeepRoute = !["/", "/index.html"].includes(window.location.pathname);
+  if (hasDeepRoute) {
+    applyRouteState("replace");
     return;
   }
 
@@ -852,6 +940,7 @@ function render() {
 
 function wireEvents() {
   window.addEventListener("resize", updateDeviceMode);
+  window.addEventListener("popstate", () => applyRouteState("replace"));
   $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
   const rankPie = $("#rankPie");
   rankPie?.addEventListener("mousemove", moveRankPieTooltip);

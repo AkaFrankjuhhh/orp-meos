@@ -1,6 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 
-const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM"];
+const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
 const portoStatuses = [
   { code: "1", title: "Status 1", label: "Beschikbaar", className: "available" },

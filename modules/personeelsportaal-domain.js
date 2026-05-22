@@ -23,7 +23,7 @@ const ranks = [
 ];
 
 const rankWeight = new Map(ranks.map((rank, index) => [rank, ranks.length - index]));
-const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM"];
+const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
 const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding"];
 const extraFunctions = ["Kader", "Hoofdofficier", "Officiersraad"];

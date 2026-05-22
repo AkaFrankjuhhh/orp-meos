@@ -647,7 +647,9 @@ async function handleApi(req, res, url) {
 }
 
 function serveStatic(req, res, url) {
-  const requested = url.pathname === "/" ? "/index.html" : url.pathname;
+  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "personeels-archief", "logboek"]);
+  const firstSegment = url.pathname.split("/").filter(Boolean)[0] || "";
+  const requested = url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
   const filePath = path.normalize(path.join(root, requested));
   const relativePath = path.relative(root, filePath);
   const isOutsideRoot = relativePath.startsWith("..") || path.isAbsolute(relativePath);

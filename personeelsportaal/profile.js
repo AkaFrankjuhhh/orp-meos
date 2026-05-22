@@ -4,6 +4,7 @@ function openProfilePage(profileId = "") {
   selectedProfileId = profileId;
   renderProfile();
   setPage("mijn-profiel");
+  syncBrowserRoute("mijn-profiel");
 }
 
 const profileRankLabels = {
