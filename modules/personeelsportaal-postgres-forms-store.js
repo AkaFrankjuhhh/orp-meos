@@ -1,4 +1,4 @@
-﻿const { readPostgresState } = require("./postgres-state");
+const { readPostgresState } = require("./postgres-state");
 const { withClient } = require("./db");
 
 function json(value, fallback) {
@@ -233,6 +233,23 @@ function createPostgresFormsStore(options = {}) {
     return form;
   }
 
+  // Gerichte delete voorkomt dat het volledige formulierenbestand herschreven hoeft te worden.
+  async function deleteI8Form(formId, activityMessages = []) {
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query("delete from i8_forms where id = $1", [formId]);
+        await appendActivityMessages(client, activityMessages);
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return { id: formId };
+  }
+
   async function updateI8Form(form, activityMessages = []) {
     await withClient(async (client) => {
       await client.query("begin");
@@ -249,7 +266,7 @@ function createPostgresFormsStore(options = {}) {
     return form;
   }
 
-  return { readState, writeState, createAbsence, updateAbsence, deleteAbsence, createI8Form, updateI8Form };
+  return { readState, writeState, createAbsence, updateAbsence, deleteAbsence, createI8Form, updateI8Form, deleteI8Form };
 }
 
 module.exports = { createPostgresFormsStore };

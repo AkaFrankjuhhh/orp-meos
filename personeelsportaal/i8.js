@@ -214,6 +214,27 @@ function openI8DetailFromEvent(event) {
   openI8DetailDialog(row.dataset.i8Open);
 }
 
+function hideI8ArchiveContextMenu() {
+  const menu = $("#i8ArchiveContextMenu");
+  if (!menu) return;
+  menu.hidden = true;
+  pendingI8ArchiveDeleteId = "";
+}
+
+function openI8ArchiveContextMenu(event, formId) {
+  if (!formId || !hasKaderAccess()) return;
+  pendingI8ArchiveDeleteId = formId;
+  const menu = $("#i8ArchiveContextMenu");
+  if (!menu) return;
+  menu.hidden = false;
+  const width = menu.offsetWidth || 190;
+  const height = menu.offsetHeight || 52;
+  const left = Math.min(event.clientX, window.innerWidth - width - 8);
+  const top = Math.min(event.clientY, window.innerHeight - height - 8);
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+}
+
 function renderI8StatusMeta(form) {
   if (!form.reviewedByName) return "Nog niet beoordeeld.";
   const prefix = (form.status || "pending") === "in_review" ? "In behandeling door" : "Ondertekend door";

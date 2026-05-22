@@ -606,6 +606,44 @@ function createPersoneelsportaalRouteHandler(deps) {
     return;
   }
 
+  // Kader mag gekeurde I8 formulieren uit het archief verwijderen, inclusief activiteitlog.
+  const i8DeleteMatch = url.pathname.match(/^\/api\/i8-forms\/([^/]+)\/delete$/);
+  if (i8DeleteMatch && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const state = await readFormsState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canManagePeople) {
+      sendJson(res, 403, { error: "Alleen Kader mag I8 formulieren uit het archief verwijderen." });
+      return;
+    }
+    state.i8Forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
+    const formId = decodeURIComponent(i8DeleteMatch[1]);
+    const formIndex = state.i8Forms.findIndex((entry) => entry.id === formId);
+    if (formIndex < 0) {
+      sendJson(res, 404, { error: "I8 formulier niet gevonden." });
+      return;
+    }
+    const form = state.i8Forms[formIndex];
+    if (!["approved", "rejected"].includes(form.status)) {
+      sendJson(res, 400, { error: "Alleen gekeurde I8 formulieren kunnen uit het archief verwijderd worden." });
+      return;
+    }
+    const reviewer = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    const formNumber = i8NumberForServer(form, state.i8Forms);
+    state.i8Forms.splice(formIndex, 1);
+    state.activity = state.activity || [];
+    const activityMessage = `${reviewer.name} heeft I8 ${formNumber} van ${form.personName || "Onbekend"} uit het archief verwijderd.`;
+    state.activity.push(activityMessage);
+    await sendFormsStateAfterMutation(
+      res,
+      auth,
+      state,
+      typeof formsStorage.deleteI8Form === "function" ? () => formsStorage.deleteI8Form(formId, [activityMessage]) : null
+    );
+    return;
+  }
+
   const i8StatusMatch = url.pathname.match(/^\/api\/i8-forms\/([^/]+)\/status$/);
   if (i8StatusMatch && req.method === "POST") {
     const auth = requireAuth(req, res);

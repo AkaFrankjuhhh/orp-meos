@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260518-style-split" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260522-i8-status-flow" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260522-i8-archive-delete" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -736,6 +736,10 @@
       </form>
     </dialog>
 
+    <div id="i8ArchiveContextMenu" class="context-menu" hidden>
+      <button type="button" class="danger-option" data-i8-archive-context="delete">Verwijderen</button>
+    </div>
+
     <dialog id="leadershipLogDialog">
       <div class="dialog-form leadership-log-dialog">
         <div class="panel-head">
@@ -809,11 +813,11 @@
     <script src="personeelsportaal/profile.js?v=20260522-profile-audit-log"></script>
     <script src="personeelsportaal/hours.js?v=20260521-hours-overview"></script>
     <script src="personeelsportaal/people.js?v=20260522-person-card-profile"></script>
-    <script src="personeelsportaal/i8.js?v=20260522-i8-status-flow"></script>
+    <script src="personeelsportaal/i8.js?v=20260522-i8-archive-delete"></script>
     <script src="personeelsportaal/mentor.js?v=20260521-mentor-test-complete"></script>
     <script src="personeelsportaal/absence.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/archive.js?v=20260522-resignation-actions"></script>
     <script src="personeelsportaal-data.js?v=20260518-app-split"></script>
-    <script src="app.js?v=20260522-i8-status-flow"></script>
+    <script src="app.js?v=20260522-i8-archive-delete"></script>
   </body>
 </html>

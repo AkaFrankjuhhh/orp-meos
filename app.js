@@ -27,6 +27,7 @@ let pendingRestoreId = "";
 let selectedProfileId = "";
 let pendingDisciplineAction = null;
 let pendingI8ReviewAction = null;
+let pendingI8ArchiveDeleteId = "";
 let pendingAbsenceId = "";
 let selectedMentorProfileId = "";
 let activeI8Tab = "list";
@@ -652,8 +653,19 @@ function activePageId() {
   return $(".page.active")?.id || "dashboard";
 }
 
+// Voorkomt dat live refresh een geopend rechtermuismenu uit de DOM rendert.
+function hasOpenTransientMenu() {
+  return Boolean(
+    $(".card-menu-panel.is-context-open") ||
+    $("#disciplineContextMenu:not([hidden])") ||
+    $("#absenceContextMenu:not([hidden])") ||
+    $("#i8ArchiveContextMenu:not([hidden])")
+  );
+}
+
 async function refreshReviewCounters() {
   if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
+  if (hasOpenTransientMenu()) return;
   const loaded = await loadState();
   if (!loaded) return;
   renderNavigationCounters();
@@ -677,6 +689,10 @@ function scheduleLiveRefresh(scope = "state") {
   liveRefreshTimer = window.setTimeout(async () => {
     liveRefreshTimer = null;
     if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
+    if (hasOpenTransientMenu()) {
+      scheduleLiveRefresh(scope);
+      return;
+    }
     const loaded = await loadState();
     if (!loaded) return;
     render();
@@ -1064,6 +1080,24 @@ function wireEvents() {
   });
   $("#i8ReviewList").addEventListener("click", openI8DetailFromEvent);
   $("#i8ArchiveList").addEventListener("click", openI8DetailFromEvent);
+  $("#i8ArchiveList").addEventListener("contextmenu", (event) => {
+    const row = event.target.closest("[data-i8-open]");
+    if (!row || !hasKaderAccess()) return;
+    event.preventDefault();
+    openI8ArchiveContextMenu(event, row.dataset.i8Open);
+  });
+  $("#i8ArchiveContextMenu")?.addEventListener("click", async (event) => {
+    if (event.target.dataset.i8ArchiveContext !== "delete") return;
+    const formId = pendingI8ArchiveDeleteId;
+    hideI8ArchiveContextMenu();
+    if (!formId || !hasKaderAccess()) return;
+    const form = (state.i8Forms || []).find((entry) => entry.id === formId);
+    const number = form ? i8NumberFor(form, state.i8Forms || []) : "-";
+    const name = form?.personName || memberName(form?.personId);
+    const confirmed = await showSiteConfirm(`Weet je zeker dat je I8 ${number} van ${name} uit het archief wil verwijderen?`, "I8 verwijderen");
+    if (!confirmed) return;
+    if (await runAction(`/api/i8-forms/${encodeURIComponent(formId)}/delete`)) render();
+  });
   $("#i8ArchiveList").addEventListener("keydown", (event) => {
     if (!["Enter", " "].includes(event.key)) return;
     event.preventDefault();
@@ -1109,8 +1143,10 @@ function wireEvents() {
   });
   document.addEventListener("click", (event) => {
     if (!event.target.closest("#absenceContextMenu")) hideAbsenceContextMenu();
+    if (!event.target.closest("#i8ArchiveContextMenu")) hideI8ArchiveContextMenu();
   });
   window.addEventListener("scroll", hideAbsenceContextMenu, true);
+  window.addEventListener("scroll", hideI8ArchiveContextMenu, true);
   $("#deleteAbsenceForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const absenceId = $("#deleteAbsenceId").value || pendingAbsenceId;
