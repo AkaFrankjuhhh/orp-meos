@@ -1,4 +1,4 @@
-﻿const DISCORD_API_BASE = "https://discord.com/api/v10";
+const DISCORD_API_BASE = "https://discord.com/api/v10";
 const DISCORD_NICKNAME_LIMIT = 32;
 
 const rankNicknameSymbols = {
@@ -72,6 +72,10 @@ function buildServiceNicknameDefault(person) {
   const name = formatNameForDiscordNickname(person?.name || person?.discordUsername || "");
   const prefix = symbols ? `[${serviceNumber} ${symbols}]` : `[${serviceNumber}]`;
   return truncateDiscordNickname(`${prefix} ${name}`.trim());
+}
+
+function nicknameTemplateHasPlaceholders(template) {
+  return /\{(?:serviceNumber|name|formattedName|rank|symbols)\}/.test(String(template || ""));
 }
 
 function createDiscordBotServices(options = {}) {
@@ -228,7 +232,9 @@ function createDiscordBotServices(options = {}) {
   }
 
   function buildServiceNickname(person, template = process.env.DISCORD_NICKNAME_TEMPLATE || "personeelsportaal") {
-    if (!template || template === "personeelsportaal") return buildServiceNicknameDefault(person);
+    if (!template || template === "personeelsportaal" || !nicknameTemplateHasPlaceholders(template)) {
+      return buildServiceNicknameDefault(person);
+    }
     const serviceNumber = person?.serviceNumber || person?.previousServiceNumber || "";
     const name = person?.name || person?.discordUsername || "";
     const symbols = rankSymbolsFor(person?.rank);

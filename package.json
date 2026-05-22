@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "defensie-personeelsportaal",
   "version": "0.1.0",
   "private": true,
@@ -10,7 +10,9 @@
     "db:export-state": "node scripts/db-export-state.js",
     "db:compare-json": "node scripts/db-compare-json.js",
     "prod:check": "node scripts/prod-check.js",
-    "db:backup": "node scripts/db-backup.js"
+    "db:backup": "node scripts/db-backup.js",
+    "discord:nicknames:dry": "node scripts/discord-sync-nicknames.js",
+    "discord:nicknames:sync": "node scripts/discord-sync-nicknames.js --apply"
   },
   "engines": {
     "node": ">=18"
