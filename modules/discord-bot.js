@@ -264,6 +264,17 @@ function createDiscordBotServices(options = {}) {
     return setNickname(person?.discordId, buildServiceNickname(person), auditReason);
   }
 
+  async function syncNicknameForPersonIfNeeded(person, auditReason = "Defensie Personeelsportaal periodieke nickname controle") {
+    const memberId = normalizeDiscordId(person?.discordId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+    const desiredNickname = buildServiceNickname(person);
+    const memberResult = await getGuildMember(memberId);
+    if (memberResult.skipped) return memberResult;
+    const currentNickname = memberResult.data?.nick || "";
+    if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
+    return setNickname(memberId, desiredNickname, auditReason);
+  }
+
   async function moveMemberToVoice(discordId, channelKeyOrId, auditReason = "Porto voicekanaal aangepast") {
     const memberId = normalizeDiscordId(discordId);
     const channelId = resolveVoiceChannelId(channelKeyOrId);
@@ -299,6 +310,7 @@ function createDiscordBotServices(options = {}) {
     buildServiceNickname,
     setNickname,
     syncNicknameForPerson,
+    syncNicknameForPersonIfNeeded,
     moveMemberToVoice,
     moveMembersToVoice
   };

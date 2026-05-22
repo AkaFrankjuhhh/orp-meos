@@ -211,6 +211,59 @@ const {
 } = createDiscordWebhookServices({ formatDate });
 // Discord bot-acties blijven centraal: rollen, nicknames en Porto voice verplaatsingen.
 const discordBot = createDiscordBotServices();
+const discordNicknameSyncIntervalMs = Math.max(0, Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 5 * 60 * 1000));
+let discordNicknameSyncTimer = null;
+let discordNicknameSyncRunning = false;
+
+function activePortalMembersWithDiscord(state) {
+  return (state.people || [])
+    .filter((person) => person.status === "Actief")
+    .filter((person) => person.discordId)
+    .sort((a, b) => (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true }));
+}
+
+async function runDiscordNicknameSyncSweep(reason = "periodiek") {
+  if (!discordBot.isConfigured?.() || typeof discordBot.syncNicknameForPersonIfNeeded !== "function") return;
+  if (discordNicknameSyncRunning) return;
+  discordNicknameSyncRunning = true;
+  try {
+    const state = await Promise.resolve(readState());
+    let changed = 0;
+    let missing = 0;
+    let failed = 0;
+    for (const person of activePortalMembersWithDiscord(state)) {
+      try {
+        const result = await discordBot.syncNicknameForPersonIfNeeded(person);
+        if (result?.ok && !result.unchanged) changed += 1;
+      } catch (error) {
+        if (error.status === 404) {
+          missing += 1;
+          continue;
+        }
+        failed += 1;
+        logServerError(`Discord nickname sync ${person.name || person.id}`, error);
+      }
+    }
+    if (changed || failed) {
+      console.log(`Discord nickname sync ${reason}: ${changed} aangepast, ${missing} niet in server, ${failed} mislukt.`);
+    }
+  } finally {
+    discordNicknameSyncRunning = false;
+  }
+}
+
+function startDiscordNicknameSync() {
+  if (!discordNicknameSyncIntervalMs || !discordBot.isConfigured?.()) return;
+  runDiscordNicknameSyncSweep("startup").catch((error) => logServerError("Discord nickname startup sync", error));
+  discordNicknameSyncTimer = setInterval(() => {
+    runDiscordNicknameSyncSweep("periodiek").catch((error) => logServerError("Discord nickname periodieke sync", error));
+  }, discordNicknameSyncIntervalMs);
+}
+
+function stopDiscordNicknameSync() {
+  if (discordNicknameSyncTimer) clearInterval(discordNicknameSyncTimer);
+  discordNicknameSyncTimer = null;
+}
 
 function sendStateAfterMutation(req, res, auth, state) {
   writeState(state);
@@ -658,6 +711,7 @@ async function startServer() {
     if (!discordConfigured()) {
       console.log("Discord is nog niet volledig ingesteld. DEV_ALLOW_UNAUTH bepaalt of lokale demo-toegang werkt.");
     }
+    startDiscordNicknameSync();
   });
 }
 
@@ -672,6 +726,7 @@ startServer().catch((error) => {
 
 async function shutdown() {
   try {
+    stopDiscordNicknameSync();
     await closePool();
   } finally {
     process.exit(0);
