@@ -4302,3 +4302,75 @@ body[data-device="mobile"] .notification-panel {
   right: auto;
   left: 0;
 }
+/* Profiel-logboek: zichtbaar voor Kader/Hoofdofficier met acties op het profiel. */
+.profile-audit-log {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-audit-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.profile-audit-item div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-audit-item strong {
+  color: #f8fafc;
+  font-size: 14px;
+}
+
+.profile-audit-item span,
+.profile-audit-item small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.profile-audit-item p {
+  margin: 0;
+  color: #dbeafe;
+  line-height: 1.4;
+}
+
+body[data-device="mobile"] .profile-audit-item div {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.notification-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.notification-actions .danger-soft {
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.notification-actions .danger-soft:hover {
+  border-color: rgba(239, 68, 68, 0.58);
+  background: rgba(239, 68, 68, 0.16);
+}
+
+.notification-item.is-clickable {
+  cursor: pointer;
+}
+
+.notification-item.is-clickable:hover {
+  border-color: rgba(225, 112, 0, 0.5);
+  background: rgba(225, 112, 0, 0.14);
+}

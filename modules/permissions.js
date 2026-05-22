@@ -58,17 +58,20 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewKaderPages: isKader,
       canManageProfileBadges: isKader,
       canManageQualifications: isKader || isTrainer || isTrainerLeadership,
+      canRevokeIbt: isKader || isOvJ,
       canViewAllDiscipline: isKader || isInterneZaken || isIzLeadership,
       canViewI8Discipline: isKader || isInterneZaken || isOvJ,
       canManageDiscipline: isKader || isInterneZaken,
       canViewAllHours: isKader || isHoofdofficier || isOfficiersraad,
       canManageHours: isKader || isHoofdofficier || isOfficiersraad,
       canViewOvJChannels: isKader || isOvJ,
+      canLeadOvJ: isKader || taskBadges.includes("OvJ"),
       canViewMentorOverview: isKader || isMentor || isMentorLeadership,
       canManageMentorOverview: isKader || isMentor || isMentorLeadership,
       canRecruitPeople: isKader || isWs,
       canViewOvJLeadershipLog: isKader || taskBadges.includes("OvJ"),
       canViewMentorLeadershipLog: isKader || isMentorLeadership,
+      canViewProfileAuditLog: isKader || isHoofdofficier,
       canUseDevTools: isDevOverride
     };
   }

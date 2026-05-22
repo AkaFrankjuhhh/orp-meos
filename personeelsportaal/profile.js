@@ -27,7 +27,9 @@ function renderProfileChecks(current) {
     items
       .map((item) => {
         const isCompleted = completed.includes(item);
-        const canEdit = canManageQualifications();
+        const canEditAll = canManageQualifications();
+        const canRevokeThisIbt = type === "training" && item === "IBT" && isCompleted && canRevokeIbt();
+        const canEdit = canEditAll || canRevokeThisIbt;
         return `
         <label class="${isCompleted ? "is-completed" : "is-missing"}">
           <input type="checkbox" data-profile-check="${type}" value="${escapeHtml(item)}" ${isCompleted ? "checked" : ""} ${canEdit ? "" : "disabled"} />
@@ -72,6 +74,29 @@ function renderProfileDistinctions() {
       <span class="distinction-medal ${distinction.tone}" title="${escapeHtml(distinction.type)}" aria-label="${escapeHtml(distinction.type)}"></span>
     `)
     .join("");
+}
+
+function renderProfileAuditLog(person) {
+  const panel = $("#profileAuditPanel");
+  const list = $("#profileAuditLog");
+  if (!panel || !list) return;
+  const canView = canViewProfileAuditLog();
+  panel.hidden = !canView;
+  if (!canView) return;
+  const entries = Array.isArray(person.profileLog) ? [...person.profileLog] : [];
+  entries.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  list.innerHTML = entries.length
+    ? entries.slice(0, 40).map((entry) => `
+      <article class="profile-audit-item">
+        <div>
+          <strong>${escapeHtml(entry.action || "Profielactie")}</strong>
+          <span>${escapeHtml(formatDateTime(entry.createdAt))}</span>
+        </div>
+        <p>${escapeHtml(entry.details || "-")}</p>
+        <small>Door: ${escapeHtml(entry.actorName || "Onbekend")}</small>
+      </article>
+    `).join("")
+    : '<div class="feed-item">Geen profielacties gevonden.</div>';
 }
 
 function activeDisciplineEntries(person) {
@@ -300,6 +325,7 @@ function renderProfile() {
   $("#profilePageDisplayName").textContent = viewed.name || "-";
   renderProfileBadges(viewed);
   renderProfileDistinctions();
+  renderProfileAuditLog(viewed);
   $("#profilePageHiredDate").textContent = formatDate(hiredDateFor(viewed));
   $("#profilePagePromotionDate").textContent = formatDate(viewed.promotionDate);
   renderProfileChecks(viewed);

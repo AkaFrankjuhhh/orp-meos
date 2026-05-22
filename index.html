@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260518-style-split" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260522-personal-notifications" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260522-i8-status-flow" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -81,7 +81,10 @@
             <div id="notificationPanel" class="notification-panel" hidden>
               <div class="notification-head">
                 <strong>Meldingen</strong>
-                <button id="notificationReadAll" class="ghost small" type="button">Alles gelezen</button>
+                <div class="notification-actions">
+                  <button id="notificationReadAll" class="ghost small" type="button">Alles gelezen</button>
+                  <button id="notificationClearAll" class="ghost small danger-soft" type="button">Leegmaken</button>
+                </div>
               </div>
               <div id="notificationList" class="notification-list"></div>
             </div>
@@ -248,6 +251,13 @@
                 </label>
               </div>
               <div id="profileDisciplineLog" class="discipline-log"></div>
+            </section>
+
+            <section id="profileAuditPanel" class="panel profile-audit-panel" hidden>
+              <div class="panel-head">
+                <h2>Profiel-logboek</h2>
+              </div>
+              <div id="profileAuditLog" class="profile-audit-log"></div>
             </section>
           </div>
         </div>
@@ -796,14 +806,14 @@
       });
     </script>    <script src="shared-ui.js?v=20260518-frontend-split"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/profile.js?v=20260521-profile-rank-labels"></script>
+    <script src="personeelsportaal/profile.js?v=20260522-profile-audit-log"></script>
     <script src="personeelsportaal/hours.js?v=20260521-hours-overview"></script>
     <script src="personeelsportaal/people.js?v=20260522-person-card-profile"></script>
-    <script src="personeelsportaal/i8.js?v=20260521-mentor-overview-tests"></script>
+    <script src="personeelsportaal/i8.js?v=20260522-i8-status-flow"></script>
     <script src="personeelsportaal/mentor.js?v=20260521-mentor-test-complete"></script>
     <script src="personeelsportaal/absence.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/archive.js?v=20260522-resignation-actions"></script>
     <script src="personeelsportaal-data.js?v=20260518-app-split"></script>
-    <script src="app.js?v=20260522-personal-notifications"></script>
+    <script src="app.js?v=20260522-i8-status-flow"></script>
   </body>
 </html>

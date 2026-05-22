@@ -277,7 +277,8 @@ function stateForProfile(state, permissions, profileId = "") {
   const nextState = JSON.parse(JSON.stringify(state));
   nextState.people = (nextState.people || []).map((person) => ({
     ...person,
-    notifications: person.id === profileId ? (Array.isArray(person.notifications) ? person.notifications : []) : []
+    notifications: person.id === profileId ? (Array.isArray(person.notifications) ? person.notifications : []) : [],
+    profileLog: permissions?.canViewProfileAuditLog ? (Array.isArray(person.profileLog) ? person.profileLog : []) : []
   }));
   if (!permissions?.canViewLogbook) {
     nextState.activity = [];

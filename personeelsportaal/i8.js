@@ -61,33 +61,46 @@ function i8DateTime(form) {
 
 function canChangeI8Status(form) {
   if (!form || !canViewOvJChannels()) return false;
+  if (hasKaderAccess() || canLeadOvJ()) return true;
   const current = currentProfile();
   const status = form.status || "pending";
-  return Boolean(hasKaderAccess() || status !== "in_review" || !form.reviewedById || (current && form.reviewedById === current.id));
+  if (status === "pending") return true;
+  if (status === "in_review") return Boolean(current && form.reviewedById === current.id);
+  return false;
 }
 
-function renderI8StatusActions(form) {
-  if (!canChangeI8Status(form)) {
-    return (form.status || "pending") === "in_review"
-      ? `<div class="i8-lock-note">In behandeling door ${escapeHtml(form.reviewedByName || "een andere beoordelaar")}. Alleen Kader kan dit overrulen.</div>`
-      : "";
-  }
+function allowedI8StatusActions(form) {
+  if (!canChangeI8Status(form)) return [];
   const currentStatus = form.status || "pending";
+  const isLead = hasKaderAccess() || canLeadOvJ();
   const actions = [
     { status: "in_review", label: "In behandeling plaatsen", className: "ghost small in-review" },
     { status: "approved", label: "Goedkeuren", className: "ghost small approve" },
     { status: "rejected", label: "Afkeuren", className: "ghost small danger" }
   ];
+  if (isLead) return actions.filter((action) => action.status !== currentStatus);
+  if (currentStatus === "pending") return actions.filter((action) => action.status === "in_review");
+  if (currentStatus === "in_review") return actions.filter((action) => ["approved", "rejected"].includes(action.status));
+  return [];
+}
+
+function renderI8StatusActions(form) {
+  const currentStatus = form.status || "pending";
+  const actions = allowedI8StatusActions(form);
+  if (!actions.length) {
+    if (currentStatus === "in_review" && form.reviewedByName) {
+      return `<div class="i8-lock-note">In behandeling door ${escapeHtml(form.reviewedByName)}. Alleen OVJ of Kader kan dit overrulen.</div>`;
+    }
+    return "";
+  }
   return `
     <div class="person-actions i8-actions i8-detail-actions">
       ${actions
-        .filter((action) => action.status !== currentStatus)
         .map((action) => `<button class="${action.className}" type="button" data-i8-detail-status="${action.status}">${action.label}</button>`)
         .join("")}
     </div>
   `;
 }
-
 function renderI8ReviewRow(form, forms) {
   return `
     <article class="i8-compact-row" data-i8-open="${escapeHtml(form.id)}" role="button" tabindex="0">

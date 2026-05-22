@@ -126,6 +126,30 @@ function createPersoneelsportaalRouteHandler(deps) {
     return entry;
   }
 
+  function addProfileLog(person, entry) {
+    if (!person) return null;
+    person.profileLog = Array.isArray(person.profileLog) ? person.profileLog : [];
+    const actor = entry.actor || {};
+    const logEntry = {
+      id: crypto.randomUUID(),
+      type: entry.type || "profile",
+      action: entry.action || "Profiel bijgewerkt",
+      details: entry.details || "",
+      createdAt: new Date().toISOString(),
+      actorId: actor.id || "",
+      actorName: actor.name || "Onbekend"
+    };
+    person.profileLog.unshift(logEntry);
+    person.profileLog = person.profileLog.slice(0, 150);
+    return logEntry;
+  }
+
+  function i8NumberForServer(form, forms = []) {
+    const ordered = forms.slice().sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    const index = ordered.findIndex((entry) => entry.id === form.id);
+    return String(index >= 0 ? index + 1 : ordered.length + 1).padStart(3, "0");
+  }
+
   async function persistPersonNotifications(person, state) {
     if (!person) return;
     if (typeof peopleStorage.writePersonNotifications === "function") {
@@ -199,7 +223,28 @@ function createPersoneelsportaalRouteHandler(deps) {
       });
       return;
     }
-  if (url.pathname === "/api/resignation-forms" && req.method === "POST") {
+    if (url.pathname === "/api/notifications/clear" && req.method === "POST") {
+      const auth = requireAuth(req, res);
+      if (!auth) return;
+      const state = await readPeopleState();
+      const person = (state.people || []).find((entry) => entry.id === auth.profile.id);
+      if (!person) {
+        sendJson(res, 404, { error: "Profiel niet gevonden." });
+        return;
+      }
+      person.notifications = [];
+      await persistPersonNotifications(person, state);
+      const permissions = permissionsForAuth(auth, state);
+      sendJson(res, 200, {
+        ok: true,
+        state: stateForProfile(state, permissions, auth.profile.id),
+        canViewLogbook: permissions.canViewLogbook,
+        permissions
+      });
+      return;
+    }
+
+    if (url.pathname === "/api/resignation-forms" && req.method === "POST") {
     const auth = requireAuth(req, res);
     if (!auth) return;
     const state = await readPeopleState();
@@ -590,10 +635,26 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const reviewer = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     const currentStatus = form.status || "pending";
-    const isKader = Boolean(permissions.canManagePeople);
-    if (currentStatus === "in_review" && form.reviewedById && form.reviewedById !== reviewer.id && !isKader) {
-      sendJson(res, 403, { error: `Dit I8 formulier is in behandeling door ${form.reviewedByName || "een andere beoordelaar"}. Alleen Kader kan dit overrulen.` });
-      return;
+    const isLeadReviewer = Boolean(permissions.canLeadOvJ || permissions.canManagePeople);
+    if (!isLeadReviewer) {
+      if (currentStatus === "pending" && status !== "in_review") {
+        sendJson(res, 403, { error: "hOvJ moet een I8 eerst in behandeling zetten voordat deze goedgekeurd of afgekeurd wordt." });
+        return;
+      }
+      if (currentStatus === "in_review") {
+        if (!form.reviewedById || form.reviewedById !== reviewer.id) {
+          sendJson(res, 403, { error: `Dit I8 formulier is in behandeling door ${form.reviewedByName || "een andere beoordelaar"}. Alleen OVJ of Kader kan dit overrulen.` });
+          return;
+        }
+        if (!['approved', 'rejected'].includes(status)) {
+          sendJson(res, 403, { error: "hOvJ kan een I8 die al in behandeling staat alleen goedkeuren of afkeuren." });
+          return;
+        }
+      }
+      if (["approved", "rejected"].includes(currentStatus)) {
+        sendJson(res, 403, { error: "hOvJ kan een afgerond I8 formulier niet heropenen of aanpassen. Alleen OVJ of Kader kan dit." });
+        return;
+      }
     }
     form.status = status;
     form.reviewedAt = new Date().toISOString();
@@ -602,15 +663,16 @@ function createPersoneelsportaalRouteHandler(deps) {
     form.rejectionReason = status === "rejected" ? rejectionReason : "";
     state.activity = state.activity || [];
     const actionLabel = status === "approved" ? "goedgekeurd" : status === "rejected" ? "afgekeurd" : "in behandeling gezet";
-    const activityMessage = `${reviewer.name} heeft I8 formulier van ${form.personName || "Onbekend"} ${actionLabel}.`;
+    const formNumber = i8NumberForServer(form, state.i8Forms);
+    const activityMessage = `${reviewer.name} heeft I8 ${formNumber} van ${form.personName || "Onbekend"} ${actionLabel}.`;
     state.activity.push(activityMessage);
     const formOwner = (state.people || []).find((entry) => entry.id === form.personId);
     if (formOwner) {
       addPersonNotification(formOwner, {
         type: "i8",
-        title: status === "in_review" ? "I8 in behandeling" : `I8 ${actionLabel}`,
-        message: `Je I8 formulier is ${actionLabel} door ${reviewer.name}.`,
-        meta: { i8FormId: form.id, status }
+        title: status === "in_review" ? `I8 ${formNumber} in behandeling` : `I8 ${formNumber} ${actionLabel}`,
+        message: `Je I8 formulier ${formNumber} is ${actionLabel} door ${reviewer.name}.`,
+        meta: { i8FormId: form.id, i8Number: formNumber, status }
       });
       await persistPersonNotifications(formOwner, state);
     }
@@ -622,7 +684,6 @@ function createPersoneelsportaalRouteHandler(deps) {
     );
     return;
   }
-
 
   if (url.pathname === "/api/hours/week" && req.method === "POST") {
     const auth = requireAuth(req, res);
@@ -815,8 +876,11 @@ function createPersoneelsportaalRouteHandler(deps) {
     const auth = requireAuth(req, res);
     if (!auth) return;
     const state = await readPeopleState();
-    if (!(await hasPermission(auth, state, "canManageQualifications"))) {
-      sendJson(res, 403, { error: "Alleen Kader of Trainer mag trainingen aanpassen." });
+    const permissions = permissionsForAuth(auth, state);
+    const canManageAll = Boolean(permissions.canManageQualifications);
+    const canRevokeIbt = Boolean(permissions.canRevokeIbt);
+    if (!canManageAll && !canRevokeIbt) {
+      sendJson(res, 403, { error: "Alleen Kader, Trainer of (h)OvJ mag deze training aanpassen." });
       return;
     }
     const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(qualificationMatch[1]));
@@ -825,14 +889,26 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     const body = await readBody(req);
-    const previousTrainings = new Set(Array.isArray(person.completedTrainings) ? person.completedTrainings : []);
-    const previousOperational = new Set(Array.isArray(person.completedOperational) ? person.completedOperational : []);
-    const completedTrainings = Array.isArray(body.completedTrainings) ? body.completedTrainings : [];
-    const completedOperational = Array.isArray(body.completedOperational) ? body.completedOperational : [];
-    person.completedTrainings = completedTrainings.filter((item) => profileTrainings.includes(item));
-    person.completedOperational = completedOperational.filter((item) => profileOperational.includes(item));
-    const newTrainings = person.completedTrainings.filter((item) => !previousTrainings.has(item));
-    const newOperational = person.completedOperational.filter((item) => !previousOperational.has(item));
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    const previousTrainingList = Array.isArray(person.completedTrainings) ? person.completedTrainings.filter((item) => profileTrainings.includes(item)) : [];
+    const previousOperationalList = Array.isArray(person.completedOperational) ? person.completedOperational.filter((item) => profileOperational.includes(item)) : [];
+    const previousTrainings = new Set(previousTrainingList);
+    const previousOperational = new Set(previousOperationalList);
+    const nextTrainings = (Array.isArray(body.completedTrainings) ? body.completedTrainings : []).filter((item) => profileTrainings.includes(item));
+    const nextOperational = (Array.isArray(body.completedOperational) ? body.completedOperational : []).filter((item) => profileOperational.includes(item));
+    const newTrainings = nextTrainings.filter((item) => !previousTrainings.has(item));
+    const removedTrainings = previousTrainingList.filter((item) => !nextTrainings.includes(item));
+    const newOperational = nextOperational.filter((item) => !previousOperational.has(item));
+    const removedOperational = previousOperationalList.filter((item) => !nextOperational.includes(item));
+    if (!canManageAll) {
+      const onlyIbtRevoked = removedTrainings.length <= 1 && removedTrainings.every((item) => item === "IBT");
+      if (newTrainings.length || newOperational.length || removedOperational.length || !onlyIbtRevoked) {
+        sendJson(res, 403, { error: "(h)OvJ mag alleen een bestaande IBT training innemen." });
+        return;
+      }
+    }
+    person.completedTrainings = nextTrainings;
+    person.completedOperational = nextOperational;
     for (const label of [...newTrainings, ...newOperational]) {
       addPersonNotification(person, {
         type: "training",
@@ -841,24 +917,47 @@ function createPersoneelsportaalRouteHandler(deps) {
         meta: { qualification: label }
       });
     }
+    for (const label of [...removedTrainings, ...removedOperational]) {
+      addPersonNotification(person, {
+        type: "training",
+        title: label === "IBT" ? "IBT ingenomen" : "Kwalificatie ingenomen",
+        message: `${label} is ingenomen op je profiel door ${actor.name}.`,
+        meta: { qualification: label, revoked: true }
+      });
+    }
+    const changeDetails = [
+      ...newTrainings.map((item) => `${item} behaald`),
+      ...newOperational.map((item) => `${item} behaald`),
+      ...removedTrainings.map((item) => `${item} ingenomen`),
+      ...removedOperational.map((item) => `${item} ingenomen`)
+    ];
+    if (changeDetails.length) {
+      addProfileLog(person, {
+        actor,
+        type: "qualification",
+        action: "Kwalificaties aangepast",
+        details: changeDetails.join(", ")
+      });
+    }
     state.activity = state.activity || [];
-    const activityMessage = `Profiel kwalificaties bijgewerkt voor ${person.name}.`;
+    const activityMessage = changeDetails.length
+      ? `${actor.name} wijzigde kwalificaties voor ${person.name}: ${changeDetails.join(", ")}.`
+      : `Profiel kwalificaties bijgewerkt voor ${person.name}.`;
     state.activity.push(activityMessage);
     if (typeof peopleStorage.writePersonQualifications === "function") {
       await Promise.resolve(peopleStorage.writePersonQualifications(person, activityMessage));
-      const permissions = permissionsForAuth(auth, state);
+      const nextPermissions = permissionsForAuth(auth, state);
       sendJson(res, 200, {
         ok: true,
-        state: stateForProfile(state, permissions, auth.profile.id),
-        canViewLogbook: permissions.canViewLogbook,
-        permissions
+        state: stateForProfile(state, nextPermissions, auth.profile.id),
+        canViewLogbook: nextPermissions.canViewLogbook,
+        permissions: nextPermissions
       });
       return;
     }
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
-
   const profileBadgesMatch = url.pathname.match(/^\/api\/people\/([^/]+)\/profile-badges$/);
   if (profileBadgesMatch && req.method === "POST") {
     const auth = requireAuth(req, res);
@@ -876,8 +975,25 @@ function createPersoneelsportaalRouteHandler(deps) {
     const body = await readBody(req);
     const selectedFunctions = Array.isArray(body.extraFunctions) ? body.extraFunctions : [];
     const badges = Array.isArray(body.badges) ? body.badges : [];
+    const previousFunctions = Array.isArray(person.extraFunctions) ? [...person.extraFunctions] : [];
+    const previousBadges = Array.isArray(person.badges) ? [...person.badges] : [];
     person.extraFunctions = selectedFunctions.filter((badge) => extraFunctions.includes(badge));
     person.badges = badges.filter((badge) => extraTasks.includes(badge));
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    const badgeChanges = [
+      ...person.extraFunctions.filter((badge) => !previousFunctions.includes(badge)).map((badge) => `${badge} toegevoegd`),
+      ...previousFunctions.filter((badge) => !person.extraFunctions.includes(badge)).map((badge) => `${badge} verwijderd`),
+      ...person.badges.filter((badge) => !previousBadges.includes(badge)).map((badge) => `${badge} toegevoegd`),
+      ...previousBadges.filter((badge) => !person.badges.includes(badge)).map((badge) => `${badge} verwijderd`)
+    ];
+    if (badgeChanges.length) {
+      addProfileLog(person, {
+        actor,
+        type: "badges",
+        action: "Functies en badges aangepast",
+        details: badgeChanges.join(", ")
+      });
+    }
     state.activity = state.activity || [];
     state.activity.push(`Functies en badges bijgewerkt voor ${person.name}.`);
     await sendPeopleStateAfterMutation(res, auth, state);
@@ -926,6 +1042,12 @@ function createPersoneelsportaalRouteHandler(deps) {
     state.activity = state.activity || [];
     const activityMessage = `${issuer.name} schreef ${disciplineLabels[type]} uit voor ${person.name}.`;
     state.activity.push(activityMessage);
+    addProfileLog(person, {
+      actor: issuer,
+      type: "discipline",
+      action: "Sanctie geregistreerd",
+      details: `${disciplineLabels[type]}: ${reason}`
+    });
     if (typeof peopleStorage.writePersonDiscipline === "function") {
       await Promise.resolve(peopleStorage.writePersonDiscipline(person, activityMessage));
       const permissions = permissionsForAuth(auth, state);
@@ -972,6 +1094,12 @@ function createPersoneelsportaalRouteHandler(deps) {
       state.activity = state.activity || [];
       const activityMessage = `${issuer.name} verwijderde een sanctie van ${person.name}.`;
       state.activity.push(activityMessage);
+      addProfileLog(person, {
+        actor: issuer,
+        type: "discipline",
+        action: "Sanctie verwijderd",
+        details: `${disciplineLabels[entry.type] || "Sanctie"}: ${entry.reason || "-"}`
+      });
       if (typeof peopleStorage.writePersonDiscipline === "function") {
         await Promise.resolve(peopleStorage.writePersonDiscipline(person, activityMessage));
         const permissions = permissionsForAuth(auth, state);
@@ -1005,6 +1133,12 @@ function createPersoneelsportaalRouteHandler(deps) {
     state.activity = state.activity || [];
     const activityMessage = `${issuer.name} paste een sanctie aan voor ${person.name}.`;
     state.activity.push(activityMessage);
+    addProfileLog(person, {
+      actor: issuer,
+      type: "discipline",
+      action: "Sanctie aangepast",
+      details: `${disciplineLabels[type]}: ${reason}`
+    });
     if (typeof peopleStorage.writePersonDiscipline === "function") {
       await Promise.resolve(peopleStorage.writePersonDiscipline(person, activityMessage));
       const permissions = permissionsForAuth(auth, state);

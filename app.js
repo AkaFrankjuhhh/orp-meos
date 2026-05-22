@@ -92,6 +92,14 @@ function canManageQualifications() {
   return Boolean(permissions.canManageQualifications || hasKaderAccess());
 }
 
+function canRevokeIbt() {
+  return Boolean(permissions.canRevokeIbt || hasKaderAccess());
+}
+
+function canViewProfileAuditLog() {
+  return Boolean(permissions.canViewProfileAuditLog || hasKaderAccess());
+}
+
 function canViewAllDiscipline() {
   return Boolean(permissions.canViewAllDiscipline || hasKaderAccess());
 }
@@ -131,6 +139,10 @@ function canManageHours() {
 }
 function canViewOvJChannels() {
   return Boolean(permissions.canViewOvJChannels || hasKaderAccess());
+}
+
+function canLeadOvJ() {
+  return Boolean(permissions.canLeadOvJ || hasKaderAccess());
 }
 
 function canViewMentorOverview() {
@@ -722,30 +734,60 @@ function notificationTypeLabel(type) {
   }[type] || "Melding";
 }
 
+function notificationI8Form(notification) {
+  const formId = notification?.meta?.i8FormId;
+  if (!formId) return null;
+  return (state.i8Forms || []).find((form) => form.id === formId) || null;
+}
+
+function notificationTitle(notification) {
+  const baseTitle = notification.title || "Nieuwe melding";
+  const form = notificationI8Form(notification);
+  if (!form) return baseTitle;
+  const number = notification.meta?.i8Number || (typeof i8NumberFor === "function" ? i8NumberFor(form, state.i8Forms || []) : "");
+  if (!number || baseTitle.includes(`I8 ${number}`)) return baseTitle;
+  return `I8 ${number} ${baseTitle.replace(/^I8\s*/i, "")}`.trim();
+}
+
+function openNotificationTarget(notificationId) {
+  const notification = ownNotifications().find((entry) => entry.id === notificationId);
+  const form = notificationI8Form(notification);
+  if (!form) return;
+  closeNotificationPanel();
+  setPage("i8-opstellen");
+  if (typeof setI8Tab === "function") setI8Tab("list");
+  if (typeof renderI8Forms === "function") renderI8Forms();
+  if (typeof openI8DetailDialog === "function") openI8DetailDialog(form.id);
+}
+
 function renderNotifications() {
   const notifications = ownNotifications().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   const unread = notifications.filter((notification) => !notification.readAt).length;
   const counter = $("#notificationCounter");
   const list = $("#notificationList");
   const readAll = $("#notificationReadAll");
+  const clearAll = $("#notificationClearAll");
   if (counter) {
     counter.textContent = String(unread);
     counter.hidden = unread <= 0;
   }
   if (readAll) readAll.disabled = unread <= 0;
+  if (clearAll) clearAll.disabled = notifications.length <= 0;
   if (!list) return;
   list.innerHTML = notifications.length
-    ? notifications.slice(0, 20).map((notification) => `
-      <article class="notification-item ${notification.readAt ? "is-read" : "is-unread"}">
-        <span>${escapeHtml(notificationTypeLabel(notification.type))}</span>
-        <strong>${escapeHtml(notification.title || "Nieuwe melding")}</strong>
-        <p>${escapeHtml(notification.message || "")}</p>
-        <time>${escapeHtml(formatDateTime(notification.createdAt))}</time>
-      </article>
-    `).join("")
+    ? notifications.slice(0, 20).map((notification) => {
+      const hasI8Target = Boolean(notificationI8Form(notification));
+      return `
+        <article class="notification-item ${notification.readAt ? "is-read" : "is-unread"} ${hasI8Target ? "is-clickable" : ""}" ${hasI8Target ? `data-notification-open="${escapeHtml(notification.id)}" role="button" tabindex="0"` : ""}>
+          <span>${escapeHtml(notificationTypeLabel(notification.type))}</span>
+          <strong>${escapeHtml(notificationTitle(notification))}</strong>
+          <p>${escapeHtml(notification.message || "")}</p>
+          <time>${escapeHtml(formatDateTime(notification.createdAt))}</time>
+        </article>
+      `;
+    }).join("")
     : '<div class="notification-empty">Geen meldingen.</div>';
 }
-
 function closeNotificationPanel() {
   const panel = $("#notificationPanel");
   const bell = $("#notificationBell");
@@ -813,9 +855,30 @@ function wireEvents() {
     event.stopPropagation();
     toggleNotificationPanel();
   });
-  $("#notificationPanel")?.addEventListener("click", (event) => event.stopPropagation());
+  $("#notificationPanel")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const item = event.target.closest("[data-notification-open]");
+    if (item) openNotificationTarget(item.dataset.notificationOpen);
+  });
   $("#notificationReadAll")?.addEventListener("click", async () => {
     if (await runAction("/api/notifications/read", {})) render();
+  });
+  $("#notificationClearAll")?.addEventListener("click", async () => {
+    const confirmed = await showSiteConfirm({
+      title: "Meldingen leegmaken",
+      message: "Weet je zeker dat je al je meldingen wil verwijderen?",
+      confirmText: "Leegmaken",
+      cancelText: "Annuleren",
+      danger: true
+    });
+    if (confirmed && await runAction("/api/notifications/clear", {})) render();
+  });
+  $("#notificationPanel")?.addEventListener("keydown", (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    const item = event.target.closest("[data-notification-open]");
+    if (!item) return;
+    event.preventDefault();
+    openNotificationTarget(item.dataset.notificationOpen);
   });
   document.addEventListener("click", closeNotificationPanel);
   document.addEventListener("keydown", (event) => {
@@ -916,7 +979,7 @@ function wireEvents() {
   $("#mijn-profiel").addEventListener("change", async (event) => {
     if (!event.target.matches("[data-profile-check]")) return;
     const viewed = visibleProfile();
-    if (!viewed || !canManageQualifications()) {
+    if (!viewed || (!canManageQualifications() && !canRevokeIbt())) {
       renderProfile();
       return;
     }
