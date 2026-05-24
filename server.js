@@ -17,6 +17,16 @@ const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-d
 const { withClient, closePool } = require("./modules/db");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 const { createEventBus } = require("./modules/event-bus");
+const { createPublicFormsStore } = require("./modules/public-forms-store");
+const {
+  publicFormForRequest,
+  publicFormFromSlug,
+  publicFormClientConfig,
+  validatePublicFormSubmission,
+  createPublicFormSubmission,
+  publicFormWebhookUrl,
+  buildPublicFormWebhookPayload
+} = require("./modules/public-forms");
 
 loadEnv();
 
@@ -30,6 +40,7 @@ const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
 const sessions = createSessionStore();
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 1024 * 1024);
 const eventBus = createEventBus();
+const publicFormRateLimit = new Map();
 const {
   parseCookies,
   createSession,
@@ -345,6 +356,7 @@ const handlePortoApi = createPortoRouteHandler({
 const formsStorage = storageMode === "postgres" ? createPostgresFormsStore({ afterWrite: () => afterStorageWrite("forms") }) : { readState, writeState };
 // Personeel/profielen krijgen in database-modus ook hun eigen directe PostgreSQL-pad.
 const peopleStorage = storageMode === "postgres" ? createPostgresPeopleStore({ afterWrite: () => afterStorageWrite("people") }) : { readState, writeState };
+const publicFormsStore = createPublicFormsStore({ storageMode, readState, writeState, afterWrite: () => afterStorageWrite("public-forms") });
 const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   peopleStorage,
   formsStorage,
@@ -426,6 +438,64 @@ function requestOriginForAuth(req) {
 function discordRedirectUriForRequest(req) {
   return `${requestOriginForAuth(req)}/auth/discord/callback`;
 }
+
+function publicFormRateLimitKey(req, slug) {
+  const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+  return `${slug}:${ip}`;
+}
+
+function publicFormRateLimitAllows(req, slug) {
+  const key = publicFormRateLimitKey(req, slug);
+  const now = Date.now();
+  const recent = (publicFormRateLimit.get(key) || []).filter((timestamp) => now - timestamp < 10 * 60 * 1000);
+  if (recent.length >= 5) {
+    publicFormRateLimit.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  publicFormRateLimit.set(key, recent);
+  return true;
+}
+
+async function handlePublicFormsApi(req, res, url) {
+  if (!url.pathname.startsWith("/api/public-forms/")) return false;
+
+  if (url.pathname === "/api/public-forms/config" && req.method === "GET") {
+    const config = publicFormForRequest(req, url);
+    if (!config) {
+      sendJson(res, 404, { error: "Formulier niet gevonden" });
+      return true;
+    }
+    sendJson(res, 200, publicFormClientConfig(config));
+    return true;
+  }
+
+  if (url.pathname === "/api/public-forms/submit" && req.method === "POST") {
+    const body = await readBody(req);
+    const config = publicFormFromSlug(body.slug) || publicFormForRequest(req, url);
+    if (!config) {
+      sendJson(res, 404, { error: "Formulier niet gevonden" });
+      return true;
+    }
+    if (!publicFormRateLimitAllows(req, config.slug)) {
+      sendJson(res, 429, { error: "Te veel inzendingen achter elkaar. Probeer het later opnieuw." });
+      return true;
+    }
+    const { cleanAnswers, errors } = validatePublicFormSubmission(config, body.answers || {});
+    if (errors.length) {
+      sendJson(res, 400, { error: errors[0], errors });
+      return true;
+    }
+    const submission = createPublicFormSubmission(config, cleanAnswers, req);
+    const webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission));
+    await publicFormsStore.saveSubmission(submission, webhookResult);
+    sendJson(res, 200, { ok: true, id: submission.id, webhook: webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : "failed" });
+    return true;
+  }
+
+  sendJson(res, 404, { error: "Publieke formulierroute niet gevonden" });
+  return true;
+}
 function redirectWithAuthError(req, res, code) {
   const cookies = parseCookies(req);
   const returnTo = safeReturnPath(cookies.orp_login_return || "/");
@@ -442,6 +512,7 @@ function redirectWithAuthError(req, res, code) {
 }
 
 async function handleApi(req, res, url) {
+  if (await handlePublicFormsApi(req, res, url)) return;
   if (url.pathname === "/api/events" && req.method === "GET") {
     const auth = requireAuth(req, res);
     if (!auth) return;
@@ -647,14 +718,15 @@ async function handleApi(req, res, url) {
 }
 
 function serveStatic(req, res, url) {
+  const publicFormConfig = publicFormForRequest(req, url);
   const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "personeels-archief", "logboek"]);
   const firstSegment = url.pathname.split("/").filter(Boolean)[0] || "";
-  const requested = url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
+  const requested = publicFormConfig ? (["/public-forms.css", "/public-forms.js"].includes(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
   const filePath = path.normalize(path.join(root, requested));
   const relativePath = path.relative(root, filePath);
   const isOutsideRoot = relativePath.startsWith("..") || path.isAbsolute(relativePath);
   const normalizedRelative = relativePath.replaceAll("\\", "/");
-  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "porto.css", "app.js", "personeelsportaal-data.js", "porto.html", "porto.js", "shared-ui.js"]);
+  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "porto.css", "app.js", "personeelsportaal-data.js", "porto.html", "porto.js", "shared-ui.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
   const isAsset = normalizedRelative.startsWith("assets/");
   const isFeatureScript = /^(personeelsportaal|porto)\/[^/]+\.js$/.test(normalizedRelative);
   const isPublicRootFile = publicRootFiles.has(normalizedRelative);
@@ -706,6 +778,7 @@ const server = http.createServer(async (req, res) => {
 async function startServer() {
   await sessions.load?.();
   await sessions.cleanup?.();
+  if (storageMode === "postgres") await publicFormsStore.ensurePublicFormsTable?.();
   server.listen(port, () => {
     console.log(`Oranjestad Defensie draait op ${appBaseUrl}`);
     console.log(`Storage mode: ${storageMode}`);

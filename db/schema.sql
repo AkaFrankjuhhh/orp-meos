@@ -171,3 +171,17 @@ CREATE TABLE IF NOT EXISTS activity_log (
   message text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS public_form_submissions (
+  id text PRIMARY KEY,
+  form_slug text NOT NULL,
+  form_title text NOT NULL,
+  answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+  submitted_at timestamptz NOT NULL DEFAULT now(),
+  ip text,
+  user_agent text,
+  webhook_status text,
+  raw jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS public_form_submissions_slug_idx ON public_form_submissions(form_slug, submitted_at DESC);

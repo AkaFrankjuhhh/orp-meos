@@ -1,5 +1,6 @@
-﻿# Vervang personeelsportaal.jouwdomein.nl door jouw domein.
-personeelsportaal.jouwdomein.nl {
+# Defensie Personeelsportaal + Porto + publieke formulieren.
+# Alle hostnames gaan naar dezelfde Node.js server; de app scheidt daarna zelf portal/porto/formulieren.
+orpdefensie.nl, www.orpdefensie.nl, porto.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, klachten.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl, hovj.orpdefensie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000
 

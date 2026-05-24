@@ -753,7 +753,9 @@ function hasOpenTransientMenu() {
 }
 
 function hasActiveMentorChecklistInteraction() {
-  return activePageId() === "mentor-checklist" && Date.now() < mentorChecklistEditingUntil;
+  const notesField = $("#mentorNotes");
+  const isTypingMentorNote = activePageId() === "mentor-checklist" && notesField && document.activeElement === notesField;
+  return activePageId() === "mentor-checklist" && (Date.now() < mentorChecklistEditingUntil || isTypingMentorNote);
 }
 async function refreshReviewCounters() {
   if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
@@ -1313,6 +1315,17 @@ function wireEvents() {
   }
   $("#saveMentorChecklistBtn").hidden = true;
   $("#saveMentorChecklistBtn").addEventListener("click", () => saveCurrentMentorChecklist(false));
+  const mentorNotesField = $("#mentorNotes");
+  mentorNotesField?.addEventListener("focus", () => {
+    mentorChecklistEditingUntil = Date.now() + 3000;
+  });
+  mentorNotesField?.addEventListener("input", () => {
+    mentorChecklistEditingUntil = Date.now() + 3000;
+  });
+  mentorNotesField?.addEventListener("blur", () => {
+    mentorChecklistEditingUntil = Date.now() + 500;
+    scheduleLiveRefresh("mentor-checklist");
+  });
   $("#saveMentorNotesBtn").addEventListener("click", () => saveCurrentMentorChecklist(true));
   $("#mentorLeadershipLogList")?.addEventListener("click", (event) => {
     const row = event.target.closest("[data-mentor-log-person]");

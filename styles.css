@@ -117,11 +117,13 @@ button {
   flex-direction: column;
   gap: 24px;
   color: #f7fbff;
+  overflow: hidden;
 }
 
 [data-theme="light"] .sidebar {
   background: #0e3d6e;
   color: #f7fbff;
+  overflow: hidden;
 }
 
 .brand,
@@ -152,6 +154,23 @@ button {
 .nav-list {
   display: grid;
   gap: 8px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  padding-bottom: 32px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.38) transparent;
+}
+
+.nav-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.nav-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
 }
 
 .nav-divider {
@@ -1647,6 +1666,7 @@ body[data-device="mobile"] .profile-progress-column > .panel,
 body[data-device="mobile"] .profile-hours-panel,
 body[data-device="mobile"] .profile-progress-column > .profile-discipline-panel {
   min-height: 0;
+  flex: 1 1 auto;
   height: auto;
 }
 
@@ -3573,6 +3593,7 @@ body[data-device="mobile"] .i8-archive-row .i8-review-meta {
   position: relative;
   height: calc(100dvh - 76px);
   min-height: 0;
+  flex: 1 1 auto;
   overflow: hidden;
 }
 
@@ -3782,6 +3803,7 @@ body.porto-ops-workspace .porto-ops-left-stack {
 body.porto-ops-workspace .porto-map-card {
   height: 100%;
   min-height: 0;
+  flex: 1 1 auto;
 }
 
 body.porto-ops-workspace .porto-map-surface {
@@ -5069,6 +5091,7 @@ body.porto-ops-workspace .porto-ops-grid {
 body.porto-ops-workspace .porto-map-card {
   min-width: 0;
   min-height: 0;
+  flex: 1 1 auto;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
@@ -5083,6 +5106,7 @@ body.porto-ops-workspace .porto-map-surface {
   width: 100%;
   height: auto;
   min-height: 0;
+  flex: 1 1 auto;
   max-height: 100%;
   align-self: stretch;
   overflow: hidden;

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ORP Defensie Formulier</title>
+    <link rel="stylesheet" href="/public-forms.css?v=20260524" />
+  </head>
+  <body>
+    <main class="form-shell">
+      <section class="form-card form-card-hero">
+        <p class="eyebrow">ORP Defensie Oranjestad</p>
+        <h1 id="formTitle">Formulier laden...</h1>
+        <p id="formSubtitle" class="form-subtitle"></p>
+        <div id="formNotice" class="form-notice" hidden></div>
+      </section>
+
+      <form id="publicForm" class="form-card form-fields" novalidate>
+        <input id="website" name="website" type="text" autocomplete="off" tabindex="-1" class="hp-field" />
+        <div id="questions"></div>
+        <div id="formMessage" class="form-message" hidden></div>
+        <button id="submitButton" class="submit-button" type="submit">Formulier verzenden</button>
+      </form>
+    </main>
+    <script src="/public-forms.js?v=20260524"></script>
+  </body>
+</html>
