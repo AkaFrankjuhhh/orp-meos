@@ -56,7 +56,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewLogbook: isKader,
       canManagePeople: isKader,
       canViewKaderPages: isKader,
-      canManageProfileBadges: isKader,
+      canManageProfileBadges: isKader || isHoofdofficier || isOfficiersraad,
       canManageQualifications: isKader || isTrainer || isTrainerLeadership,
       canRevokeIbt: isKader || isOvJ,
       canViewAllDiscipline: isKader || isInterneZaken || isIzLeadership,

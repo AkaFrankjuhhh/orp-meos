@@ -240,23 +240,28 @@ async function runDiscordNicknameSyncSweep(reason = "periodiek") {
   try {
     const state = await Promise.resolve(readState());
     let changed = 0;
+    let rankRoleChanged = 0;
     let missing = 0;
     let failed = 0;
     for (const person of activePortalMembersWithDiscord(state)) {
       try {
         const result = await discordBot.syncNicknameForPersonIfNeeded(person);
         if (result?.ok && !result.unchanged) changed += 1;
+        const rankRoleResult = await discordBot.syncRankRoleForPersonIfNeeded?.(person);
+        if (rankRoleResult?.ok && Array.isArray(rankRoleResult.changes) && rankRoleResult.changes.length) {
+          rankRoleChanged += 1;
+        }
       } catch (error) {
         if (error.status === 404) {
           missing += 1;
           continue;
         }
         failed += 1;
-        logServerError(`Discord nickname sync ${person.name || person.id}`, error);
+        logServerError(`Discord profiel sync ${person.name || person.id}`, error);
       }
     }
-    if (changed || failed) {
-      console.log(`Discord nickname sync ${reason}: ${changed} aangepast, ${missing} niet in server, ${failed} mislukt.`);
+    if (changed || rankRoleChanged || failed) {
+      console.log(`Discord profiel sync ${reason}: ${changed} namen, ${rankRoleChanged} rangrollen, ${missing} niet in server, ${failed} mislukt.`);
     }
   } finally {
     discordNicknameSyncRunning = false;

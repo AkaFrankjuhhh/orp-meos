@@ -1,4 +1,4 @@
-﻿const { loadEnv } = require("../modules/db");
+const { loadEnv } = require("../modules/db");
 const { readPostgresState } = require("../modules/postgres-state");
 const { createDiscordBotServices } = require("../modules/discord-bot");
 
@@ -37,7 +37,7 @@ async function main() {
     .filter((person) => duplicateDiscordIds.has(person.discordId))
     .sort((a, b) => String(a.discordId).localeCompare(String(b.discordId)) || (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true }));
 
-  console.log(`Discord nickname sync ${apply ? "APPLY" : "DRY-RUN"}`);
+  console.log(`Discord profiel sync ${apply ? "APPLY" : "DRY-RUN"}`);
   console.log(`Actieve profielen met Discord ID: ${activeWithDiscord.length}`);
   console.log(`Unieke profielen voor sync: ${people.length}`);
   if (duplicatePeople.length) {
@@ -53,22 +53,27 @@ async function main() {
 
   for (const person of people) {
     const nickname = bot.buildServiceNickname(person);
+    const rankRoleId = bot.rankRoleIdForPerson?.(person) || "niet ingesteld";
     if (!apply) {
-      console.log(`[dry] ${maskDiscordId(person.discordId)} ${person.serviceNumber || "-"} ${person.rank || "-"} -> ${nickname}`);
+      console.log(`[dry] ${maskDiscordId(person.discordId)} ${person.serviceNumber || "-"} ${person.rank || "-"} -> ${nickname} | rangrol: ${rankRoleId}`);
       continue;
     }
 
     try {
-      await bot.syncNicknameForPerson(person, "Defensie Personeelsportaal bulk nickname sync");
+      await bot.syncNicknameForPerson(person, "Defensie Personeelsportaal bulk Discord profiel sync");
+      const roleResult = await bot.syncRankRoleForPerson?.(person, "Defensie Personeelsportaal bulk Discord profiel sync");
       changed += 1;
-      console.log(`[ok] ${person.serviceNumber || "-"} ${person.name} -> ${nickname}`);
+      const roleText = roleResult?.ok
+        ? `${roleResult.changes?.length || 0} rolwijzigingen`
+        : (roleResult?.skipped ? `rangrol overgeslagen: ${roleResult.reason}` : "rangrol niet beschikbaar");
+      console.log(`[ok] ${person.serviceNumber || "-"} ${person.name} -> ${nickname} | ${roleText}`);
       await sleep(450);
     } catch (error) {
       failed += 1;
       const status = error.status ? `Discord ${error.status}` : "fout";
       console.log(`[mislukt] ${person.serviceNumber || "-"} ${person.name}: ${status} ${error.message || "onbekend"}`);
       if (error.status === 403) {
-        console.log("  Tip: zet de botrol boven de rol van dit lid of geef de bot Manage Nicknames/Administrator.");
+        console.log("  Tip: zet de botrol boven de leden en rangrollen, en geef de bot Manage Nicknames + Manage Roles.");
       }
       if (error.status === 429) {
         console.log("  Tip: Discord rate-limit bleef actief; draai de sync straks nog een keer.");
@@ -80,7 +85,7 @@ async function main() {
   }
 
   if (!apply) {
-    console.log("Dry-run klaar. Draai met --apply om Discord nicknames echt aan te passen.");
+    console.log("Dry-run klaar. Draai met --apply om Discord nicknames en rangrollen echt aan te passen.");
     return;
   }
 
@@ -88,6 +93,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`Discord nickname sync mislukt: ${error.message}`);
+  console.error(`Discord profiel sync mislukt: ${error.message}`);
   process.exit(1);
 });

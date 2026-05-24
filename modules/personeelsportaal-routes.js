@@ -109,6 +109,35 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
   }
 
+
+  function discordRankRoleSnapshot(state) {
+    if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.rankRoleIdForPerson !== "function") return new Map();
+    return new Map(
+      (state.people || [])
+        .filter((person) => person.discordId)
+        .map((person) => [person.id, `${person.discordId || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`])
+    );
+  }
+
+  async function syncChangedDiscordRankRoles(state, previousRankRoles) {
+    if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncRankRoleForPerson !== "function") return;
+    const changedPeople = (state.people || [])
+      .filter((person) => person.status === "Actief" && person.discordId)
+      .filter((person) => previousRankRoles.get(person.id) !== `${person.discordId || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`);
+
+    for (const person of changedPeople) {
+      try {
+        const result = await discordBot.syncRankRoleForPerson(person);
+        if (result?.ok && Array.isArray(result.changes) && result.changes.length) {
+          state.activity = state.activity || [];
+          state.activity.push(`Discord rangrol gesynchroniseerd voor ${person.name}: ${person.rank}.`);
+        }
+      } catch (error) {
+        state.activity = state.activity || [];
+        state.activity.push(`Discord rangrol synchroniseren mislukt voor ${person.name}: ${error.message || "onbekende fout"}.`);
+      }
+    }
+  }
   function addPersonNotification(person, notification) {
     if (!person) return null;
     person.notifications = Array.isArray(person.notifications) ? person.notifications : [];
@@ -810,6 +839,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     const previousNicknames = discordNicknameSnapshot(state);
+    const previousRankRoles = discordRankRoleSnapshot(state);
 
 
     const result = savePerson(state, {
@@ -843,6 +873,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       state.activity.push(`Aanname webhook kon niet verzonden worden voor ${result.person.name}.`);
     }
     await syncChangedDiscordNicknames(state, previousNicknames);
+    await syncChangedDiscordRankRoles(state, previousRankRoles);
 
     await sendPeopleStateAfterMutation(res, auth, state);
 
@@ -861,6 +892,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const personPayload = body.person || {};
     const existingBeforeSave = (state.people || []).find((person) => person.id === personPayload.id);
     const previousNicknames = discordNicknameSnapshot(state);
+    const previousRankRoles = discordRankRoleSnapshot(state);
     const result = savePerson(state, personPayload);
     if (result.error) {
       sendJson(res, 400, { error: result.error });
@@ -884,6 +916,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       }
     }
     await syncChangedDiscordNicknames(state, previousNicknames);
+    await syncChangedDiscordRankRoles(state, previousRankRoles);
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
@@ -899,12 +932,14 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const body = await readBody(req);
     const previousNicknames = discordNicknameSnapshot(state);
+    const previousRankRoles = discordRankRoleSnapshot(state);
     const result = savePerson(state, { ...(body.person || {}), id: decodeURIComponent(updatePersonMatch[1]) });
     if (result.error) {
       sendJson(res, 400, { error: result.error });
       return;
     }
     await syncChangedDiscordNicknames(state, previousNicknames);
+    await syncChangedDiscordRankRoles(state, previousRankRoles);
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
@@ -1001,8 +1036,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     const auth = requireAuth(req, res);
     if (!auth) return;
     const state = await readPeopleState();
-    if (!(await hasKaderAccess(auth, state))) {
-      sendJson(res, 403, { error: "Alleen Kader mag functies en badges aanpassen." });
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canManageProfileBadges) {
+      sendJson(res, 403, { error: "Alleen Kader, Hoofdofficier of Officiersraad mag functies en badges aanpassen." });
       return;
     }
     const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(profileBadgesMatch[1]));
@@ -1015,7 +1051,11 @@ function createPersoneelsportaalRouteHandler(deps) {
     const badges = Array.isArray(body.badges) ? body.badges : [];
     const previousFunctions = Array.isArray(person.extraFunctions) ? [...person.extraFunctions] : [];
     const previousBadges = Array.isArray(person.badges) ? [...person.badges] : [];
-    person.extraFunctions = selectedFunctions.filter((badge) => extraFunctions.includes(badge));
+    // Alleen Kader mag de functie-badges Kader/Hoofdofficier/Officiersraad wijzigen.
+    // Hoofdofficier en Officiersraad mogen wel taakbadges zoals hOvJ, Interne-Zaken en Trainer beheren.
+    person.extraFunctions = permissions.canManagePeople
+      ? selectedFunctions.filter((badge) => extraFunctions.includes(badge))
+      : previousFunctions;
     person.badges = badges.filter((badge) => extraTasks.includes(badge));
     const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     const badgeChanges = [
@@ -1271,6 +1311,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const action = personActionMatch[2];
     const body = await readBody(req);
     const previousNicknames = discordNicknameSnapshot(state);
+    const previousRankRoles = discordRankRoleSnapshot(state);
     if (action === "promote" && !promotePerson(state, person)) {
       sendJson(res, 400, { error: "Promotie is niet mogelijk voor deze rang." });
       return;
@@ -1358,6 +1399,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     await syncChangedDiscordNicknames(state, previousNicknames);
+    await syncChangedDiscordRankRoles(state, previousRankRoles);
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }

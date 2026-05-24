@@ -4,6 +4,7 @@
   let opsSoundPrimed = false;
   let previousOpsRequestIds = new Set();
   let previousOpsStatuses = new Map();
+  const activeOpsAlerts = new Map();
 
   // OPS-audio gebruikt Web Audio, zodat er geen losse geluidsbestanden nodig zijn.
   function getAudioContext() {
@@ -40,7 +41,7 @@
     oscillator.stop(startAt + duration + 0.03);
   }
 
-  // De huidige OPS krijgt alleen geluid bij nieuwe meldingen of echte statuswissels.
+  // De huidige OPS krijgt herhalend geluid zolang een melding aandacht nodig heeft.
   function playOpsSound(type) {
     const context = getAudioContext();
     if (!context || !audioUnlocked) return;
@@ -75,9 +76,38 @@
     return statuses;
   }
 
+  function repeatMsForSound(type) {
+    if (type === "status7") return 2600;
+    if (type === "status6") return 4300;
+    return 5200;
+  }
+
+  function stopOpsAlert(key) {
+    const alert = activeOpsAlerts.get(key);
+    if (!alert) return;
+    window.clearInterval(alert.timer);
+    activeOpsAlerts.delete(key);
+  }
+
+  function startOpsAlert(key, type) {
+    const current = activeOpsAlerts.get(key);
+    if (current?.type === type) return;
+    stopOpsAlert(key);
+    playOpsSound(type);
+    const timer = window.setInterval(() => playOpsSound(type), repeatMsForSound(type));
+    activeOpsAlerts.set(key, { type, timer });
+  }
+
+  function stopMissingOpsAlerts(nextKeys) {
+    for (const key of [...activeOpsAlerts.keys()]) {
+      if (!nextKeys.has(key)) stopOpsAlert(key);
+    }
+  }
+
   function resetSoundState(payload) {
     previousOpsRequestIds = new Set((payload.opsRequests || []).map((request) => request.id));
     previousOpsStatuses = collectOpsStatuses(payload.activeUnits || []);
+    for (const key of [...activeOpsAlerts.keys()]) stopOpsAlert(key);
     opsSoundPrimed = false;
   }
 
@@ -89,21 +119,30 @@
       return;
     }
 
+    const nextAlertKeys = new Set();
     const nextRequestIds = new Set((payload.opsRequests || []).map((request) => request.id));
     const nextStatuses = collectOpsStatuses(payload.activeUnits || []);
 
-    if (opsSoundPrimed) {
-      const hasNewStatusZero = [...nextRequestIds].some((id) => !previousOpsRequestIds.has(id));
-      if (hasNewStatusZero) playOpsSound("status0");
-
-      for (const [unitId, nextStatus] of nextStatuses.entries()) {
-        const previousStatus = previousOpsStatuses.get(unitId);
-        if (!previousStatus || previousStatus === nextStatus) continue;
-        if (nextStatus === "6") playOpsSound("status6");
-        if (nextStatus === "7") playOpsSound("status7");
-      }
+    // Status 0 blijft hoorbaar totdat OPS de aanmelding indeelt en het verzoek verdwijnt.
+    for (const request of payload.opsRequests || []) {
+      if (!request?.id) continue;
+      const key = `status0:${request.id}`;
+      nextAlertKeys.add(key);
+      startOpsAlert(key, "status0");
     }
 
+    // Status 6/7 blijft hoorbaar per roepnummer totdat OPS de status wijzigt.
+    for (const unit of payload.activeUnits || []) {
+      const vehicleNumber = String(unit.vehicleNumber || "");
+      const primaryMember = (unit.members || [])[0] || null;
+      const status = String(primaryMember?.status || "");
+      if (!vehicleNumber || !["6", "7"].includes(status)) continue;
+      const key = `status:${vehicleNumber}`;
+      nextAlertKeys.add(key);
+      startOpsAlert(key, status === "7" ? "status7" : "status6");
+    }
+
+    stopMissingOpsAlerts(nextAlertKeys);
     previousOpsRequestIds = nextRequestIds;
     previousOpsStatuses = nextStatuses;
     opsSoundPrimed = true;

@@ -1,4 +1,4 @@
-﻿const crypto = require("node:crypto");
+const crypto = require("node:crypto");
 const { createPortoServices } = require("./porto");
 
 function activePersonForAuth(state, auth) {
@@ -329,6 +329,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const newStatus = String(body.status || "").trim();
       const newStatusDetail = String(body.statusDetail || "").trim();
       const offDuty = Boolean(body.offDuty);
+      const offDutyScope = String(body.offDutyScope || "vehicle").trim();
       const unit = state.portoUnits.find((entry) => entry.id === unitId && entry.active !== false && entry.vehicleNumber)
         || (offDuty && exactVehicleNumber ? state.portoUnits.find((entry) => entry.active !== false && entry.vehicleNumber === exactVehicleNumber) : null);
       if (!unit) {
@@ -338,8 +339,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (offDuty) {
         const oldVehicleNumber = exactVehicleNumber || unit.vehicleNumber;
         const endedAt = new Date().toISOString();
-        const unitsToEnd = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
-        // OPS meldt altijd het volledige roepnummer/koppel af, niet alleen de aangeklikte persoon.
+        const unitsToEnd = offDutyScope === "member"
+          ? [unit]
+          : state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
         unitsToEnd.forEach((entry) => Object.assign(entry, {
           status: "8",
           statusDetail: "Uit dienst",

@@ -293,14 +293,17 @@ function openProfileBadgeDialog() {
   $("#profileBadgePersonId").value = viewed.id;
   const selectedFunctions = viewed.extraFunctions || [];
   const selectedTasks = viewed.badges || [];
-  $("#profileBadgeFunctionOptions").innerHTML = extraFunctions
-    .map((item) => `
-      <label>
-        <input type="checkbox" value="${escapeHtml(item)}" ${selectedFunctions.includes(item) ? "checked" : ""} />
-        ${escapeHtml(item)}
-      </label>
-    `)
-    .join("");
+  const manageableFunctions = hasKaderAccess() ? extraFunctions : [];
+  $("#profileBadgeFunctionOptions").innerHTML = manageableFunctions.length
+    ? manageableFunctions
+      .map((item) => `
+        <label>
+          <input type="checkbox" value="${escapeHtml(item)}" ${selectedFunctions.includes(item) ? "checked" : ""} />
+          ${escapeHtml(item)}
+        </label>
+      `)
+      .join("")
+    : `<div class="muted">Alleen Kader kan Kader, Hoofdofficier en Officiersraad toewijzen.</div>`;
   $("#profileBadgeTaskOptions").innerHTML = extraTasks
     .map((task) => `
       <label>

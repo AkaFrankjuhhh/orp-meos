@@ -25,6 +25,27 @@ const rankNicknameSymbols = {
   "Luitenant-generaal": "\u2759\u272F\u272F\u272F"
 };
 
+
+const rankRoleEnvKeys = {
+  "Luitenant-Generaal": "DISCORD_RANK_LUITENANT_GENERAAL_ROLE_ID",
+  "Generaal-Majoor": "DISCORD_RANK_GENERAAL_MAJOOR_ROLE_ID",
+  "Brigade-Generaal": "DISCORD_RANK_BRIGADE_GENERAAL_ROLE_ID",
+  "Kolonel": "DISCORD_RANK_KOLONEL_ROLE_ID",
+  "Luitenant-Kolonel": "DISCORD_RANK_LUITENANT_KOLONEL_ROLE_ID",
+  "Majoor": "DISCORD_RANK_MAJOOR_ROLE_ID",
+  "Kapitein": "DISCORD_RANK_KAPITEIN_ROLE_ID",
+  "Eerste-Luitenant": "DISCORD_RANK_EERSTE_LUITENANT_ROLE_ID",
+  "Tweede-Luitenant": "DISCORD_RANK_TWEEDE_LUITENANT_ROLE_ID",
+  "Kornet": "DISCORD_RANK_KORNET_ROLE_ID",
+  "Adjudant": "DISCORD_RANK_ADJUDANT_ROLE_ID",
+  "Opperwachtmeester": "DISCORD_RANK_OPPERWACHTMEESTER_ROLE_ID",
+  "Wachtmeester 1ste Klasser": "DISCORD_RANK_WACHTMEESTER_1STE_KLASSER_ROLE_ID",
+  "Wachtmeester": "DISCORD_RANK_WACHTMEESTER_ROLE_ID",
+  "Marechaussee 1ste Klasser": "DISCORD_RANK_MARECHAUSSEE_1STE_KLASSER_ROLE_ID",
+  "Marechaussee 2de Klasser": "DISCORD_RANK_MARECHAUSSEE_2DE_KLASSER_ROLE_ID",
+  "Marechaussee 3de Klasser": "DISCORD_RANK_MARECHAUSSEE_3DE_KLASSER_ROLE_ID",
+  "Marechaussee 4de Klasser": "DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID"
+};
 const dutchSurnameParticles = new Set([
   "aan", "bij", "de", "del", "den", "der", "des", "du", "het", "in", "la", "op", "ten", "ter", "tot", "uit", "van", "vanden", "ver", "voor"
 ]);
@@ -106,6 +127,18 @@ function createDiscordBotServices(options = {}) {
       { key: "mentor", label: "Mentor", roleId: process.env.DISCORD_MENTOR_ROLE_ID },
       { key: "w-s", label: "W&S", roleId: process.env.DISCORD_WS_ROLE_ID }
     ].filter((mapping) => String(mapping.roleId || "").trim());
+  }
+
+  function configuredRankRoleMappings() {
+    return Object.entries(rankRoleEnvKeys)
+      .map(([rank, envKey]) => ({ rank, envKey, roleId: process.env[envKey] }))
+      .filter((mapping) => String(mapping.roleId || "").trim());
+  }
+
+  function rankRoleIdForPerson(person) {
+    const rank = String(person?.rank || "").trim();
+    const mapping = configuredRankRoleMappings().find((entry) => entry.rank === rank);
+    return mapping?.roleId || "";
   }
 
   function configuredVoiceChannels() {
@@ -231,6 +264,27 @@ function createDiscordBotServices(options = {}) {
     return { ok: true, changes };
   }
 
+  async function syncRankRoleForPerson(person, auditReason = "Defensie Personeelsportaal rangrol gesynchroniseerd") {
+    const memberId = normalizeDiscordId(person?.discordId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+    const mappings = configuredRankRoleMappings();
+    const managedRoleIds = mappings.map((mapping) => mapping.roleId);
+    if (!managedRoleIds.length) return { skipped: true, reason: "Geen Discord rangrollen ingesteld." };
+    const desiredRoleId = rankRoleIdForPerson(person);
+    if (!desiredRoleId) return { skipped: true, reason: `Geen Discord rangrol ingesteld voor ${person?.rank || "onbekende rang"}.` };
+    return syncRoleSet(memberId, [desiredRoleId], managedRoleIds, auditReason);
+  }
+
+  async function syncRankRoleForPersonIfNeeded(person, auditReason = "Defensie Personeelsportaal periodieke rangrol controle") {
+    return syncRankRoleForPerson(person, auditReason);
+  }
+
+  async function syncDiscordForPersonIfNeeded(person, auditReason = "Defensie Personeelsportaal Discord profiel gesynchroniseerd") {
+    const nickname = await syncNicknameForPersonIfNeeded(person, auditReason);
+    const rankRole = await syncRankRoleForPersonIfNeeded(person, auditReason);
+    return { ok: true, nickname, rankRole };
+  }
+
   function buildServiceNickname(person, template = process.env.DISCORD_NICKNAME_TEMPLATE || "personeelsportaal") {
     if (!template || template === "personeelsportaal" || !nicknameTemplateHasPlaceholders(template)) {
       return buildServiceNicknameDefault(person);
@@ -298,12 +352,18 @@ function createDiscordBotServices(options = {}) {
   return {
     isConfigured,
     configuredRoleMappings,
+    configuredRankRoleMappings,
     configuredVoiceChannels,
     resolveVoiceChannelId,
     getGuildMember,
     addRole,
     removeRole,
     syncRoleSet,
+    rankRoleEnvKeys,
+    rankRoleIdForPerson,
+    syncRankRoleForPerson,
+    syncRankRoleForPersonIfNeeded,
+    syncDiscordForPersonIfNeeded,
     rankSymbolsFor,
     formatNameForDiscordNickname,
     buildServiceNicknameDefault,

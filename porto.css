@@ -1898,3 +1898,124 @@ body.porto-duty-workspace .porto-status-grid {
     grid-column: auto;
   }
 }
+/* Porto profielmodal: Porto laadt geen personeelsportaal.css, dus modal/form styling staat hier expliciet. */
+.porto-profile-dialog {
+  width: min(680px, calc(100vw - 28px));
+  max-height: min(88dvh, 760px);
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.96));
+  color: var(--text);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.porto-profile-dialog::backdrop {
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(7px);
+}
+
+.porto-profile-form {
+  display: grid;
+  gap: 20px;
+  padding: 22px;
+  max-height: inherit;
+  overflow-y: auto;
+}
+
+.porto-profile-form .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+}
+
+.porto-profile-form .panel-head h2,
+.porto-profile-form .panel-head h3 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.porto-profile-form .ghost.icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #e5e7eb;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.porto-profile-form label.full {
+  display: grid;
+  gap: 8px;
+  color: #dbeafe;
+  font-weight: 800;
+}
+
+.porto-profile-form input[type="tel"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  outline: none;
+}
+
+.porto-profile-form input[type="tel"]:focus {
+  border-color: rgba(245, 158, 11, 0.78);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+}
+
+.porto-profile-form menu {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.porto-profile-form menu button {
+  min-height: 44px;
+  border-radius: 10px;
+  font-weight: 900;
+}
+
+.porto-profile-form .primary {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: #111827;
+}
+
+.porto-profile-form .person-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-profile-form .muted {
+  margin: 4px 0 0;
+  color: #bfdbfe;
+}
+
+@media (max-width: 560px) {
+  .porto-profile-form {
+    padding: 16px;
+  }
+
+  .porto-profile-form menu button {
+    flex: 1 1 160px;
+  }
+}

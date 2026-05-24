@@ -12,7 +12,9 @@
     "prod:check": "node scripts/prod-check.js",
     "db:backup": "node scripts/db-backup.js",
     "discord:nicknames:dry": "node scripts/discord-sync-nicknames.js",
-    "discord:nicknames:sync": "node scripts/discord-sync-nicknames.js --apply"
+    "discord:nicknames:sync": "node scripts/discord-sync-nicknames.js --apply",
+    "discord:profiles:dry": "node scripts/discord-sync-nicknames.js",
+    "discord:profiles:sync": "node scripts/discord-sync-nicknames.js --apply"
   },
   "engines": {
     "node": ">=18"

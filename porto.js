@@ -288,14 +288,28 @@ $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
 
   if (action === "offduty") {
     const callsign = context.member.vehicleNumber || context.unit.vehicleNumber || "deze eenheid";
+    const memberName = context.member.name || "deze persoon";
+    const groupSize = (context.unit.members || []).length;
     closePortoOpsContextMenu();
+    const scope = groupSize > 1
+      ? await showPortoChoice(
+          "Kies wie je uit dienst wilt melden.",
+          "Uit dienst melden",
+          [
+            { label: `Alleen ${memberName}`, value: "member", tone: "neutral" },
+            { label: `Gehele ${callsign}`, value: "vehicle", tone: "danger" }
+          ]
+        )
+      : "member";
+    if (!scope) return;
     const confirmed = await showPortoConfirm(
-      `Weet je zeker dat je roepnummer ${callsign} volledig uit dienst wilt melden?`,
+      scope === "member"
+        ? `Weet je zeker dat je ${memberName} uit dienst wilt melden?`
+        : `Weet je zeker dat je roepnummer ${callsign} volledig uit dienst wilt melden?`,
       "Uit dienst melden"
     );
     if (confirmed) {
-      // De server krijgt ook het roepnummer mee, zodat het volledige koppel wordt afgemeld als de unit-id tussentijds wijzigt.
-      await reassignPortoUnit(unitId, { offDuty: true, vehicleNumber: callsign });
+      await reassignPortoUnit(unitId, { offDuty: true, offDutyScope: scope, vehicleNumber: callsign });
     }
   }
 });
