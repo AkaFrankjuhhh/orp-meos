@@ -288,21 +288,36 @@ $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
     return;
   }
 
+  if (action === "unlink") {
+    const groupSize = (context.unit.members || []).length;
+    closePortoOpsContextMenu();
+    if (groupSize <= 1) {
+      await showPortoNotice("Deze persoon staat al los op een eigen roepnummer.", "Loskoppelen");
+      return;
+    }
+    const confirmed = await showPortoConfirm(
+      `${context.member.name || "Deze persoon"} loskoppelen naar het eerste vrije nummer in dezelfde reeks?`,
+      "Loskoppelen"
+    );
+    if (confirmed) await reassignPortoUnit(unitId, { unlink: true });
+    return;
+  }
+
   if (action === "offduty") {
     const callsign = context.member.vehicleNumber || context.unit.vehicleNumber || "deze eenheid";
     const memberName = context.member.name || "deze persoon";
     const groupSize = (context.unit.members || []).length;
     closePortoOpsContextMenu();
-    const scope = groupSize > 1
+    const choice = groupSize > 1
       ? await showPortoChoice(
-          "Kies wie je uit dienst wilt melden.",
           "Uit dienst melden",
           [
             { label: `Alleen ${memberName}`, value: "member", tone: "neutral" },
             { label: `Gehele ${callsign}`, value: "vehicle", tone: "danger" }
           ]
         )
-      : "member";
+      : { value: "member" };
+    const scope = choice?.value || choice;
     if (!scope) return;
     const confirmed = await showPortoConfirm(
       scope === "member"

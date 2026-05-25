@@ -1076,18 +1076,28 @@ function wireEvents() {
   window.addEventListener("scroll", hideDisciplineContextMenu, true);
   window.addEventListener("resize", hideDisciplineContextMenu);
   $("#mijn-profiel").addEventListener("contextmenu", (event) => {
-    if (!event.target.closest("[data-profile-manage]")) return;
+    const sideTarget = event.target.closest("[data-profile-side-badges-manage]");
+    const mainTarget = event.target.closest("[data-profile-manage]");
+    if (!sideTarget && !mainTarget) return;
     if (!canManageProfileBadges()) return;
     event.preventDefault();
-    openProfileBadgeDialog();
+    openProfileBadgeDialog(sideTarget ? "side" : "main");
   });
   $("#closeProfileBadgeDialog").addEventListener("click", () => $("#profileBadgeDialog").close());
   $("#cancelProfileBadgeDialog").addEventListener("click", () => $("#profileBadgeDialog").close());
   $("#profileBadgeForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const personId = $("#profileBadgePersonId").value;
-    const extraFunctions = $$("#profileBadgeFunctionOptions input:checked").map((input) => input.value);
-    const badges = $$("#profileBadgeTaskOptions input:checked").map((input) => input.value);
+    const viewed = visibleProfile();
+    const sideTaskSet = new Set(window.profileSideTaskBadges || []);
+    const dialogMode = window.profileBadgeDialogMode || "main";
+    const selectedFunctions = $$("#profileBadgeFunctionOptions input:checked").map((input) => input.value);
+    const extraFunctions = dialogMode === "side" ? (viewed?.extraFunctions || []) : selectedFunctions;
+    const selectedBadges = $$("#profileBadgeTaskOptions input:checked").map((input) => input.value);
+    const existingBadges = viewed?.badges || [];
+    const badges = dialogMode === "side"
+      ? [...existingBadges.filter((badge) => !sideTaskSet.has(badge)), ...selectedBadges]
+      : [...selectedBadges, ...existingBadges.filter((badge) => sideTaskSet.has(badge))];
     if (await runAction(`/api/people/${encodeURIComponent(personId)}/profile-badges`, { extraFunctions, badges })) {
       $("#profileBadgeDialog").close();
       render();
@@ -1384,7 +1394,7 @@ function wireEvents() {
       .filter((input) => input.value !== "")
       .map((input) => ({ personId: input.dataset.bulkHoursPerson, hours: Number(input.value || 0) }));
     if (!entries.length) {
-      await showSiteNotice("Vul minimaal ÃƒÆ’Ã‚Â©ÃƒÆ’Ã‚Â©n urenregel in.", "Geen uren ingevuld");
+      await showSiteNotice("Vul minimaal een urenregel in.", "Geen uren ingevuld");
       return;
     }
     if (await saveManualHours(entries, weekYear, weekNumber)) {

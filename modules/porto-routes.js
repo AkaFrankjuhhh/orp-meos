@@ -346,8 +346,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         }
         const nowIso = new Date().toISOString();
         state.portoCurrentOps = { memberId: person.id, name: person.name, serviceNumber: person.serviceNumber, phone: person.portoPhone || "", startedAt: currentOps?.startedAt || nowIso, active: true };
-        ensureOpsUnit(state, person, nowIso);
-        await persistPortoState(state, { settings: true, units: state.portoUnits });
+        await persistPortoState(state, { settings: true });
         sendJson(res, 200, portoOpsPayload(state, person));
         return true;
       }
@@ -403,6 +402,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const newStatus = String(body.status || "").trim();
       const newStatusDetail = String(body.statusDetail || "").trim();
       const offDuty = Boolean(body.offDuty);
+      const unlink = Boolean(body.unlink);
       const offDutyScope = String(body.offDutyScope || "vehicle").trim();
       const unit = state.portoUnits.find((entry) => entry.id === unitId && entry.active !== false && entry.vehicleNumber)
         || (offDuty && exactVehicleNumber ? state.portoUnits.find((entry) => entry.active !== false && entry.vehicleNumber === exactVehicleNumber) : null);
@@ -410,6 +410,38 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 404, { error: "Actieve eenheid niet gevonden." });
         return true;
       }
+      if (unlink) {
+        const oldVehicleNumber = unit.vehicleNumber;
+        const currentRange = vehicleRangeForNumber(state, oldVehicleNumber);
+        if (!currentRange) {
+          sendJson(res, 400, { error: "Geen voertuigreeks gevonden voor dit roepnummer." });
+          return true;
+        }
+        const vehicleNumber = firstAvailableVehicleNumber(state, currentRange.prefix);
+        if (!vehicleNumber) {
+          sendJson(res, 409, { error: "Geen vrij roepnummer beschikbaar om deze persoon los te koppelen." });
+          return true;
+        }
+        const now = new Date().toISOString();
+        Object.assign(unit, {
+          vehicleNumber,
+          vehicleCode: currentRange.vehicleCode,
+          vehicleType: currentRange.vehicleType,
+          vehicleName: "",
+          linkedWith: [],
+          reviewStatus: "unlinked",
+          assignedById: person.id,
+          assignedByName: person.name,
+          assignedAt: now,
+          updatedAt: now
+        });
+        syncPortoLinkedNames(state, oldVehicleNumber);
+        syncPortoLinkedNames(state, vehicleNumber);
+        await persistPortoState(state, { units: state.portoUnits });
+        sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+        return true;
+      }
+
       if (offDuty) {
         const oldVehicleNumber = exactVehicleNumber || unit.vehicleNumber;
         const endedAt = new Date().toISOString();

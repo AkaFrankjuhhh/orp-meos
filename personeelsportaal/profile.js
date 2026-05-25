@@ -19,6 +19,9 @@ const profileRankLabels = {
   "Marrechaussee 1ste Klasser": "Mar 1de Klasser"
 };
 
+const profileSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
+window.profileSideTaskBadges = profileSideTaskBadges;
+
 function profileRankLabel(rank) {
   return profileRankLabels[rank] || rank || "-";
 }
@@ -52,7 +55,9 @@ function automaticFunctionBadges(person) {
 
 function renderProfileBadges(person) {
   const personBadges = person.badges || [];
-  const taskBadges = extraTasks.filter((badge) => personBadges.includes(badge));
+  const sideTaskSet = new Set(profileSideTaskBadges);
+  const taskBadges = extraTasks.filter((badge) => personBadges.includes(badge) && !sideTaskSet.has(badge));
+  const sideTaskBadges = profileSideTaskBadges.filter((badge) => personBadges.includes(badge));
   const functionBadges = [
     ...automaticFunctionBadges(person),
     ...extraFunctions.filter((badge) => (person.extraFunctions || []).includes(badge))
@@ -60,6 +65,7 @@ function renderProfileBadges(person) {
     .sort((a, b) => extraFunctions.indexOf(a) - extraFunctions.indexOf(b));
   const functionRow = functionBadges.map((badge) => `<span class="profile-badge function">${escapeHtml(badge)}</span>`).join("");
   const taskRow = taskBadges.map((badge) => `<span class="profile-badge task">${escapeHtml(badge)}</span>`).join("");
+  const sideRow = sideTaskBadges.map((badge) => `<span class="profile-badge task side-task">${escapeHtml(badge)}</span>`).join("");
 
   $("#profilePageBadges").innerHTML = functionRow || taskRow
     ? `
@@ -67,6 +73,11 @@ function renderProfileBadges(person) {
       ${taskRow ? `<div class="profile-badge-line">${taskRow}</div>` : ""}
     `
     : '<span class="profile-badge muted-badge">Geen extra taken</span>';
+
+  const sideContainer = $("#profilePageSideBadges");
+  if (sideContainer) {
+    sideContainer.innerHTML = sideRow;
+  }
 }
 
 function monthsActiveForPerson(person) {
@@ -314,13 +325,16 @@ function renderProfileHours(person) {
   $("#profileTwoWeeksAgoHours").textContent = formatMinutes(minutesInRange(entries, twoWeeksAgoStart, previousWeekStart));
 }
 
-function openProfileBadgeDialog() {
+function openProfileBadgeDialog(mode = "main") {
   const viewed = visibleProfile();
   if (!viewed || !canManageProfileBadges()) return;
+  window.profileBadgeDialogMode = mode;
   $("#profileBadgePersonId").value = viewed.id;
   const selectedFunctions = viewed.extraFunctions || [];
   const selectedTasks = viewed.badges || [];
-  const manageableFunctions = hasKaderAccess() ? extraFunctions : [];
+  const sideTaskSet = new Set(profileSideTaskBadges);
+  const isSideMode = mode === "side";
+  const manageableFunctions = !isSideMode && hasKaderAccess() ? extraFunctions : [];
   $("#profileBadgeFunctionOptions").innerHTML = manageableFunctions.length
     ? manageableFunctions
       .map((item) => `
@@ -330,8 +344,9 @@ function openProfileBadgeDialog() {
         </label>
       `)
       .join("")
-    : `<div class="muted">Alleen Kader kan Kader, Hoofdofficier en Officiersraad toewijzen.</div>`;
+    : `<div class="muted">${isSideMode ? "Deze neventaken staan los van de standaard profielbadges." : "Alleen Kader kan Kader, Hoofdofficier en Officiersraad toewijzen."}</div>`;
   $("#profileBadgeTaskOptions").innerHTML = extraTasks
+    .filter((task) => isSideMode ? sideTaskSet.has(task) : !sideTaskSet.has(task))
     .map((task) => `
       <label>
         <input type="checkbox" value="${escapeHtml(task)}" ${selectedTasks.includes(task) ? "checked" : ""} />
@@ -339,6 +354,7 @@ function openProfileBadgeDialog() {
       </label>
     `)
     .join("");
+  $("#profileBadgeDialog h2").textContent = isSideMode ? "Neventaken" : "Functies & badges";
   $("#profileBadgeDialog").showModal();
 }
 

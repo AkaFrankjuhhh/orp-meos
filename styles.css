@@ -5673,3 +5673,47 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
   color: #93a4bf;
   font-weight: 700;
 }
+
+/* Neventaken zoals HRB/DSI/KLu/DNR staan los rechtsonder in de profielheader. */
+.profile-hero {
+  position: relative;
+  padding-bottom: 42px;
+}
+
+.profile-side-badge-row {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 46%;
+  min-width: 150px;
+  min-height: 30px;
+  cursor: context-menu;
+}
+
+.profile-side-badge-row .profile-badge.side-task {
+  border-color: rgba(225, 112, 0, 0.48);
+  background: rgba(225, 112, 0, 0.11);
+}
+
+.profile-side-badge-row .side-empty {
+  opacity: 0.45;
+}
+
+@media (max-width: 920px) {
+  .profile-hero {
+    padding-bottom: 0;
+  }
+
+  .profile-side-badge-row {
+    position: static;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    max-width: none;
+    min-width: 0;
+    margin-top: 8px;
+  }
+}

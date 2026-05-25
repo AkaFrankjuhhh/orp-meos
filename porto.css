@@ -2070,3 +2070,110 @@ body.porto-duty-workspace .porto-status-grid {
   color: #93a4bf;
   font-weight: 700;
 }
+/* Porto duty responsive fix: statusknoppen blijven onder de eenhedenbalk op kleinere schermen. */
+body.porto-duty-workspace .porto-duty-panel {
+  height: calc(100dvh - 76px);
+  min-height: 0;
+  align-content: start;
+  grid-template-rows: auto auto minmax(0, auto) auto;
+  padding-top: clamp(72px, 9vh, 108px);
+  padding-bottom: 84px;
+}
+
+body.porto-duty-workspace .porto-duty-layout {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: min(820px, 100%);
+  justify-self: center;
+  z-index: 2;
+}
+
+body.porto-duty-workspace .porto-unit-member-bar {
+  position: relative;
+  z-index: 3;
+}
+
+/* OPS onderbalk in het dienstscherm: telefoonnummer, duur en actuele tijd blijven onderaan zichtbaar. */
+body.porto-duty-workspace .porto-duty-ops-info {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 5;
+  width: min(940px, calc(100vw - 32px));
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.86);
+  backdrop-filter: blur(12px);
+  transform: translateX(-50%);
+}
+
+body.porto-duty-workspace .porto-duty-ops-info span,
+body.porto-duty-workspace .porto-duty-ops-info button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-height: 720px), (max-width: 980px) {
+  body.porto-duty-workspace .porto-duty-panel {
+    height: calc(100dvh - 56px);
+    padding-top: 58px;
+    padding-bottom: 72px;
+    gap: 8px;
+  }
+
+  body.porto-duty-workspace .porto-duty-assignment {
+    width: min(620px, 100%);
+  }
+
+  body.porto-duty-workspace .porto-unit-member-bar {
+    width: min(720px, 100%);
+  }
+
+  body.porto-duty-workspace .porto-duty-layout {
+    width: min(720px, 100%);
+  }
+
+  body.porto-duty-workspace .porto-status-grid {
+    grid-template-columns: repeat(6, minmax(68px, 1fr));
+    gap: 7px;
+  }
+
+  body.porto-duty-workspace .porto-status-tile {
+    min-height: 52px;
+    padding: 7px 8px;
+  }
+
+  body.porto-duty-workspace .porto-duty-ops-info {
+    bottom: 8px;
+    width: min(760px, calc(100vw - 24px));
+    padding: 7px 9px;
+    gap: 6px;
+  }
+
+  body.porto-duty-workspace .porto-duty-ops-info span,
+  body.porto-duty-workspace .porto-duty-ops-info button {
+    min-height: 28px;
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 680px) {
+  body.porto-duty-workspace .porto-duty-panel {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  body.porto-duty-workspace .porto-duty-ops-info {
+    position: sticky;
+    bottom: 8px;
+    transform: none;
+    width: 100%;
+  }
+}

@@ -27,6 +27,15 @@ function clearPortoAutoOffline(unit) {
 
 const defaultPortoVehicleRanges = [
   {
+    prefix: "OPS",
+    from: "30-00",
+    to: "30-00",
+    vehicleCode: "OPS",
+    vehicleType: "OPS",
+    vehicles: ["OPS"],
+    numbers: ["30-00"]
+  },
+  {
     prefix: "30",
     vehicleCode: "NH",
     vehicleType: "Noodhulp",
@@ -74,14 +83,14 @@ const defaultPortoVehicleRanges = [
     vehicleType: "Kustwacht",
     vehicles: ["KW - Dinghy"]
   }
-].map(({ prefix, vehicleCode, vehicleType, vehicles }) => ({
+].map(({ prefix, from, to, vehicleCode, vehicleType, vehicles, numbers }) => ({
   prefix,
-  from: `${prefix}-01`,
-  to: `${prefix}-10`,
+  from: from || `${prefix}-01`,
+  to: to || `${prefix}-10`,
   vehicleCode,
   vehicleType,
   vehicles: [...vehicles],
-  numbers: Array.from({ length: 10 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, "0")}`)
+  numbers: numbers ? [...numbers] : Array.from({ length: 10 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, "0")}`)
 }));
 
 function createPortoServices() {

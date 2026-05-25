@@ -89,10 +89,11 @@ function linkOptionsHtml(currentVehicleNumber = "") {
 }
 
 function opsMemberSpecializations(member) {
-  const hiddenSpecializations = new Set(["BKV", "Mentor-Traject"]);
+  // Porto toont alleen specialisaties die de OPS helpen met indelen, plus IBT-status.
+  const visibleSpecializations = new Set(["IBT", "TMO", "SIV", "ZULU", "OGM"]);
   const values = [...(member.specializations || []), ...(member.completedTrainings || []), ...(member.completedOperational || [])]
     .filter(Boolean)
-    .filter((item) => !hiddenSpecializations.has(item));
+    .filter((item) => visibleSpecializations.has(item));
   return [...new Set(values)];
 }
 
@@ -308,7 +309,7 @@ async function chooseOpsStatusUpdate(unitId, anchorEvent) {
 }
 
 async function reassignPortoUnit(unitId, assignment) {
-  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.status) {
+  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.unlink && !assignment?.status) {
     await showPortoNotice("Kies eerst een voertuigcategorie, koppel-eenheid, roepnummer, status of actie.", "Geen actie gekozen");
     return;
   }
@@ -382,7 +383,7 @@ async function updatePortoOps(action) {
 }
 
 async function assignPortoUnit(unitId, assignment) {
-  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.status) {
+  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.unlink && !assignment?.status) {
     await showPortoNotice("Kies eerst een voertuigcategorie, koppel-eenheid, roepnummer, status of actie.", "Geen actie gekozen");
     return;
   }
