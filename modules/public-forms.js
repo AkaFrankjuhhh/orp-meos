@@ -58,14 +58,17 @@ const publicFormConfigs = {
     title: "ORP - OTC Aanmeldformulier",
     subtitle: "Aanmelding voor het opleidings- en trainingscentrum van Defensie Oranjestad.",
     accent: "#38bdf8",
+    internalOnly: true,
     webhookEnv: "DISCORD_FORM_OTC_WEBHOOK_URL",
     questions: [
       { id: "fullName", label: "Naam + achternaam (in-game)", type: "text", required: true },
       { id: "discord", label: "Discord naam + ID", type: "text", required: true },
       { id: "rank", label: "Huidige rang", type: "text", required: true },
       { id: "motivation", label: "Waarom wil je deelnemen aan OTC?", type: "textarea", required: true },
-      { id: "experience", label: "Welke relevante ervaring heb je?", type: "textarea", required: false },
-      { id: "availability", label: "Wanneer ben je beschikbaar?", type: "textarea", required: true }
+      { id: "applicationType", label: "Training / Mentor", type: "checkboxGroup", required: true, options: [{ value: "trainer", label: "Trainer" }, { value: "mentor", label: "Mentor" }], help: "Je mag voor beide solliciteren." },
+      { id: "trainerReason", label: "Waarom wil je trainer worden?", type: "textarea", required: true, showIf: { field: "applicationType", includes: "trainer" } },
+      { id: "mentorReason", label: "Waarom wil je mentor worden?", type: "textarea", required: true, showIf: { field: "applicationType", includes: "mentor" } },
+      { id: "experience", label: "Welke relevante ervaring heb je?", type: "textarea", required: false }
     ]
   },
   hrb: {
@@ -75,6 +78,7 @@ const publicFormConfigs = {
     subtitle: "Sollicitatieproces voor de functie operator binnen de HRB. Zorg dat je motivatie duidelijk op papier staat.",
     notice: "Eisen: minimale rang Wachtmeester, consequente inzet en motivatie, betrouwbaarheid, goede samenwerking en stressbestendigheid.",
     accent: "#64748b",
+    internalOnly: true,
     webhookEnv: "DISCORD_FORM_HRB_WEBHOOK_URL",
     questions: [
       { id: "fullName", label: "Naam + achternaam (in-game)", type: "text", required: true },
@@ -97,14 +101,14 @@ const publicFormConfigs = {
     title: "ORP - Werving & Selectie",
     subtitle: "Aanmelding voor werkzaamheden binnen Werving & Selectie.",
     accent: "#f59e0b",
+    internalOnly: true,
     webhookEnv: "DISCORD_FORM_WS_WEBHOOK_URL",
     questions: [
       { id: "fullName", label: "Naam + achternaam (in-game)", type: "text", required: true },
       { id: "discord", label: "Discord naam + ID", type: "text", required: true },
       { id: "rank", label: "Huidige rang", type: "text", required: true },
       { id: "motivation", label: "Waarom wil je bij W&S?", type: "textarea", required: true },
-      { id: "experience", label: "Welke ervaring heb je met aannames of gesprekken?", type: "textarea", required: false },
-      { id: "availability", label: "Wanneer ben je beschikbaar voor W&S werkzaamheden?", type: "textarea", required: true }
+      { id: "experience", label: "Welke ervaring heb je met aannames of gesprekken?", type: "textarea", required: false }
     ]
   },
   hovj: {
@@ -113,6 +117,7 @@ const publicFormConfigs = {
     title: "ORP - hOvJ Aanmeldformulier",
     subtitle: "Aanmelding voor hOvJ werkzaamheden binnen Defensie Oranjestad.",
     accent: "#60a5fa",
+    internalOnly: true,
     webhookEnv: "DISCORD_FORM_HOVJ_WEBHOOK_URL",
     questions: [
       { id: "fullName", label: "Naam + achternaam (in-game)", type: "text", required: true },
@@ -153,8 +158,17 @@ function publicFormClientConfig(config) {
     subtitle: config.subtitle || "",
     notice: config.notice || "",
     accent: config.accent || "#f59e0b",
+    internalOnly: Boolean(config.internalOnly),
     questions: config.questions || []
   };
+}
+
+function conditionMatches(condition, answers = {}) {
+  if (!condition?.field) return true;
+  const value = answers[condition.field];
+  if (condition.includes !== undefined) return Array.isArray(value) ? value.includes(condition.includes) : value === condition.includes;
+  if (condition.equals !== undefined) return value === condition.equals;
+  return Boolean(value);
 }
 
 function validatePublicFormSubmission(config, answers, files = []) {
@@ -163,10 +177,20 @@ function validatePublicFormSubmission(config, answers, files = []) {
   const filesByField = new Map((files || []).map((file) => [file.fieldName, file]));
 
   for (const question of config.questions || []) {
+    if (!conditionMatches(question.showIf, answers)) continue;
+
     if (question.type === "file") {
       const file = filesByField.get(question.id);
       if (question.required && !file) errors.push(`${question.label} is verplicht.`);
       if (file) cleanAnswers[question.id] = `${file.filename} (${Math.round(file.size / 1024)} KB)`;
+      continue;
+    }
+
+    if (question.type === "checkboxGroup") {
+      const allowedValues = new Set((question.options || []).map((option) => option.value || option));
+      const values = (Array.isArray(answers?.[question.id]) ? answers[question.id] : []).map(String).filter((value) => allowedValues.has(value));
+      if (question.required && !values.length) errors.push(`${question.label} is verplicht.`);
+      cleanAnswers[question.id] = values;
       continue;
     }
 
@@ -177,12 +201,19 @@ function validatePublicFormSubmission(config, answers, files = []) {
   return { cleanAnswers, errors };
 }
 
-function createPublicFormSubmission(config, answers, req, files = []) {
+function createPublicFormSubmission(config, answers, req, files = [], submittedBy = null) {
   return {
     id: crypto.randomUUID(),
     formSlug: config.slug,
     formTitle: config.title,
+    formScope: config.internalOnly ? "Intern" : "Openbaar",
     answers,
+    submittedBy: submittedBy ? {
+      id: submittedBy.id,
+      name: submittedBy.name,
+      rank: submittedBy.rank,
+      serviceNumber: submittedBy.serviceNumber
+    } : null,
     attachments: (files || []).map((file) => ({
       fieldName: file.fieldName,
       filename: file.filename,
@@ -200,14 +231,22 @@ function publicFormWebhookUrl(config) {
 }
 
 function buildPublicFormWebhookPayload(config, submission) {
-  const fields = (config.questions || []).filter((question) => question.type !== "file").map((question) => {
-    const value = submission.answers?.[question.id] || "-";
+  const fields = (config.questions || []).filter((question) => question.type !== "file" && conditionMatches(question.showIf, submission.answers)).map((question) => {
+    const rawValue = submission.answers?.[question.id];
+    const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue || "-";
     return {
       name: question.label,
       value: value.length > 1024 ? `${value.slice(0, 1018)}...` : value,
       inline: false
     };
   });
+  if (submission.submittedBy) {
+    fields.unshift({
+      name: "Ingediend door",
+      value: `${submission.submittedBy.serviceNumber || "-"} - ${submission.submittedBy.rank || "-"} - ${submission.submittedBy.name || "-"}`,
+      inline: false
+    });
+  }
   if (submission.attachments?.length) {
     fields.push({
       name: "Bijlage",
@@ -218,7 +257,7 @@ function buildPublicFormWebhookPayload(config, submission) {
   return {
     embeds: [
       {
-        title: `Nieuwe inzending: ${config.title}`,
+        title: `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`,
         color: Number.parseInt(String(config.accent || "#f59e0b").replace("#", ""), 16) || 0xf59e0b,
         fields,
         footer: { text: `Formulier: ${config.slug}` },

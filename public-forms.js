@@ -20,31 +20,75 @@ function showMessage(text, tone = "ok") {
   element.textContent = text;
 }
 
+function conditionMatches(condition) {
+  if (!condition?.field) return true;
+  const checked = [...document.querySelectorAll(`[name="${CSS.escape(condition.field)}"]:checked`)].map((input) => input.value);
+  if (checked.length) return condition.includes !== undefined ? checked.includes(condition.includes) : true;
+  const field = $(`#field-${CSS.escape(condition.field)}`);
+  if (!field) return false;
+  if (condition.includes !== undefined) return field.value === condition.includes;
+  if (condition.equals !== undefined) return field.value === condition.equals;
+  return Boolean(field.value);
+}
+
+function updateConditionalFields() {
+  document.querySelectorAll("[data-show-if]").forEach((field) => {
+    const condition = JSON.parse(field.dataset.showIf || "{}");
+    const visible = conditionMatches(condition);
+    field.hidden = !visible;
+    field.querySelectorAll("input, textarea, select").forEach((control) => {
+      control.disabled = !visible;
+    });
+  });
+}
+
 function renderQuestion(question) {
   const required = question.required ? '<span class="required">*</span>' : "";
   const help = question.help ? `<p class="help">${escapeHtml(question.help)}</p>` : "";
   const common = `id="field-${escapeHtml(question.id)}" name="${escapeHtml(question.id)}" ${question.required ? "required" : ""}`;
+  const showIf = question.showIf ? ` data-show-if='${escapeHtml(JSON.stringify(question.showIf))}' hidden` : "";
   let control = "";
   if (question.type === "textarea") {
     control = `<textarea ${common} placeholder="${escapeHtml(question.placeholder || "")}"></textarea>`;
   } else if (question.type === "select") {
     const options = (question.options || []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
     control = `<select ${common}><option value="">Kies een optie</option>${options}</select>`;
+  } else if (question.type === "checkboxGroup") {
+    const options = (question.options || []).map((option) => {
+      const value = option.value || option;
+      const label = option.label || option;
+      return `<label class="checkbox-option"><input type="checkbox" name="${escapeHtml(question.id)}" value="${escapeHtml(value)}" /> <span>${escapeHtml(label)}</span></label>`;
+    }).join("");
+    control = `<div class="checkbox-group" id="field-${escapeHtml(question.id)}">${options}</div>`;
   } else if (question.type === "file") {
     control = `<input ${common} class="file-input" type="file" accept="${escapeHtml(question.accept || "")}" />`;
   } else {
     control = `<input ${common} type="text" placeholder="${escapeHtml(question.placeholder || "")}" />`;
   }
-  return `<section class="field"><label for="field-${escapeHtml(question.id)}">${escapeHtml(question.label)} ${required}</label>${help}${control}</section>`;
+  return `<section class="field"${showIf}><label for="field-${escapeHtml(question.id)}">${escapeHtml(question.label)} ${required}</label>${help}${control}</section>`;
+}
+
+function showLoginRequired(loginUrl, message) {
+  document.body.dataset.formSlug = "internal-login";
+  $("#formTitle").textContent = "Interne vacature";
+  $("#formSubtitle").textContent = message || "Log in met Discord om dit interne formulier te openen.";
+  $("#questions").innerHTML = `<a class="login-button" href="${escapeHtml(loginUrl)}">Aanmelden met Discord</a>`;
+  $("#submitButton").hidden = true;
 }
 
 async function loadForm() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
   const formQuery = pathParts[0] === "forms" && pathParts[1] ? `?form=${encodeURIComponent(pathParts[1])}` : "";
   const response = await fetch(`/api/public-forms/config${formQuery}`, { cache: "no-store" });
-  if (!response.ok) throw new Error("Formulier niet gevonden.");
-  const config = await response.json();
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    showLoginRequired(data.loginUrl || "/api/auth/login", data.error);
+    return;
+  }
+  if (!response.ok) throw new Error(data.error || "Formulier niet gevonden.");
+  const config = data;
   formState.config = config;
+  document.body.dataset.formSlug = config.slug;
   document.title = config.title;
   document.documentElement.style.setProperty("--accent", config.accent || "#f59e0b");
   $("#formTitle").textContent = config.title;
@@ -55,12 +99,19 @@ async function loadForm() {
     notice.textContent = config.notice;
   }
   $("#questions").innerHTML = (config.questions || []).map(renderQuestion).join("");
+  $("#questions").addEventListener("change", updateConditionalFields);
+  updateConditionalFields();
 }
 
 function collectAnswers() {
   const answers = {};
   for (const question of formState.config.questions || []) {
+    if (question.showIf && !conditionMatches(question.showIf)) continue;
     if (question.type === "file") continue;
+    if (question.type === "checkboxGroup") {
+      answers[question.id] = [...document.querySelectorAll(`[name="${CSS.escape(question.id)}"]:checked`)].map((input) => input.value);
+      continue;
+    }
     answers[question.id] = $(`#field-${CSS.escape(question.id)}`)?.value?.trim() || "";
   }
   return answers;
@@ -104,8 +155,13 @@ async function submitForm(event) {
       ...requestBody
     });
     const data = await response.json().catch(() => ({}));
+    if (response.status === 401 && data.loginUrl) {
+      showLoginRequired(data.loginUrl, data.error);
+      return;
+    }
     if (!response.ok) throw new Error(data.error || "Formulier verzenden is mislukt.");
     $("#publicForm").reset();
+    updateConditionalFields();
     showMessage("Formulier verzonden. Bedankt voor je inzending.", "ok");
   } catch (error) {
     showMessage(error.message || "Formulier verzenden is mislukt.", "error");

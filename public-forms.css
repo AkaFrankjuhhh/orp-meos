@@ -22,6 +22,25 @@ body {
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
 }
 
+
+body[data-form-slug="klachten"] {
+  background:
+    linear-gradient(90deg, rgba(5, 12, 22, 0.78), rgba(5, 12, 22, 0.58) 42%, rgba(5, 12, 22, 0.86)),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0.78)),
+    url("/assets/klachten-background.svg") center / cover fixed no-repeat,
+    #0f172a;
+}
+
+body[data-form-slug="klachten"] .form-shell {
+  margin-left: min(8vw, 120px);
+  margin-right: auto;
+}
+
+body[data-form-slug="klachten"] .form-card {
+  background: rgba(15, 23, 42, 0.86);
+  border-color: rgba(71, 85, 105, 0.78);
+  backdrop-filter: blur(10px);
+}
 .form-shell {
   width: min(760px, calc(100% - 28px));
   margin: 0 auto;
@@ -142,6 +161,43 @@ select:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.checkbox-option {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 10px;
+  margin: 0;
+  min-width: 150px;
+  padding: 12px 14px;
+}
+
+.checkbox-option input {
+  accent-color: var(--accent);
+  width: auto;
+}
+
+.login-button {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 12px;
+  color: #111827;
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+  margin-top: 6px;
+  min-height: 48px;
+  padding: 0 18px;
+  text-decoration: none;
+}
 .submit-button {
   width: 100%;
   margin-top: 18px;

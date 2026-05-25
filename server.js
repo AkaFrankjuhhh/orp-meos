@@ -575,6 +575,22 @@ function publicFormRateLimitAllows(req, slug) {
   return true;
 }
 
+function publicFormLoginUrl(config) {
+  const base = String(process.env.APP_BASE_URL || appBaseUrl || "").replace(/\/$/, "") || "";
+  return `${base}/api/auth/login?returnTo=/forms/${encodeURIComponent(config.slug)}`;
+}
+
+function requirePublicFormAccess(req, res, config) {
+  if (!config?.internalOnly) return { profile: null, session: null };
+  const auth = getLoggedInProfile(req);
+  if (auth) return auth;
+  sendJson(res, 401, {
+    error: "Dit is een interne vacature. Log in met Discord om dit formulier te openen.",
+    loginUrl: publicFormLoginUrl(config)
+  });
+  return null;
+}
+
 async function handlePublicFormsApi(req, res, url) {
   if (!url.pathname.startsWith("/api/public-forms/")) return false;
 
@@ -584,6 +600,7 @@ async function handlePublicFormsApi(req, res, url) {
       sendJson(res, 404, { error: "Formulier niet gevonden" });
       return true;
     }
+    if (!requirePublicFormAccess(req, res, config)) return true;
     sendJson(res, 200, publicFormClientConfig(config));
     return true;
   }
@@ -595,6 +612,8 @@ async function handlePublicFormsApi(req, res, url) {
       sendJson(res, 404, { error: "Formulier niet gevonden" });
       return true;
     }
+    const formAuth = requirePublicFormAccess(req, res, config);
+    if (!formAuth) return true;
     if (!publicFormRateLimitAllows(req, config.slug)) {
       sendJson(res, 429, { error: "Te veel inzendingen achter elkaar. Probeer het later opnieuw." });
       return true;
@@ -609,7 +628,7 @@ async function handlePublicFormsApi(req, res, url) {
       sendJson(res, 400, { error: errors[0], errors });
       return true;
     }
-    const submission = createPublicFormSubmission(config, cleanAnswers, req, fileValidation.cleanFiles);
+    const submission = createPublicFormSubmission(config, cleanAnswers, req, fileValidation.cleanFiles, formAuth.profile);
     const webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission), fileValidation.cleanFiles);
     await publicFormsStore.saveSubmission(submission, webhookResult);
     sendJson(res, 200, { ok: true, id: submission.id, webhook: webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : "failed" });
