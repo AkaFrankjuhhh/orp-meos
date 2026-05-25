@@ -48,6 +48,7 @@ const publicFormConfigs = {
       { id: "involved", label: "Betrokken persoon/personen", type: "text", required: false },
       { id: "description", label: "Beschrijf de klacht zo duidelijk mogelijk", type: "textarea", required: true },
       { id: "evidence", label: "Bewijs of links", type: "textarea", required: false },
+      { id: "attachment", label: "Bijlage", type: "file", required: false, accept: ".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.mp4", help: "Optioneel: voeg maximaal 1 bestand toe als bewijs. Maximaal 8 MB." },
       { id: "desiredOutcome", label: "Wat zou voor jou een passende oplossing zijn?", type: "textarea", required: false }
     ]
   },
@@ -156,10 +157,19 @@ function publicFormClientConfig(config) {
   };
 }
 
-function validatePublicFormSubmission(config, answers) {
+function validatePublicFormSubmission(config, answers, files = []) {
   const cleanAnswers = {};
   const errors = [];
+  const filesByField = new Map((files || []).map((file) => [file.fieldName, file]));
+
   for (const question of config.questions || []) {
+    if (question.type === "file") {
+      const file = filesByField.get(question.id);
+      if (question.required && !file) errors.push(`${question.label} is verplicht.`);
+      if (file) cleanAnswers[question.id] = `${file.filename} (${Math.round(file.size / 1024)} KB)`;
+      continue;
+    }
+
     const value = String(answers?.[question.id] || "").trim();
     if (question.required && !value) errors.push(`${question.label} is verplicht.`);
     cleanAnswers[question.id] = value.slice(0, question.type === "textarea" ? 4000 : 500);
@@ -167,12 +177,18 @@ function validatePublicFormSubmission(config, answers) {
   return { cleanAnswers, errors };
 }
 
-function createPublicFormSubmission(config, answers, req) {
+function createPublicFormSubmission(config, answers, req, files = []) {
   return {
     id: crypto.randomUUID(),
     formSlug: config.slug,
     formTitle: config.title,
     answers,
+    attachments: (files || []).map((file) => ({
+      fieldName: file.fieldName,
+      filename: file.filename,
+      contentType: file.contentType,
+      size: file.size
+    })),
     submittedAt: new Date().toISOString(),
     ip: String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim(),
     userAgent: String(req.headers["user-agent"] || "").slice(0, 500)
@@ -184,7 +200,7 @@ function publicFormWebhookUrl(config) {
 }
 
 function buildPublicFormWebhookPayload(config, submission) {
-  const fields = (config.questions || []).map((question) => {
+  const fields = (config.questions || []).filter((question) => question.type !== "file").map((question) => {
     const value = submission.answers?.[question.id] || "-";
     return {
       name: question.label,
@@ -192,6 +208,13 @@ function buildPublicFormWebhookPayload(config, submission) {
       inline: false
     };
   });
+  if (submission.attachments?.length) {
+    fields.push({
+      name: "Bijlage",
+      value: submission.attachments.map((file) => `${file.filename} (${Math.round(file.size / 1024)} KB)`).join("\n"),
+      inline: false
+    });
+  }
   return {
     embeds: [
       {

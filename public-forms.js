@@ -30,6 +30,8 @@ function renderQuestion(question) {
   } else if (question.type === "select") {
     const options = (question.options || []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
     control = `<select ${common}><option value="">Kies een optie</option>${options}</select>`;
+  } else if (question.type === "file") {
+    control = `<input ${common} class="file-input" type="file" accept="${escapeHtml(question.accept || "")}" />`;
   } else {
     control = `<input ${common} type="text" placeholder="${escapeHtml(question.placeholder || "")}" />`;
   }
@@ -58,9 +60,34 @@ async function loadForm() {
 function collectAnswers() {
   const answers = {};
   for (const question of formState.config.questions || []) {
+    if (question.type === "file") continue;
     answers[question.id] = $(`#field-${CSS.escape(question.id)}`)?.value?.trim() || "";
   }
   return answers;
+}
+
+function formHasUpload() {
+  return (formState.config?.questions || []).some((question) => question.type === "file");
+}
+
+function buildSubmitBody() {
+  const answers = collectAnswers();
+  if (!formHasUpload()) {
+    return {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: formState.config.slug, answers })
+    };
+  }
+
+  const formData = new FormData();
+  formData.append("slug", formState.config.slug);
+  formData.append("answers", JSON.stringify(answers));
+  for (const question of formState.config.questions || []) {
+    if (question.type !== "file") continue;
+    const file = $(`#field-${CSS.escape(question.id)}`)?.files?.[0];
+    if (file) formData.append(question.id, file);
+  }
+  return { body: formData };
 }
 
 async function submitForm(event) {
@@ -71,10 +98,10 @@ async function submitForm(event) {
   button.disabled = true;
   button.textContent = "Verzenden...";
   try {
+    const requestBody = buildSubmitBody();
     const response = await fetch("/api/public-forms/submit", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: formState.config.slug, answers: collectAnswers() })
+      ...requestBody
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Formulier verzenden is mislukt.");

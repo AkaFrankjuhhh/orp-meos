@@ -1,5 +1,20 @@
-async function sendDiscordWebhook(webhookUrl, payload) {
+async function sendDiscordWebhook(webhookUrl, payload, files = []) {
   if (!webhookUrl) return { skipped: true };
+
+  if (Array.isArray(files) && files.length) {
+    const formData = new FormData();
+    formData.append("payload_json", JSON.stringify(payload));
+    files.forEach((file, index) => {
+      const blob = new Blob([file.buffer], { type: file.contentType || "application/octet-stream" });
+      formData.append(`files[${index}]`, blob, file.filename || `bijlage-${index + 1}`);
+    });
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      body: formData
+    });
+    return { ok: response.ok, status: response.status };
+  }
+
   const response = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -118,6 +118,23 @@ textarea {
   resize: vertical;
 }
 
+
+.file-input {
+  padding: 11px 14px;
+  cursor: pointer;
+}
+
+.file-input::file-selector-button {
+  margin-right: 14px;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  border-radius: 9px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #fed7aa;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 9px 12px;
+}
 input:focus,
 textarea:focus,
 select:focus {

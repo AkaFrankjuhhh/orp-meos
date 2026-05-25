@@ -39,6 +39,8 @@ const port = Number(process.env.PORT || 3000);
 const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
 const sessions = createSessionStore();
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 1024 * 1024);
+const publicFormMaxBodyBytes = Number(process.env.PUBLIC_FORM_MAX_BODY_BYTES || 9 * 1024 * 1024);
+const publicFormMaxFileBytes = Number(process.env.PUBLIC_FORM_MAX_FILE_BYTES || 8 * 1024 * 1024);
 const eventBus = createEventBus();
 const publicFormRateLimit = new Map();
 const {
@@ -292,19 +294,24 @@ function sendStateAfterMutation(req, res, auth, state) {
   });
 }
 
-async function readBody(req) {
+async function readRawBody(req, limitBytes) {
   const chunks = [];
   let totalBytes = 0;
   for await (const chunk of req) {
     totalBytes += chunk.length;
-    if (totalBytes > maxBodyBytes) {
+    if (totalBytes > limitBytes) {
       const error = new Error("Request body is te groot.");
       error.status = 413;
       throw error;
     }
     chunks.push(chunk);
   }
-  const body = Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks);
+}
+
+async function readBody(req) {
+  const buffer = await readRawBody(req, maxBodyBytes);
+  const body = buffer.toString("utf8");
   if (!body) return {};
   try {
     return JSON.parse(body);
@@ -313,6 +320,112 @@ async function readBody(req) {
     parseError.status = 400;
     throw parseError;
   }
+}
+
+function parseMultipartDisposition(value = "") {
+  const result = {};
+  for (const part of value.split(";")) {
+    const [rawKey, ...rawValue] = part.trim().split("=");
+    if (!rawValue.length) continue;
+    result[rawKey.toLowerCase()] = rawValue.join("=").trim().replace(/^"|"$/g, "");
+  }
+  return result;
+}
+
+function sanitizeUploadFilename(filename) {
+  return String(filename || "bijlage")
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/[\r\n]/g, " ")
+    .trim()
+    .slice(0, 120) || "bijlage";
+}
+
+function parseMultipartForm(buffer, contentType) {
+  const boundary = String(contentType || "").match(/boundary=(?:(?:"([^"]+)")|([^;]+))/i)?.[1] || String(contentType || "").match(/boundary=(?:(?:"([^"]+)")|([^;]+))/i)?.[2];
+  if (!boundary) {
+    const error = new Error("Multipart boundary ontbreekt.");
+    error.status = 400;
+    throw error;
+  }
+
+  const fields = {};
+  const files = [];
+  const raw = buffer.toString("binary");
+  const parts = raw.split(`--${boundary}`).slice(1, -1);
+
+  for (let part of parts) {
+    if (part.startsWith("\r\n")) part = part.slice(2);
+    if (part.endsWith("\r\n")) part = part.slice(0, -2);
+    const separator = part.indexOf("\r\n\r\n");
+    if (separator === -1) continue;
+
+    const headerText = part.slice(0, separator);
+    const contentBinary = part.slice(separator + 4);
+    const headers = new Map();
+    for (const line of headerText.split("\r\n")) {
+      const index = line.indexOf(":");
+      if (index === -1) continue;
+      headers.set(line.slice(0, index).toLowerCase(), line.slice(index + 1).trim());
+    }
+
+    const disposition = parseMultipartDisposition(headers.get("content-disposition") || "");
+    if (!disposition.name) continue;
+
+    if (disposition.filename) {
+      const fileBuffer = Buffer.from(contentBinary, "binary");
+      if (!fileBuffer.length) continue;
+      files.push({
+        fieldName: disposition.name,
+        filename: sanitizeUploadFilename(disposition.filename),
+        contentType: headers.get("content-type") || "application/octet-stream",
+        size: fileBuffer.length,
+        buffer: fileBuffer
+      });
+    } else {
+      fields[disposition.name] = Buffer.from(contentBinary, "binary").toString("utf8");
+    }
+  }
+
+  return { fields, files };
+}
+
+function validatePublicFormFiles(config, files = []) {
+  const errors = [];
+  const fileQuestions = new Set((config.questions || []).filter((question) => question.type === "file").map((question) => question.id));
+  const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf", "text/plain", "video/mp4"]);
+  const cleanFiles = [];
+
+  for (const file of files || []) {
+    if (!fileQuestions.has(file.fieldName)) continue;
+    if (cleanFiles.length >= 1) {
+      errors.push("Je kan maximaal 1 bijlage meesturen.");
+      break;
+    }
+    if (file.size > publicFormMaxFileBytes) {
+      errors.push(`Bijlage is te groot. Maximaal ${Math.round(publicFormMaxFileBytes / 1024 / 1024)} MB.`);
+      continue;
+    }
+    if (!allowedTypes.has(file.contentType)) {
+      errors.push("Dit bestandstype is niet toegestaan. Gebruik een afbeelding, PDF, tekstbestand of MP4.");
+      continue;
+    }
+    cleanFiles.push(file);
+  }
+
+  return { cleanFiles, errors };
+}
+
+async function readPublicFormSubmitBody(req) {
+  const contentType = String(req.headers["content-type"] || "");
+  if (contentType.toLowerCase().startsWith("multipart/form-data")) {
+    const { fields, files } = parseMultipartForm(await readRawBody(req, publicFormMaxBodyBytes), contentType);
+    return {
+      slug: fields.slug || "",
+      answers: fields.answers ? JSON.parse(fields.answers) : {},
+      files
+    };
+  }
+  return { ...(await readBody(req)), files: [] };
 }
 
 async function healthPayload() {
@@ -476,7 +589,7 @@ async function handlePublicFormsApi(req, res, url) {
   }
 
   if (url.pathname === "/api/public-forms/submit" && req.method === "POST") {
-    const body = await readBody(req);
+    const body = await readPublicFormSubmitBody(req);
     const config = publicFormFromSlug(body.slug) || publicFormForRequest(req, url);
     if (!config) {
       sendJson(res, 404, { error: "Formulier niet gevonden" });
@@ -486,13 +599,18 @@ async function handlePublicFormsApi(req, res, url) {
       sendJson(res, 429, { error: "Te veel inzendingen achter elkaar. Probeer het later opnieuw." });
       return true;
     }
-    const { cleanAnswers, errors } = validatePublicFormSubmission(config, body.answers || {});
+    const fileValidation = validatePublicFormFiles(config, body.files || []);
+    if (fileValidation.errors.length) {
+      sendJson(res, 400, { error: fileValidation.errors[0], errors: fileValidation.errors });
+      return true;
+    }
+    const { cleanAnswers, errors } = validatePublicFormSubmission(config, body.answers || {}, fileValidation.cleanFiles);
     if (errors.length) {
       sendJson(res, 400, { error: errors[0], errors });
       return true;
     }
-    const submission = createPublicFormSubmission(config, cleanAnswers, req);
-    const webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission));
+    const submission = createPublicFormSubmission(config, cleanAnswers, req, fileValidation.cleanFiles);
+    const webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission), fileValidation.cleanFiles);
     await publicFormsStore.saveSubmission(submission, webhookResult);
     sendJson(res, 200, { ok: true, id: submission.id, webhook: webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : "failed" });
     return true;
