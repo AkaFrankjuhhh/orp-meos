@@ -4549,7 +4549,7 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
 .profile-side-badge-row {
   position: absolute;
   right: 0;
-  bottom: 0;
+  bottom: 22px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
