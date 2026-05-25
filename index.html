@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260524-sidebar-scroll" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260524-sidebar-scroll" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260525-klad-updates" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -201,7 +201,7 @@
                 <input id="profileHoursWeekYear" type="hidden" />
                 <input id="profileHoursWeekNumber" type="hidden" />
                 <span id="profileHoursCurrentWeekLabel">Week -</span>
-                <input id="profileHoursInput" type="number" min="0" max="99" step="0.5" placeholder="0" />
+                <input id="profileHoursInput" type="number" min="0" max="99" step="0.1" placeholder="0" />
                 <button class="primary small" type="submit">Opslaan</button>
               </form>
               <div id="profileHoursWeeks" class="manual-hours-weeks"></div>
@@ -545,6 +545,7 @@
         </div>
         <input id="bulkHoursWeekYear" type="hidden" />
         <input id="bulkHoursWeekNumber" type="hidden" />
+        <div id="bulkHoursWeekOptions" class="bulk-hours-week-options" role="group" aria-label="Week kiezen"></div>
         <div id="bulkHoursRows" class="bulk-hours-rows"></div>
         <menu>
           <button id="cancelBulkHoursDialog" class="ghost" type="button">Annuleren</button>
@@ -810,14 +811,14 @@
       });
     </script>    <script src="shared-ui.js?v=20260518-frontend-split"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/profile.js?v=20260522-url-routing"></script>
-    <script src="personeelsportaal/hours.js?v=20260521-hours-overview"></script>
-    <script src="personeelsportaal/people.js?v=20260522-person-card-profile"></script>
+    <script src="personeelsportaal/profile.js?v=20260525-stars"></script>
+    <script src="personeelsportaal/hours.js?v=20260525-week-select"></script>
+    <script src="personeelsportaal/people.js?v=20260525-readiness"></script>
     <script src="personeelsportaal/i8.js?v=20260522-i8-archive-delete"></script>
     <script src="personeelsportaal/mentor.js?v=20260522-mentor-autosave"></script>
     <script src="personeelsportaal/absence.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/archive.js?v=20260522-resignation-actions"></script>
-    <script src="personeelsportaal-data.js?v=20260518-app-split"></script>
-    <script src="app.js?v=20260522-url-routing"></script>
+    <script src="personeelsportaal-data.js?v=20260525-requirements"></script>
+    <script src="app.js?v=20260525-klad-updates"></script>
   </body>
 </html>

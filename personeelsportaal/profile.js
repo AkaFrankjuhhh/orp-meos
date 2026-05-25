@@ -69,11 +69,24 @@ function renderProfileBadges(person) {
     : '<span class="profile-badge muted-badge">Geen extra taken</span>';
 }
 
-function renderProfileDistinctions() {
+function monthsActiveForPerson(person) {
+  const start = new Date(`${hiredDateFor(person)}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return 0;
+  return Math.max(0, (Date.now() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.4375));
+}
+
+function renderProfileDistinctions(person) {
+  const monthsActive = monthsActiveForPerson(person);
   $("#profileDistinctions").innerHTML = profileDistinctions
-    .map((distinction) => `
-      <span class="distinction-medal ${distinction.tone}" title="${escapeHtml(distinction.type)}" aria-label="${escapeHtml(distinction.type)}"></span>
-    `)
+    .map((distinction) => {
+      const earned = monthsActive >= Number(distinction.months || 0);
+      const title = earned
+        ? `${distinction.type} behaald`
+        : `${distinction.type} vanaf ${distinction.months} maand(en) diensttijd`;
+      return `
+        <span class="distinction-medal service-star ${distinction.tone} ${earned ? "is-earned" : "is-locked"}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"></span>
+      `;
+    })
     .join("");
 }
 
@@ -189,11 +202,24 @@ function renderProfileDiscipline(person) {
     : '<div class="feed-item">Geen strikes of waarschuwingen gevonden voor dit filter.</div>';
 }
 
+function setDisciplineTypeOptionsForPermissions(selectElement) {
+  if (!selectElement) return;
+  const i8Only = canManageI8Discipline() && !canViewAllDiscipline();
+  [...selectElement.options].forEach((option) => {
+    option.hidden = i8Only && !String(option.value || "").startsWith("i8-");
+    option.disabled = option.hidden;
+  });
+  if (i8Only && !String(selectElement.value || "").startsWith("i8-")) {
+    selectElement.value = "i8-warning";
+  }
+}
+
 function openDisciplineDialog() {
   const viewed = visibleProfile();
   if (!viewed || !canManageDiscipline()) return;
   $("#disciplinePersonId").value = viewed.id;
-  $("#disciplineType").value = "regular-warning";
+  setDisciplineTypeOptionsForPermissions($("#disciplineType"));
+  $("#disciplineType").value = canViewAllDiscipline() ? "regular-warning" : "i8-warning";
   $("#disciplineReason").value = "";
   $("#disciplineDialog").showModal();
 }
@@ -234,7 +260,8 @@ function openEditDisciplineDialog() {
   if (!pending || !match) return;
   $("#editDisciplinePersonId").value = pending.personId;
   $("#editDisciplineEntryId").value = pending.disciplineId;
-  $("#editDisciplineType").value = match.discipline.type || "regular-warning";
+  setDisciplineTypeOptionsForPermissions($("#editDisciplineType"));
+  $("#editDisciplineType").value = match.discipline.type || (canViewAllDiscipline() ? "regular-warning" : "i8-warning");
   $("#editDisciplineReason").value = match.discipline.reason || "";
   $("#editDisciplineDialog").showModal();
 }
@@ -328,7 +355,7 @@ function renderProfile() {
   $("#profilePageRankNumber").textContent = `${profileRankLabel(viewed.rank)} - ${viewed.serviceNumber || "-"}`;
   $("#profilePageDisplayName").textContent = viewed.name || "-";
   renderProfileBadges(viewed);
-  renderProfileDistinctions();
+  renderProfileDistinctions(viewed);
   renderProfileAuditLog(viewed);
   $("#profilePageHiredDate").textContent = formatDate(hiredDateFor(viewed));
   $("#profilePagePromotionDate").textContent = formatDate(viewed.promotionDate);

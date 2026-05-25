@@ -13,6 +13,7 @@ const {
   extraFunctions,
   disciplineTypes,
   profileDistinctions,
+  rankTrainingRequirements,
   autoFunctionByRanks,
   rankColors,
   defaultState
@@ -134,7 +135,11 @@ function canViewI8Discipline() {
 }
 
 function canManageDiscipline() {
-  return Boolean(permissions.canManageDiscipline || hasKaderAccess());
+  return Boolean(permissions.canManageDiscipline || permissions.canManageI8Discipline || hasKaderAccess());
+}
+
+function canManageI8Discipline() {
+  return Boolean(permissions.canManageI8Discipline || permissions.canManageDiscipline || hasKaderAccess());
 }
 
 function isOwnProfile(person) {
@@ -755,7 +760,8 @@ function hasOpenTransientMenu() {
 function hasActiveMentorChecklistInteraction() {
   const notesField = $("#mentorNotes");
   const isTypingMentorNote = activePageId() === "mentor-checklist" && notesField && document.activeElement === notesField;
-  return activePageId() === "mentor-checklist" && (Date.now() < mentorChecklistEditingUntil || isTypingMentorNote);
+  const hasUnsavedMentorNote = activePageId() === "mentor-checklist" && notesField && notesField.value.trim().length > 0;
+  return activePageId() === "mentor-checklist" && (Date.now() < mentorChecklistEditingUntil || isTypingMentorNote || hasUnsavedMentorNote);
 }
 async function refreshReviewCounters() {
   if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
@@ -1362,7 +1368,14 @@ function wireEvents() {
     if (!personId || !canManageHours()) return;
     if (await saveManualHours([{ personId, hours }], weekYear, weekNumber)) render();
   });
-  $("#bulkHoursForm")?.addEventListener("submit", async (event) => {
+  $("#bulkHoursWeekOptions")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-bulk-hours-week-year][data-bulk-hours-week-number]");
+    if (!button || typeof selectBulkHoursWeek !== "function") return;
+    selectBulkHoursWeek({
+      weekYear: Number(button.dataset.bulkHoursWeekYear),
+      weekNumber: Number(button.dataset.bulkHoursWeekNumber)
+    });
+  });  $("#bulkHoursForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!canManageHours()) return;
     const weekYear = Number($("#bulkHoursWeekYear").value);
@@ -1371,7 +1384,7 @@ function wireEvents() {
       .filter((input) => input.value !== "")
       .map((input) => ({ personId: input.dataset.bulkHoursPerson, hours: Number(input.value || 0) }));
     if (!entries.length) {
-      await showSiteNotice("Vul minimaal ÃƒÂ©ÃƒÂ©n urenregel in.", "Geen uren ingevuld");
+      await showSiteNotice("Vul minimaal ÃƒÆ’Ã‚Â©ÃƒÆ’Ã‚Â©n urenregel in.", "Geen uren ingevuld");
       return;
     }
     if (await saveManualHours(entries, weekYear, weekNumber)) {

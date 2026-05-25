@@ -18,10 +18,12 @@ let portoVehicleRanges = [];
 let portoCurrentOps = null;
 let portoCanTakeOps = false;
 let portoCanManageOps = false;
+let portoCanViewOpsLog = false;
 let portoOpsRequests = [];
 let portoAvailableVehicleRanges = [];
 let portoLinkableUnits = [];
 let portoActiveUnits = [];
+let portoOpsLog = [];
 let portoOpsContextUnitId = "";
 let portoDutyPoll = null;
 let portoOpsPoll = null;
@@ -315,6 +317,7 @@ $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-duty-ops-claim]")) updatePortoOps("claim");
   if (!event.target.closest("#portoOpsUnitContextMenu")) closePortoOpsContextMenu();
 });
 

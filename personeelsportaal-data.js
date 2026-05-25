@@ -84,7 +84,7 @@ const mentorChecklistGroups = [
   }
 ];
 const mentorChecklistLabels = mentorChecklistGroups.flatMap((group) => group.items);
-const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding"];
+const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding", "DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
 const extraFunctions = ["Kader", "Hoofdofficier", "Officiersraad"];
 const disciplineTypes = {
   "regular-warning": { label: "Offici\u00eble Waarschuwing", tone: "warning" },
@@ -93,11 +93,22 @@ const disciplineTypes = {
   "i8-strike": { label: "I8 Strike", tone: "i8-strike" }
 };
 const profileDistinctions = [
-  { type: "Diensturen", tone: "hours" },
-  { type: "Operationele inzet", tone: "deployment" },
-  { type: "Opleiding & training", tone: "training" },
-  { type: "Bijzondere verdienste", tone: "merit" }
+  { type: "Bronze diensttijdster", tone: "bronze", months: 1.5 },
+  { type: "Zilveren diensttijdster", tone: "silver", months: 3 },
+  { type: "Gouden diensttijdster", tone: "gold", months: 6 },
+  { type: "Diamanten diensttijdster", tone: "diamond", months: 12 }
 ];
+const rankTrainingRequirements = {
+  "Marechaussee 4de Klasser": ["BKV"],
+  "Marechaussee 3de Klasser": ["BKV", "IBT"],
+  "Marechaussee 2de Klasser": ["BKV", "IBT", "Mentor-Traject"],
+  "Marechaussee 1ste Klasser": ["BKV", "IBT", "Mentor-Traject", "KW"],
+  "Wachtmeester": ["BKV", "IBT", "Mentor-Traject", "KW", "OPS", "TMO"],
+  "Wachtmeester 1ste Klasser": ["BKV", "IBT", "Mentor-Traject", "KW", "OPS", "TMO", "OPCO"],
+  "Opperwachtmeester": ["BKV", "IBT", "Mentor-Traject", "KW", "OPS", "TMO", "OPCO", "SIV"],
+  "Eerste-Luitenant": ["BKV", "IBT", "Mentor-Traject", "KW", "OPS", "TMO", "OPCO", "SIV", "OGM"],
+  "Majoor": ["BKV", "IBT", "Mentor-Traject", "KW", "OPS", "TMO", "OPCO", "SIV", "OGM", "SMG"]
+};
 const autoFunctionByRanks = [
   { label: "Kader", ranks: ["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"] },
   { label: "Hoofdofficier", ranks: ["Kolonel", "Luitenant-Kolonel", "Majoor"] }
@@ -203,7 +214,7 @@ const defaultState = {
     "Perm rollen Kader, Hoofdofficier en Officiersraad toegevoegd."
   ]
 };
-// Exporteer statische Defensie Personeelsportaal configuratie naar app.js zonder alles in één bestand te houden.
+// Exporteer statische Defensie Personeelsportaal configuratie naar app.js zonder alles in Ã©Ã©n bestand te houden.
 window.DefensiePortalData = {
   ranks,
   rankCategories,
@@ -218,6 +229,7 @@ window.DefensiePortalData = {
   extraFunctions,
   disciplineTypes,
   profileDistinctions,
+  rankTrainingRequirements,
   autoFunctionByRanks,
   rankColors,
   defaultState

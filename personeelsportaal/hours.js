@@ -32,6 +32,13 @@ function recentHourWeeks(count = 4) {
 function currentHourWeek() {
   return recentHourWeeks(1)[0];
 }
+function editableHourWeeks() {
+  return recentHourWeeks(2);
+}
+
+function weekKey(week) {
+  return `${week.weekYear}-${week.weekNumber}`;
+}
 
 function hourEntryFor(personId, weekYear, weekNumber) {
   return (state.hours || []).find((entry) => (
@@ -130,7 +137,7 @@ function openHoursOverviewDialog(person = visibleProfile()) {
             <article class="hours-overview-row" style="--hours-tone:${hourToneColor(hours)}">
               <div>
                 <strong>Week ${escapeHtml(entry.weekNumber)} (${escapeHtml(entry.weekYear)})</strong>
-                <span>${escapeHtml([entered, author].filter(Boolean).join(" · "))}</span>
+                <span>${escapeHtml([entered, author].filter(Boolean).join(" Â· "))}</span>
               </div>
               <b>${escapeHtml(displayHourValue(hours))} uur</b>
             </article>
@@ -150,9 +157,7 @@ function sortedActivePeopleForHours() {
     });
 }
 
-function openBulkHoursDialog() {
-  if (!canManageHours()) return;
-  const week = currentHourWeek();
+function renderBulkHoursRows(week) {
   $("#bulkHoursWeekLabel").textContent = `Week ${week.weekNumber} (${week.weekYear})`;
   $("#bulkHoursWeekYear").value = week.weekYear;
   $("#bulkHoursWeekNumber").value = week.weekNumber;
@@ -165,11 +170,33 @@ function openBulkHoursDialog() {
             <strong>${escapeHtml(person.serviceNumber || "-")} - ${escapeHtml(person.name)}</strong>
             <small>${escapeHtml(person.rank || "-")}</small>
           </span>
-          <input type="number" min="0" max="99" step="0.5" value="${entry ? escapeHtml(displayHourValue(entry.hours)) : ""}" data-bulk-hours-person="${escapeHtml(person.id)}" placeholder="0" />
+          <input type="number" min="0" max="99" step="0.1" value="${entry ? escapeHtml(displayHourValue(entry.hours)) : ""}" data-bulk-hours-person="${escapeHtml(person.id)}" placeholder="0" />
         </label>
       `;
     })
     .join("");
+}
+
+function renderBulkHoursWeekOptions(selectedWeek) {
+  const weeks = editableHourWeeks();
+  const selectedKey = weekKey(selectedWeek);
+  $("#bulkHoursWeekOptions").innerHTML = weeks
+    .map((week, index) => {
+      const label = index === 0 ? "Huidige week" : "Vorige week";
+      const active = weekKey(week) === selectedKey;
+      return `<button class="ghost small ${active ? "active" : ""}" type="button" data-bulk-hours-week-year="${escapeHtml(week.weekYear)}" data-bulk-hours-week-number="${escapeHtml(week.weekNumber)}">${label}: Week ${escapeHtml(week.weekNumber)}</button>`;
+    })
+    .join("");
+}
+
+function selectBulkHoursWeek(week) {
+  renderBulkHoursWeekOptions(week);
+  renderBulkHoursRows(week);
+}
+
+function openBulkHoursDialog() {
+  if (!canManageHours()) return;
+  selectBulkHoursWeek(currentHourWeek());
   $("#bulkHoursDialog").showModal();
 }
 

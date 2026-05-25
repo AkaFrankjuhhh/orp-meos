@@ -1,4 +1,4 @@
-﻿const { withClient } = require("./db");
+const { withClient } = require("./db");
 
 function parseJson(value, fallback) {
   if (value == null) return fallback;
@@ -145,7 +145,8 @@ function createPostgresPortoStore(options = {}) {
         people: peopleResult.rows.map(personFromRow),
         portoUnits: unitsResult.rows.map(portoUnitFromRow),
         portoVehicleRanges: settings.portoVehicleRanges || [],
-        portoCurrentOps: settings.portoCurrentOps || null
+        portoCurrentOps: settings.portoCurrentOps || null,
+        portoOpsLog: settings.portoOpsLog || []
       };
     });
   }
@@ -159,7 +160,8 @@ function createPostgresPortoStore(options = {}) {
         const nextSettings = {
           ...currentSettings,
           portoVehicleRanges: state.portoVehicleRanges || [],
-          portoCurrentOps: state.portoCurrentOps || null
+          portoCurrentOps: state.portoCurrentOps || null,
+          portoOpsLog: state.portoOpsLog || []
         };
         await client.query(
           "insert into app_settings(key, value, updated_at) values('main', $1::jsonb, now()) on conflict(key) do update set value = excluded.value, updated_at = now()",

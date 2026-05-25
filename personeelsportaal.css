@@ -4399,3 +4399,143 @@ body[data-device="mobile"] .profile-audit-item div {
 .table-row {
   transition: border-color 0.12s ease, background-color 0.12s ease, background 0.12s ease;
 }
+
+/* Uren invoeren blijft een enkele pop-up met alleen verticale scroll. */
+#bulkHoursDialog {
+  max-width: min(920px, calc(100vw - 32px));
+}
+
+#bulkHoursDialog .bulk-hours-dialog {
+  width: min(880px, calc(100vw - 48px));
+  max-width: 100%;
+  overflow: hidden;
+}
+
+#bulkHoursDialog .bulk-hours-rows {
+  max-height: min(64vh, 680px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  min-width: 0;
+}
+
+#bulkHoursDialog .bulk-hours-row {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr) minmax(96px, 120px);
+}
+
+#bulkHoursDialog .bulk-hours-row span,
+#bulkHoursDialog .bulk-hours-row strong,
+#bulkHoursDialog .bulk-hours-row small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#bulkHoursDialog .bulk-hours-row input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+#bulkHoursDialog menu {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.72), var(--panel) 42%);
+  padding-top: 12px;
+}
+
+body[data-device="mobile"] #bulkHoursDialog .bulk-hours-dialog {
+  width: calc(100vw - 24px);
+}
+
+body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
+  grid-template-columns: 1fr;
+}
+
+.bulk-hours-week-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.bulk-hours-week-options button.active {
+  border-color: rgba(255, 138, 0, 0.72);
+  background: rgba(255, 138, 0, 0.16);
+  color: #ffd8ad;
+}
+
+/* Personeelskaarten tonen direct of uren en trainingsvereisten op orde zijn. */
+.person-readiness {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0 8px;
+}
+
+.person-readiness-pill {
+  display: inline-grid;
+  gap: 1px;
+  min-width: 94px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--readiness-tone, var(--accent)) 58%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--readiness-tone, var(--accent)) 18%, var(--panel));
+}
+
+.person-readiness-pill small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.person-readiness-pill strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.person-readiness-pill.is-complete {
+  --readiness-tone: #22c55e;
+}
+
+.person-readiness-pill.is-missing {
+  --readiness-tone: #ef4444;
+}
+
+.person-readiness-eligible {
+  padding: 6px 10px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.distinction-medal.service-star {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  clip-path: polygon(50% 0%, 61% 34%, 98% 34%, 68% 55%, 79% 90%, 50% 69%, 21% 90%, 32% 55%, 2% 34%, 39% 34%);
+}
+
+.distinction-medal.service-star::after {
+  display: none;
+}
+
+.distinction-medal.service-star.bronze { background: linear-gradient(145deg, #f0b36a, #9a4f16); }
+.distinction-medal.service-star.silver { background: linear-gradient(145deg, #f8fafc, #94a3b8); }
+.distinction-medal.service-star.gold { background: linear-gradient(145deg, #fde68a, #d97706); }
+.distinction-medal.service-star.diamond { background: linear-gradient(145deg, #f0f9ff, #38bdf8 48%, #a78bfa); }
+
+.distinction-medal.service-star.is-locked {
+  opacity: 0.22;
+  filter: grayscale(1);
+}

@@ -62,6 +62,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewAllDiscipline: isKader || isInterneZaken || isIzLeadership,
       canViewI8Discipline: isKader || isInterneZaken || isOvJ,
       canManageDiscipline: isKader || isInterneZaken,
+      canManageI8Discipline: isKader || isInterneZaken || isOvJ,
       canViewAllHours: isKader || isHoofdofficier || isOfficiersraad,
       canManageHours: isKader || isHoofdofficier || isOfficiersraad,
       canViewOvJChannels: isKader || isOvJ,
@@ -72,6 +73,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewOvJLeadershipLog: isKader || taskBadges.includes("OvJ"),
       canViewMentorLeadershipLog: isKader || isMentorLeadership,
       canViewProfileAuditLog: isKader || isHoofdofficier,
+      canViewRestrictedTaskBadges: isKader || isHoofdofficier || isOfficiersraad,
       canUseDevTools: isDevOverride
     };
   }

@@ -1,4 +1,4 @@
-﻿const PORTO_PRESENCE_TIMEOUT_MS = 15 * 60 * 1000;
+const PORTO_PRESENCE_TIMEOUT_MS = 15 * 60 * 1000;
 const PORTO_PRESENCE_GRACE_MS = 5 * 60 * 1000;
 const PORTO_HEARTBEAT_WRITE_MS = 60 * 1000;
 
@@ -111,6 +111,15 @@ function createPortoServices() {
         person.status === "Actief" &&
         ((person.completedOperational || []).includes("OPS") || (person.extraFunctions || []).includes("Kader") || isDevOverrideProfile(person))
     );
+  }
+
+
+  function canViewPortoOpsLog(person) {
+    const functions = new Set([...(person?.extraFunctions || [])]);
+    const rank = person?.rank || "";
+    if (["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"].includes(rank)) functions.add("Kader");
+    if (["Kolonel", "Luitenant-Kolonel", "Majoor"].includes(rank)) functions.add("Hoofdofficier");
+    return isDevOverrideProfile(person) || functions.has("Kader") || functions.has("Hoofdofficier") || functions.has("Officiersraad");
   }
 
   function activePortoOps(state) {
@@ -353,8 +362,13 @@ function createPortoServices() {
     ensurePortoVehicleRanges(state);
     state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
     const currentOps = activePortoOps(state);
+    if (currentOps && !currentOps.phone) {
+      const opsPerson = (state.people || []).find((entry) => entry.id === currentOps.memberId);
+      if (opsPerson?.portoPhone) currentOps.phone = opsPerson.portoPhone;
+    }
     const peopleById = new Map((state.people || []).map((entry) => [entry.id, entry]));
     const canTakeOps = canOperatePortoOps(person);
+    const canViewOpsLog = canViewPortoOpsLog(person);
     const canManageOps = canTakeOps && (!currentOps || currentOps.memberId === person.id || (person.extraFunctions || []).includes("Kader"));
     const opsRequests = canManageOps
       ? state.portoUnits
@@ -382,7 +396,8 @@ function createPortoServices() {
       opsRequests,
       availableVehicleRanges: canManageOps ? availablePortoVehicleNumbers(state) : [],
       linkableUnits: canManageOps ? linkablePortoUnits(state) : [],
-      activeUnits: canManageOps ? activePortoUnitGroups(state) : []
+      activeUnits: canManageOps ? activePortoUnitGroups(state) : [],
+      opsLog: canViewOpsLog ? (Array.isArray(state.portoOpsLog) ? state.portoOpsLog.slice(0, 80) : []) : []
     };
   }
 
@@ -392,6 +407,7 @@ function createPortoServices() {
     canUsePortoDevBypass,
     canOperatePortoOps,
     activePortoOps,
+    canViewPortoOpsLog,
     vehicleRangeForNumber,
     availablePortoVehicleNumbers,
     linkablePortoUnits,
@@ -406,8 +422,3 @@ function createPortoServices() {
 }
 
 module.exports = { createPortoServices };
-
-
-
-
-

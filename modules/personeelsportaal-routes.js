@@ -189,6 +189,42 @@ function createPersoneelsportaalRouteHandler(deps) {
   }
 
 
+
+  function monthsActiveForServerPerson(person) {
+    const start = new Date(`${person?.hiredDate || person?.rankHistory?.[0]?.date || person?.rankDate || today}T00:00:00`);
+    if (Number.isNaN(start.getTime())) return 0;
+    return Math.max(0, (Date.now() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.4375));
+  }
+
+  function serviceStarAwardsForPerson(person) {
+    const monthsActive = monthsActiveForServerPerson(person);
+    return [
+      { key: "bronze", title: "Bronze diensttijdster", months: 1.5 },
+      { key: "silver", title: "Zilveren diensttijdster", months: 3 },
+      { key: "gold", title: "Gouden diensttijdster", months: 6 },
+      { key: "diamond", title: "Diamanten diensttijdster", months: 12 }
+    ].filter((award) => monthsActive >= award.months);
+  }
+
+  async function ensureServiceStarNotifications(state, person) {
+    if (!person) return false;
+    person.serviceStarNotifications = Array.isArray(person.serviceStarNotifications) ? person.serviceStarNotifications : [];
+    const known = new Set(person.serviceStarNotifications);
+    const awards = serviceStarAwardsForPerson(person).filter((award) => !known.has(award.key));
+    if (!awards.length) return false;
+    for (const award of awards) {
+      addPersonNotification(person, {
+        type: "service-star",
+        title: `${award.title} behaald`,
+        message: `Je hebt ${award.title.toLowerCase()} behaald op basis van je diensttijd.`,
+        meta: { award: award.key, profileId: person.id }
+      });
+      person.serviceStarNotifications.push(award.key);
+    }
+    await persistPersonNotifications(person, state);
+    return true;
+  }
+
   function isoWeekStart(weekYear, weekNumber) {
     const simple = new Date(Date.UTC(Number(weekYear), 0, 1 + (Number(weekNumber) - 1) * 7));
     const day = simple.getUTCDay() || 7;
@@ -1083,8 +1119,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     const auth = requireAuth(req, res);
     if (!auth) return;
     const state = await readPeopleState();
-    if (!(await hasPermission(auth, state, "canManageDiscipline"))) {
-      sendJson(res, 403, { error: "Alleen Kader of Interne-Zaken mag strikes en waarschuwingen registreren." });
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canManageDiscipline && !permissions.canManageI8Discipline) {
+      sendJson(res, 403, { error: "Alleen Kader, Interne-Zaken of (h)OvJ mag sancties registreren." });
       return;
     }
     const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(disciplineMatch[1]) && entry.status === "Actief");
@@ -1097,6 +1134,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     const reason = String(body.reason || "").trim();
     if (!disciplineTypes.has(type)) {
       sendJson(res, 400, { error: "Ongeldig type strike of waarschuwing." });
+      return;
+    }
+    if (!permissions.canManageDiscipline && !(permissions.canManageI8Discipline && type.startsWith("i8-"))) {
+      sendJson(res, 403, { error: "(h)OvJ mag alleen I8 waarschuwingen en I8 strikes registreren." });
       return;
     }
     if (!reason) {
@@ -1146,8 +1187,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     const auth = requireAuth(req, res);
     if (!auth) return;
     const state = await readPeopleState();
-    if (!(await hasPermission(auth, state, "canManageDiscipline"))) {
-      sendJson(res, 403, { error: "Alleen Kader of Interne-Zaken mag strikes en waarschuwingen aanpassen." });
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canManageDiscipline && !permissions.canManageI8Discipline) {
+      sendJson(res, 403, { error: "Alleen Kader, Interne-Zaken of (h)OvJ mag sancties aanpassen." });
       return;
     }
     const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(disciplineEntryMatch[1]) && entry.status === "Actief");
@@ -1167,6 +1209,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     const action = String(body.action || "update").trim();
     const issuer = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     const entry = person.discipline[entryIndex];
+    if (!permissions.canManageDiscipline && !String(entry.type || "").startsWith("i8-")) {
+      sendJson(res, 403, { error: "(h)OvJ mag alleen I8 sancties aanpassen." });
+      return;
+    }
     if (action === "delete") {
       person.discipline.splice(entryIndex, 1);
       state.activity = state.activity || [];
@@ -1197,6 +1243,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     const reason = String(body.reason || "").trim();
     if (!disciplineTypes.has(type)) {
       sendJson(res, 400, { error: "Ongeldig type strike of waarschuwing." });
+      return;
+    }
+    if (!permissions.canManageDiscipline && !(permissions.canManageI8Discipline && type.startsWith("i8-"))) {
+      sendJson(res, 403, { error: "(h)OvJ mag alleen I8 waarschuwingen en I8 strikes registreren." });
       return;
     }
     if (!reason) {
@@ -1407,7 +1457,9 @@ function createPersoneelsportaalRouteHandler(deps) {
   if (url.pathname === "/api/state" && req.method === "GET") {
     const auth = requireAuth(req, res);
     if (!auth) return;
-    const state = await Promise.resolve(readState());
+    const state = await readPeopleState();
+    const person = (state.people || []).find((entry) => entry.id === auth.profile.id);
+    if (person) await ensureServiceStarNotifications(state, person);
     sendJson(res, 200, stateForProfile(state, permissionsForAuth(auth, state), auth.profile.id));
     return;
   }

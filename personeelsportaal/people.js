@@ -80,6 +80,59 @@ function renderRecruitment() {
   }
 }
 
+function trainingRequirementsForRank(rank) {
+  const rankIndex = ranks.indexOf(rank);
+  if (rankIndex < 0) return [];
+  const requirements = new Set();
+  Object.entries(rankTrainingRequirements || {}).forEach(([requirementRank, items]) => {
+    const requirementIndex = ranks.indexOf(requirementRank);
+    if (requirementIndex >= rankIndex) (items || []).forEach((item) => requirements.add(item));
+  });
+  return [...requirements];
+}
+
+function completedQualificationsForPerson(person) {
+  return new Set([...(person.completedTrainings || []), ...(person.completedOperational || [])]);
+}
+
+function personnelRequirementStatus(person) {
+  const requirements = trainingRequirementsForRank(person.rank);
+  const completed = completedQualificationsForPerson(person);
+  const missing = requirements.filter((item) => !completed.has(item));
+  return { requirements, missing, complete: requirements.length > 0 && missing.length === 0 };
+}
+
+function personnelCurrentWeekHours(person) {
+  const week = typeof currentHourWeek === "function" ? currentHourWeek() : null;
+  if (!week || typeof hourEntryFor !== "function") return 0;
+  const entry = hourEntryFor(person.id, week.weekYear, week.weekNumber);
+  return Number(entry?.hours) || 0;
+}
+
+function renderPersonnelReadiness(person) {
+  const hours = personnelCurrentWeekHours(person);
+  const hourText = typeof displayHourValue === "function" ? displayHourValue(hours) : String(hours);
+  const hoursGood = hours >= 10;
+  const requirement = personnelRequirementStatus(person);
+  const trainingText = requirement.requirements.length
+    ? (requirement.missing.length ? `${requirement.missing.length} mist` : "Compleet")
+    : "Geen eis";
+  const title = requirement.missing.length
+    ? `Mist: ${requirement.missing.join(", ")}`
+    : (requirement.requirements.length ? `Vereist: ${requirement.requirements.join(", ")}` : "Geen trainingsvereiste voor deze rang");
+  return `
+    <div class="person-readiness" aria-label="Uren en trainingen">
+      <span class="person-readiness-pill" style="--readiness-tone:${hourToneColor(hours)}" title="Huidige week: ${escapeHtml(hourText)} uur">
+        <small>Uren</small><strong>${escapeHtml(hourText)}u</strong>
+      </span>
+      <span class="person-readiness-pill ${requirement.missing.length ? "is-missing" : "is-complete"}" title="${escapeHtml(title)}">
+        <small>Trainingen</small><strong>${escapeHtml(trainingText)}</strong>
+      </span>
+      ${hoursGood && requirement.missing.length === 0 ? '<span class="person-readiness-eligible" title="Voldoet aan uren en trainingsvereisten">Promotie klaar</span>' : ""}
+    </div>
+  `;
+}
+
 function renderPeople() {
   const bulkHoursBtn = $("#bulkHoursBtn");
   if (bulkHoursBtn) bulkHoursBtn.hidden = !canManageHours();

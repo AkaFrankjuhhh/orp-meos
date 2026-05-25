@@ -1,4 +1,4 @@
-﻿/* Porto dienstmodule: statusknoppen, dienstpaneel, voertuigkeuze en Status 0 flow. */
+/* Porto dienstmodule: statusknoppen, dienstpaneel, voertuigkeuze en Status 0 flow. */
 
 function isDevBypassProfile() {
   return Boolean(portoProfile && (portoProfile.name === "Frank Bright" || portoProfile.serviceNumber === "71-01"));
@@ -109,6 +109,22 @@ function renderUnitMemberBar() {
     </article>`).join("");
 }
 
+function renderDutyOpsInfo() {
+  const container = $("#portoDutyOpsInfo");
+  if (!container) return;
+  if (!portoCurrentOps) {
+    container.innerHTML = portoCanTakeOps
+      ? '<button class="porto-ops-action" type="button" data-duty-ops-claim>OPS overnemen</button>'
+      : '<span>Geen OPS in dienst.</span>';
+    return;
+  }
+  container.innerHTML = `
+    <span>Huidige OPS: <strong>${escapeHtml(portoCurrentOps.name || "Onbekend")}</strong></span>
+    <span>Telefoonnummer OPS: <strong>${escapeHtml(portoCurrentOps.phone || "Niet ingevuld")}</strong></span>
+    <span>Duur: <strong>${escapeHtml(formatPortoDuration(opsElapsedSeconds(portoCurrentOps)))}</strong></span>
+  `;
+}
+
 function renderDutyPanel() {
   const intro = $("#portoStatusIntro");
   const panel = $("#portoDutyPanel");
@@ -128,6 +144,7 @@ function renderDutyPanel() {
   if (!assignedDuty || opsWorkspace || !portoProfile) return;
   renderDutyAssignment();
   renderUnitMemberBar();
+  renderDutyOpsInfo();
   const statusPill = $("#portoDutyCurrentStatus");
   statusPill.textContent = statusText(portoDuty);
   statusPill.className = `porto-status-pill ${statusClassName(portoDuty)}`;
@@ -187,5 +204,3 @@ async function runPortoDevBypass() {
 }
 
 window.PortoModules.registerFeature("duty", { ready: true });
-
-

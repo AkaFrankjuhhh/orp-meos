@@ -35,6 +35,60 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return state;
   }
 
+
+  function ensureOpsUnit(state, person, nowIso = new Date().toISOString()) {
+    state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+    let unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false && entry.vehicleNumber === "30-00");
+    if (!unit) {
+      unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false && !entry.vehicleNumber);
+    }
+    if (!unit) {
+      unit = { id: crypto.randomUUID(), memberId: person.id, linkedWith: [], active: true };
+      state.portoUnits.push(unit);
+    }
+    Object.assign(unit, {
+      name: person.name,
+      rank: person.rank,
+      serviceNumber: person.serviceNumber,
+      phone: person.portoPhone || "",
+      vehicleNumber: "30-00",
+      vehicleCode: "OPS",
+      vehicleType: "OPS",
+      vehicleName: "OPS",
+      status: "1",
+      statusDetail: "OPS in dienst",
+      reviewStatus: "ops",
+      assignedById: person.id,
+      assignedByName: person.name,
+      assignedAt: unit.assignedAt || nowIso,
+      requestedAt: unit.requestedAt || nowIso,
+      lastSeenAt: nowIso,
+      updatedAt: nowIso,
+      active: true
+    });
+    return unit;
+  }
+
+  function appendOpsLog(state, ops, endedBy, endedAt = new Date().toISOString()) {
+    if (!ops) return;
+    state.portoOpsLog = Array.isArray(state.portoOpsLog) ? state.portoOpsLog : [];
+    const startedMs = Date.parse(ops.startedAt || "");
+    const endedMs = Date.parse(endedAt);
+    state.portoOpsLog.unshift({
+      id: crypto.randomUUID(),
+      memberId: ops.memberId || "",
+      name: ops.name || "Onbekend",
+      serviceNumber: ops.serviceNumber || "",
+      phone: ops.phone || "",
+      startedAt: ops.startedAt || "",
+      endedAt,
+      durationSeconds: Number.isFinite(startedMs) && Number.isFinite(endedMs) ? Math.max(0, Math.round((endedMs - startedMs) / 1000)) : 0,
+      endedById: endedBy.id || "",
+      endedByName: endedBy.name || "Onbekend"
+    });
+    state.portoOpsLog = state.portoOpsLog.slice(0, 250);
+  }
+
   async function maintainPortoPresence(state, person, { touch = true } = {}) {
     const changedBySweep = sweepPortoPresence(state);
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
@@ -290,8 +344,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           sendJson(res, 409, { error: `OPS is al in dienst: ${currentOps.name}.` });
           return true;
         }
-        state.portoCurrentOps = { memberId: person.id, name: person.name, serviceNumber: person.serviceNumber, startedAt: currentOps?.startedAt || new Date().toISOString(), active: true };
-        await persistPortoState(state, { settings: true });
+        const nowIso = new Date().toISOString();
+        state.portoCurrentOps = { memberId: person.id, name: person.name, serviceNumber: person.serviceNumber, phone: person.portoPhone || "", startedAt: currentOps?.startedAt || nowIso, active: true };
+        ensureOpsUnit(state, person, nowIso);
+        await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 200, portoOpsPayload(state, person));
         return true;
       }
@@ -300,8 +356,26 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           sendJson(res, 403, { error: "Alleen de huidige OPS of Kader kan OPS afsluiten." });
           return true;
         }
-        state.portoCurrentOps = { ...currentOps, active: false, endedAt: new Date().toISOString() };
-        await persistPortoState(state, { settings: true });
+        const endedAt = new Date().toISOString();
+        appendOpsLog(state, currentOps, person, endedAt);
+        state.portoCurrentOps = { ...currentOps, active: false, endedAt };
+        const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === "30-00");
+        if (opsUnit) {
+          Object.assign(opsUnit, {
+            status: "8",
+            statusDetail: "OPS neergelegd",
+            active: false,
+            vehicleNumber: "",
+            vehicleCode: "",
+            vehicleType: "",
+            vehicleName: "",
+            endedById: person.id,
+            endedByName: person.name,
+            endedAt,
+            updatedAt: endedAt
+          });
+        }
+        await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 200, portoOpsPayload(state, person));
         return true;
       }
@@ -519,7 +593,3 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 }
 
 module.exports = { createPortoRouteHandler };
-
-
-
-

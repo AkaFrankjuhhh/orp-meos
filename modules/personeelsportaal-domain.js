@@ -25,8 +25,9 @@ const ranks = [
 const rankWeight = new Map(ranks.map((rank, index) => [rank, ranks.length - index]));
 const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
-const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding"];
+const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding", "DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
 const extraFunctions = ["Kader", "Hoofdofficier", "Officiersraad"];
+const restrictedTaskBadges = new Set(["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"]);
 const mentorRanks = ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"];
 const mentorTrainingName = "Mentor-Traject";
 const mentorChecklistCount = 13;
@@ -277,6 +278,9 @@ function stateForProfile(state, permissions, profileId = "") {
   const nextState = JSON.parse(JSON.stringify(state));
   nextState.people = (nextState.people || []).map((person) => ({
     ...person,
+    badges: person.id === profileId || permissions?.canViewRestrictedTaskBadges
+      ? (Array.isArray(person.badges) ? person.badges : [])
+      : (Array.isArray(person.badges) ? person.badges.filter((badge) => !restrictedTaskBadges.has(badge)) : []),
     notifications: person.id === profileId ? (Array.isArray(person.notifications) ? person.notifications : []) : [],
     profileLog: permissions?.canViewProfileAuditLog ? (Array.isArray(person.profileLog) ? person.profileLog : []) : []
   }));

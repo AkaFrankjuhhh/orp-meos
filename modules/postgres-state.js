@@ -175,7 +175,8 @@ async function readPostgresState() {
       resignationForms,
       portoUnits,
       portoVehicleRanges: settings.portoVehicleRanges || [],
-      portoCurrentOps: settings.portoCurrentOps || null
+      portoCurrentOps: settings.portoCurrentOps || null,
+      portoOpsLog: settings.portoOpsLog || []
     };
   });
 }

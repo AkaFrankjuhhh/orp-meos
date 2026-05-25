@@ -1,4 +1,18 @@
-﻿/* Porto OPS-module: OPS bediening, verzoeken, eenheden en contextacties. */
+/* Porto OPS-module: OPS bediening, verzoeken, eenheden en contextacties. */
+
+function formatPortoDuration(seconds) {
+  const total = Math.max(0, Math.floor(Number(seconds) || 0));
+  const hours = String(Math.floor(total / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const secs = String(total % 60).padStart(2, "0");
+  return `${hours}:${minutes}:${secs}`;
+}
+
+function opsElapsedSeconds(ops = portoCurrentOps) {
+  const started = Date.parse(ops?.startedAt || "");
+  if (!Number.isFinite(started)) return 0;
+  return Math.max(0, Math.floor((Date.now() - started) / 1000));
+}
 
 function renderVehicleRanges() {
   const table = $("#portoVehicleRangeTable");
@@ -16,10 +30,12 @@ function applyPortoPayload(payload) {
   portoCurrentOps = payload.currentOps || null;
   portoCanTakeOps = Boolean(payload.canTakeOps);
   portoCanManageOps = Boolean(payload.canManageOps);
+  portoCanViewOpsLog = Boolean(payload.canViewOpsLog);
   portoOpsRequests = payload.opsRequests || [];
   portoAvailableVehicleRanges = payload.availableVehicleRanges || [];
   portoLinkableUnits = payload.linkableUnits || [];
   portoActiveUnits = payload.activeUnits || [];
+  portoOpsLog = payload.opsLog || [];
   portoVehicleRanges = payload.vehicleRanges || portoVehicleRanges;
 }
 
@@ -51,7 +67,7 @@ function renderOpsStatus() {
   const claimButton = $("#portoOpsClaimBtn");
   const releaseButton = $("#portoOpsReleaseBtn");
   if (!text || !claimButton || !releaseButton) return;
-  text.textContent = portoCurrentOps ? `OPS in dienst: ${portoCurrentOps.name}` : "Huidige OPS:";
+  text.textContent = portoCurrentOps ? `OPS in dienst: ${portoCurrentOps.name} - ${formatPortoDuration(opsElapsedSeconds())}` : "Huidige OPS:";
   claimButton.hidden = Boolean(portoCurrentOps) || !portoCanTakeOps;
   releaseButton.hidden = !portoCurrentOps || !portoCanManageOps;
 }
@@ -150,7 +166,7 @@ function renderOpsRequests() {
   const list = $("#portoOpsRequests");
   const count = $("#portoOpsCount");
   if (!panel || !list || !count) return;
-  const showPanel = Boolean(isCurrentOpsUser() && portoCanManageOps);
+  const showPanel = Boolean((isCurrentOpsUser() && portoCanManageOps) || (portoCanViewOpsLog && portoOpsLog.length));
   panel.hidden = !showPanel;
   if (!showPanel) return;
   count.textContent = `${portoOpsRequests.length} verzoek${portoOpsRequests.length === 1 ? "" : "en"}`;
@@ -312,6 +328,22 @@ async function reassignPortoUnit(unitId, assignment) {
   renderOpsPanel();
 }
 
+function renderOpsLog() {
+  const card = $("#portoOpsLogCard");
+  const rows = $("#portoOpsLogRows");
+  if (!card || !rows) return;
+  card.hidden = !portoOpsLog.length;
+  rows.innerHTML = portoOpsLog.length
+    ? portoOpsLog.map((entry) => `
+      <article class="porto-ops-log-row">
+        <strong>${escapeHtml(entry.serviceNumber || "-")} - ${escapeHtml(entry.name || "Onbekend")}</strong>
+        <span>${escapeHtml(formatPortoDuration(entry.durationSeconds))}</span>
+        <small>${escapeHtml(entry.startedAt ? new Date(entry.startedAt).toLocaleString("nl-NL") : "-")} t/m ${escapeHtml(entry.endedAt ? new Date(entry.endedAt).toLocaleString("nl-NL") : "-")}</small>
+      </article>
+    `).join("")
+    : '<div class="porto-ops-empty">Nog geen OPS diensten gelogd.</div>';
+}
+
 function renderOpsPanel() {
   renderOpsStatus();
   renderOpsRequests();
@@ -374,3 +406,5 @@ window.PortoModules.registerFeature("ops", { ready: true });
 
 
 
+
+window.setInterval(() => { renderOpsStatus(); if (typeof renderDutyOpsInfo === "function") renderDutyOpsInfo(); }, 1000);

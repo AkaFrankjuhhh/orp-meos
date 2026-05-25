@@ -2019,3 +2019,54 @@ body.porto-duty-workspace .porto-status-grid {
     flex: 1 1 160px;
   }
 }
+
+/* OPS-info en logboek blijven compact zichtbaar binnen het Porto werkblad. */
+.porto-duty-ops-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  width: min(760px, 100%);
+  margin: 10px auto 0;
+  color: #c7d2fe;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.porto-duty-ops-info span,
+.porto-duty-ops-info button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.74);
+  padding: 8px 12px;
+}
+
+.porto-ops-log-card {
+  margin-top: 12px;
+}
+
+.porto-ops-log-rows {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.porto-ops-log-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.porto-ops-log-row small {
+  grid-column: 1 / -1;
+  color: #93a4bf;
+  font-weight: 700;
+}

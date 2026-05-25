@@ -57,6 +57,21 @@ function normalizeDiscordId(value) {
   return String(value || "").replace(/^discord:/i, "").trim();
 }
 
+
+function requiredDefensieRoleId() {
+  return String(process.env.DISCORD_DEFENSIE_ROLE_ID || "").trim();
+}
+
+function memberHasRequiredDefensieRole(memberResult) {
+  const roleId = requiredDefensieRoleId();
+  if (!roleId) return true;
+  return (memberResult?.data?.roles || []).map(String).includes(roleId);
+}
+
+function missingDefensieRoleResult() {
+  return { skipped: true, reason: "Defensie rol ontbreekt; Discord naam en rangrollen worden niet aangepast." };
+}
+
 function compactRoleIds(roleIds) {
   return [...new Set((roleIds || []).map((roleId) => String(roleId || "").trim()).filter(Boolean))];
 }
@@ -246,6 +261,7 @@ function createDiscordBotServices(options = {}) {
 
     const memberResult = await getGuildMember(memberId);
     if (memberResult.skipped) return memberResult;
+    if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
 
     const existingRoles = new Set(memberResult.data?.roles || []);
     const desiredSet = new Set(desired);
@@ -315,7 +331,12 @@ function createDiscordBotServices(options = {}) {
   }
 
   async function syncNicknameForPerson(person, auditReason = "Defensie Personeelsportaal dienstnummer nickname gesynchroniseerd") {
-    return setNickname(person?.discordId, buildServiceNickname(person), auditReason);
+    const memberId = normalizeDiscordId(person?.discordId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+    const memberResult = await getGuildMember(memberId);
+    if (memberResult.skipped) return memberResult;
+    if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
+    return setNickname(memberId, buildServiceNickname(person), auditReason);
   }
 
   async function syncNicknameForPersonIfNeeded(person, auditReason = "Defensie Personeelsportaal periodieke nickname controle") {
@@ -324,6 +345,7 @@ function createDiscordBotServices(options = {}) {
     const desiredNickname = buildServiceNickname(person);
     const memberResult = await getGuildMember(memberId);
     if (memberResult.skipped) return memberResult;
+    if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
     const currentNickname = memberResult.data?.nick || "";
     if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
     return setNickname(memberId, desiredNickname, auditReason);
