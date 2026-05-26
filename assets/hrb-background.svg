@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="HRB binnenplaats achtergrond">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#7b92a8"/>
+      <stop offset="0.48" stop-color="#b6c0c4"/>
+      <stop offset="1" stop-color="#d2cab8"/>
+    </linearGradient>
+    <linearGradient id="brick" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#5d392e"/>
+      <stop offset="0.55" stop-color="#7d4b3b"/>
+      <stop offset="1" stop-color="#3b2a28"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#b4a98d"/>
+      <stop offset="1" stop-color="#857961"/>
+    </linearGradient>
+    <linearGradient id="vehicle" x1="0" x2="1">
+      <stop offset="0" stop-color="#05080d"/>
+      <stop offset="0.5" stop-color="#111827"/>
+      <stop offset="1" stop-color="#05070b"/>
+    </linearGradient>
+    <pattern id="brickPattern" width="68" height="34" patternUnits="userSpaceOnUse">
+      <rect width="68" height="34" fill="transparent"/>
+      <path d="M0 0h68M0 34h68M0 17h68M0 0v17M34 17v17M68 0v17" stroke="#1f1514" stroke-opacity="0.34" stroke-width="2"/>
+      <path d="M4 5h24M40 7h18M7 23h20M43 25h17" stroke="#d5a28d" stroke-opacity="0.13" stroke-width="2"/>
+    </pattern>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity="0.42"/>
+    </filter>
+    <filter id="soft">
+      <feGaussianBlur stdDeviation="2.4"/>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+
+  <g opacity="0.96">
+    <rect x="0" y="0" width="550" height="690" fill="url(#brick)"/>
+    <rect x="0" y="0" width="550" height="690" fill="url(#brickPattern)"/>
+    <rect x="1260" y="0" width="660" height="710" fill="url(#brick)"/>
+    <rect x="1260" y="0" width="660" height="710" fill="url(#brickPattern)"/>
+    <rect x="520" y="0" width="780" height="560" fill="#6d4035"/>
+    <rect x="520" y="0" width="780" height="560" fill="url(#brickPattern)"/>
+  </g>
+
+  <g opacity="0.76">
+    <path d="M42 440C78 230 210 120 420 110v530H0V470c12-13 26-23 42-30Z" fill="#ccb994"/>
+    <path d="M74 438c33-151 129-231 289-240v367H35v-77c11-20 24-37 39-50Z" fill="#332722"/>
+    <path d="M88 440c29-120 109-183 238-190v310H52v-58c10-26 22-46 36-62Z" fill="#d6c5a2"/>
+  </g>
+
+  <g opacity="0.9">
+    <path d="M720 525V260h440v265" fill="#354456"/>
+    <path d="M758 260l55-88h246l62 88" fill="#596a79"/>
+    <rect x="785" y="325" width="74" height="138" rx="4" fill="#d9e6ed" stroke="#1b2738" stroke-width="7"/>
+    <rect x="1008" y="325" width="74" height="138" rx="4" fill="#d9e6ed" stroke="#1b2738" stroke-width="7"/>
+    <path d="M884 525V385c0-58 112-58 112 0v140" fill="#1f2937"/>
+    <path d="M838 540h210" stroke="#d9c092" stroke-width="18"/>
+  </g>
+
+  <rect x="0" y="556" width="1920" height="524" fill="url(#floor)"/>
+  <g opacity="0.25" stroke="#463d31" stroke-width="2">
+    <path d="M0 630h1920M0 700h1920M0 775h1920M0 860h1920M0 952h1920"/>
+    <path d="M120 556l-190 524M330 556L160 1080M550 556L405 1080M790 556L675 1080M1030 556L955 1080M1280 556l-25 524M1535 556l35 524M1780 556l92 524"/>
+  </g>
+
+  <g filter="url(#shadow)" transform="translate(145 530)">
+    <ellipse cx="360" cy="250" rx="430" ry="55" fill="#05070b" opacity="0.38"/>
+    <path d="M70 140h595c52 0 92 37 102 86l16 77H35l15-102c5-35 22-61 20-61Z" fill="url(#vehicle)" stroke="#38465a" stroke-width="5"/>
+    <path d="M166 60h344c65 0 108 37 143 88H90c14-52 39-88 76-88Z" fill="#07111f" stroke="#3a4654" stroke-width="5"/>
+    <rect x="155" y="88" width="112" height="78" rx="8" fill="#0e1a27" stroke="#7891a7" stroke-width="4" opacity="0.9"/>
+    <rect x="292" y="88" width="118" height="78" rx="8" fill="#0e1a27" stroke="#7891a7" stroke-width="4" opacity="0.9"/>
+    <rect x="438" y="88" width="110" height="78" rx="8" fill="#0e1a27" stroke="#7891a7" stroke-width="4" opacity="0.9"/>
+    <path d="M72 205h704" stroke="#9fb4c9" stroke-width="4" opacity="0.45"/>
+    <circle cx="180" cy="306" r="64" fill="#0a0f18" stroke="#d1d5db" stroke-width="10"/>
+    <circle cx="180" cy="306" r="32" fill="#6b7280"/>
+    <circle cx="654" cy="306" r="64" fill="#0a0f18" stroke="#d1d5db" stroke-width="10"/>
+    <circle cx="654" cy="306" r="32" fill="#6b7280"/>
+    <rect x="594" y="215" width="82" height="14" rx="7" fill="#cbd5e1" opacity="0.42"/>
+  </g>
+
+  <g filter="url(#shadow)" transform="translate(1320 520)">
+    <ellipse cx="170" cy="332" rx="260" ry="42" fill="#05070b" opacity="0.33"/>
+    <g transform="translate(0 0)">
+      <circle cx="64" cy="80" r="36" fill="#d6c7b4"/>
+      <path d="M28 64c18-47 76-48 91 1-27-12-59-11-91-1Z" fill="#1e3a5f"/>
+      <path d="M23 126c-18 56-26 122-29 205h140c-4-84-13-150-31-205-20 15-58 15-80 0Z" fill="#111827"/>
+      <path d="M18 162h93" stroke="#4b5563" stroke-width="10"/>
+      <path d="M4 214h126" stroke="#1f2937" stroke-width="16"/>
+    </g>
+    <g transform="translate(116 12)">
+      <circle cx="64" cy="80" r="36" fill="#d6c7b4"/>
+      <path d="M28 64c18-47 76-48 91 1-27-12-59-11-91-1Z" fill="#244c7c"/>
+      <path d="M23 126c-18 56-26 122-29 205h140c-4-84-13-150-31-205-20 15-58 15-80 0Z" fill="#0f172a"/>
+      <path d="M18 162h93" stroke="#64748b" stroke-width="10"/>
+      <path d="M4 214h126" stroke="#1f2937" stroke-width="16"/>
+    </g>
+    <g transform="translate(236 0)">
+      <circle cx="64" cy="80" r="36" fill="#d6c7b4"/>
+      <path d="M28 64c18-47 76-48 91 1-27-12-59-11-91-1Z" fill="#1e3a5f"/>
+      <path d="M23 126c-18 56-26 122-29 205h140c-4-84-13-150-31-205-20 15-58 15-80 0Z" fill="#111827"/>
+      <path d="M18 162h93" stroke="#4b5563" stroke-width="10"/>
+      <path d="M4 214h126" stroke="#1f2937" stroke-width="16"/>
+    </g>
+  </g>
+
+  <rect width="1920" height="1080" fill="#020617" opacity="0.18"/>
+  <linearGradient id="overlay" x1="0" x2="1">
+    <stop offset="0" stop-color="#07111f" stop-opacity="0.76"/>
+    <stop offset="0.48" stop-color="#07111f" stop-opacity="0.48"/>
+    <stop offset="1" stop-color="#07111f" stop-opacity="0.7"/>
+  </linearGradient>
+  <rect width="1920" height="1080" fill="url(#overlay)"/>
+</svg>

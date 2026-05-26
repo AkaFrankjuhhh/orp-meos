@@ -3302,6 +3302,20 @@ body[data-device="mobile"] .i8-archive-row .i8-review-meta {
   color: #135f28;
 }
 
+
+/* Personeel: hoofdcategorie-aantallen links naast de categorie, net als rangaantallen. */
+#personeel .rank-category-title {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+#personeel .rank-category-title span {
+  order: 0;
+}
+
+#personeel .rank-category-title h2 {
+  order: 1;
+}
 /* Personeel: rangaantallen links naast de rangnaam. */
 #personeel .rank-group-title.count-left {
   justify-content: flex-start;

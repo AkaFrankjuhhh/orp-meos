@@ -48,7 +48,7 @@ const publicFormConfigs = {
       { id: "involved", label: "Betrokken persoon/personen", type: "text", required: false },
       { id: "description", label: "Beschrijf de klacht zo duidelijk mogelijk", type: "textarea", required: true },
       { id: "evidence", label: "Bewijs of links", type: "textarea", required: false },
-      { id: "attachment", label: "Bijlage", type: "file", required: false, accept: ".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.mp4", help: "Optioneel: voeg maximaal 1 bestand toe als bewijs. Maximaal 8 MB." },
+      { id: "attachment", label: "Bijlage", type: "file", required: false, accept: ".png,.jpg,.jpeg,.webp", help: "Optioneel: voeg maximaal 1 foto toe als bewijs. Maximaal 8 MB. Links naar Medal/YouTube kunnen in het tekstveld." },
       { id: "desiredOutcome", label: "Wat zou voor jou een passende oplossing zijn?", type: "textarea", required: false }
     ]
   },
@@ -150,8 +150,12 @@ function publicFormForRequest(req, url) {
   return publicFormFromHost(req.headers["x-forwarded-host"] || req.headers.host) || publicFormFromSlug(url.searchParams.get("form") || url.pathname.split("/").filter(Boolean)[1]);
 }
 
-function publicFormClientConfig(config) {
+function publicFormClientConfig(config, profile = null) {
   if (!config) return null;
+  const profileBackedQuestionIds = new Set(["fullName", "discord"]);
+  const questions = config.internalOnly && profile
+    ? (config.questions || []).filter((question) => !profileBackedQuestionIds.has(question.id))
+    : (config.questions || []);
   return {
     slug: config.slug,
     title: config.title,
@@ -159,10 +163,20 @@ function publicFormClientConfig(config) {
     notice: config.notice || "",
     accent: config.accent || "#f59e0b",
     internalOnly: Boolean(config.internalOnly),
-    questions: config.questions || []
+    questions
   };
 }
 
+
+function applyProfileAnswersToPublicForm(config, answers = {}, profile = null) {
+  const nextAnswers = { ...(answers || {}) };
+  if (!config?.internalOnly || !profile) return nextAnswers;
+  nextAnswers.fullName = profile.name || "";
+  nextAnswers.discord = profile.discordUsername
+    ? `${profile.discordUsername} (${profile.discordId || "Discord ID onbekend"})`
+    : (profile.discordId || "");
+  return nextAnswers;
+}
 function conditionMatches(condition, answers = {}) {
   if (!condition?.field) return true;
   const value = answers[condition.field];
@@ -212,7 +226,9 @@ function createPublicFormSubmission(config, answers, req, files = [], submittedB
       id: submittedBy.id,
       name: submittedBy.name,
       rank: submittedBy.rank,
-      serviceNumber: submittedBy.serviceNumber
+      serviceNumber: submittedBy.serviceNumber,
+      discordId: submittedBy.discordId,
+      discordUsername: submittedBy.discordUsername
     } : null,
     attachments: (files || []).map((file) => ({
       fieldName: file.fieldName,
@@ -243,7 +259,7 @@ function buildPublicFormWebhookPayload(config, submission) {
   if (submission.submittedBy) {
     fields.unshift({
       name: "Ingediend door",
-      value: `${submission.submittedBy.serviceNumber || "-"} - ${submission.submittedBy.rank || "-"} - ${submission.submittedBy.name || "-"}`,
+      value: `${submission.submittedBy.serviceNumber || "-"} - ${submission.submittedBy.rank || "-"} - ${submission.submittedBy.name || "-"}${submission.submittedBy.discordId ? `\nDiscord ID: ${submission.submittedBy.discordId}` : ""}`,
       inline: false
     });
   }
@@ -272,6 +288,7 @@ module.exports = {
   publicFormForRequest,
   publicFormFromSlug,
   publicFormClientConfig,
+  applyProfileAnswersToPublicForm,
   validatePublicFormSubmission,
   createPublicFormSubmission,
   publicFormWebhookUrl,

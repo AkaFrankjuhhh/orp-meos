@@ -258,7 +258,7 @@ function applyServerState(payload) {
   if (payload.permissions) {
     permissions = payload.permissions;
   }
-  localStorage.setItem("orp-defensie-state", JSON.stringify(state));
+  localStorage.removeItem("orp-defensie-state");
 }
 
 async function runAction(path, body = {}) {

@@ -1,0 +1,97 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="hOvJ controle achtergrond">
+  <defs>
+    <linearGradient id="terminal" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#e7edf0"/>
+      <stop offset="0.45" stop-color="#b8c4c8"/>
+      <stop offset="1" stop-color="#233145"/>
+    </linearGradient>
+    <linearGradient id="vest" x1="0" x2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1f2937"/>
+    </linearGradient>
+    <linearGradient id="blueShirt" x1="0" x2="1">
+      <stop offset="0" stop-color="#a6d8f5"/>
+      <stop offset="1" stop-color="#5aa6d8"/>
+    </linearGradient>
+    <linearGradient id="hiVis" x1="0" x2="1">
+      <stop offset="0" stop-color="#d9ff4f"/>
+      <stop offset="1" stop-color="#8cc63f"/>
+    </linearGradient>
+    <linearGradient id="sign" x1="0" x2="1">
+      <stop offset="0" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="softShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#000" flood-opacity="0.34"/>
+    </filter>
+    <filter id="glassBlur"><feGaussianBlur stdDeviation="4"/></filter>
+    <clipPath id="photoStrip"><path d="M0 0h1920v330H0z"/></clipPath>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#terminal)"/>
+
+  <g opacity="0.44">
+    <rect x="0" y="0" width="1920" height="330" fill="#dfe7e9"/>
+    <g stroke="#475569" stroke-width="5" opacity="0.26">
+      <path d="M0 105h1920M0 210h1920"/>
+      <path d="M160 0v330M360 0v330M560 0v330M760 0v330M960 0v330M1160 0v330M1360 0v330M1560 0v330M1760 0v330"/>
+    </g>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="625" y="118" width="880" height="132" rx="10" fill="url(#sign)"/>
+    <rect x="650" y="142" width="82" height="82" rx="8" fill="#111827" opacity="0.16"/>
+    <path d="M675 160h35v16h-18v31h-16v-31h-16z" fill="#0f172a" opacity="0.6"/>
+    <text x="770" y="176" fill="#172033" font-family="Inter, Segoe UI, sans-serif" font-size="54" font-weight="800" letter-spacing="2">hOvJ CONTROLE</text>
+    <text x="775" y="220" fill="#26344a" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="700" opacity="0.82">I8 beoordeling - objectieve afhandeling</text>
+  </g>
+
+  <g opacity="0.28" filter="url(#glassBlur)">
+    <rect x="1060" y="380" width="680" height="270" rx="32" fill="#e2e8f0"/>
+    <rect x="1110" y="430" width="255" height="170" rx="20" fill="#2c5b83"/>
+    <rect x="1400" y="430" width="255" height="170" rx="20" fill="#2c5b83"/>
+    <path d="M1040 648h735" stroke="#1e293b" stroke-width="28" opacity="0.45"/>
+  </g>
+
+  <g transform="translate(185 310)" filter="url(#softShadow)">
+    <ellipse cx="205" cy="520" rx="175" ry="35" fill="#0f172a" opacity="0.22"/>
+    <path d="M95 255c35-100 190-110 235-2l48 360H50Z" fill="url(#blueShirt)"/>
+    <path d="M82 315h265l38 300H38Z" fill="url(#vest)"/>
+    <path d="M128 365h170" stroke="#e5e7eb" stroke-width="18" opacity="0.72"/>
+    <path d="M125 410h190" stroke="#e5e7eb" stroke-width="18" opacity="0.62"/>
+    <circle cx="210" cy="165" r="76" fill="#d9c0aa"/>
+    <path d="M135 140c35-68 116-77 157-10-48-22-104-18-157 10Z" fill="#0f172a"/>
+    <rect x="88" y="455" width="74" height="105" rx="12" fill="#111827"/>
+    <rect x="103" y="475" width="44" height="50" rx="8" fill="#22d3ee" opacity="0.42"/>
+  </g>
+
+  <g transform="translate(690 338)" filter="url(#softShadow)">
+    <ellipse cx="180" cy="488" rx="135" ry="30" fill="#0f172a" opacity="0.24"/>
+    <path d="M72 252c28-88 178-88 215 0l43 342H28Z" fill="#151515"/>
+    <circle cx="180" cy="155" r="72" fill="#c9a58d"/>
+    <path d="M130 135c28-52 86-58 112-5-34-14-71-13-112 5Z" fill="#333"/>
+    <path d="M118 357c24 58 96 58 125 0" fill="none" stroke="#d1d5db" stroke-width="18" opacity="0.85"/>
+    <path d="M236 350c30 18 58 54 70 94" fill="none" stroke="#d9c0aa" stroke-width="20" stroke-linecap="round"/>
+    <path d="M110 350c-30 18-58 54-70 94" fill="none" stroke="#d9c0aa" stroke-width="20" stroke-linecap="round"/>
+    <path d="M98 468h170" stroke="#94a3b8" stroke-width="11" opacity="0.55"/>
+  </g>
+
+  <g transform="translate(1140 300)" filter="url(#softShadow)">
+    <ellipse cx="245" cy="535" rx="190" ry="36" fill="#0f172a" opacity="0.2"/>
+    <path d="M115 278c42-118 214-120 264 0l58 372H70Z" fill="#111827"/>
+    <path d="M95 330h315l40 220H55Z" fill="url(#vest)"/>
+    <path d="M87 390h335" stroke="url(#hiVis)" stroke-width="42" opacity="0.9"/>
+    <path d="M120 470h260" stroke="url(#hiVis)" stroke-width="30" opacity="0.76"/>
+    <circle cx="247" cy="165" r="82" fill="#d6b59d"/>
+    <path d="M163 140c38-70 129-78 174-8-55-20-112-17-174 8Z" fill="#e5e7eb"/>
+    <rect x="155" y="452" width="78" height="110" rx="12" fill="#101827"/>
+    <rect x="260" y="448" width="82" height="118" rx="12" fill="#101827"/>
+    <rect x="174" y="470" width="40" height="50" rx="8" fill="#22d3ee" opacity="0.45"/>
+    <rect x="280" y="466" width="42" height="52" rx="8" fill="#22d3ee" opacity="0.4"/>
+  </g>
+
+  <g opacity="0.54">
+    <rect x="0" y="780" width="1920" height="300" fill="#0f172a" opacity="0.34"/>
+    <rect x="0" y="0" width="1920" height="1080" fill="#0b1120" opacity="0.08"/>
+  </g>
+</svg>

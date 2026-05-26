@@ -22,6 +22,7 @@ const {
   publicFormForRequest,
   publicFormFromSlug,
   publicFormClientConfig,
+  applyProfileAnswersToPublicForm,
   validatePublicFormSubmission,
   createPublicFormSubmission,
   publicFormWebhookUrl,
@@ -43,6 +44,7 @@ const publicFormMaxBodyBytes = Number(process.env.PUBLIC_FORM_MAX_BODY_BYTES || 
 const publicFormMaxFileBytes = Number(process.env.PUBLIC_FORM_MAX_FILE_BYTES || 8 * 1024 * 1024);
 const eventBus = createEventBus();
 const publicFormRateLimit = new Map();
+const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const {
   parseCookies,
   createSession,
@@ -121,6 +123,34 @@ function normalizeDiscordId(value) {
 
 
 
+
+function requestHost(req) {
+  return String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim().toLowerCase();
+}
+
+function configuredAppHost() {
+  try {
+    return new URL(appBaseUrl).host.toLowerCase();
+  } catch (error) {
+    return "";
+  }
+}
+
+function isTrustedMutationOrigin(req) {
+  const fetchSite = String(req.headers["sec-fetch-site"] || "").toLowerCase();
+  if (fetchSite === "cross-site") return false;
+
+  const origin = String(req.headers.origin || "").trim();
+  if (!origin) return true;
+
+  try {
+    const originUrl = new URL(origin);
+    const allowedHosts = new Set([requestHost(req), configuredAppHost()].filter(Boolean));
+    return allowedHosts.has(originUrl.host.toLowerCase());
+  } catch (error) {
+    return false;
+  }
+}
 function logServerError(label, error) {
   const message = `[${new Date().toISOString()}] ${label}: ${error?.stack || error?.message || error}\n`;
   fs.appendFile(path.join(root, "server.run.log"), message, () => {});
@@ -389,10 +419,20 @@ function parseMultipartForm(buffer, contentType) {
   return { fields, files };
 }
 
+
+function hasAllowedImageSignature(file) {
+  const buffer = file?.buffer || Buffer.alloc(0);
+  const type = String(file?.contentType || "").toLowerCase();
+  if (type === "image/png") return buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+  if (type === "image/jpeg") return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (type === "image/webp") return buffer.length >= 12 && buffer.slice(0, 4).toString("ascii") === "RIFF" && buffer.slice(8, 12).toString("ascii") === "WEBP";
+  return false;
+}
 function validatePublicFormFiles(config, files = []) {
   const errors = [];
   const fileQuestions = new Set((config.questions || []).filter((question) => question.type === "file").map((question) => question.id));
-  const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf", "text/plain", "video/mp4"]);
+  const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+  const allowedExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
   const cleanFiles = [];
 
   for (const file of files || []) {
@@ -405,8 +445,9 @@ function validatePublicFormFiles(config, files = []) {
       errors.push(`Bijlage is te groot. Maximaal ${Math.round(publicFormMaxFileBytes / 1024 / 1024)} MB.`);
       continue;
     }
-    if (!allowedTypes.has(file.contentType)) {
-      errors.push("Dit bestandstype is niet toegestaan. Gebruik een afbeelding, PDF, tekstbestand of MP4.");
+    const extension = path.extname(file.filename || "").toLowerCase();
+    if (!allowedTypes.has(file.contentType) || !allowedExtensions.has(extension) || !hasAllowedImageSignature(file)) {
+      errors.push("Dit bestandstype is niet toegestaan. Gebruik alleen een foto: PNG, JPG/JPEG of WebP.");
       continue;
     }
     cleanFiles.push(file);
@@ -600,8 +641,9 @@ async function handlePublicFormsApi(req, res, url) {
       sendJson(res, 404, { error: "Formulier niet gevonden" });
       return true;
     }
-    if (!requirePublicFormAccess(req, res, config)) return true;
-    sendJson(res, 200, publicFormClientConfig(config));
+    const formAuth = requirePublicFormAccess(req, res, config);
+    if (!formAuth) return true;
+    sendJson(res, 200, publicFormClientConfig(config, formAuth.profile));
     return true;
   }
 
@@ -623,7 +665,8 @@ async function handlePublicFormsApi(req, res, url) {
       sendJson(res, 400, { error: fileValidation.errors[0], errors: fileValidation.errors });
       return true;
     }
-    const { cleanAnswers, errors } = validatePublicFormSubmission(config, body.answers || {}, fileValidation.cleanFiles);
+    const profileAnswers = applyProfileAnswersToPublicForm(config, body.answers || {}, formAuth.profile);
+    const { cleanAnswers, errors } = validatePublicFormSubmission(config, profileAnswers, fileValidation.cleanFiles);
     if (errors.length) {
       sendJson(res, 400, { error: errors[0], errors });
       return true;
@@ -907,6 +950,10 @@ function serveStatic(req, res, url) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, appBaseUrl);
   try {
+    if (stateChangingMethods.has(req.method) && !isTrustedMutationOrigin(req)) {
+      sendJson(res, 403, { error: "Verzoek geweigerd: ongeldige herkomst." });
+      return;
+    }
     if (url.pathname.startsWith("/api/") || url.pathname === "/auth/discord/callback") {
       await handleApi(req, res, url);
       return;

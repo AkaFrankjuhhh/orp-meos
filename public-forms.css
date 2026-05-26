@@ -22,7 +22,6 @@ body {
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
 }
 
-
 body[data-form-slug="klachten"] {
   background:
     linear-gradient(90deg, rgba(5, 12, 22, 0.78), rgba(5, 12, 22, 0.58) 42%, rgba(5, 12, 22, 0.86)),
@@ -31,12 +30,53 @@ body[data-form-slug="klachten"] {
     #0f172a;
 }
 
+body[data-form-slug="otc"] {
+  background:
+    linear-gradient(90deg, rgba(5, 12, 22, 0.82), rgba(5, 12, 22, 0.52) 44%, rgba(5, 12, 22, 0.8)),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0.78)),
+    url("/assets/otc-background.svg") center / cover fixed no-repeat,
+    #0f172a;
+}
+body[data-form-slug="w-s"] {
+  background:
+    linear-gradient(90deg, rgba(5, 12, 22, 0.82), rgba(5, 12, 22, 0.5) 45%, rgba(5, 12, 22, 0.82)),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0.82)),
+    url("/assets/ws-background.svg") center / cover fixed no-repeat,
+    #0f172a;
+}
+body[data-form-slug="hovj"] {
+  background:
+    linear-gradient(90deg, rgba(5, 12, 22, 0.84), rgba(5, 12, 22, 0.5) 46%, rgba(5, 12, 22, 0.82)),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.82)),
+    url("/assets/hovj-background.svg") center / cover fixed no-repeat,
+    #0f172a;
+}
+body[data-form-slug="hrb"] {
+  background:
+    linear-gradient(90deg, rgba(5, 12, 22, 0.82), rgba(5, 12, 22, 0.54) 46%, rgba(5, 12, 22, 0.78)),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.8)),
+    url("/assets/hrb-background.svg") center / cover fixed no-repeat,
+    #0f172a;
+}
+
 body[data-form-slug="klachten"] .form-shell {
   margin-left: min(8vw, 120px);
   margin-right: auto;
 }
 
-body[data-form-slug="klachten"] .form-card {
+body[data-form-slug="otc"] .form-shell,
+body[data-form-slug="w-s"] .form-shell,
+body[data-form-slug="hovj"] .form-shell,
+body[data-form-slug="hrb"] .form-shell {
+  margin-left: min(7vw, 110px);
+  margin-right: auto;
+}
+
+body[data-form-slug="klachten"] .form-card,
+body[data-form-slug="otc"] .form-card,
+body[data-form-slug="w-s"] .form-card,
+body[data-form-slug="hovj"] .form-card,
+body[data-form-slug="hrb"] .form-card {
   background: rgba(15, 23, 42, 0.86);
   border-color: rgba(71, 85, 105, 0.78);
   backdrop-filter: blur(10px);

@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="OTC opleidingscentrum achtergrond">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#d7e1e4"/>
+      <stop offset="0.42" stop-color="#9eb2a4"/>
+      <stop offset="1" stop-color="#3f4e36"/>
+    </linearGradient>
+    <linearGradient id="forest" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#182817"/>
+      <stop offset="0.5" stop-color="#40552c"/>
+      <stop offset="1" stop-color="#1f2a18"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#5c5335"/>
+      <stop offset="0.55" stop-color="#8d7a47"/>
+      <stop offset="1" stop-color="#47341e"/>
+    </linearGradient>
+    <linearGradient id="otcBlue" x1="0" x2="1">
+      <stop offset="0" stop-color="#0f4770"/>
+      <stop offset="1" stop-color="#1b75a6"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" x2="1">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#ea580c"/>
+    </linearGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity="0.34"/>
+    </filter>
+    <filter id="soft">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect y="270" width="1920" height="810" fill="url(#forest)"/>
+
+  <g opacity="0.72">
+    <path d="M0 360c145-86 272-72 416 0 118 59 246 58 378 4 176-72 304-41 450 34 184 95 398 78 676-30v285H0Z" fill="#253817"/>
+    <path d="M0 470c175-86 330-64 488 8 168 77 296 46 440-23 146-70 284-69 426 1 177 87 343 72 566-30v270H0Z" fill="#344b24" opacity="0.88"/>
+  </g>
+
+  <g opacity="0.85" stroke="#2a1f14" stroke-width="16" stroke-linecap="round">
+    <path d="M90 0c34 190 18 377-48 560"/>
+    <path d="M312 0c-18 232-36 438-118 673"/>
+    <path d="M612 0c-12 205-16 423-76 620"/>
+    <path d="M1125 0c-22 202-8 438 54 650"/>
+    <path d="M1390 0c26 238 12 433-44 626"/>
+    <path d="M1710 0c-34 220-38 406-2 610"/>
+  </g>
+  <g opacity="0.32" stroke="#7b5d3a" stroke-width="5" stroke-linecap="round">
+    <path d="M105 95c90 20 146 62 210 133"/>
+    <path d="M300 245c-90 18-163 64-236 132"/>
+    <path d="M612 180c110 28 195 80 286 166"/>
+    <path d="M1138 240c-130 25-221 89-312 184"/>
+    <path d="M1395 185c100 16 183 64 260 141"/>
+    <path d="M1705 315c-99 19-178 64-256 132"/>
+  </g>
+
+  <rect y="660" width="1920" height="420" fill="url(#ground)"/>
+  <g opacity="0.32" stroke="#332415" stroke-width="3">
+    <path d="M0 718c350 46 700 49 1050 12 315-33 600-18 870 45"/>
+    <path d="M0 800c390 68 792 63 1210 9 254-32 494-18 710 45"/>
+    <path d="M0 914c490 52 920 32 1290-25 240-37 450-33 630 8"/>
+  </g>
+
+  <g filter="url(#shadow)" opacity="0.96" transform="translate(1190 565)">
+    <ellipse cx="280" cy="360" rx="390" ry="55" fill="#020617" opacity="0.42"/>
+    <g transform="translate(0 60)">
+      <g transform="translate(0 40)">
+        <circle cx="62" cy="60" r="34" fill="#e6d3bf"/>
+        <path d="M29 48c18-38 70-40 96 0-24-10-67-10-96 0Z" fill="#143a5d"/>
+        <path d="M16 111h96c37 66 46 127 48 212H-22c3-86 13-147 38-212Z" fill="#19263a"/>
+        <rect x="4" y="145" width="134" height="34" rx="8" fill="url(#otcBlue)"/>
+        <path d="M8 185h126" stroke="#dbeafe" stroke-width="5" opacity="0.55"/>
+      </g>
+      <g transform="translate(135 0)">
+        <circle cx="62" cy="60" r="34" fill="#e6d3bf"/>
+        <path d="M29 48c18-38 70-40 96 0-24-10-67-10-96 0Z" fill="#143a5d"/>
+        <path d="M16 111h96c37 66 46 127 48 212H-22c3-86 13-147 38-212Z" fill="#1d2d42"/>
+        <rect x="4" y="145" width="134" height="34" rx="8" fill="url(#otcBlue)"/>
+        <path d="M8 185h126" stroke="#dbeafe" stroke-width="5" opacity="0.55"/>
+      </g>
+      <g transform="translate(270 40)">
+        <circle cx="62" cy="60" r="34" fill="#e6d3bf"/>
+        <path d="M29 48c18-38 70-40 96 0-24-10-67-10-96 0Z" fill="#143a5d"/>
+        <path d="M16 111h96c37 66 46 127 48 212H-22c3-86 13-147 38-212Z" fill="#19263a"/>
+        <rect x="4" y="145" width="134" height="34" rx="8" fill="url(#otcBlue)"/>
+        <path d="M8 185h126" stroke="#dbeafe" stroke-width="5" opacity="0.55"/>
+      </g>
+      <g transform="translate(405 0)">
+        <circle cx="62" cy="60" r="34" fill="#e6d3bf"/>
+        <path d="M29 48c18-38 70-40 96 0-24-10-67-10-96 0Z" fill="#143a5d"/>
+        <path d="M16 111h96c37 66 46 127 48 212H-22c3-86 13-147 38-212Z" fill="#1d2d42"/>
+        <rect x="4" y="145" width="134" height="34" rx="8" fill="url(#otcBlue)"/>
+        <path d="M8 185h126" stroke="#dbeafe" stroke-width="5" opacity="0.55"/>
+      </g>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)" opacity="0.86" transform="translate(655 630) rotate(-7)">
+    <ellipse cx="220" cy="235" rx="300" ry="45" fill="#020617" opacity="0.36"/>
+    <g transform="translate(30 55)">
+      <path d="M0 120c80-85 238-86 324 0 38 38 58 78 63 154H-62c9-78 30-118 62-154Z" fill="#4f5f3e"/>
+      <path d="M32 118c68-48 202-48 260 0" fill="none" stroke="#25341f" stroke-width="20"/>
+      <rect x="58" y="87" width="90" height="48" rx="9" fill="#24351f"/>
+      <rect x="180" y="87" width="90" height="48" rx="9" fill="#24351f"/>
+      <circle cx="102" cy="75" r="34" fill="#d6c7b4"/>
+      <circle cx="224" cy="75" r="34" fill="#d6c7b4"/>
+      <path d="M65 67c22-47 72-49 101 0-30-13-68-12-101 0Z" fill="#33482c"/>
+      <path d="M188 67c22-47 72-49 101 0-30-13-68-12-101 0Z" fill="#33482c"/>
+    </g>
+  </g>
+
+  <g opacity="0.9" filter="url(#shadow)" transform="translate(275 135)">
+    <path d="M170 0 342 84 170 168-2 84Z" fill="#6f90ad" opacity="0.92"/>
+    <path d="M72 94v128c73 54 143 54 215 0V94l-117 57Z" fill="#395d81" opacity="0.95"/>
+    <rect x="126" y="0" width="88" height="188" fill="url(#orange)"/>
+    <path d="M170 42c20 25 35 60 33 92-2 39-22 63-33 75-11-12-31-36-33-75-2-32 13-67 33-92Z" fill="none" stroke="#f8fafc" stroke-width="6"/>
+    <circle cx="170" cy="222" r="25" fill="none" stroke="#f8fafc" stroke-width="7"/>
+    <path d="M135 42h70M148 26h44M161 14h18" stroke="#f8fafc" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <rect width="1920" height="1080" fill="#020617" opacity="0.24"/>
+  <linearGradient id="overlay" x1="0" x2="1">
+    <stop offset="0" stop-color="#06111f" stop-opacity="0.84"/>
+    <stop offset="0.48" stop-color="#06111f" stop-opacity="0.48"/>
+    <stop offset="1" stop-color="#06111f" stop-opacity="0.76"/>
+  </linearGradient>
+  <rect width="1920" height="1080" fill="url(#overlay)"/>
+</svg>
