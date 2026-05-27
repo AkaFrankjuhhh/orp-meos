@@ -49,6 +49,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isMentor = taskBadges.includes("Mentor");
     const isWs = taskBadges.includes("W&S");
     const isMentorLeadership = taskBadges.includes("Mentor-Leiding");
+    const isOtcLeadership = taskBadges.includes("OTC-Leiding");
     const isIzLeadership = taskBadges.includes("IZ-Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
 
@@ -67,13 +68,14 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageHours: isKader || isHoofdofficier || isOfficiersraad,
       canViewOvJChannels: isKader || isOvJ,
       canLeadOvJ: isKader || taskBadges.includes("OvJ"),
-      canViewMentorOverview: isKader || isMentor || isMentorLeadership,
-      canManageMentorOverview: isKader || isMentor || isMentorLeadership,
+      canViewMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
+      canManageMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
+      canManageMentorChecklistTemplate: isKader || isMentorLeadership || isOtcLeadership,
       canRecruitPeople: isKader || isWs,
       canViewBlacklist: isKader || isWs,
       canManageBlacklist: isKader,
       canViewOvJLeadershipLog: isKader || taskBadges.includes("OvJ"),
-      canViewMentorLeadershipLog: isKader || isMentorLeadership,
+      canViewMentorLeadershipLog: isKader || isMentorLeadership || isOtcLeadership,
       canViewProfileAuditLog: isKader || isHoofdofficier,
       canViewRestrictedTaskBadges: isKader || isHoofdofficier || isOfficiersraad,
       canUseDevTools: isDevOverride

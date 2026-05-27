@@ -286,8 +286,10 @@
         <section class="panel">
           <div class="panel-head">
             <h2>Mentor-Overzicht</h2>
+            <button id="editMentorTemplateBtn" class="ghost" type="button" hidden>Checklist aanpassen</button>
           </div>
           <div id="mentorOverviewList" class="mentor-table"></div>
+          <div id="mentorPersonAudit" class="leadership-detail-list"></div>
         </section>
       </section>
 
@@ -563,6 +565,20 @@
         <menu>
           <button id="cancelBulkHoursDialog" class="ghost" type="button">Annuleren</button>
           <button class="primary" type="submit">Uren opslaan</button>
+        </menu>
+      </form>
+    </dialog>
+    <dialog id="mentorTemplateDialog">
+      <form id="mentorTemplateForm" method="dialog" class="dialog-form">
+        <div class="panel-head">
+          <h2>Mentor-checklist</h2>
+          <button class="ghost icon" type="button" id="closeMentorTemplateDialog">&times;</button>
+        </div>
+        <div id="mentorTemplateEditor" class="mentor-template-editor"></div>
+        <menu>
+          <button id="addMentorTemplateItemBtn" class="ghost" type="button">Regel toevoegen</button>
+          <button id="cancelMentorTemplateDialog" class="ghost" type="button">Annuleren</button>
+          <button class="primary" type="submit">Opslaan</button>
         </menu>
       </form>
     </dialog>

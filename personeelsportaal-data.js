@@ -209,6 +209,7 @@ const defaultState = {
   i8Forms: [],
   resignationForms: [],
   blacklist: [],
+  mentorChecklistGroups,
   activity: [
     "Personeelsbeheer omgeving aangemaakt.",
     "Dienstnummer reeksen 70 t/m 74 ingericht.",

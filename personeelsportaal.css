@@ -1239,6 +1239,32 @@ dialog::backdrop {
   font-weight: 800;
 }
 
+.mentor-template-editor,
+.mentor-template-group,
+.mentor-template-items {
+  display: grid;
+  gap: 10px;
+}
+
+.mentor-template-group {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.mentor-template-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.mentor-audit-summary {
+  margin-top: 14px;
+  border-color: rgba(225, 112, 0, 0.42);
+}
+
 .mentor-detail-panel {
   display: grid;
   gap: 16px;

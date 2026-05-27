@@ -1352,12 +1352,20 @@ function wireEvents() {
     if (event.target.closest(".mentor-test-overview")) return;
     const row = event.target.closest("[data-open-mentor]");
     if (!row) return;
+    if (canViewMentorLeadershipLog()) {
+      selectMentorAuditPerson(row.dataset.openMentor);
+      return;
+    }
     openMentorChecklist(row.dataset.openMentor);
   });
   $("#mentorOverviewList").addEventListener("keydown", (event) => {
     if (!event.target.matches("[data-open-mentor]")) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
+    if (canViewMentorLeadershipLog()) {
+      selectMentorAuditPerson(event.target.dataset.openMentor);
+      return;
+    }
     openMentorChecklist(event.target.dataset.openMentor);
   });
   $("#mentorOverviewList").addEventListener("change", async (event) => {
@@ -1402,7 +1410,7 @@ function wireEvents() {
     if (!selectedMentorProfileId) return;
     const person = state.people.find((entry) => entry.id === selectedMentorProfileId);
     if (!person) return;
-    const items = mentorChecklistLabels.map((_, index) => Boolean($(`[data-mentor-item='${index}']`)?.checked));
+    const items = mentorChecklistItemsFromDom();
     const payload = { items };
     if (includeNote) payload.newNote = $("#mentorNotes").value.trim();
     const saved = await saveMentorChecklist(selectedMentorProfileId, payload);
@@ -1422,6 +1430,49 @@ function wireEvents() {
     scheduleLiveRefresh("mentor-checklist");
   });
   $("#saveMentorNotesBtn").addEventListener("click", () => saveCurrentMentorChecklist(true));
+  $("#editMentorTemplateBtn")?.addEventListener("click", openMentorTemplateDialog);
+  $("#closeMentorTemplateDialog")?.addEventListener("click", () => $("#mentorTemplateDialog")?.close());
+  $("#cancelMentorTemplateDialog")?.addEventListener("click", () => $("#mentorTemplateDialog")?.close());
+  $("#addMentorTemplateItemBtn")?.addEventListener("click", () => {
+    const groups = mentorTemplateDraftGroupsFromEditor();
+    const target = groups.length ? groups : activeMentorChecklistGroups();
+    const lastGroup = target[target.length - 1] || { id: "praktijk", title: "Praktijk", items: [] };
+    lastGroup.items.push({ id: `regel-${Date.now()}`, label: "" });
+    renderMentorTemplateEditor(target);
+  });
+  $("#mentorTemplateEditor")?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-template-item]");
+    const addButton = event.target.closest("[data-add-template-item]");
+    if (removeButton) {
+      const row = removeButton.closest("[data-template-item]");
+      row?.remove();
+      return;
+    }
+    if (addButton) {
+      const group = addButton.closest("[data-template-group]");
+      const rows = group?.querySelector(".mentor-template-items");
+      if (!group || !rows) return;
+      rows.insertAdjacentHTML("beforeend", `
+        <div class="mentor-template-item-row" data-template-item data-template-item-id="regel-${Date.now()}">
+          <input type="text" data-template-item-label value="" />
+          <button class="ghost" type="button" data-remove-template-item>Verwijderen</button>
+        </div>
+      `);
+    }
+  });
+  $("#mentorTemplateForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!canManageMentorChecklistTemplate()) return;
+    const groups = mentorTemplateDraftGroupsFromEditor();
+    if (!groups.length) {
+      await showSiteNotice("Laat minimaal een checklistregel staan.", "Checklist leeg");
+      return;
+    }
+    if (await runAction("/api/mentor-checklist-template", { groups })) {
+      $("#mentorTemplateDialog")?.close();
+      render();
+    }
+  });
   $("#mentorLeadershipLogList")?.addEventListener("click", (event) => {
     const row = event.target.closest("[data-mentor-log-person]");
     if (row) openMentorLogDetail(row.dataset.mentorLogPerson);

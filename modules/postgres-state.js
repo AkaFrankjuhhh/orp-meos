@@ -193,6 +193,7 @@ async function readPostgresState() {
       i8Forms,
       resignationForms,
       blacklist,
+      mentorChecklistGroups: settings.mentorChecklistGroups || [],
       portoUnits,
       portoVehicleRanges: settings.portoVehicleRanges || [],
       portoCurrentOps: settings.portoCurrentOps || null,

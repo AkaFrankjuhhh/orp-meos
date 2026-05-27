@@ -38,6 +38,7 @@ async function importSettings(client, state) {
   const settings = {
     theme: state.theme || "dark",
     discord: state.discord || {},
+    mentorChecklistGroups: state.mentorChecklistGroups || [],
     portoVehicleRanges: state.portoVehicleRanges || [],
     portoCurrentOps: state.portoCurrentOps || null,
     announcements: state.announcements || []

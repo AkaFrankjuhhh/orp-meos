@@ -1,6 +1,7 @@
 /* Defensie Personeelsportaal mentormodule: mentoroverzicht, checklist, traject en mentor-notities. */
 
 let mentorLogDetailContext = null;
+let mentorAuditDetailPersonId = "";
 const leadershipPeriodLabels = {
   week: "Afgelopen week",
   month: "Afgelopen maand",
@@ -18,6 +19,57 @@ function canViewMentorLeadershipLog() {
   return Boolean(permissions.canViewMentorLeadershipLog || hasKaderAccess());
 }
 
+function canManageMentorChecklistTemplate() {
+  return Boolean(permissions.canManageMentorChecklistTemplate || hasKaderAccess());
+}
+
+function mentorItemId(label, fallback) {
+  const slug = String(label || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || fallback;
+}
+
+function activeMentorChecklistGroups() {
+  const configured = Array.isArray(state.mentorChecklistGroups) && state.mentorChecklistGroups.length
+    ? state.mentorChecklistGroups
+    : mentorChecklistGroups.map((group) => ({
+        title: group.title,
+        items: group.items.map((label, index) => ({ id: mentorItemId(label, `legacy-${index}`), label }))
+      }));
+  let index = 0;
+  return configured
+    .map((group, groupIndex) => ({
+      id: group.id || mentorItemId(group.title, `groep-${groupIndex}`),
+      title: String(group.title || `Groep ${groupIndex + 1}`).trim(),
+      items: (Array.isArray(group.items) ? group.items : [])
+        .map((item) => {
+          const label = typeof item === "string" ? item : item?.label;
+          const id = typeof item === "string" ? "" : item?.id;
+          const normalized = {
+            id: id || mentorItemId(label, `mentor-item-${index}`),
+            label: String(label || "").trim()
+          };
+          index += 1;
+          return normalized;
+        })
+        .filter((item) => item.label)
+    }))
+    .filter((group) => group.items.length);
+}
+
+function activeMentorChecklistItems() {
+  return activeMentorChecklistGroups().flatMap((group) => group.items);
+}
+
+function activeMentorChecklistLabels() {
+  return activeMentorChecklistItems().map((item) => item.label);
+}
+
 function mentorChecklistFor(person) {
   const checklist = person.mentorChecklist || {};
   const items = Array.isArray(checklist.items) ? checklist.items : [];
@@ -32,8 +84,19 @@ function mentorChecklistFor(person) {
           }
         ]
       : [];
-  const normalizedItems = mentorChecklistLabels.map((_, index) => Boolean(items[index]));
-  const allItemsCompleted = normalizedItems.length > 0 && normalizedItems.every(Boolean);
+  const templateItems = activeMentorChecklistItems();
+  const legacyByIndex = items.map((item) => (typeof item === "object" ? Boolean(item.checked) : Boolean(item)));
+  const checkedById = new Map(
+    items
+      .filter((item) => item && typeof item === "object")
+      .map((item) => [item.id, Boolean(item.checked)])
+  );
+  const normalizedItems = templateItems.map((item, index) => ({
+    id: item.id,
+    label: item.label,
+    checked: checklist.completed ? true : (checkedById.has(item.id) ? checkedById.get(item.id) : Boolean(legacyByIndex[index]))
+  }));
+  const allItemsCompleted = normalizedItems.length > 0 && normalizedItems.every((item) => item.checked);
   const testSent = Boolean(checklist.testSent);
   const testApproved = Boolean(checklist.testApproved);
   return {
@@ -42,7 +105,8 @@ function mentorChecklistFor(person) {
     testSent,
     testApproved,
     items: normalizedItems,
-    notes
+    notes,
+    audit: Array.isArray(checklist.audit) ? checklist.audit : []
   };
 }
 
@@ -103,8 +167,11 @@ function renderMentorOverview() {
     container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
     return;
   }
+  const editButton = $("#editMentorTemplateBtn");
+  if (editButton) editButton.hidden = !canManageMentorChecklistTemplate();
   const query = $("#mentorSearchInput")?.value.toLowerCase() || "";
   const people = mentorPeople().filter((person) => `${person.name} ${person.rank} ${person.serviceNumber}`.toLowerCase().includes(query));
+  const totalItems = activeMentorChecklistLabels().length;
   container.innerHTML = people.length
     ? `
       <div class="mentor-row mentor-row-head">
@@ -117,13 +184,13 @@ function renderMentorOverview() {
       ${people
         .map((person) => {
           const checklist = mentorChecklistFor(person);
-          const completedItems = checklist.items.filter(Boolean).length;
+          const completedItems = checklist.items.filter((item) => item.checked).length;
           return `
             <div class="mentor-row mentor-row-button" role="button" tabindex="0" data-open-mentor="${person.id}">
               <strong>${escapeHtml(person.name)}</strong>
               <span>${escapeHtml(person.rank)}</span>
               <span>${escapeHtml(formatDate(hiredDateFor(person)))}</span>
-              ${renderMentorProgressBars(completedItems, mentorChecklistLabels.length)}
+              ${renderMentorProgressBars(completedItems, totalItems)}
               ${renderMentorTestOverview(person, checklist)}
             </div>
           `;
@@ -131,6 +198,7 @@ function renderMentorOverview() {
         .join("")}
     `
     : '<div class="feed-item">Geen medewerkers in mentorperiode gevonden.</div>';
+  renderMentorPersonAudit();
 }
 
 function renderMentorNotes(notes = []) {
@@ -154,18 +222,17 @@ function renderMentorNotes(notes = []) {
 }
 
 function renderMentorChecklistItems(checklist, readOnly = false) {
-  let index = 0;
-  return mentorChecklistGroups
+  const checkedById = new Map(checklist.items.map((item) => [item.id, Boolean(item.checked)]));
+  return activeMentorChecklistGroups()
     .map((group) => `
       <div class="mentor-check-header">${escapeHtml(group.title)}</div>
       ${group.items
-        .map((label) => {
-          const itemIndex = index;
-          index += 1;
+        .map((item) => {
+          const checked = checkedById.get(item.id);
           return `
-            <label class="mentor-check-row ${readOnly ? "mentor-readonly-row" : ""} ${checklist.items[itemIndex] ? "is-completed" : ""}">
-              <span>${escapeHtml(label)}</span>
-              <input type="checkbox" ${readOnly ? "disabled" : `data-mentor-item="${itemIndex}"`} ${checklist.items[itemIndex] ? "checked" : ""} />
+            <label class="mentor-check-row ${readOnly ? "mentor-readonly-row" : ""} ${checked ? "is-completed" : ""}">
+              <span>${escapeHtml(item.label)}</span>
+              <input type="checkbox" ${readOnly ? "disabled" : `data-mentor-item="${escapeHtml(item.id)}"`} ${checked ? "checked" : ""} />
             </label>
           `;
         })
@@ -175,7 +242,12 @@ function renderMentorChecklistItems(checklist, readOnly = false) {
 }
 
 function mentorChecklistItemsFromDom() {
-  return mentorChecklistLabels.map((_, index) => Boolean($(`[data-mentor-item='${index}']`)?.checked));
+  const checkedById = new Map($$("[data-mentor-item]").map((input) => [input.dataset.mentorItem, Boolean(input.checked)]));
+  return activeMentorChecklistItems().map((item) => ({
+    id: item.id,
+    label: item.label,
+    checked: Boolean(checkedById.get(item.id))
+  }));
 }
 
 async function saveMentorChecklistItemsFromDom() {
@@ -184,7 +256,7 @@ async function saveMentorChecklistItemsFromDom() {
   const person = state.people.find((entry) => entry.id === selectedMentorProfileId);
   if (person) {
     const existing = mentorChecklistFor(person);
-    const allItemsCompleted = items.length > 0 && items.every(Boolean);
+    const allItemsCompleted = items.length > 0 && items.every((item) => item.checked);
     person.mentorChecklist = {
       ...(person.mentorChecklist || {}),
       items,
@@ -198,6 +270,55 @@ async function saveMentorChecklistItemsFromDom() {
     renderMentorTrajectory();
   }
   return saved;
+}
+
+function renderMentorPersonAudit() {
+  const container = $("#mentorPersonAudit");
+  if (!container) return;
+  if (!canViewMentorLeadershipLog()) {
+    container.innerHTML = "";
+    mentorAuditDetailPersonId = "";
+    return;
+  }
+  const person = state.people.find((entry) => entry.id === mentorAuditDetailPersonId);
+  if (!person) {
+    container.innerHTML = '<div class="feed-item">Klik op een naam om het mentor-overzicht en logboek van die persoon te bekijken.</div>';
+    return;
+  }
+  const checklist = mentorChecklistFor(person);
+  const latestByItem = new Map();
+  checklist.audit
+    .slice()
+    .sort((a, b) => new Date(a.signedAt || a.createdAt || 0) - new Date(b.signedAt || b.createdAt || 0))
+    .forEach((entry) => {
+      if (entry.checked) latestByItem.set(entry.itemId, entry);
+    });
+  container.innerHTML = `
+    <article class="leadership-detail-row mentor-audit-summary">
+      <strong>${escapeHtml(person.name)}</strong>
+      <span>${escapeHtml(person.rank || "-")} - ${escapeHtml(person.serviceNumber || "-")}</span>
+    </article>
+    ${checklist.items
+      .map((item) => {
+        const signed = latestByItem.get(item.id);
+        return `
+          <article class="leadership-detail-row">
+            <strong>${escapeHtml(item.label)}</strong>
+            <span>${
+              signed
+                ? `Ondertekend door ${escapeHtml(signed.signedByName || "Onbekend")} ${escapeHtml(formatDateTime(signed.signedAt || signed.createdAt))}`
+                : "Nog niet ondertekend"
+            }</span>
+          </article>
+        `;
+      })
+      .join("")}
+  `;
+}
+
+function selectMentorAuditPerson(personId) {
+  mentorAuditDetailPersonId = personId;
+  renderMentorOverview();
 }
 function renderMentorChecklist() {
   const person = state.people.find((entry) => entry.id === selectedMentorProfileId && entry.status === "Actief");
@@ -244,6 +365,49 @@ async function saveMentorChecklist(personId, patch = {}) {
   };
   if ("newNote" in patch) body.newNote = patch.newNote;
   return runAction(`/api/people/${encodeURIComponent(personId)}/mentor`, body);
+}
+
+function mentorTemplateDraftGroupsFromEditor() {
+  return $$("#mentorTemplateEditor [data-template-group]").map((groupElement, groupIndex) => ({
+    id: groupElement.dataset.templateGroupId || `groep-${groupIndex + 1}`,
+    title: groupElement.querySelector("[data-template-group-title]")?.value.trim() || `Groep ${groupIndex + 1}`,
+    items: [...groupElement.querySelectorAll("[data-template-item]")].map((row, itemIndex) => ({
+      id: row.dataset.templateItemId || mentorItemId(row.querySelector("[data-template-item-label]")?.value, `regel-${groupIndex + 1}-${itemIndex + 1}`),
+      label: row.querySelector("[data-template-item-label]")?.value.trim() || ""
+    })).filter((item) => item.label)
+  })).filter((group) => group.items.length);
+}
+
+function renderMentorTemplateEditor(groups = activeMentorChecklistGroups()) {
+  const editor = $("#mentorTemplateEditor");
+  if (!editor) return;
+  editor.innerHTML = groups
+    .map((group, groupIndex) => `
+      <section class="mentor-template-group" data-template-group data-template-group-id="${escapeHtml(group.id || `groep-${groupIndex + 1}`)}">
+        <label class="full">
+          <span>Groep</span>
+          <input type="text" data-template-group-title value="${escapeHtml(group.title)}" />
+        </label>
+        <div class="mentor-template-items">
+          ${group.items
+            .map((item) => `
+              <div class="mentor-template-item-row" data-template-item data-template-item-id="${escapeHtml(item.id)}">
+                <input type="text" data-template-item-label value="${escapeHtml(item.label)}" />
+                <button class="ghost" type="button" data-remove-template-item>Verwijderen</button>
+              </div>
+            `)
+            .join("")}
+        </div>
+        <button class="ghost" type="button" data-add-template-item>Regel toevoegen</button>
+      </section>
+    `)
+    .join("");
+}
+
+function openMentorTemplateDialog() {
+  if (!canManageMentorChecklistTemplate()) return;
+  renderMentorTemplateEditor();
+  $("#mentorTemplateDialog")?.showModal();
 }
 
 function periodStartDate(period) {

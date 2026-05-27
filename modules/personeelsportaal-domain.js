@@ -25,7 +25,7 @@ const ranks = [
 const rankWeight = new Map(ranks.map((rank, index) => [rank, ranks.length - index]));
 const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
-const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "IZ-Leiding", "Trainer-Leiding", "DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
+const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "OTC-Leiding", "W&S-Leiding", "IZ-Leiding", "Trainer-Leiding", "DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
 const extraFunctions = ["Kader", "Hoofdofficier", "Officiersraad"];
 const restrictedTaskBadges = new Set(["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"]);
 const mentorRanks = ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"];
@@ -274,8 +274,15 @@ function normalizeMentorNotes(checklist) {
   ];
 }
 
+function mentorChecklistItemCountForState(state) {
+  const groups = Array.isArray(state?.mentorChecklistGroups) && state.mentorChecklistGroups.length ? state.mentorChecklistGroups : [];
+  const count = groups.reduce((sum, group) => sum + (Array.isArray(group.items) ? group.items.length : 0), 0);
+  return count || mentorChecklistCount;
+}
+
 function stateForProfile(state, permissions, profileId = "") {
   const nextState = JSON.parse(JSON.stringify(state));
+  const mentorItemCount = mentorChecklistItemCountForState(nextState);
   nextState.people = (nextState.people || []).map((person) => ({
     ...person,
     badges: person.id === profileId || permissions?.canViewRestrictedTaskBadges
@@ -320,12 +327,23 @@ function stateForProfile(state, permissions, profileId = "") {
         mentorChecklist: {
           completed: Boolean(checklist.completed),
           items: isOwnMentorTrajectory && Array.isArray(checklist.items)
-            ? Array.from({ length: mentorChecklistCount }, (_, index) => Boolean(checklist.items[index]))
+            ? Array.from({ length: mentorItemCount }, (_, index) => {
+                const item = checklist.items[index];
+                return typeof item === "object" ? Boolean(item.checked) : Boolean(item);
+              })
             : [],
           notes: permissions?.canViewMentorLeadershipLog ? normalizeMentorNotes(checklist) : ""
         }
       };
     });
+  } else if (!permissions?.canViewMentorLeadershipLog) {
+    nextState.people = (nextState.people || []).map((person) => ({
+      ...person,
+      mentorChecklist: {
+        ...(person.mentorChecklist || {}),
+        audit: []
+      }
+    }));
   }
   return nextState;
 }

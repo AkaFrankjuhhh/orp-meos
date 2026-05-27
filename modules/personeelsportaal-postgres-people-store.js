@@ -257,6 +257,24 @@ function createPostgresPeopleStore(options = {}) {
     }
   }
 
+  async function writeMentorChecklistGroups(state) {
+    await withClient(async (client) => {
+      await client.query(`
+        insert into app_settings(key, value, updated_at)
+        values(
+          'main',
+          jsonb_build_object('mentorChecklistGroups', $1::jsonb),
+          now()
+        )
+        on conflict(key) do update set
+          value = coalesce(app_settings.value, '{}'::jsonb) || jsonb_build_object('mentorChecklistGroups', $1::jsonb),
+          updated_at = now()
+      `, [json(state.mentorChecklistGroups, [])]);
+    });
+    if (afterWrite) afterWrite();
+    return state;
+  }
+
   async function writeState(state) {
     // Personeelsbeheer schrijft hier direct naar de genormaliseerde PostgreSQL-tabellen.
     await withClient(async (client) => {
@@ -390,7 +408,7 @@ function createPostgresPeopleStore(options = {}) {
     if (afterWrite) afterWrite();
     return entries;
   }
-  return { readState, writeState, writePersonQualifications, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries };
+  return { readState, writeState, writePersonQualifications, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeMentorChecklistGroups };
 }
 
 module.exports = { createPostgresPeopleStore };

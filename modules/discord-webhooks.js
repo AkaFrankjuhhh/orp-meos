@@ -25,11 +25,13 @@ async function sendDiscordWebhook(webhookUrl, payload, files = []) {
 
 function createDiscordWebhookServices({ formatDate }) {
   function personnelWebhookUrl(type) {
+    if (type === "blacklist") {
+      return process.env.DISCORD_BLACKLIST_WEBHOOK_URL || "";
+    }
     const map = {
       hire: process.env.DISCORD_HIRE_WEBHOOK_URL,
       dismissal: process.env.DISCORD_DISMISSAL_WEBHOOK_URL,
-      resignation: process.env.DISCORD_RESIGNATION_WEBHOOK_URL,
-      blacklist: process.env.DISCORD_BLACKLIST_WEBHOOK_URL
+      resignation: process.env.DISCORD_RESIGNATION_WEBHOOK_URL
     };
     return map[type] || process.env.DISCORD_PERSONNEL_WEBHOOK_URL || "";
   }

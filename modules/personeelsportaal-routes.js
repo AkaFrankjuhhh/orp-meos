@@ -47,6 +47,88 @@ function createPersoneelsportaalRouteHandler(deps) {
   const formsStorage = deps.formsStorage || { readState, writeState };
   const peopleStorage = deps.peopleStorage || { readState, writeState };
 
+  const defaultMentorChecklistGroups = [
+    {
+      title: "Praktijk",
+      items: [
+        "Leerling kent de rechten van een verdachte",
+        "Leerling kan rustig handelen tijdens een incident",
+        "Leerling weet hoe een verdachte staande gehouden wordt",
+        "Leerling weet hoe een verdachte aangehouden wordt",
+        "Leerling kan een BTGV uitvoeren",
+        "Leerling kan zich professioneel opstellen",
+        "Leerling heeft zijn vuurwapen op een correcte manier gebruikt"
+      ]
+    },
+    {
+      title: "Theorie",
+      items: [
+        "Leerling weet hoe MEOS werkt",
+        "Leerling weet hoe een I8 ingevuld moet worden",
+        "Leerling kan bewijzen opstellen",
+        "Leerling kent de geweldsladder",
+        "Leerling kent de douane gebieden",
+        "Leerling kent de discord"
+      ]
+    }
+  ];
+
+  function slugId(value, fallback) {
+    const slug = String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return slug || fallback;
+  }
+
+  function mentorTemplateGroups(state) {
+    const source = Array.isArray(state.mentorChecklistGroups) && state.mentorChecklistGroups.length
+      ? state.mentorChecklistGroups
+      : defaultMentorChecklistGroups;
+    return source.map((group, groupIndex) => ({
+      id: group.id || slugId(group.title, `groep-${groupIndex + 1}`),
+      title: String(group.title || `Groep ${groupIndex + 1}`).trim(),
+      items: (group.items || []).map((item, itemIndex) => {
+        const label = typeof item === "string" ? item : item.label;
+        return {
+          id: typeof item === "object" && item?.id ? item.id : slugId(label, `punt-${groupIndex + 1}-${itemIndex + 1}`),
+          label: String(label || "").trim()
+        };
+      }).filter((item) => item.label)
+    })).filter((group) => group.items.length);
+  }
+
+  function mentorTemplateItems(state) {
+    return mentorTemplateGroups(state).flatMap((group) => group.items);
+  }
+
+  function mentorChecklistItemsForTemplate(existing, templateItems) {
+    const incoming = Array.isArray(existing?.items) ? existing.items : [];
+    const byId = new Map();
+    const byLabel = new Map();
+    incoming.forEach((item, index) => {
+      if (item && typeof item === "object") {
+        if (item.id) byId.set(item.id, Boolean(item.checked));
+        if (item.label) byLabel.set(item.label, Boolean(item.checked));
+      } else {
+        byLabel.set(templateItems[index]?.label || String(index), Boolean(item));
+      }
+    });
+    const completed = Boolean(existing?.completed);
+    return templateItems.map((item, index) => ({
+      id: item.id,
+      label: item.label,
+      checked: completed || byId.get(item.id) || byLabel.get(item.label) || Boolean(incoming[index])
+    }));
+  }
+
+  function normalizeMentorChecklistForState(person, state) {
+    const templateItems = mentorTemplateItems(state);
+    const existing = person.mentorChecklist || {};
+    return {
+      ...existing,
+      items: mentorChecklistItemsForTemplate(existing, templateItems),
+      audit: Array.isArray(existing.audit) ? existing.audit : []
+    };
+  }
+
   async function readFormsState() {
     return Promise.resolve(formsStorage.readState());
   }
@@ -1421,15 +1503,45 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     const body = await readBody(req);
-    const existing = person.mentorChecklist || {};
+    const templateItems = mentorTemplateItems(state);
+    const existing = normalizeMentorChecklistForState(person, state);
     const incomingItems = Array.isArray(body.items) ? body.items : existing.items || [];
-    const items = Array.from({ length: mentorChecklistCount }, (_, index) => Boolean(incomingItems[index]));
-    const allItemsCompleted = items.length === mentorChecklistCount && items.every(Boolean);
+    const previousById = new Map((existing.items || []).map((item) => [item.id, Boolean(item.checked)]));
+    const incomingById = new Map();
+    incomingItems.forEach((item, index) => {
+      if (item && typeof item === "object") {
+        incomingById.set(item.id || templateItems[index]?.id, Boolean(item.checked));
+      } else if (templateItems[index]) {
+        incomingById.set(templateItems[index].id, Boolean(item));
+      }
+    });
+    const items = templateItems.map((item) => ({
+      id: item.id,
+      label: item.label,
+      checked: incomingById.has(item.id) ? Boolean(incomingById.get(item.id)) : Boolean(previousById.get(item.id))
+    }));
+    const allItemsCompleted = items.length > 0 && items.every((item) => item.checked);
     const testSent = allItemsCompleted ? Boolean(body.testSent ?? existing.testSent) : false;
     const testApproved = allItemsCompleted && testSent ? Boolean(body.testApproved ?? existing.testApproved) : false;
     const completed = allItemsCompleted && testSent && testApproved;
     const updatedAt = new Date().toISOString();
     const notes = normalizeMentorNotes(existing);
+    const audit = Array.isArray(existing.audit) ? existing.audit : [];
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    for (const item of items) {
+      const wasChecked = Boolean(previousById.get(item.id));
+      if (item.checked !== wasChecked) {
+        audit.push({
+          id: crypto.randomUUID(),
+          itemId: item.id,
+          label: item.label,
+          checked: item.checked,
+          signedAt: updatedAt,
+          signedById: actor.id || auth.profile.id,
+          signedByName: actor.name || auth.profile.name
+        });
+      }
+    }
     const newNote = String(body.newNote || "").trim();
     if (newNote) {
       notes.push({
@@ -1446,6 +1558,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       testApproved,
       items,
       notes,
+      audit,
       updatedAt,
       updatedById: auth.profile.id,
       updatedByName: auth.profile.name
@@ -1459,6 +1572,54 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     state.activity = state.activity || [];
     state.activity.push(`Mentor-checklist bijgewerkt voor ${person.name}.`);
+    await sendPeopleStateAfterMutation(res, auth, state);
+    return;
+  }
+
+  if (url.pathname === "/api/mentor-checklist-template" && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canManageMentorChecklistTemplate) {
+      sendJson(res, 403, { error: "Alleen Mentor-Leiding, OTC-Leiding of Kader mag de mentor-checklist aanpassen." });
+      return;
+    }
+    const body = await readBody(req);
+    const groups = Array.isArray(body.groups) ? body.groups : [];
+    const normalizedGroups = groups.map((group, groupIndex) => ({
+      id: group.id || slugId(group.title, `groep-${groupIndex + 1}`),
+      title: String(group.title || `Groep ${groupIndex + 1}`).trim(),
+      items: (group.items || []).map((item, itemIndex) => ({
+        id: item.id || slugId(item.label, `punt-${groupIndex + 1}-${itemIndex + 1}`),
+        label: String(item.label || "").trim()
+      })).filter((item) => item.label)
+    })).filter((group) => group.title && group.items.length);
+    if (!normalizedGroups.length) {
+      sendJson(res, 400, { error: "De checklist moet minimaal een groep met een regel bevatten." });
+      return;
+    }
+    state.mentorChecklistGroups = normalizedGroups;
+    for (const person of state.people || []) {
+      if (person.status !== "Actief" || !mentorRanks.includes(person.rank)) continue;
+      const checklist = normalizeMentorChecklistForState(person, state);
+      if (!checklist.completed) {
+        const allItemsCompleted = checklist.items.length > 0 && checklist.items.every((item) => item.checked);
+        const testSent = allItemsCompleted ? Boolean(checklist.testSent) : false;
+        const testApproved = allItemsCompleted && testSent ? Boolean(checklist.testApproved) : false;
+        person.mentorChecklist = {
+          ...checklist,
+          completed: allItemsCompleted && testSent && testApproved,
+          testSent,
+          testApproved
+        };
+      }
+    }
+    state.activity = state.activity || [];
+    state.activity.push(`${auth.profile.name} heeft de mentor-checklist template aangepast.`);
+    if (typeof peopleStorage.writeMentorChecklistGroups === "function") {
+      await Promise.resolve(peopleStorage.writeMentorChecklistGroups(state));
+    }
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
