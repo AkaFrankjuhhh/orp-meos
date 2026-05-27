@@ -180,6 +180,7 @@ function renderMentorOverview() {
         <span>Aangenomen</span>
         <span>Voortgang</span>
         <span>Toets</span>
+        <span>Traject</span>
       </div>
       ${people
         .map((person) => {
@@ -192,6 +193,7 @@ function renderMentorOverview() {
               <span>${escapeHtml(formatDate(hiredDateFor(person)))}</span>
               ${renderMentorProgressBars(completedItems, totalItems)}
               ${renderMentorTestOverview(person, checklist)}
+              <button class="ghost mentor-open-checklist" type="button" data-open-mentor-checklist="${escapeHtml(person.id)}">Openen</button>
             </div>
           `;
         })

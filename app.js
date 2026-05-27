@@ -1350,6 +1350,12 @@ function wireEvents() {
   $("#mentorSearchInput").addEventListener("input", renderMentorOverview);
   $("#mentorOverviewList").addEventListener("click", (event) => {
     if (event.target.closest(".mentor-test-overview")) return;
+    const checklistButton = event.target.closest("[data-open-mentor-checklist]");
+    if (checklistButton) {
+      event.stopPropagation();
+      openMentorChecklist(checklistButton.dataset.openMentorChecklist);
+      return;
+    }
     const row = event.target.closest("[data-open-mentor]");
     if (!row) return;
     if (canViewMentorLeadershipLog()) {
