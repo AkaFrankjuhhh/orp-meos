@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="Herintrede Defensie achtergrond">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#07111f"/><stop offset="0.52" stop-color="#14243a"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <linearGradient id="desk" x1="0" x2="1"><stop offset="0" stop-color="#6b573f"/><stop offset="1" stop-color="#2f241b"/></linearGradient>
+    <linearGradient id="glass" x1="0" x2="1"><stop offset="0" stop-color="#9cc7ee" stop-opacity="0.34"/><stop offset="1" stop-color="#1d4ed8" stop-opacity="0.08"/></linearGradient>
+    <radialGradient id="warm" cx="48%" cy="40%" r="54%"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.22"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%"><feDropShadow dx="0" dy="24" stdDeviation="26" flood-color="#000" flood-opacity="0.42"/></filter>
+    <filter id="blur"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/><rect width="1920" height="1080" fill="url(#warm)"/>
+  <g opacity="0.48" filter="url(#blur)">
+    <rect x="220" y="100" width="1480" height="520" rx="28" fill="url(#glass)" stroke="#7aa7d8"/>
+    <path d="M280 205h1350M280 315h1350M280 425h1350M520 105v500M810 105v500M1100 105v500M1390 105v500" stroke="#bfdbfe" stroke-opacity="0.22" stroke-width="5"/>
+    <circle cx="1470" cy="220" r="115" fill="#f59e0b" opacity="0.15"/>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="250" y="705" width="1420" height="155" rx="24" fill="url(#desk)"/>
+    <rect x="1080" y="560" width="360" height="210" rx="18" fill="#0b1526" stroke="#334155" stroke-width="5"/>
+    <path d="M1130 630h260M1130 680h220M1130 730h170" stroke="#93c5fd" stroke-opacity="0.42" stroke-width="13" stroke-linecap="round"/>
+    <g transform="translate(450 380)">
+      <path d="M96 225c-31 72-50 155-62 252h300c-13-98-33-181-66-252-45 36-124 36-172 0Z" fill="#111827" stroke="#334155" stroke-width="5"/>
+      <circle cx="183" cy="124" r="70" fill="#d7c2aa"/><path d="M98 116c32-84 141-84 171 0-54-28-113-28-171 0Z" fill="#111827"/>
+      <path d="M62 266c57 54 185 58 247 1" fill="none" stroke="#f59e0b" stroke-width="7" opacity="0.82"/>
+    </g>
+    <g transform="translate(750 340)">
+      <path d="M115 250c-36 82-58 178-70 290h330c-12-112-35-208-72-290-55 43-135 43-188 0Z" fill="#8ec9f1" stroke="#c8e7fb" stroke-width="5"/>
+      <circle cx="210" cy="135" r="78" fill="#e6d2bd"/><path d="M118 128c36-90 153-90 187 0-62-32-124-32-187 0Z" fill="#182235"/>
+      <rect x="135" y="292" width="150" height="22" rx="11" fill="#0f172a" opacity="0.72"/>
+    </g>
+  </g>
+  <rect width="1920" height="1080" fill="#020617" opacity="0.24"/>
+</svg>

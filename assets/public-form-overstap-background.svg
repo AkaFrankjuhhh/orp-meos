@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="Overstap Defensie achtergrond">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1e3a5f"/><stop offset="0.52" stop-color="#0f2239"/><stop offset="1" stop-color="#08111f"/></linearGradient>
+    <linearGradient id="road" x1="0" x2="1"><stop offset="0" stop-color="#111827"/><stop offset="1" stop-color="#334155"/></linearGradient>
+    <linearGradient id="blue" x1="0" x2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient>
+    <linearGradient id="navy" x1="0" x2="1"><stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#1e293b"/></linearGradient>
+    <radialGradient id="lights" cx="58%" cy="20%" r="58%"><stop offset="0" stop-color="#38bdf8" stop-opacity="0.22"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%"><feDropShadow dx="0" dy="20" stdDeviation="22" flood-color="#000" flood-opacity="0.42"/></filter>
+    <filter id="blur"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/><rect width="1920" height="1080" fill="url(#lights)"/>
+  <g opacity="0.32" filter="url(#blur)"><path d="M0 365c250-100 425-90 660-5 230 82 455 48 675-22 205-66 380-54 585 42v260H0Z" fill="#334155"/><rect x="0" y="515" width="1920" height="340" fill="url(#road)"/><path d="M0 680h1920" stroke="#f59e0b" stroke-width="10" stroke-dasharray="80 55" opacity="0.52"/></g>
+  <g filter="url(#shadow)">
+    <g transform="translate(285 520)"><path d="M0 98h500c42 0 84 33 112 88H-42c10-54 24-88 42-88Z" fill="#111827"/><rect x="70" y="28" width="310" height="95" rx="18" fill="#1f2937"/><path d="M106 48h95M230 48h105" stroke="#93c5fd" stroke-opacity="0.38" stroke-width="34" stroke-linecap="round"/><circle cx="95" cy="196" r="55" fill="#020617" stroke="#475569" stroke-width="12"/><circle cx="455" cy="196" r="55" fill="#020617" stroke="#475569" stroke-width="12"/><path d="M360 142h160" stroke="#f59e0b" stroke-width="12" opacity="0.75"/></g>
+    <g transform="translate(980 500)"><path d="M0 105h470c40 0 80 30 108 82H-36c10-48 22-82 36-82Z" fill="#182235"/><rect x="82" y="25" width="300" height="100" rx="18" fill="#2b5a88"/><path d="M112 48h95M238 48h105" stroke="#bfdbfe" stroke-opacity="0.45" stroke-width="34" stroke-linecap="round"/><circle cx="100" cy="196" r="52" fill="#020617" stroke="#64748b" stroke-width="12"/><circle cx="432" cy="196" r="52" fill="#020617" stroke="#64748b" stroke-width="12"/><path d="M330 143h155" stroke="#38bdf8" stroke-width="12" opacity="0.85"/></g>
+    <g transform="translate(780 278)"><path d="M78 255c-30 78-48 160-58 264h292c-11-105-31-187-62-264-47 40-124 40-172 0Z" fill="url(#navy)" stroke="#475569" stroke-width="5"/><circle cx="164" cy="145" r="70" fill="#d8c7b5"/><path d="M83 136c31-78 131-78 162 0-54-24-106-24-162 0Z" fill="#0f172a"/></g>
+    <g transform="translate(1035 290)"><path d="M78 245c-29 73-47 152-58 250h284c-10-98-29-177-58-250-48 38-121 38-168 0Z" fill="url(#blue)" stroke="#bfdbfe" stroke-width="5"/><circle cx="158" cy="138" r="66" fill="#e2cbb4"/><path d="M82 128c31-73 123-73 153 0-50-22-101-22-153 0Z" fill="#14213a"/></g>
+  </g>
+  <rect width="1920" height="1080" fill="#020617" opacity="0.26"/>
+</svg>
