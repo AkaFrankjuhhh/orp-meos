@@ -4554,16 +4554,16 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
   filter: grayscale(1);
 }
 
-/* Neventaken zoals HRB/DSI/KLu/DNR staan los rechtsonder in de profielheader. */
+/* Neventaken zoals HRB/DSI/KLu/DNR staan rechts op dezelfde hoogte als de standaard profielbadges. */
 .profile-hero {
   position: relative;
-  padding-bottom: 42px;
+  padding-bottom: 0;
 }
 
 .profile-side-badge-row {
   position: absolute;
   right: 0;
-  bottom: 22px;
+  top: 132px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
