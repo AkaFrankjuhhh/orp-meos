@@ -274,10 +274,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const context = await requireActivePerson(req, res);
       if (!context) return true;
       const { state, person } = context;
-      const ops = activePortoOps(state);
-      const isKader = (person.extraFunctions || []).includes("Kader");
-      if (!canUsePortoDevBypass(person) && (!ops || (ops.memberId !== person.id && !isKader))) {
-        sendJson(res, 403, { error: "Alleen de huidige OPS, Kader of het dev-profiel mag testaanmeldingen maken." });
+      if (!canUsePortoDevBypass(person)) {
+        sendJson(res, 403, { error: "Dev test is alleen beschikbaar voor het dev-profiel." });
         return true;
       }
       ensurePortoVehicleRanges(state);

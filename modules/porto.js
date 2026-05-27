@@ -408,6 +408,7 @@ function createPortoServices() {
       currentOps,
       canTakeOps,
       canManageOps,
+      canUseDevTools: canUsePortoDevBypass(person),
       opsRequests,
       availableVehicleRanges: canManageOps ? availablePortoVehicleNumbers(state) : [],
       linkableUnits: canManageOps ? linkablePortoUnits(state) : [],

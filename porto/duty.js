@@ -1,7 +1,7 @@
 /* Porto dienstmodule: statusknoppen, dienstpaneel, voertuigkeuze en Status 0 flow. */
 
 function isDevBypassProfile() {
-  return Boolean(portoProfile && (portoProfile.name === "Frank Bright" || portoProfile.serviceNumber === "71-01"));
+  return Boolean(portoCanUseDevTools);
 }
 
 function isAssignedDuty() {

@@ -31,6 +31,7 @@ function applyPortoPayload(payload) {
   portoCanTakeOps = Boolean(payload.canTakeOps);
   portoCanManageOps = Boolean(payload.canManageOps);
   portoCanViewOpsLog = Boolean(payload.canViewOpsLog);
+  portoCanUseDevTools = Boolean(payload.canUseDevTools);
   portoOpsRequests = payload.opsRequests || [];
   portoAvailableVehicleRanges = payload.availableVehicleRanges || [];
   portoLinkableUnits = payload.linkableUnits || [];
@@ -346,6 +347,8 @@ function renderOpsLog() {
 }
 
 function renderOpsPanel() {
+  const devTestButton = $("#portoOpsDevTestBtn");
+  if (devTestButton) devTestButton.hidden = !portoCanUseDevTools;
   renderOpsStatus();
   renderOpsRequests();
   renderOpsUnits();

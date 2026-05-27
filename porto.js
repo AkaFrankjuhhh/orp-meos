@@ -19,6 +19,7 @@ let portoCurrentOps = null;
 let portoCanTakeOps = false;
 let portoCanManageOps = false;
 let portoCanViewOpsLog = false;
+let portoCanUseDevTools = false;
 let portoOpsRequests = [];
 let portoAvailableVehicleRanges = [];
 let portoLinkableUnits = [];
