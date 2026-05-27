@@ -24,7 +24,8 @@ async function main() {
   const state = await readPostgresState();
   const activeWithDiscord = (state.people || [])
     .filter((person) => person.status === "Actief")
-    .filter((person) => person.discordId);
+    .filter((person) => person.discordId)
+    .filter((person) => !bot.isDiscordSyncExcludedPerson?.(person));
   const discordIdCounts = new Map();
   for (const person of activeWithDiscord) {
     discordIdCounts.set(person.discordId, (discordIdCounts.get(person.discordId) || 0) + 1);

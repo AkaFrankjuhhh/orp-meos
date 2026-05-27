@@ -1,4 +1,4 @@
-﻿const crypto = require("node:crypto");
+const crypto = require("node:crypto");
 const { withClient } = require("./db");
 
 let ensured = false;
@@ -14,11 +14,14 @@ async function ensurePublicFormsTable() {
       submitted_at timestamptz not null default now(),
       ip text,
       user_agent text,
+      case_number integer,
       webhook_status text,
       raw jsonb not null default '{}'::jsonb
     )
   `));
+  await withClient((client) => client.query("alter table public_form_submissions add column if not exists case_number integer"));
   await withClient((client) => client.query("create index if not exists public_form_submissions_slug_idx on public_form_submissions(form_slug, submitted_at desc)"));
+  await withClient((client) => client.query("create unique index if not exists public_form_submissions_slug_case_number_uidx on public_form_submissions(form_slug, case_number) where case_number is not null"));
   await withClient((client) => client.query(`
     create table if not exists public_form_configs (
       slug text primary key,
@@ -46,41 +49,77 @@ async function ensurePublicFormsTable() {
   ensured = true;
 }
 
+function publicFormWebhookStatus(webhookResult = {}) {
+  if (webhookResult.pending) return "pending";
+  if (webhookResult.skipped) return "skipped";
+  if (webhookResult.ok) return "sent";
+  return `failed:${webhookResult.status || "unknown"}`;
+}
+
+function shouldAssignCaseNumber(submission) {
+  return submission?.formSlug === "klachten" && !Number(submission.caseNumber || 0);
+}
+
 function createPublicFormsStore({ storageMode, readState, writeState, afterWrite } = {}) {
   async function saveSubmission(submission, webhookResult = {}) {
     if (storageMode === "postgres") {
       await ensurePublicFormsTable();
-      await withClient((client) => client.query(
-        `insert into public_form_submissions(id, form_slug, form_title, answers, submitted_at, ip, user_agent, webhook_status, raw)
-         values($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9::jsonb)
-         on conflict (id) do update set
-           form_slug = excluded.form_slug,
-           form_title = excluded.form_title,
-           answers = excluded.answers,
-           submitted_at = excluded.submitted_at,
-           ip = excluded.ip,
-           user_agent = excluded.user_agent,
-           webhook_status = excluded.webhook_status,
-           raw = excluded.raw`,
-        [
-          submission.id,
-          submission.formSlug,
-          submission.formTitle,
-          JSON.stringify(submission.answers || {}),
-          submission.submittedAt,
-          submission.ip || "",
-          submission.userAgent || "",
-          webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : `failed:${webhookResult.status || "unknown"}`,
-          JSON.stringify(submission)
-        ]
-      ));
+      await withClient(async (client) => {
+        await client.query("begin");
+        try {
+          if (shouldAssignCaseNumber(submission)) {
+            await client.query("select pg_advisory_xact_lock(hashtext($1))", [`public-form-case:${submission.formSlug}`]);
+            const result = await client.query("select coalesce(max(case_number), 0) + 1 as next_case_number from public_form_submissions where form_slug = $1", [submission.formSlug]);
+            submission.caseNumber = Number(result.rows[0]?.next_case_number || 1);
+          }
+          await client.query(
+            `insert into public_form_submissions(id, form_slug, form_title, answers, submitted_at, ip, user_agent, case_number, webhook_status, raw)
+             values($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10::jsonb)
+             on conflict (id) do update set
+               form_slug = excluded.form_slug,
+               form_title = excluded.form_title,
+               answers = excluded.answers,
+               submitted_at = excluded.submitted_at,
+               ip = excluded.ip,
+               user_agent = excluded.user_agent,
+               case_number = coalesce(public_form_submissions.case_number, excluded.case_number),
+               webhook_status = excluded.webhook_status,
+               raw = excluded.raw`,
+            [
+              submission.id,
+              submission.formSlug,
+              submission.formTitle,
+              JSON.stringify(submission.answers || {}),
+              submission.submittedAt,
+              submission.ip || "",
+              submission.userAgent || "",
+              submission.caseNumber || null,
+              publicFormWebhookStatus(webhookResult),
+              JSON.stringify(submission)
+            ]
+          );
+          await client.query("commit");
+        } catch (error) {
+          await client.query("rollback");
+          throw error;
+        }
+      });
       afterWrite?.();
       return submission;
     }
 
     const state = await Promise.resolve(readState());
     state.publicFormSubmissions = Array.isArray(state.publicFormSubmissions) ? state.publicFormSubmissions : [];
-    state.publicFormSubmissions.push({ ...submission, webhookStatus: webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : "failed" });
+    if (shouldAssignCaseNumber(submission)) {
+      const maxCaseNumber = state.publicFormSubmissions
+        .filter((item) => item.formSlug === submission.formSlug)
+        .reduce((max, item) => Math.max(max, Number(item.caseNumber || 0)), 0);
+      submission.caseNumber = maxCaseNumber + 1;
+    }
+    const storedSubmission = { ...submission, webhookStatus: publicFormWebhookStatus(webhookResult) };
+    const existingIndex = state.publicFormSubmissions.findIndex((item) => item.id === submission.id);
+    if (existingIndex >= 0) state.publicFormSubmissions[existingIndex] = { ...state.publicFormSubmissions[existingIndex], ...storedSubmission };
+    else state.publicFormSubmissions.push(storedSubmission);
     await Promise.resolve(writeState(state));
     afterWrite?.();
     return submission;

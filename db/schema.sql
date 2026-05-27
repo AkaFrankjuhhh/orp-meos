@@ -180,11 +180,14 @@ CREATE TABLE IF NOT EXISTS public_form_submissions (
   submitted_at timestamptz NOT NULL DEFAULT now(),
   ip text,
   user_agent text,
+  case_number integer,
   webhook_status text,
   raw jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
+ALTER TABLE public_form_submissions ADD COLUMN IF NOT EXISTS case_number integer;
 CREATE INDEX IF NOT EXISTS public_form_submissions_slug_idx ON public_form_submissions(form_slug, submitted_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS public_form_submissions_slug_case_number_uidx ON public_form_submissions(form_slug, case_number) WHERE case_number IS NOT NULL;
 
 
 CREATE TABLE IF NOT EXISTS public_form_configs (

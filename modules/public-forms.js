@@ -1,4 +1,4 @@
-﻿const crypto = require("node:crypto");
+const crypto = require("node:crypto");
 const { URL } = require("node:url");
 
 const publicFormConfigs = {
@@ -37,7 +37,7 @@ const publicFormConfigs = {
   klachten: {
     slug: "klachten",
     hostnames: ["klachten.orpdefensie.nl"],
-    title: "ORP - Klachtenformulier Defensie",
+    title: "ORP - Defensie Klachtenformulier",
     subtitle: "Gebruik dit formulier om een klacht of melding richting Defensie Oranjestad door te geven.",
     accent: "#ef4444",
     webhookEnv: "DISCORD_FORM_KLACHTEN_WEBHOOK_URL",
@@ -136,7 +136,7 @@ const publicFormManagerBadges = {
   klachten: ["Kader"],
   otc: ["OTC-Leiding", "Trainer-Leiding"],
   hrb: ["HRB-Leiding"],
-  "w-s": ["W&S-Leiding", "W&S"],
+  "w-s": ["W&S-Leiding"],
   hovj: ["OvJ"]
 };
 
@@ -336,6 +336,11 @@ function publicFormWebhookUrl(config) {
   return process.env[config.webhookEnv] || process.env.DISCORD_PUBLIC_FORMS_WEBHOOK_URL || "";
 }
 
+function formatCaseNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) && number > 0 ? String(number).padStart(3, "0") : "-";
+}
+
 function buildPublicFormWebhookPayload(config, submission) {
   const fields = (config.questions || []).filter((question) => question.type !== "file" && conditionMatches(question.showIf, submission.answers)).map((question) => {
     const rawValue = submission.answers?.[question.id];
@@ -346,10 +351,20 @@ function buildPublicFormWebhookPayload(config, submission) {
       inline: false
     };
   });
+
   if (submission.submittedBy) {
     fields.unshift({
       name: "Ingediend door",
       value: `${submission.submittedBy.serviceNumber || "-"} - ${submission.submittedBy.rank || "-"} - ${submission.submittedBy.name || "-"}${submission.submittedBy.discordId ? `\nDiscord ID: ${submission.submittedBy.discordId}` : ""}`,
+      inline: false
+    });
+  }
+
+  // Klachten krijgen een vast zaaknummer bovenaan de Discord embed, zodat leiding dit makkelijk kan terugvinden.
+  if (config.slug === "klachten") {
+    fields.unshift({
+      name: "Zaaknummer",
+      value: formatCaseNumber(submission.caseNumber),
       inline: false
     });
   }
@@ -360,10 +375,12 @@ function buildPublicFormWebhookPayload(config, submission) {
       inline: false
     });
   }
+
+  const embedTitle = config.slug === "klachten" ? "ORP - Defensie Klachtenformulier" : `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`;
   return {
     embeds: [
       {
-        title: `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`,
+        title: embedTitle,
         color: Number.parseInt(String(config.accent || "#f59e0b").replace("#", ""), 16) || 0xf59e0b,
         fields,
         footer: { text: `Formulier: ${config.slug}` },
@@ -387,4 +404,3 @@ module.exports = {
   sanitizePublicFormOverride,
   canManagePublicForm
 };
-

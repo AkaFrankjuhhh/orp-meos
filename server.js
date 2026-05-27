@@ -721,9 +721,11 @@ async function handlePublicFormsApi(req, res, url) {
       return true;
     }
     const submission = createPublicFormSubmission(config, cleanAnswers, req, fileValidation.cleanFiles, formAuth.profile);
+    // Klachten moeten al voor het verzenden naar Discord een zaaknummer reserveren.
+    if (config.slug === "klachten") await publicFormsStore.saveSubmission(submission, { pending: true });
     const webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission), fileValidation.cleanFiles);
     await publicFormsStore.saveSubmission(submission, webhookResult);
-    sendJson(res, 200, { ok: true, id: submission.id, webhook: webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : "failed" });
+    sendJson(res, 200, { ok: true, id: submission.id, caseNumber: submission.caseNumber || null, webhook: webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : "failed" });
     return true;
   }
 
@@ -1048,13 +1050,3 @@ async function shutdown() {
 
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
-
-
-
-
-
-
-
-
-
-

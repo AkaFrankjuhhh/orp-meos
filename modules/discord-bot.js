@@ -56,6 +56,27 @@ function sleep(ms) {
 function normalizeDiscordId(value) {
   return String(value || "").replace(/^discord:/i, "").trim();
 }
+function splitEnvList(value) {
+  return String(value || "")
+    .split(/[;,\s]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function isDiscordSyncExcludedDiscordId(discordId) {
+  const memberId = normalizeDiscordId(discordId);
+  if (!memberId) return false;
+  return new Set(splitEnvList(process.env.DISCORD_SYNC_EXCLUDED_DISCORD_IDS)).has(memberId);
+}
+
+function isDiscordSyncExcludedPerson(person) {
+  const personIds = new Set(splitEnvList(process.env.DISCORD_SYNC_EXCLUDED_PERSON_IDS));
+  return Boolean((person?.id && personIds.has(String(person.id))) || isDiscordSyncExcludedDiscordId(person?.discordId));
+}
+
+function discordSyncExcludedResult() {
+  return { skipped: true, reason: "Discord sync staat uitgeschakeld voor dit profiel." };
+}
 
 
 function requiredDefensieRoleId() {
@@ -281,6 +302,7 @@ function createDiscordBotServices(options = {}) {
   }
 
   async function syncRankRoleForPerson(person, auditReason = "Defensie Personeelsportaal rangrol gesynchroniseerd") {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
     const memberId = normalizeDiscordId(person?.discordId);
     if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
     const mappings = configuredRankRoleMappings();
@@ -296,6 +318,7 @@ function createDiscordBotServices(options = {}) {
   }
 
   async function syncDiscordForPersonIfNeeded(person, auditReason = "Defensie Personeelsportaal Discord profiel gesynchroniseerd") {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
     const nickname = await syncNicknameForPersonIfNeeded(person, auditReason);
     const rankRole = await syncRankRoleForPersonIfNeeded(person, auditReason);
     return { ok: true, nickname, rankRole };
@@ -331,6 +354,7 @@ function createDiscordBotServices(options = {}) {
   }
 
   async function syncNicknameForPerson(person, auditReason = "Defensie Personeelsportaal dienstnummer nickname gesynchroniseerd") {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
     const memberId = normalizeDiscordId(person?.discordId);
     if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
     const memberResult = await getGuildMember(memberId);
@@ -340,6 +364,7 @@ function createDiscordBotServices(options = {}) {
   }
 
   async function syncNicknameForPersonIfNeeded(person, auditReason = "Defensie Personeelsportaal periodieke nickname controle") {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
     const memberId = normalizeDiscordId(person?.discordId);
     if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
     const desiredNickname = buildServiceNickname(person);
@@ -381,6 +406,8 @@ function createDiscordBotServices(options = {}) {
     addRole,
     removeRole,
     syncRoleSet,
+    isDiscordSyncExcludedPerson,
+    isDiscordSyncExcludedDiscordId,
     rankRoleEnvKeys,
     rankRoleIdForPerson,
     syncRankRoleForPerson,

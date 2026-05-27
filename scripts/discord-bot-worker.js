@@ -31,7 +31,8 @@ function sleep(ms) {
 function activePeopleForDiscord(state) {
   const activeWithDiscord = (state.people || [])
     .filter((person) => person.status === "Actief")
-    .filter((person) => person.discordId);
+    .filter((person) => person.discordId)
+    .filter((person) => !bot.isDiscordSyncExcludedPerson?.(person));
   const counts = new Map();
   activeWithDiscord.forEach((person) => counts.set(person.discordId, (counts.get(person.discordId) || 0) + 1));
   return activeWithDiscord
