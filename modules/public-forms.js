@@ -353,9 +353,13 @@ function buildPublicFormWebhookPayload(config, submission) {
   });
 
   if (submission.submittedBy) {
+    const submittedBy = submission.submittedBy;
+    const discordLine = submittedBy.discordUsername || submittedBy.discordId
+      ? `${submittedBy.discordUsername || "Discord onbekend"} (${submittedBy.discordId || "ID onbekend"})`
+      : "Discord onbekend";
     fields.unshift({
-      name: "Ingediend door",
-      value: `${submission.submittedBy.serviceNumber || "-"} - ${submission.submittedBy.rank || "-"} - ${submission.submittedBy.name || "-"}${submission.submittedBy.discordId ? `\nDiscord ID: ${submission.submittedBy.discordId}` : ""}`,
+      name: "Formulier ingediend door:",
+      value: `${submittedBy.serviceNumber || "-"} - ${submittedBy.rank || "-"}\n${submittedBy.name || "-"}\n${discordLine}`,
       inline: false
     });
   }
