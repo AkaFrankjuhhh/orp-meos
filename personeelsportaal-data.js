@@ -208,6 +208,7 @@ const defaultState = {
   absences: [],
   i8Forms: [],
   resignationForms: [],
+  blacklist: [],
   activity: [
     "Personeelsbeheer omgeving aangemaakt.",
     "Dienstnummer reeksen 70 t/m 74 ingericht.",

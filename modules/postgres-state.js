@@ -114,6 +114,25 @@ async function readPostgresState() {
       processedByName: row.processed_by_name || ""
     }));
 
+    const blacklistResult = await client.query("select * from blacklist_entries order by blacklisted_at desc nulls last, id asc");
+    const blacklist = blacklistResult.rows.map((row) => ({
+      ...parseJson(row.raw, {}),
+      id: row.id,
+      personId: row.person_id || "",
+      name: row.name || "",
+      discordId: row.discord_id || "",
+      rank: row.rank || "",
+      serviceNumber: row.service_number || "",
+      reason: row.reason || "",
+      blacklistedAt: iso(row.blacklisted_at),
+      blacklistedById: row.blacklisted_by_id || "",
+      blacklistedByName: row.blacklisted_by_name || "",
+      revokedAt: iso(row.revoked_at),
+      revokedById: row.revoked_by_id || "",
+      revokedByName: row.revoked_by_name || "",
+      revokeReason: row.revoke_reason || ""
+    }));
+
     const hoursResult = await client.query("select * from hours order by week_year desc nulls last, week_number desc nulls last, started_at nulls last, id asc");
     const hours = hoursResult.rows.map((row) => {
       const raw = parseJson(row.raw, {});
@@ -173,6 +192,7 @@ async function readPostgresState() {
       announcements: settings.announcements || [],
       i8Forms,
       resignationForms,
+      blacklist,
       portoUnits,
       portoVehicleRanges: settings.portoVehicleRanges || [],
       portoCurrentOps: settings.portoCurrentOps || null,

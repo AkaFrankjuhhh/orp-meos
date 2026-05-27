@@ -28,7 +28,8 @@ function createDiscordWebhookServices({ formatDate }) {
     const map = {
       hire: process.env.DISCORD_HIRE_WEBHOOK_URL,
       dismissal: process.env.DISCORD_DISMISSAL_WEBHOOK_URL,
-      resignation: process.env.DISCORD_RESIGNATION_WEBHOOK_URL
+      resignation: process.env.DISCORD_RESIGNATION_WEBHOOK_URL,
+      blacklist: process.env.DISCORD_BLACKLIST_WEBHOOK_URL
     };
     return map[type] || process.env.DISCORD_PERSONNEL_WEBHOOK_URL || "";
   }
@@ -135,6 +136,26 @@ function createDiscordWebhookServices({ formatDate }) {
     };
   }
 
+  function buildBlacklistWebhookPayload(entry, actor) {
+    const revoked = Boolean(entry.revokedAt);
+    return {
+      embeds: [
+        {
+          title: revoked ? "Blacklist ingetrokken" : "Persoon geblacklist",
+          color: revoked ? 0x34a853 : 0xd9564a,
+          fields: [
+            { name: "Persoon", value: `${entry.serviceNumber || "-"} - ${entry.name || "-"}`, inline: false },
+            { name: "Discord ID", value: entry.discordId || "-", inline: true },
+            { name: "Rang", value: entry.rank || "-", inline: true },
+            { name: revoked ? "Intrek reden" : "Reden", value: (revoked ? entry.revokeReason : entry.reason) || "-", inline: false },
+            { name: "Uitgevoerd door", value: actor?.name || entry.blacklistedByName || "Kader", inline: false }
+          ],
+          timestamp: new Date().toISOString()
+        }
+      ]
+    };
+  }
+
   return {
     sendDiscordWebhook,
     absenceWebhookUrl,
@@ -142,7 +163,8 @@ function createDiscordWebhookServices({ formatDate }) {
     buildAbsenceWebhookPayload,
     buildRecruitmentWebhookPayload,
     buildDismissalWebhookPayload,
-    buildResignationFormWebhookPayload
+    buildResignationFormWebhookPayload,
+    buildBlacklistWebhookPayload
   };
 }
 

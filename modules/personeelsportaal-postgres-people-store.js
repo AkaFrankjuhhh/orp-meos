@@ -145,6 +145,57 @@ function createPostgresPeopleStore(options = {}) {
     }
   }
 
+  async function writeBlacklist(client, blacklist) {
+    const entryIds = ids(blacklist);
+    if (entryIds.length) {
+      await client.query("delete from blacklist_entries where not (id = any($1::text[]))", [entryIds]);
+    } else {
+      await client.query("delete from blacklist_entries");
+    }
+    for (const entry of blacklist) {
+      await client.query(`
+        insert into blacklist_entries(
+          id, person_id, name, discord_id, rank, service_number, reason,
+          blacklisted_at, blacklisted_by_id, blacklisted_by_name,
+          revoked_at, revoked_by_id, revoked_by_name, revoke_reason, raw, updated_at
+        )
+        values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,now())
+        on conflict(id) do update set
+          person_id = excluded.person_id,
+          name = excluded.name,
+          discord_id = excluded.discord_id,
+          rank = excluded.rank,
+          service_number = excluded.service_number,
+          reason = excluded.reason,
+          blacklisted_at = excluded.blacklisted_at,
+          blacklisted_by_id = excluded.blacklisted_by_id,
+          blacklisted_by_name = excluded.blacklisted_by_name,
+          revoked_at = excluded.revoked_at,
+          revoked_by_id = excluded.revoked_by_id,
+          revoked_by_name = excluded.revoked_by_name,
+          revoke_reason = excluded.revoke_reason,
+          raw = excluded.raw,
+          updated_at = now()
+      `, [
+        entry.id,
+        entry.personId || null,
+        entry.name || "",
+        entry.discordId || "",
+        entry.rank || "",
+        entry.serviceNumber || "",
+        entry.reason || "",
+        asDateTime(entry.blacklistedAt),
+        entry.blacklistedById || "",
+        entry.blacklistedByName || "",
+        asDateTime(entry.revokedAt),
+        entry.revokedById || "",
+        entry.revokedByName || "",
+        entry.revokeReason || "",
+        json(entry, {})
+      ]);
+    }
+  }
+
   async function upsertHourEntry(client, entry) {
     const hoursValue = Number(entry.hours || 0);
     const minutes = Number(entry.minutes || entry.durationMinutes || Math.round(hoursValue * 60) || 0);
@@ -213,6 +264,7 @@ function createPostgresPeopleStore(options = {}) {
       try {
         await writePeople(client, Array.isArray(state.people) ? state.people : []);
         await writeResignationForms(client, Array.isArray(state.resignationForms) ? state.resignationForms : []);
+        await writeBlacklist(client, Array.isArray(state.blacklist) ? state.blacklist : []);
         await writeHours(client, Array.isArray(state.hours) ? state.hours : []);
         await writeActivity(client, Array.isArray(state.activity) ? state.activity : []);
         await client.query("commit");

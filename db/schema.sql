@@ -55,6 +55,28 @@ CREATE INDEX IF NOT EXISTS people_discord_id_idx ON people(discord_id);
 CREATE INDEX IF NOT EXISTS people_status_idx ON people(status);
 CREATE INDEX IF NOT EXISTS people_service_number_idx ON people(service_number);
 
+CREATE TABLE IF NOT EXISTS blacklist_entries (
+  id text PRIMARY KEY,
+  person_id text,
+  name text NOT NULL,
+  discord_id text NOT NULL,
+  rank text,
+  service_number text,
+  reason text,
+  blacklisted_at timestamptz,
+  blacklisted_by_id text,
+  blacklisted_by_name text,
+  revoked_at timestamptz,
+  revoked_by_id text,
+  revoked_by_name text,
+  revoke_reason text,
+  raw jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS blacklist_entries_discord_id_idx ON blacklist_entries(discord_id);
+CREATE INDEX IF NOT EXISTS blacklist_entries_active_idx ON blacklist_entries(discord_id) WHERE revoked_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS absences (
   id text PRIMARY KEY,
   member_id text REFERENCES people(id) ON DELETE SET NULL,

@@ -54,6 +54,7 @@
         <div class="nav-divider" data-ws-only="true" aria-hidden="true"></div>
         <div class="nav-section" data-ws-only="true">W&S</div>
         <button class="nav-item" data-page="personeel-aannemen" data-ws-only="true" type="button">Personeel Aannemen</button>
+        <button class="nav-item" data-page="blacklist" data-ws-only="true" type="button">Blacklist</button>
         <div class="nav-divider" data-restricted-divider="true" aria-hidden="true"></div>
         <div class="nav-section" data-kader-only="true">Kader Kanalen</div>
         <button class="nav-item" data-page="personeel" data-kader-only="true" type="button">Personeel</button>
@@ -372,6 +373,16 @@
           <button id="addMemberBtn" class="primary" type="button">+ Personeel toevoegen</button>
         </div>
         <div id="peopleList" class="people-list"></div>
+      </section>
+
+      <section id="blacklist" class="page">
+        <div class="toolbar sticky-toolbar">
+          <label class="search">
+            <span>Zoeken</span>
+            <input id="blacklistSearchInput" type="search" placeholder="Naam, rang, Discord ID, reden..." />
+          </label>
+        </div>
+        <div id="blacklistList" class="people-list"></div>
       </section>
 
       <section id="afwezigheid" class="page">

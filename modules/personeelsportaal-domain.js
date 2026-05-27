@@ -298,6 +298,10 @@ function stateForProfile(state, permissions, profileId = "") {
   if (!permissions?.canManagePeople) {
     nextState.resignationForms = nextState.resignationForms.filter((form) => form.memberId === profileId);
   }
+  nextState.blacklist = Array.isArray(nextState.blacklist) ? nextState.blacklist : [];
+  if (!permissions?.canViewBlacklist) {
+    nextState.blacklist = [];
+  }
   if (!permissions?.canViewAllDiscipline) {
     const allowedTypes = permissions?.canViewI8Discipline ? new Set(["i8-warning", "i8-strike"]) : new Set();
     nextState.people = (nextState.people || []).map((person) => ({

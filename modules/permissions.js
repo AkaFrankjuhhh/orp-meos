@@ -70,6 +70,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewMentorOverview: isKader || isMentor || isMentorLeadership,
       canManageMentorOverview: isKader || isMentor || isMentorLeadership,
       canRecruitPeople: isKader || isWs,
+      canViewBlacklist: isKader || isWs,
+      canManageBlacklist: isKader,
       canViewOvJLeadershipLog: isKader || taskBadges.includes("OvJ"),
       canViewMentorLeadershipLog: isKader || isMentorLeadership,
       canViewProfileAuditLog: isKader || isHoofdofficier,

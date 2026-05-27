@@ -40,6 +40,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     buildRecruitmentWebhookPayload,
     buildDismissalWebhookPayload,
     buildResignationFormWebhookPayload,
+    buildBlacklistWebhookPayload,
     discordBot
   } = deps;
 
@@ -78,6 +79,33 @@ function createPersoneelsportaalRouteHandler(deps) {
       canViewLogbook: permissions.canViewLogbook,
       permissions
     });
+  }
+
+  function activeBlacklistEntryForDiscordId(state, discordId) {
+    const normalized = normalizeDiscordId(discordId);
+    if (!normalized) return null;
+    return (state.blacklist || []).find((entry) => normalizeDiscordId(entry.discordId) === normalized && !entry.revokedAt) || null;
+  }
+
+  function blacklistErrorMessage() {
+    return "PERSOON IS GEBLACKLIST\nKan niet worden aangenomen";
+  }
+
+  async function sendBlacklistWebhook(state, entry, actor) {
+    if (typeof buildBlacklistWebhookPayload !== "function") return;
+    try {
+      const webhookResult = await sendDiscordWebhook(
+        personnelWebhookUrl("blacklist"),
+        buildBlacklistWebhookPayload(entry, actor)
+      );
+      if (webhookResult.ok) {
+        state.activity.push(`Blacklist webhook verzonden voor ${entry.name}.`);
+      } else if (!webhookResult.skipped) {
+        state.activity.push(`Blacklist webhook kon niet verzonden worden voor ${entry.name}.`);
+      }
+    } catch (error) {
+      state.activity.push(`Blacklist webhook kon niet verzonden worden voor ${entry.name}.`);
+    }
   }
 
   function discordNicknameSnapshot(state) {
@@ -838,6 +866,89 @@ function createPersoneelsportaalRouteHandler(deps) {
     return;
   }
   // W&S-aanname maakt bewust alleen basisprofielen aan; verdere details lopen via Personeel/profielbeheer.
+  const blacklistPersonMatch = url.pathname.match(/^\/api\/blacklist\/people\/([^/]+)$/);
+  if (blacklistPersonMatch && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const state = await readPeopleState();
+    if (!(await hasKaderAccess(auth, state))) {
+      sendJson(res, 403, { error: "Alleen Kader mag de blacklist beheren." });
+      return;
+    }
+    const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(blacklistPersonMatch[1]));
+    if (!person || !["Ontslagen", "Gearchiveerd"].includes(person.status)) {
+      sendJson(res, 404, { error: "Archiefprofiel niet gevonden." });
+      return;
+    }
+    const discordId = normalizeDiscordId(person.discordId);
+    if (!discordId) {
+      sendJson(res, 400, { error: "Dit archiefprofiel heeft geen Discord ID." });
+      return;
+    }
+    const existing = activeBlacklistEntryForDiscordId(state, discordId);
+    if (existing) {
+      sendJson(res, 409, { error: "Deze Discord ID staat al op de blacklist." });
+      return;
+    }
+    const body = await readBody(req);
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    const entry = {
+      id: crypto.randomUUID(),
+      personId: person.id,
+      name: person.name || "Onbekend",
+      discordId,
+      rank: person.rank || "",
+      serviceNumber: person.previousServiceNumber || person.serviceNumber || "",
+      reason: String(body.reason || person.dismissalReason || "Geen reden opgegeven.").trim(),
+      blacklistedAt: new Date().toISOString(),
+      blacklistedById: actor?.id || auth.profile.id,
+      blacklistedByName: actor?.name || auth.profile.name || "Kader",
+      revokedAt: "",
+      revokedById: "",
+      revokedByName: "",
+      revokeReason: ""
+    };
+    state.blacklist = Array.isArray(state.blacklist) ? state.blacklist : [];
+    state.activity = state.activity || [];
+    state.blacklist.push(entry);
+    state.activity.push(`${entry.name} is op de blacklist gezet door ${entry.blacklistedByName}.`);
+    await sendBlacklistWebhook(state, entry, actor);
+    await sendPeopleStateAfterMutation(res, auth, state);
+    return;
+  }
+
+  const blacklistRevokeMatch = url.pathname.match(/^\/api\/blacklist\/([^/]+)\/revoke$/);
+  if (blacklistRevokeMatch && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const state = await readPeopleState();
+    if (!(await hasKaderAccess(auth, state))) {
+      sendJson(res, 403, { error: "Alleen Kader mag de blacklist beheren." });
+      return;
+    }
+    state.blacklist = Array.isArray(state.blacklist) ? state.blacklist : [];
+    const entry = state.blacklist.find((item) => item.id === decodeURIComponent(blacklistRevokeMatch[1]));
+    if (!entry) {
+      sendJson(res, 404, { error: "Blacklist entry niet gevonden." });
+      return;
+    }
+    if (entry.revokedAt) {
+      sendJson(res, 409, { error: "Deze blacklist entry is al ingetrokken." });
+      return;
+    }
+    const body = await readBody(req);
+    const actor = (state.people || []).find((person) => person.id === auth.profile.id) || auth.profile;
+    entry.revokedAt = new Date().toISOString();
+    entry.revokedById = actor?.id || auth.profile.id;
+    entry.revokedByName = actor?.name || auth.profile.name || "Kader";
+    entry.revokeReason = String(body.reason || "Blacklist ingetrokken.").trim();
+    state.activity = state.activity || [];
+    state.activity.push(`Blacklist voor ${entry.name} is ingetrokken door ${entry.revokedByName}.`);
+    await sendBlacklistWebhook(state, entry, actor);
+    await sendPeopleStateAfterMutation(res, auth, state);
+    return;
+  }
+
   if (url.pathname === "/api/recruitment/hire" && req.method === "POST") {
     const auth = requireAuth(req, res);
     if (!auth) return;
@@ -853,6 +964,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     const hiredDate = String(body.hiredDate || today()).trim();
     if (!name || !discordId || !/^\d{4}-\d{2}-\d{2}$/.test(hiredDate)) {
       sendJson(res, 400, { error: "Naam, aangenomen op en Discord ID zijn verplicht." });
+      return;
+    }
+    if (activeBlacklistEntryForDiscordId(state, discordId)) {
+      sendJson(res, 409, { error: blacklistErrorMessage() });
       return;
     }
 
@@ -927,6 +1042,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     const body = await readBody(req);
     const personPayload = body.person || {};
     const existingBeforeSave = (state.people || []).find((person) => person.id === personPayload.id);
+    if (!existingBeforeSave && activeBlacklistEntryForDiscordId(state, personPayload.discordId)) {
+      sendJson(res, 409, { error: blacklistErrorMessage() });
+      return;
+    }
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
     const result = savePerson(state, personPayload);
@@ -1404,6 +1523,10 @@ function createPersoneelsportaalRouteHandler(deps) {
       autoSortServiceNumbers(state);
     }
     if (action === "restore") {
+      if (activeBlacklistEntryForDiscordId(state, person.discordId)) {
+        sendJson(res, 409, { error: blacklistErrorMessage() });
+        return;
+      }
       const todayValue = today();
       const rank = String(body.rank || person.rank || "").trim();
       if (!ranks.includes(rank)) {

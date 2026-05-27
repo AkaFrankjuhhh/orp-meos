@@ -50,6 +50,7 @@ const pageRouteMap = {
   "mentor-logboek": "/mentor-logboek",
   "ovj-logboek": "/hovj-logboek",
   "personeel-aannemen": "/personeel-aannemen",
+  blacklist: "/blacklist",
   personeel: "/personeel",
   "afwezigheid-overzicht": "/afwezigheid-overzicht",
   "ontslag-overzicht": "/ontslag-overzicht",
@@ -194,6 +195,10 @@ function canViewMentorSection() {
 
 function canRecruitPeople() {
   return Boolean(permissions.canRecruitPeople || hasKaderAccess());
+}
+
+function canViewBlacklist() {
+  return Boolean(permissions.canViewBlacklist || canRecruitPeople());
 }
 
 function resetPermissions() {
@@ -439,13 +444,14 @@ function pageTitle(page) {
     "afwezigheid-overzicht": "Afwezigheid overzicht",
     "ontslag-overzicht": "Ontslag-Overzicht",
     "personeel-aannemen": "Personeel Aannemen",
+    blacklist: "Blacklist",
     archief: "Personeels-Archief",
     logboek: "Logboek"
   }[page];
 }
 
 function validPage(page) {
-  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "personeel", "archief", "logboek"]);
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
   return visiblePages.has(page) ? page : "dashboard";
 }
 
@@ -527,6 +533,9 @@ function setPage(page) {
     page = "dashboard";
   }
   if (page === "personeel-aannemen" && !canRecruitPeople()) {
+    page = "dashboard";
+  }
+  if (page === "blacklist" && !canViewBlacklist()) {
     page = "dashboard";
   }
   if (page === "mentor-traject" && !canViewOwnMentorTrajectory()) {
@@ -716,7 +725,7 @@ function renderKaderNavigation() {
   if (!showMentorLeadership && $("#mentor-logboek")?.classList.contains("active")) {
     setPage(showMentorOverview ? "mentor-overzicht" : "dashboard");
   }
-  if (!showWs && $("#personeel-aannemen")?.classList.contains("active")) {
+  if (!showWs && ($("#personeel-aannemen")?.classList.contains("active") || $("#blacklist")?.classList.contains("active"))) {
     setPage("dashboard");
   }
 }
@@ -789,6 +798,7 @@ function renderLiveScope(scope = "state") {
     renderRecruitment();
     renderPeople();
     renderArchive();
+    renderBlacklist();
     renderOvJLeadershipLog();
     renderLogbook();
   }
@@ -822,6 +832,7 @@ async function refreshReviewCounters() {
   if (page === "i8-controleren") renderI8Forms();
   if (page === "afwezigheid-overzicht") renderAbsenceOverview();
   if (page === "ontslag-overzicht") renderResignationOverview();
+  if (page === "blacklist") renderBlacklist();
   if (page === "dashboard") renderDashboard();
 }
 
@@ -1195,6 +1206,7 @@ function wireEvents() {
   $("#searchInput").addEventListener("input", renderPeople);
   $("#employeeSearchInput").addEventListener("input", renderEmployeeDirectory);
   $("#archiveSearchInput").addEventListener("input", renderArchive);
+  $("#blacklistSearchInput")?.addEventListener("input", renderBlacklist);
   $("#resignationOverview")?.addEventListener("click", async (event) => {
     const processId = event.target.closest("[data-resignation-process]")?.dataset.resignationProcess;
     const cancelId = event.target.closest("[data-resignation-cancel]")?.dataset.resignationCancel;
@@ -1543,9 +1555,21 @@ function wireEvents() {
   });
 
   $("#archiveList").addEventListener("click", async (event) => {
-    const restoreId = event.target.dataset.restore;
-    const deleteArchiveId = event.target.dataset.deleteArchive;
+    const restoreId = event.target.closest("[data-restore]")?.dataset.restore;
+    const deleteArchiveId = event.target.closest("[data-delete-archive]")?.dataset.deleteArchive;
+    const blacklistId = event.target.closest("[data-blacklist-person]")?.dataset.blacklistPerson;
     if (!hasKaderAccess()) return;
+    if (blacklistId) {
+      const person = state.people.find((entry) => entry.id === blacklistId);
+      if (!person) return;
+      const confirmed = await showSiteConfirm(
+        `Weet je zeker dat je ${person.name} op de blacklist wil zetten?`,
+        "Blacklist toevoegen"
+      );
+      if (!confirmed) return;
+      if (await runAction(`/api/blacklist/people/${encodeURIComponent(blacklistId)}`, { reason: person.dismissalReason || "" })) render();
+      return;
+    }
     if (restoreId) {
       const person = state.people.find((entry) => entry.id === restoreId);
       if (person) openRestoreDialog(person);
@@ -1560,6 +1584,18 @@ function wireEvents() {
       if (!confirmed) return;
       if (await runAction(`/api/people/${encodeURIComponent(deleteArchiveId)}/delete-archive`)) render();
     }
+  });
+  $("#blacklistList")?.addEventListener("click", async (event) => {
+    const revokeId = event.target.closest("[data-revoke-blacklist]")?.dataset.revokeBlacklist;
+    if (!revokeId || !hasKaderAccess()) return;
+    const entry = (state.blacklist || []).find((item) => item.id === revokeId);
+    if (!entry) return;
+    const confirmed = await showSiteConfirm(
+      `Weet je zeker dat je de blacklist van ${entry.name} wil intrekken?`,
+      "Blacklist intrekken"
+    );
+    if (!confirmed) return;
+    if (await runAction(`/api/blacklist/${encodeURIComponent(revokeId)}/revoke`, { reason: "Blacklist ingetrokken door Kader." })) render();
   });
 
   $("#memberForm").addEventListener("submit", async (event) => {

@@ -254,7 +254,8 @@ const {
   buildAbsenceWebhookPayload,
   buildRecruitmentWebhookPayload,
   buildDismissalWebhookPayload,
-  buildResignationFormWebhookPayload
+  buildResignationFormWebhookPayload,
+  buildBlacklistWebhookPayload
 } = createDiscordWebhookServices({ formatDate });
 // Discord bot-acties blijven centraal: rollen, nicknames en Porto voice verplaatsingen.
 const discordBot = createDiscordBotServices();
@@ -574,6 +575,7 @@ const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   buildRecruitmentWebhookPayload,
   buildDismissalWebhookPayload,
   buildResignationFormWebhookPayload,
+  buildBlacklistWebhookPayload,
   discordBot
 });
 function errorPage(title, message) {

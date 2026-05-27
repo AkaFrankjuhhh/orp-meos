@@ -26,6 +26,7 @@ async function clearTables(client) {
   await client.query("delete from activity_log");
   await client.query("delete from porto_units");
   await client.query("delete from hours");
+  await client.query("delete from blacklist_entries");
   await client.query("delete from resignation_forms");
   await client.query("delete from i8_forms");
   await client.query("delete from absences");
@@ -153,6 +154,10 @@ async function importSimpleJsonRows(client, table, rows = [], mapper) {
 async function importRest(client, state) {
   await importSimpleJsonRows(client, "resignation_forms", state.resignationForms || [], async (form, index) => {
     await client.query(`insert into resignation_forms(id, member_id, name, rank, service_number, reason, status, requested_at, processed_at, processed_by_id, processed_by_name, raw, updated_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,now()) on conflict(id) do update set status = excluded.status, processed_at = excluded.processed_at, processed_by_id = excluded.processed_by_id, processed_by_name = excluded.processed_by_name, raw = excluded.raw, updated_at = now()`, [form.id || stableId("resignation", index), form.memberId || null, form.name || "", form.rank || "", form.serviceNumber || "", form.reason || "", form.status || "", asDateTime(form.requestedAt), asDateTime(form.processedAt), form.processedById || "", form.processedByName || "", json(form, {})]);
+  });
+
+  await importSimpleJsonRows(client, "blacklist_entries", state.blacklist || [], async (entry, index) => {
+    await client.query(`insert into blacklist_entries(id, person_id, name, discord_id, rank, service_number, reason, blacklisted_at, blacklisted_by_id, blacklisted_by_name, revoked_at, revoked_by_id, revoked_by_name, revoke_reason, raw, updated_at) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,now()) on conflict(id) do update set person_id = excluded.person_id, name = excluded.name, discord_id = excluded.discord_id, rank = excluded.rank, service_number = excluded.service_number, reason = excluded.reason, blacklisted_at = excluded.blacklisted_at, blacklisted_by_id = excluded.blacklisted_by_id, blacklisted_by_name = excluded.blacklisted_by_name, revoked_at = excluded.revoked_at, revoked_by_id = excluded.revoked_by_id, revoked_by_name = excluded.revoked_by_name, revoke_reason = excluded.revoke_reason, raw = excluded.raw, updated_at = now()`, [entry.id || stableId("blacklist", index), entry.personId || null, entry.name || "", entry.discordId || "", entry.rank || "", entry.serviceNumber || "", entry.reason || "", asDateTime(entry.blacklistedAt), entry.blacklistedById || "", entry.blacklistedByName || "", asDateTime(entry.revokedAt), entry.revokedById || "", entry.revokedByName || "", entry.revokeReason || "", json(entry, {})]);
   });
 
   await importSimpleJsonRows(client, "hours", state.hours || [], async (entry, index) => {
