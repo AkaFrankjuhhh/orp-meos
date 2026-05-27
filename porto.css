@@ -2118,6 +2118,17 @@ body.porto-duty-workspace .porto-duty-ops-info button {
   align-items: center;
 }
 
+body.porto-duty-workspace .porto-duty-ops-info span span {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  min-height: 0;
+}
+
+body.porto-duty-workspace .porto-duty-ops-info span strong {
+  margin-left: 4px;
+}
+
 @media (max-height: 720px), (max-width: 980px) {
   body.porto-duty-workspace .porto-duty-panel {
     height: calc(100dvh - 56px);

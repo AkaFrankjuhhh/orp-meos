@@ -115,17 +115,17 @@ function renderDutyOpsInfo() {
   const currentTime = new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   if (!portoCurrentOps) {
     container.innerHTML = `
-      <span>Huidige OPS: <strong>Geen OPS in dienst</strong></span>
-      <span>Huidige tijd: <strong>${escapeHtml(currentTime)}</strong></span>
+      <span><span>Huidige OPS:</span> <strong>Geen OPS in dienst</strong></span>
+      <span><span>Huidige tijd:</span> <strong>${escapeHtml(currentTime)}</strong></span>
       ${portoCanTakeOps ? '<button class="porto-ops-action" type="button" data-duty-ops-claim>OPS overnemen</button>' : ""}
     `;
     return;
   }
   container.innerHTML = `
-    <span>Huidige OPS: <strong>${escapeHtml(portoCurrentOps.name || "Onbekend")}</strong></span>
-    <span>Telefoonnummer OPS: <strong>${escapeHtml(portoCurrentOps.phone || "Niet ingevuld")}</strong></span>
-    <span>Duur: <strong>${escapeHtml(formatPortoDuration(opsElapsedSeconds(portoCurrentOps)))}</strong></span>
-    <span>Huidige tijd: <strong>${escapeHtml(currentTime)}</strong></span>
+    <span><span>Huidige OPS:</span> <strong>${escapeHtml(portoCurrentOps.name || "Onbekend")}</strong></span>
+    <span><span>Telefoonnummer OPS:</span> <strong>${escapeHtml(portoCurrentOps.phone || "Niet ingevuld")}</strong></span>
+    <span><span>Duur:</span> <strong>${escapeHtml(formatPortoDuration(opsElapsedSeconds(portoCurrentOps)))}</strong></span>
+    <span><span>Huidige tijd:</span> <strong>${escapeHtml(currentTime)}</strong></span>
   `;
 }
 

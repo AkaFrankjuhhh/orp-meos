@@ -89,6 +89,24 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     state.portoOpsLog = state.portoOpsLog.slice(0, 250);
   }
 
+  function closePendingPortoRequestsForMember(state, memberId, keepUnitId = "") {
+    const now = new Date().toISOString();
+    for (const entry of state.portoUnits || []) {
+      if (
+        entry.id !== keepUnitId &&
+        entry.memberId === memberId &&
+        entry.active !== false &&
+        String(entry.status) === "0" &&
+        !entry.vehicleNumber
+      ) {
+        entry.active = false;
+        entry.reviewStatus = "assigned-duplicate-closed";
+        entry.endedAt = now;
+        entry.updatedAt = now;
+      }
+    }
+  }
+
   async function maintainPortoPresence(state, person, { touch = true } = {}) {
     const changedBySweep = sweepPortoPresence(state);
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
@@ -489,6 +507,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }
 
       const oldVehicleNumber = unit.vehicleNumber;
+      const currentVehicleGroup = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
       let vehicleNumber = "";
       let range = null;
       if (exactVehicleNumber) {
@@ -501,7 +520,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           sendJson(res, 400, { error: "Kies een geldig roepnummer." });
           return true;
         }
-        const exactInUse = state.portoUnits.some((entry) => entry.active !== false && entry.id !== unit.id && entry.vehicleNumber === exactVehicleNumber);
+        const exactInUse = state.portoUnits.some((entry) => entry.active !== false && entry.vehicleNumber !== oldVehicleNumber && entry.vehicleNumber === exactVehicleNumber);
         if (exactInUse) {
           sendJson(res, 409, { error: "Dit roepnummer is al in gebruik." });
           return true;
@@ -541,9 +560,23 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 400, { error: "Kies een geldige voertuigcategorie of koppeling." });
         return true;
       }
-      Object.assign(unit, { vehicleNumber, vehicleCode: range.vehicleCode, vehicleType: range.vehicleType, assignedById: person.id, assignedByName: person.name, assignedAt: new Date().toISOString() });
-      unit.updatedAt = unit.assignedAt;
-      unit.lastSeenAt = unit.lastSeenAt || unit.assignedAt;
+      const now = new Date().toISOString();
+      const unitsToMove = linkToVehicleNumber ? [unit] : (currentVehicleGroup.length ? currentVehicleGroup : [unit]);
+      unitsToMove.forEach((entry) => {
+        Object.assign(entry, {
+          vehicleNumber,
+          vehicleCode: range.vehicleCode,
+          vehicleType: range.vehicleType,
+          vehicleName: linkToVehicleNumber ? entry.vehicleName : "",
+          reviewStatus: unit.reviewStatus,
+          assignedById: person.id,
+          assignedByName: person.name,
+          assignedAt: now,
+          updatedAt: now,
+          lastSeenAt: entry.lastSeenAt || now
+        });
+        closePendingPortoRequestsForMember(state, entry.memberId, entry.id);
+      });
       syncPortoLinkedNames(state, oldVehicleNumber);
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
@@ -610,6 +643,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         status: "1",
         statusDetail: "Beschikbaar"
       });
+      closePendingPortoRequestsForMember(state, unit.memberId, unit.id);
       unit.updatedAt = unit.assignedAt;
       unit.lastSeenAt = unit.lastSeenAt || unit.assignedAt;
       syncPortoLinkedNames(state, vehicleNumber);

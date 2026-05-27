@@ -376,12 +376,18 @@ function createPortoServices() {
       if (opsPerson?.portoPhone) currentOps.phone = opsPerson.portoPhone;
     }
     const peopleById = new Map((state.people || []).map((entry) => [entry.id, entry]));
+    const assignedMemberIds = new Set(
+      state.portoUnits
+        .filter((unit) => unit.active !== false && unit.vehicleNumber)
+        .map((unit) => unit.memberId)
+        .filter(Boolean)
+    );
     const canTakeOps = canOperatePortoOps(person);
     const canViewOpsLog = canViewPortoOpsLog(person);
     const canManageOps = canTakeOps && (!currentOps || currentOps.memberId === person.id || (person.extraFunctions || []).includes("Kader"));
     const opsRequests = canManageOps
       ? state.portoUnits
-          .filter((unit) => unit.active !== false && String(unit.status) === "0" && !unit.vehicleNumber)
+          .filter((unit) => unit.active !== false && String(unit.status) === "0" && !unit.vehicleNumber && !assignedMemberIds.has(unit.memberId))
           .map((unit) => ({
             id: unit.id,
             memberId: unit.memberId,
