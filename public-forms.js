@@ -76,6 +76,92 @@ function showLoginRequired(loginUrl, message) {
   $("#submitButton").hidden = true;
 }
 
+
+function adminMessage(text, tone = "ok") {
+  const element = $("#formAdminMessage");
+  if (!element) return;
+  element.hidden = false;
+  element.className = `form-message ${tone}`;
+  element.textContent = text;
+}
+
+function renderFormAdmin(config) {
+  const panel = $("#formAdminPanel");
+  if (!panel) return;
+  panel.hidden = !config.canManage;
+  if (!config.canManage) return;
+  $("#formAdminAccess").textContent = `Beheer via: ${(config.managerBadges || []).join(", ") || "Kader"}`;
+  $("#adminFormTitle").value = config.editable?.title || config.title || "";
+  $("#adminFormSubtitle").value = config.editable?.subtitle || "";
+  $("#adminFormNotice").value = config.editable?.notice || "";
+  $("#adminFormAccent").value = config.editable?.accent || config.accent || "#f59e0b";
+  $("#adminFormQuestions").value = JSON.stringify(config.editable?.questions || config.questions || [], null, 2);
+}
+
+async function saveFormAdmin(event) {
+  event.preventDefault();
+  if (!formState.config?.canManage) return;
+  let questions = [];
+  try {
+    questions = JSON.parse($("#adminFormQuestions").value || "[]");
+    if (!Array.isArray(questions)) throw new Error("Vragen moeten een JSON-array zijn.");
+  } catch (error) {
+    adminMessage(error.message || "Vragen JSON is ongeldig.", "error");
+    return;
+  }
+  const payload = {
+    slug: formState.config.slug,
+    config: {
+      title: $("#adminFormTitle").value,
+      subtitle: $("#adminFormSubtitle").value,
+      notice: $("#adminFormNotice").value,
+      accent: $("#adminFormAccent").value,
+      questions
+    }
+  };
+  const response = await fetch("/api/public-forms/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    adminMessage(data.error || "Formulier opslaan is mislukt.", "error");
+    return;
+  }
+  formState.config = data.config;
+  $("#formAdminForm").hidden = true;
+  adminMessage("Formulier opgeslagen.", "ok");
+  formState.config = data.config;
+  applyLoadedConfig(data.config);
+}
+
+function bindFormAdmin() {
+  $("#toggleFormAdmin")?.addEventListener("click", () => {
+    const form = $("#formAdminForm");
+    form.hidden = !form.hidden;
+  });
+  $("#cancelFormAdmin")?.addEventListener("click", () => {
+    $("#formAdminForm").hidden = true;
+    renderFormAdmin(formState.config);
+  });
+  $("#formAdminForm")?.addEventListener("submit", saveFormAdmin);
+}
+
+function applyLoadedConfig(config) {
+  document.body.dataset.formSlug = config.slug;
+  document.title = config.title;
+  document.documentElement.style.setProperty("--accent", config.accent || "#f59e0b");
+  $("#formTitle").textContent = config.title;
+  $("#formSubtitle").textContent = config.subtitle || "";
+  const notice = $("#formNotice");
+  notice.hidden = !config.notice;
+  notice.textContent = config.notice || "";
+  $("#questions").innerHTML = (config.questions || []).map(renderQuestion).join("");
+  $("#questions").addEventListener("change", updateConditionalFields);
+  updateConditionalFields();
+  renderFormAdmin(config);
+}
 async function loadForm() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
   const formQuery = pathParts[0] === "forms" && pathParts[1] ? `?form=${encodeURIComponent(pathParts[1])}` : "";
@@ -88,19 +174,7 @@ async function loadForm() {
   if (!response.ok) throw new Error(data.error || "Formulier niet gevonden.");
   const config = data;
   formState.config = config;
-  document.body.dataset.formSlug = config.slug;
-  document.title = config.title;
-  document.documentElement.style.setProperty("--accent", config.accent || "#f59e0b");
-  $("#formTitle").textContent = config.title;
-  $("#formSubtitle").textContent = config.subtitle || "";
-  const notice = $("#formNotice");
-  if (config.notice) {
-    notice.hidden = false;
-    notice.textContent = config.notice;
-  }
-  $("#questions").innerHTML = (config.questions || []).map(renderQuestion).join("");
-  $("#questions").addEventListener("change", updateConditionalFields);
-  updateConditionalFields();
+  applyLoadedConfig(config);
 }
 
 function collectAnswers() {
@@ -172,9 +246,14 @@ async function submitForm(event) {
 }
 
 $("#publicForm").addEventListener("submit", submitForm);
+bindFormAdmin();
 loadForm().catch((error) => {
   $("#formTitle").textContent = "Formulier niet beschikbaar";
   $("#formSubtitle").textContent = "Controleer de link of probeer het later opnieuw.";
   showMessage(error.message, "error");
   $("#submitButton").disabled = true;
 });
+
+
+
+

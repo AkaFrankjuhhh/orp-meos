@@ -17,6 +17,7 @@ const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-d
 const { withClient, closePool } = require("./modules/db");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 const { createEventBus } = require("./modules/event-bus");
+const { enqueueAllDiscordSync } = require("./modules/discord-sync-jobs");
 const { createPublicFormsStore } = require("./modules/public-forms-store");
 const {
   publicFormForRequest,
@@ -26,7 +27,10 @@ const {
   validatePublicFormSubmission,
   createPublicFormSubmission,
   publicFormWebhookUrl,
-  buildPublicFormWebhookPayload
+  buildPublicFormWebhookPayload,
+  mergePublicFormConfig,
+  sanitizePublicFormOverride,
+  canManagePublicForm
 } = require("./modules/public-forms");
 
 loadEnv();
@@ -254,6 +258,17 @@ const {
 } = createDiscordWebhookServices({ formatDate });
 // Discord bot-acties blijven centraal: rollen, nicknames en Porto voice verplaatsingen.
 const discordBot = createDiscordBotServices();
+let discordSyncEnqueueTimer = null;
+function scheduleDiscordSyncAllJob(reason = "people_state_changed") {
+  if (storageMode !== "postgres" || !process.env.DISCORD_BOT_TOKEN) return;
+  if (discordSyncEnqueueTimer) clearTimeout(discordSyncEnqueueTimer);
+  discordSyncEnqueueTimer = setTimeout(() => {
+    discordSyncEnqueueTimer = null;
+    enqueueAllDiscordSync(reason).catch((error) => {
+      console.error("Discord sync job kon niet worden aangemaakt:", error.message || error);
+    });
+  }, Number(process.env.DISCORD_SYNC_ENQUEUE_DEBOUNCE_MS || 2500));
+}
 const discordNicknameSyncIntervalMs = Math.max(0, Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 5 * 60 * 1000));
 let discordNicknameSyncTimer = null;
 let discordNicknameSyncRunning = false;
@@ -301,6 +316,7 @@ async function runDiscordNicknameSyncSweep(reason = "periodiek") {
 }
 
 function startDiscordNicknameSync() {
+  if (String(process.env.DISCORD_INLINE_SYNC_ENABLED || "false").toLowerCase() !== "true") return;
   if (!discordNicknameSyncIntervalMs || !discordBot.isConfigured?.()) return;
   runDiscordNicknameSyncSweep("startup").catch((error) => logServerError("Discord nickname startup sync", error));
   discordNicknameSyncTimer = setInterval(() => {
@@ -498,7 +514,9 @@ async function healthPayload() {
 // Porto gebruikt in database-modus een directe PostgreSQL-store; de rest van Defensie Personeelsportaal blijft voorlopig via de centrale storage lopen.
 function afterStorageWrite(scope) {
   storage.resetStateCache?.();
+  eventBus.publish(`${scope}:update`, { scope });
   eventBus.publish("state:update", { scope });
+  if (scope === "people") scheduleDiscordSyncAllJob("people_state_changed");
 }
 const portoStorage = storageMode === "postgres" ? createPostgresPortoStore({ afterWrite: () => afterStorageWrite("porto") }) : { readState, writeState };
 const handlePortoApi = createPortoRouteHandler({
@@ -621,6 +639,12 @@ function publicFormLoginUrl(config) {
   return `${base}/api/auth/login?returnTo=/forms/${encodeURIComponent(config.slug)}`;
 }
 
+
+async function resolvePublicFormConfig(baseConfig) {
+  if (!baseConfig) return null;
+  const override = await publicFormsStore.readConfigOverride?.(baseConfig.slug);
+  return mergePublicFormConfig(baseConfig, override || {});
+}
 function requirePublicFormAccess(req, res, config) {
   if (!config?.internalOnly) return { profile: null, session: null };
   const auth = getLoggedInProfile(req);
@@ -636,24 +660,49 @@ async function handlePublicFormsApi(req, res, url) {
   if (!url.pathname.startsWith("/api/public-forms/")) return false;
 
   if (url.pathname === "/api/public-forms/config" && req.method === "GET") {
-    const config = publicFormForRequest(req, url);
-    if (!config) {
+    const baseConfig = publicFormForRequest(req, url);
+    if (!baseConfig) {
       sendJson(res, 404, { error: "Formulier niet gevonden" });
       return true;
     }
+    const config = await resolvePublicFormConfig(baseConfig);
     const formAuth = requirePublicFormAccess(req, res, config);
     if (!formAuth) return true;
     sendJson(res, 200, publicFormClientConfig(config, formAuth.profile));
     return true;
   }
 
-  if (url.pathname === "/api/public-forms/submit" && req.method === "POST") {
-    const body = await readPublicFormSubmitBody(req);
-    const config = publicFormFromSlug(body.slug) || publicFormForRequest(req, url);
-    if (!config) {
+  if (url.pathname === "/api/public-forms/config" && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return true;
+    const body = await readBody(req);
+    const baseConfig = publicFormFromSlug(body.slug) || publicFormForRequest(req, url);
+    if (!baseConfig) {
       sendJson(res, 404, { error: "Formulier niet gevonden" });
       return true;
     }
+    const currentConfig = await resolvePublicFormConfig(baseConfig);
+    const state = await Promise.resolve(peopleStorage.readState());
+    const profile = (state.people || []).find((person) => person.id === auth.profile.id) || auth.profile;
+    if (!canManagePublicForm(profile, currentConfig)) {
+      sendJson(res, 403, { error: "Je hebt geen leidingrechten voor dit formulier." });
+      return true;
+    }
+    const override = sanitizePublicFormOverride(baseConfig, body.config || {});
+    await publicFormsStore.saveConfigOverride(baseConfig.slug, override, profile);
+    const updatedConfig = mergePublicFormConfig(baseConfig, override);
+    sendJson(res, 200, { ok: true, config: publicFormClientConfig(updatedConfig, profile) });
+    return true;
+  }
+
+  if (url.pathname === "/api/public-forms/submit" && req.method === "POST") {
+    const body = await readPublicFormSubmitBody(req);
+    const baseConfig = publicFormFromSlug(body.slug) || publicFormForRequest(req, url);
+    if (!baseConfig) {
+      sendJson(res, 404, { error: "Formulier niet gevonden" });
+      return true;
+    }
+    const config = await resolvePublicFormConfig(baseConfig);
     const formAuth = requirePublicFormAccess(req, res, config);
     if (!formAuth) return true;
     if (!publicFormRateLimitAllows(req, config.slug)) {
@@ -999,3 +1048,13 @@ async function shutdown() {
 
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
+
+
+
+
+
+
+
+
+
+

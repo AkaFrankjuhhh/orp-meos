@@ -1,11 +1,11 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="nl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>ORP Defensie Formulier</title>
-    <link rel="stylesheet" href="/public-forms.css?v=20260524" />
+    <link rel="stylesheet" href="/public-forms.css?v=20260526-admin" />
   </head>
   <body>
     <main class="form-shell">
@@ -16,6 +16,28 @@
         <div id="formNotice" class="form-notice" hidden></div>
       </section>
 
+
+      <section id="formAdminPanel" class="form-card form-admin" hidden>
+        <div class="form-admin-head">
+          <div>
+            <h2>Formulierbeheer</h2>
+            <p id="formAdminAccess"></p>
+          </div>
+          <button id="toggleFormAdmin" type="button" class="ghost-button">Bewerken</button>
+        </div>
+        <form id="formAdminForm" class="form-admin-grid" hidden>
+          <label>Titel<input id="adminFormTitle" type="text" /></label>
+          <label>Subtitel<textarea id="adminFormSubtitle" rows="2"></textarea></label>
+          <label>Notice<textarea id="adminFormNotice" rows="3"></textarea></label>
+          <label>Accentkleur<input id="adminFormAccent" type="text" placeholder="#f59e0b" /></label>
+          <label class="full">Vragen JSON<textarea id="adminFormQuestions" rows="12" spellcheck="false"></textarea></label>
+          <div id="formAdminMessage" class="form-message" hidden></div>
+          <menu>
+            <button id="cancelFormAdmin" type="button" class="ghost-button">Annuleren</button>
+            <button class="submit-button" type="submit">Opslaan</button>
+          </menu>
+        </form>
+      </section>
       <form id="publicForm" class="form-card form-fields" novalidate>
         <input id="website" name="website" type="text" autocomplete="off" tabindex="-1" class="hp-field" />
         <div id="questions"></div>
@@ -23,6 +45,7 @@
         <button id="submitButton" class="submit-button" type="submit">Formulier verzenden</button>
       </form>
     </main>
-    <script src="/public-forms.js?v=20260524"></script>
+    <script src="/public-forms.js?v=20260526-admin"></script>
   </body>
 </html>
+

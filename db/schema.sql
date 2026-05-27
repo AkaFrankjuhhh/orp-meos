@@ -185,3 +185,50 @@ CREATE TABLE IF NOT EXISTS public_form_submissions (
 );
 
 CREATE INDEX IF NOT EXISTS public_form_submissions_slug_idx ON public_form_submissions(form_slug, submitted_at DESC);
+
+
+CREATE TABLE IF NOT EXISTS public_form_configs (
+  slug text PRIMARY KEY,
+  config jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_by_id text,
+  updated_by_name text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id uuid PRIMARY KEY,
+  scope text NOT NULL,
+  action text NOT NULL,
+  target_id text,
+  target_label text,
+  actor_id text,
+  actor_name text,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS audit_log_scope_created_idx ON audit_log(scope, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_log_target_idx ON audit_log(target_id, created_at DESC);
+
+
+CREATE TABLE IF NOT EXISTS discord_sync_jobs (
+  id uuid PRIMARY KEY,
+  type text NOT NULL,
+  person_id text REFERENCES people(id) ON DELETE SET NULL,
+  discord_id text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status text NOT NULL DEFAULT 'pending',
+  attempts integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 5,
+  last_error text,
+  run_after timestamptz NOT NULL DEFAULT now(),
+  locked_at timestamptz,
+  locked_by text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS discord_sync_jobs_status_run_idx ON discord_sync_jobs(status, run_after, created_at);
+CREATE INDEX IF NOT EXISTS discord_sync_jobs_person_idx ON discord_sync_jobs(person_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS discord_sync_jobs_discord_idx ON discord_sync_jobs(discord_id, created_at DESC);

@@ -1,6 +1,6 @@
-﻿const fs = require("node:fs");
+const fs = require("node:fs");
 const path = require("node:path");
-const { withClient } = require("../modules/db");
+const { withClient, closePool } = require("../modules/db");
 
 (async () => {
   const schemaPath = path.join(__dirname, "..", "db", "schema.sql");
@@ -9,9 +9,9 @@ const { withClient } = require("../modules/db");
     await client.query(schema);
   });
   console.log("Database schema is aangemaakt/bijgewerkt.");
-})().catch((error) => {
+  await closePool();
+})().catch(async (error) => {
   console.error(error.message);
+  await closePool().catch(() => {});
   process.exit(1);
 });
-
-

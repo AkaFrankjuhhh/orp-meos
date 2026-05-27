@@ -1,3 +1,4 @@
+﻿const crypto = require("node:crypto");
 const { withClient } = require("./db");
 
 let ensured = false;
@@ -18,6 +19,30 @@ async function ensurePublicFormsTable() {
     )
   `));
   await withClient((client) => client.query("create index if not exists public_form_submissions_slug_idx on public_form_submissions(form_slug, submitted_at desc)"));
+  await withClient((client) => client.query(`
+    create table if not exists public_form_configs (
+      slug text primary key,
+      config jsonb not null default '{}'::jsonb,
+      updated_by_id text,
+      updated_by_name text,
+      updated_at timestamptz not null default now()
+    )
+  `));
+  await withClient((client) => client.query(`
+    create table if not exists audit_log (
+      id uuid primary key,
+      scope text not null,
+      action text not null,
+      target_id text,
+      target_label text,
+      actor_id text,
+      actor_name text,
+      details jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now()
+    )
+  `));
+  await withClient((client) => client.query("create index if not exists audit_log_scope_created_idx on audit_log(scope, created_at desc)"));
+  await withClient((client) => client.query("create index if not exists audit_log_target_idx on audit_log(target_id, created_at desc)"));
   ensured = true;
 }
 
@@ -61,7 +86,52 @@ function createPublicFormsStore({ storageMode, readState, writeState, afterWrite
     return submission;
   }
 
-  return { saveSubmission, ensurePublicFormsTable };
+  async function readConfigOverride(slug) {
+    if (storageMode === "postgres") {
+      await ensurePublicFormsTable();
+      const result = await withClient((client) => client.query("select config from public_form_configs where slug = $1", [slug]));
+      return result.rows[0]?.config || {};
+    }
+    const state = await Promise.resolve(readState());
+    return state.publicFormConfigs?.[slug] || {};
+  }
+
+  async function saveConfigOverride(slug, override, actor) {
+    if (storageMode === "postgres") {
+      await ensurePublicFormsTable();
+      await withClient(async (client) => {
+        await client.query("begin");
+        try {
+          await client.query(`insert into public_form_configs(slug, config, updated_by_id, updated_by_name, updated_at)
+            values($1, $2::jsonb, $3, $4, now())
+            on conflict(slug) do update set
+              config = excluded.config,
+              updated_by_id = excluded.updated_by_id,
+              updated_by_name = excluded.updated_by_name,
+              updated_at = now()`, [slug, JSON.stringify(override || {}), actor?.id || "", actor?.name || ""]);
+          await client.query(`insert into audit_log(id, scope, action, target_id, target_label, actor_id, actor_name, details)
+            values($1, 'forms', 'Formulierconfig bijgewerkt', $2, $3, $4, $5, $6::jsonb)`, [crypto.randomUUID(), slug, slug, actor?.id || "", actor?.name || "", JSON.stringify({ slug })]);
+          await client.query("commit");
+        } catch (error) {
+          await client.query("rollback");
+          throw error;
+        }
+      });
+      afterWrite?.();
+      return override;
+    }
+
+    const state = await Promise.resolve(readState());
+    state.publicFormConfigs = state.publicFormConfigs || {};
+    state.publicFormConfigs[slug] = override || {};
+    state.activity = state.activity || [];
+    state.activity.push(`${actor?.name || "Onbekend"} heeft formulierconfig ${slug} bijgewerkt.`);
+    await Promise.resolve(writeState(state));
+    afterWrite?.();
+    return override;
+  }
+
+  return { saveSubmission, ensurePublicFormsTable, readConfigOverride, saveConfigOverride };
 }
 
 module.exports = { createPublicFormsStore, ensurePublicFormsTable };

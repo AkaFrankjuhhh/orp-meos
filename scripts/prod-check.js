@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadEnv, withClient } = require('../modules/db');
+const { loadEnv, withClient, closePool } = require('../modules/db');
 
 loadEnv();
 
@@ -46,7 +46,8 @@ function mask(value) {
         (select count(*) from resignation_forms) as resignation_forms,
         (select count(*) from porto_units) as porto_units,
         (select count(*) from app_sessions where expires_at > now()) as active_sessions,
-        (select count(*) from hours) as hours
+        (select count(*) from hours) as hours,
+        (select count(*) from discord_sync_jobs) as discord_sync_jobs
     `);
     console.log(`Database: ${version.rows[0].version.split(' on ')[0]}`);
     console.log(`Aantallen: ${JSON.stringify(counts.rows[0])}`);
@@ -58,7 +59,11 @@ function mask(value) {
   }
 
   if (!missing.length && !warnings.length) console.log('Productiecheck OK.');
-})().catch((error) => {
+  await closePool();
+})().catch(async (error) => {
   console.error(`Productiecheck mislukt: ${error.message}`);
+  await closePool().catch(() => {});
   process.exit(1);
 });
+
+

@@ -14,7 +14,8 @@
     "discord:nicknames:dry": "node scripts/discord-sync-nicknames.js",
     "discord:nicknames:sync": "node scripts/discord-sync-nicknames.js --apply",
     "discord:profiles:dry": "node scripts/discord-sync-nicknames.js",
-    "discord:profiles:sync": "node scripts/discord-sync-nicknames.js --apply"
+    "discord:profiles:sync": "node scripts/discord-sync-nicknames.js --apply",
+    "discord:bot": "node scripts/discord-bot-worker.js"
   },
   "engines": {
     "node": ">=18"

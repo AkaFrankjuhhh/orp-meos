@@ -1,4 +1,4 @@
-﻿# Secrets
+# Secrets
 .env
 .env.*
 !.env.example
@@ -17,6 +17,7 @@ server.err.log
 data.json
 backups/
 db/postgres-state-export.json
+db/*.dump
 
 # Temporary files
 .data-*.tmp
@@ -26,3 +27,4 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 .vscode/
+

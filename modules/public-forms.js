@@ -1,4 +1,4 @@
-const crypto = require("node:crypto");
+﻿const crypto = require("node:crypto");
 const { URL } = require("node:url");
 
 const publicFormConfigs = {
@@ -130,6 +130,87 @@ const publicFormConfigs = {
   }
 };
 
+const publicFormManagerBadges = {
+  herintrede: ["Kader"],
+  overstap: ["Kader"],
+  klachten: ["Kader"],
+  otc: ["OTC-Leiding", "Trainer-Leiding"],
+  hrb: ["HRB-Leiding"],
+  "w-s": ["W&S-Leiding", "W&S"],
+  hovj: ["OvJ"]
+};
+
+function clonePublicFormConfig(config) {
+  return JSON.parse(JSON.stringify(config || {}));
+}
+
+function managerBadgesForConfig(config) {
+  return config?.managerBadges || publicFormManagerBadges[config?.slug] || ["Kader"];
+}
+
+function canManagePublicForm(profile, config) {
+  if (!profile || !config) return false;
+  const rank = profile.rank || "";
+  const functionBadges = new Set([profile.permRole, ...(profile.extraFunctions || [])].filter(Boolean));
+  if (["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"].includes(rank)) functionBadges.add("Kader");
+  if (functionBadges.has("Kader")) return true;
+  const taskBadges = new Set(profile.badges || []);
+  return managerBadgesForConfig(config).some((badge) => functionBadges.has(badge) || taskBadges.has(badge));
+}
+
+function sanitizeQuestion(rawQuestion) {
+  const allowedTypes = new Set(["text", "textarea", "select", "checkboxGroup", "file"]);
+  const id = normalizeSlug(rawQuestion?.id || rawQuestion?.label || "vraag").slice(0, 48);
+  const label = String(rawQuestion?.label || "Vraag").trim().slice(0, 160);
+  const type = allowedTypes.has(rawQuestion?.type) ? rawQuestion.type : "text";
+  const question = {
+    id,
+    label,
+    type,
+    required: Boolean(rawQuestion?.required)
+  };
+  if (rawQuestion?.placeholder) question.placeholder = String(rawQuestion.placeholder).trim().slice(0, 180);
+  if (rawQuestion?.help) question.help = String(rawQuestion.help).trim().slice(0, 320);
+  if (rawQuestion?.showIf && typeof rawQuestion.showIf === "object") {
+    const field = String(rawQuestion.showIf.field || "").trim().slice(0, 48);
+    if (field) {
+      question.showIf = { field };
+      if (rawQuestion.showIf.includes !== undefined) question.showIf.includes = String(rawQuestion.showIf.includes).slice(0, 80);
+      if (rawQuestion.showIf.equals !== undefined) question.showIf.equals = String(rawQuestion.showIf.equals).slice(0, 80);
+    }
+  }
+  if (["select", "checkboxGroup"].includes(type)) {
+    question.options = (Array.isArray(rawQuestion?.options) ? rawQuestion.options : [])
+      .slice(0, 40)
+      .map((option) => typeof option === "object"
+        ? { value: String(option.value || option.label || "").slice(0, 80), label: String(option.label || option.value || "").slice(0, 120) }
+        : String(option || "").slice(0, 120))
+      .filter((option) => typeof option === "string" ? option : option.value && option.label);
+  }
+  if (type === "file") question.accept = ".png,.jpg,.jpeg,.webp";
+  return question;
+}
+
+function sanitizePublicFormOverride(config, rawOverride = {}) {
+  const override = {};
+  for (const key of ["title", "subtitle", "notice", "accent"]) {
+    if (rawOverride[key] !== undefined) override[key] = String(rawOverride[key] || "").trim().slice(0, key === "notice" ? 900 : 220);
+  }
+  if (override.accent && !/^#[0-9a-f]{6}$/i.test(override.accent)) override.accent = config.accent || "#f59e0b";
+  if (Array.isArray(rawOverride.questions)) {
+    override.questions = rawOverride.questions.slice(0, 40).map(sanitizeQuestion);
+  }
+  return override;
+}
+
+function mergePublicFormConfig(config, override = {}) {
+  const merged = clonePublicFormConfig(config);
+  for (const key of ["title", "subtitle", "notice", "accent"]) {
+    if (override[key] !== undefined) merged[key] = override[key];
+  }
+  if (Array.isArray(override.questions)) merged.questions = override.questions.map(sanitizeQuestion);
+  return merged;
+}
 function normalizeSlug(value) {
   const raw = String(value || "").trim().toLowerCase();
   if (["w&s", "wens", "ws"].includes(raw)) return "w-s";
@@ -163,7 +244,16 @@ function publicFormClientConfig(config, profile = null) {
     notice: config.notice || "",
     accent: config.accent || "#f59e0b",
     internalOnly: Boolean(config.internalOnly),
-    questions
+    managerBadges: managerBadgesForConfig(config),
+    canManage: canManagePublicForm(profile, config),
+    questions,
+    editable: canManagePublicForm(profile, config) ? {
+      title: config.title,
+      subtitle: config.subtitle || "",
+      notice: config.notice || "",
+      accent: config.accent || "#f59e0b",
+      questions: config.questions || []
+    } : null
   };
 }
 
@@ -292,5 +382,9 @@ module.exports = {
   validatePublicFormSubmission,
   createPublicFormSubmission,
   publicFormWebhookUrl,
-  buildPublicFormWebhookPayload
+  buildPublicFormWebhookPayload,
+  mergePublicFormConfig,
+  sanitizePublicFormOverride,
+  canManagePublicForm
 };
+

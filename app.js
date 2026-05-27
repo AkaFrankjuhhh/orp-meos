@@ -763,9 +763,58 @@ function hasActiveMentorChecklistInteraction() {
   const hasUnsavedMentorNote = activePageId() === "mentor-checklist" && notesField && notesField.value.trim().length > 0;
   return activePageId() === "mentor-checklist" && (Date.now() < mentorChecklistEditingUntil || isTypingMentorNote || hasUnsavedMentorNote);
 }
+
+function hasActiveLiveEditInteraction() {
+  const active = document.activeElement;
+  if (!active) return false;
+  if (active.matches?.("textarea, input, select, [contenteditable='true']")) return true;
+  if (active.closest?.("dialog[open], .site-notice-dialog[open]")) return true;
+  return false;
+}
+
+function renderLiveScope(scope = "state") {
+  const page = activePageId();
+  renderKaderNavigation();
+  renderNavigationCounters();
+  renderNotifications();
+
+  if (["people", "state"].includes(scope)) {
+    renderProfile();
+    renderDashboard();
+    renderEmployeeDirectory();
+    renderMentorOverview();
+    renderMentorChecklist();
+    renderMentorTrajectory();
+    renderMentorLeadershipLog();
+    renderRecruitment();
+    renderPeople();
+    renderArchive();
+    renderOvJLeadershipLog();
+    renderLogbook();
+  }
+
+  if (["forms", "state"].includes(scope)) {
+    renderDashboard();
+    renderI8Forms();
+    renderOvJLeadershipLog();
+    renderAbsenceOverview();
+    renderResignationOverview();
+    renderLogbook();
+  }
+
+  if (["public-forms", "state"].includes(scope)) {
+    renderLogbook();
+  }
+
+  if (!["people", "forms", "public-forms", "porto", "state"].includes(scope)) {
+    render();
+  }
+
+  setPage(page);
+}
 async function refreshReviewCounters() {
   if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
-  if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction()) return;
+  if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction() || hasActiveLiveEditInteraction()) return;
   const loaded = await loadState();
   if (!loaded) return;
   renderNavigationCounters();
@@ -784,21 +833,35 @@ function startReviewCounterPolling() {
 // Houdt het ontslagformulier gekoppeld aan het eigen actieve profiel.
 // Houdt het W&S-formulier gekoppeld aan het ingelogde profiel en de huidige datum.
 
+const pendingLiveScopes = new Set();
+let liveRefreshDeferTimer = null;
+
 function scheduleLiveRefresh(scope = "state") {
+  pendingLiveScopes.add(scope || "state");
   if (liveRefreshTimer) return;
   liveRefreshTimer = window.setTimeout(async () => {
     liveRefreshTimer = null;
     if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
-    if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction()) {
-      scheduleLiveRefresh(scope);
+    if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction() || hasActiveLiveEditInteraction()) {
+      if (!liveRefreshDeferTimer) {
+        liveRefreshDeferTimer = window.setTimeout(() => {
+          liveRefreshDeferTimer = null;
+          scheduleLiveRefresh("state");
+        }, 1200);
+      }
       return;
     }
+    const scopes = Array.from(pendingLiveScopes);
+    pendingLiveScopes.clear();
     const loaded = await loadState();
     if (!loaded) return;
-    render();
-    const page = activePageId();
-    if (page) setPage(page);
+    const uniqueScopes = scopes.includes("state") ? ["state"] : [...new Set(scopes)];
+    uniqueScopes.forEach(renderLiveScope);
   }, 350);
+}
+
+function listenForLiveScope(scope) {
+  liveEventSource.addEventListener(`${scope}:update`, () => scheduleLiveRefresh(scope));
 }
 
 function startLiveUpdates() {
@@ -808,6 +871,7 @@ function startLiveUpdates() {
     const payload = JSON.parse(event.data || "{}");
     scheduleLiveRefresh(payload.scope || "state");
   });
+  ["people", "forms", "porto", "public-forms"].forEach(listenForLiveScope);
   liveEventSource.onerror = () => {
     liveEventSource?.close();
     liveEventSource = null;
@@ -819,7 +883,10 @@ function stopLiveUpdates() {
   liveEventSource?.close();
   liveEventSource = null;
   if (liveRefreshTimer) window.clearTimeout(liveRefreshTimer);
+  if (liveRefreshDeferTimer) window.clearTimeout(liveRefreshDeferTimer);
   liveRefreshTimer = null;
+  liveRefreshDeferTimer = null;
+  pendingLiveScopes.clear();
 }
 function renderLogbook() {
   const isKader = hasKaderAccess();
@@ -1614,3 +1681,9 @@ init().catch((error) => {
     body: JSON.stringify({ message: error?.stack || error?.message || String(error), source: "init", page: location.href })
   }).catch(() => {});
 });
+
+
+
+
+
+
