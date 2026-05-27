@@ -3967,16 +3967,10 @@ html[data-typography="system"] body[data-device="mobile"] .profile-person-name {
 }
 
 #mentor-overzicht .mentor-row {
-  grid-template-columns: minmax(170px, 1fr) minmax(170px, 0.86fr) minmax(120px, 0.52fr) minmax(130px, 0.56fr) minmax(170px, 0.62fr) minmax(88px, 0.32fr);
+  grid-template-columns: minmax(170px, 1fr) minmax(170px, 0.86fr) minmax(120px, 0.52fr) minmax(130px, 0.56fr) minmax(170px, 0.62fr);
   gap: 10px;
   min-height: 40px;
   padding: 7px 12px;
-}
-
-.mentor-open-checklist {
-  justify-self: end;
-  min-width: 78px;
-  padding: 8px 10px;
 }
 
 .mentor-progress-wrap {

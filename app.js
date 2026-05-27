@@ -1350,28 +1350,14 @@ function wireEvents() {
   $("#mentorSearchInput").addEventListener("input", renderMentorOverview);
   $("#mentorOverviewList").addEventListener("click", (event) => {
     if (event.target.closest(".mentor-test-overview")) return;
-    const checklistButton = event.target.closest("[data-open-mentor-checklist]");
-    if (checklistButton) {
-      event.stopPropagation();
-      openMentorChecklist(checklistButton.dataset.openMentorChecklist);
-      return;
-    }
     const row = event.target.closest("[data-open-mentor]");
     if (!row) return;
-    if (canViewMentorLeadershipLog()) {
-      selectMentorAuditPerson(row.dataset.openMentor);
-      return;
-    }
     openMentorChecklist(row.dataset.openMentor);
   });
   $("#mentorOverviewList").addEventListener("keydown", (event) => {
     if (!event.target.matches("[data-open-mentor]")) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    if (canViewMentorLeadershipLog()) {
-      selectMentorAuditPerson(event.target.dataset.openMentor);
-      return;
-    }
     openMentorChecklist(event.target.dataset.openMentor);
   });
   $("#mentorOverviewList").addEventListener("change", async (event) => {
