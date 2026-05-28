@@ -31,7 +31,7 @@ function statusInfoFor(person) {
 function renderAbsenceOverview() {
   const container = $("#absenceOverview");
   if (!container) return;
-  if (!hasKaderAccess()) {
+  if (!canReviewAbsences()) {
     container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
     return;
   }

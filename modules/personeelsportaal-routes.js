@@ -169,6 +169,21 @@ function createPersoneelsportaalRouteHandler(deps) {
     return (state.blacklist || []).find((entry) => normalizeDiscordId(entry.discordId) === normalized && !entry.revokedAt) || null;
   }
 
+  function canManageRankAction(permissions, person, action) {
+    if (permissions.canManagePeople) return true;
+    if (!permissions.canManagePersonnelRanks || !person) return false;
+    const adjudantIndex = ranks.indexOf("Adjudant");
+    const currentIndex = ranks.indexOf(person.rank);
+    if (adjudantIndex < 0 || currentIndex < 0) return false;
+    if (action === "promote") {
+      const nextRank = ranks[currentIndex - 1];
+      const nextIndex = ranks.indexOf(nextRank);
+      return nextIndex >= adjudantIndex;
+    }
+    if (action === "demote") return currentIndex >= adjudantIndex;
+    return false;
+  }
+
   function blacklistErrorMessage() {
     return "PERSOON IS GEBLACKLIST\nKan niet worden aangenomen";
   }
@@ -644,8 +659,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     const auth = requireAuth(req, res);
     if (!auth) return;
     const state = await readFormsState();
-    if (!(await hasKaderAccess(auth, state))) {
-      sendJson(res, 403, { error: "Alleen Kader mag afwezigheid beoordelen." });
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canReviewAbsences) {
+      sendJson(res, 403, { error: "Alleen Kader, Hoofdofficier of Officiersraad mag afwezigheid beoordelen." });
       return;
     }
     const body = await readBody(req);
@@ -1638,10 +1654,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const auth = requireAuth(req, res);
     if (!auth) return;
     const state = await readPeopleState();
-    if (!(await hasKaderAccess(auth, state))) {
-      sendJson(res, 403, { error: "Alleen Kader mag deze actie uitvoeren." });
-      return;
-    }
+    const permissions = permissionsForAuth(auth, state);
     const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(personActionMatch[1]));
     if (!person) {
       sendJson(res, 404, { error: "Personeelslid niet gevonden." });
@@ -1649,6 +1662,14 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     const action = personActionMatch[2];
+    if (["promote", "demote"].includes(action) && !canManageRankAction(permissions, person, action)) {
+      sendJson(res, 403, { error: "Alleen Kader mag boven Adjudant aanpassen." });
+      return;
+    }
+    if (!["promote", "demote"].includes(action) && !permissions.canManagePeople) {
+      sendJson(res, 403, { error: "Alleen Kader mag deze actie uitvoeren." });
+      return;
+    }
     const body = await readBody(req);
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);

@@ -56,6 +56,11 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     return {
       canViewLogbook: isKader,
       canManagePeople: isKader,
+      canViewPersonnel: isKader || isHoofdofficier || isOfficiersraad,
+      canManagePersonnelRanks: isKader || isHoofdofficier || isOfficiersraad,
+      canReviewAbsences: isKader || isHoofdofficier || isOfficiersraad,
+      canViewResignationOverview: isKader || isHoofdofficier,
+      canViewPersonnelArchive: isKader || isHoofdofficier,
       canViewKaderPages: isKader,
       canManageProfileBadges: isKader || isHoofdofficier || isOfficiersraad,
       canManageQualifications: isKader || isTrainer || isTrainerLeadership,

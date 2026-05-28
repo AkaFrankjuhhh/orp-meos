@@ -303,7 +303,7 @@ function stateForProfile(state, permissions, profileId = "") {
     nextState.i8Forms = nextState.i8Forms.filter((form) => form.personId === profileId);
   }
   nextState.resignationForms = Array.isArray(nextState.resignationForms) ? nextState.resignationForms : [];
-  if (!permissions?.canManagePeople) {
+  if (!permissions?.canViewResignationOverview) {
     nextState.resignationForms = nextState.resignationForms.filter((form) => form.memberId === profileId);
   }
   nextState.blacklist = Array.isArray(nextState.blacklist) ? nextState.blacklist : [];

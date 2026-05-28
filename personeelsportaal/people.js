@@ -152,6 +152,10 @@ function renderPersonnelReadiness(person) {
 function renderPeople() {
   const bulkHoursBtn = $("#bulkHoursBtn");
   if (bulkHoursBtn) bulkHoursBtn.hidden = !canManageHours();
+  if (!canViewPersonnel()) {
+    $("#peopleList").innerHTML = '<div class="feed-item">Geen toegang.</div>';
+    return;
+  }
   const query = $("#searchInput")?.value.toLowerCase() || "";  const people = state.people
     .filter((person) => person.status === "Actief")
     .filter((person) => {
@@ -196,8 +200,8 @@ function renderPeople() {
           <button class="card-menu" type="button" aria-label="Meer opties">...</button>
           <div class="card-menu-panel">
             <button type="button" data-open-person-profile="${person.id}">Profiel openen</button>
-            <button type="button" data-edit="${person.id}">Bewerken</button>
-            <button type="button" data-clear-history="${person.id}">Rang geschiedenis wissen</button>
+            ${hasKaderAccess() ? `<button type="button" data-edit="${person.id}">Bewerken</button>` : ""}
+            ${hasKaderAccess() ? `<button type="button" data-clear-history="${person.id}">Rang geschiedenis wissen</button>` : ""}
           </div>
         </div>
         <div class="person-head">
@@ -226,8 +230,8 @@ function renderPeople() {
           </div>
         </details>
         <div class="person-actions">
-          ${hasKaderAccess() && ranks.indexOf(person.rank) > 0 ? `<button class="primary" type="button" data-promote="${person.id}">Promotie</button>` : ""}
-          ${hasKaderAccess() && ranks.indexOf(person.rank) < ranks.length - 1 ? `<button class="ghost secondary" type="button" data-demote="${person.id}">Degraderen</button>` : ""}
+          ${canManagePersonnelRanksFor(person, "promote") && ranks.indexOf(person.rank) > 0 ? `<button class="primary" type="button" data-promote="${person.id}">Promotie</button>` : ""}
+          ${canManagePersonnelRanksFor(person, "demote") && ranks.indexOf(person.rank) < ranks.length - 1 ? `<button class="ghost secondary" type="button" data-demote="${person.id}">Degraderen</button>` : ""}
           ${hasKaderAccess() ? `<button class="ghost danger" type="button" data-dismiss="${person.id}">Ontslag</button>` : ""}
         </div>
       </article>

@@ -5,6 +5,12 @@ function archiveDiscordId(value) {
 }
 
 function renderArchive() {
+  const container = $("#archiveList");
+  if (!container) return;
+  if (!canViewPersonnelArchive()) {
+    container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
+    return;
+  }
   const query = $("#archiveSearchInput")?.value.toLowerCase() || "";
   const activeBlacklistIds = new Set((state.blacklist || []).filter((entry) => !entry.revokedAt).map((entry) => archiveDiscordId(entry.discordId)));
   const archived = state.people
@@ -15,7 +21,7 @@ function renderArchive() {
     })
     .sort((a, b) => new Date(b.dismissalDate || 0) - new Date(a.dismissalDate || 0));
 
-  $("#archiveList").innerHTML = archived.length
+  container.innerHTML = archived.length
     ? archived
         .map((person) => `
           <article class="person-card">
@@ -40,14 +46,14 @@ function renderArchive() {
               <span class="person-label">Ontslag Reden</span>
               <p>${escapeHtml(person.dismissalReason || "-")}</p>
             </div>
-            <div class="person-actions">
+            ${hasKaderAccess() ? `<div class="person-actions">
               <button class="ghost" type="button" data-restore="${person.id}">Herintrede</button>
               ${hasKaderAccess() && person.discordId && !activeBlacklistIds.has(archiveDiscordId(person.discordId))
                 ? `<button class="ghost danger" type="button" data-blacklist-person="${person.id}">Blacklist</button>`
                 : ""}
               ${activeBlacklistIds.has(archiveDiscordId(person.discordId)) ? '<span class="badge danger-badge">Blacklisted</span>' : ""}
               <button class="danger" type="button" data-delete-archive="${person.id}">Voorgoed verwijderen</button>
-            </div>
+            </div>` : ""}
           </article>
         `)
         .join("")
@@ -105,7 +111,7 @@ function renderBlacklist() {
 function renderResignationOverview() {
   const container = $("#resignationOverview");
   if (!container) return;
-  if (!hasKaderAccess()) {
+  if (!canViewResignationOverview()) {
     container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
     return;
   }
@@ -119,11 +125,11 @@ function renderResignationOverview() {
           <strong>${escapeHtml(form.name || memberName(form.memberId))}</strong>
           <span>${escapeHtml(form.rank || "-")}</span>
           <span>${escapeHtml(formatDate(form.requestedAt))}</span>
-          <div class="resignation-overview-actions">
+          ${hasKaderAccess() ? `<div class="resignation-overview-actions">
             <button class="primary small" type="button" data-resignation-process="${escapeHtml(form.id)}">Verwerkt</button>
             <button class="ghost small" type="button" data-resignation-cancel="${escapeHtml(form.id)}">Annuleren</button>
             <button class="danger small" type="button" data-resignation-delete="${escapeHtml(form.id)}">Verwijderen</button>
-          </div>
+          </div>` : ""}
         </div>
         <div class="resignation-overview-reason">
           <span>Reden</span>
