@@ -109,6 +109,22 @@ function personnelCurrentWeekHours(person) {
   return Number(entry?.hours) || 0;
 }
 
+function personnelOpsHoursLastWeeks(person, count = 2) {
+  if (typeof recentHourWeeks !== "function" || typeof opsHoursForWeek !== "function") return 0;
+  return recentHourWeeks(count).reduce((sum, week) => sum + opsHoursForWeek(person, week), 0);
+}
+
+function renderPersonnelHourBadges(person) {
+  const serviceHours = personnelCurrentWeekHours(person);
+  const opsHours = personnelOpsHoursLastWeeks(person, 2);
+  const serviceText = typeof displayHourValue === "function" ? displayHourValue(serviceHours) : String(serviceHours);
+  const opsText = typeof displayHourValue === "function" ? displayHourValue(opsHours) : String(opsHours);
+  return `
+    <span class="person-hours-badge service-hours" title="Diensturen huidige week">${escapeHtml(serviceText)}u dienst</span>
+    <span class="person-hours-badge ops-hours" title="OPS uren laatste 2 weken">${escapeHtml(opsText)}u OPS</span>
+  `;
+}
+
 function renderPersonnelReadiness(person) {
   const hours = personnelCurrentWeekHours(person);
   const hourText = typeof displayHourValue === "function" ? displayHourValue(hours) : String(hours);
@@ -193,7 +209,10 @@ function renderPeople() {
             <span class="person-label">Naam</span>
             <h2>${escapeHtml(person.name)}</h2>
             <p class="muted">${escapeHtml(person.rank)} - ${escapeHtml(person.serviceNumber || "Geen roepnummer")}</p>
-            <span class="person-status ${statusInfoFor(person).className}">${escapeHtml(statusInfoFor(person).label)}</span>
+            <div class="person-status-line">
+              <span class="person-status ${statusInfoFor(person).className}">${escapeHtml(statusInfoFor(person).label)}</span>
+              ${renderPersonnelHourBadges(person)}
+            </div>
           </div>
         </div>
         <div class="person-meta">
