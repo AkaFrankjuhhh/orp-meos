@@ -202,6 +202,7 @@
                   </div>
                   <div class="manual-hours-spacer" aria-hidden="true"></div>
                   <div class="manual-hours-heading">Diensturen afgelopen weken</div>
+                  <div id="profileHoursWeeks" class="manual-hours-weeks"></div>
                   <form id="profileHoursEntry" class="manual-hours-entry" hidden>
                     <input id="profileHoursPersonId" type="hidden" />
                     <input id="profileHoursWeekYear" type="hidden" />
@@ -210,7 +211,6 @@
                     <input id="profileHoursInput" type="number" min="0" max="99" step="0.1" placeholder="0" />
                     <button class="primary small" type="submit">Opslaan</button>
                   </form>
-                  <div id="profileHoursWeeks" class="manual-hours-weeks"></div>
                 </section>
                 <section class="profile-hours-column" data-profile-hours-kind="ops">
                   <div class="manual-hours-total">
@@ -535,7 +535,6 @@
             </div>
           </div>
           <div id="opsTimesOverview" class="leadership-list"></div>
-          <div id="opsTimesDetail" class="leadership-detail-list ops-times-detail"></div>
         </section>
       </section>
       <section id="archief" class="page">
@@ -559,6 +558,22 @@
     </main>
 
 
+
+    <dialog id="opsTimesDialog">
+      <div class="dialog-form ops-times-dialog">
+        <div class="panel-head">
+          <div>
+            <h2 id="opsTimesDialogTitle">OPS tijden</h2>
+            <p id="opsTimesDialogSubtitle" class="muted">Laatste 4 weken</p>
+          </div>
+          <button class="ghost icon" type="button" id="closeOpsTimesDialog">&times;</button>
+        </div>
+        <div id="opsTimesDialogRows" class="leadership-detail-list"></div>
+        <menu>
+          <button id="closeOpsTimesFooter" class="ghost" type="button">Sluiten</button>
+        </menu>
+      </div>
+    </dialog>
 
     <dialog id="hoursOverviewDialog">
       <form method="dialog" class="dialog-form hours-overview-dialog">

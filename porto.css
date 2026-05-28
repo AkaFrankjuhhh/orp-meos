@@ -180,27 +180,46 @@ body.porto-locked .porto-lockscreen {
   text-shadow: none;
 }
 
+.porto-status-zero-card {
+  width: min(560px, 94vw);
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(59, 130, 246, 0.34);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.86);
+  box-shadow: 0 18px 45px rgba(2, 6, 23, 0.28);
+}
+
 .porto-status-request-label {
-  width: min(520px, 92vw);
   display: grid;
   gap: 8px;
-  color: rgba(229, 231, 235, 0.9);
+  color: #f8fafc;
   text-align: left;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
 }
 
 .porto-status-request-label textarea {
   width: 100%;
-  min-height: 84px;
+  min-height: 96px;
   resize: vertical;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 10px;
-  background: rgba(10, 17, 30, 0.78);
+  border: 1px solid rgba(96, 165, 250, 0.42);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.82);
   color: #f8fafc;
-  padding: 11px 12px;
+  padding: 12px 13px;
   font: inherit;
   font-weight: 700;
+}
+
+.porto-status-request-label textarea::placeholder {
+  color: rgba(203, 213, 225, 0.68);
+}
+
+.porto-status-zero-card .porto-status-button {
+  width: 100%;
+  margin: 0;
 }
 
 
@@ -1709,20 +1728,29 @@ body.porto-ops-workspace .porto-ops-empty {
 
 .porto-ops-request-note {
   display: grid;
-  gap: 5px;
+  gap: 7px;
   margin-top: 10px;
-  padding: 9px 10px;
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: 10px;
-  background: rgba(245, 158, 11, 0.08);
+  padding: 11px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 12px;
+  background: rgba(120, 53, 15, 0.34);
+  box-shadow: inset 3px 0 0 rgba(251, 191, 36, 0.86);
+}
+
+.porto-ops-request-note span {
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .porto-ops-request-note p {
   margin: 0;
-  color: #f8fafc;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.35;
+  color: #fff7ed;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 /* Porto visibility guard: panels met het hidden-attribuut mogen nooit door display:grid/flex regels zichtbaar worden. */

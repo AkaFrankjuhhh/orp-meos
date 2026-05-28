@@ -50,11 +50,13 @@
         <div id="portoStatusIntro" class="porto-status-intro">
           <h1>Defensie Porto-Systeem</h1>
           <p>Meld je hieronder aan via de status 0 knop om je aan te melden in dienst.</p>
-          <label class="porto-status-request-label">
-            <span>Koppelverzoek:</span>
-            <textarea id="portoStatusRequestInput" maxlength="240" placeholder="Bijvoorbeeld: wil graag gekoppeld worden aan 30-02 of noodhulp."></textarea>
-          </label>
-          <button id="portoStatus0Btn" class="porto-status-button" type="button">Status 0</button>
+          <div class="porto-status-zero-card">
+            <label class="porto-status-request-label">
+              <span>Koppelverzoek:</span>
+              <textarea id="portoStatusRequestInput" maxlength="240" placeholder="Bijvoorbeeld: wil graag gekoppeld worden aan 30-02 of noodhulp."></textarea>
+            </label>
+            <button id="portoStatus0Btn" class="porto-status-button" type="button">Status 0</button>
+          </div>
           <div class="porto-current-ops">
             <span id="portoCurrentOpsText">Huidige OPS:</span>
             <button id="portoOpsClaimBtn" class="porto-ops-action" type="button" hidden>OPS oppakken</button>

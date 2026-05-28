@@ -107,6 +107,25 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     }
   }
 
+  function refreshActivePortoPhoneForPerson(state, person, nowIso = new Date().toISOString()) {
+    let unitsChanged = false;
+    let settingsChanged = false;
+    const phone = person.portoPhone || "";
+    state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+    for (const unit of state.portoUnits) {
+      if (unit.memberId === person.id && unit.active !== false && unit.phone !== phone) {
+        unit.phone = phone;
+        unit.updatedAt = nowIso;
+        unitsChanged = true;
+      }
+    }
+    if (state.portoCurrentOps?.memberId === person.id && state.portoCurrentOps.phone !== phone) {
+      state.portoCurrentOps.phone = phone;
+      settingsChanged = true;
+    }
+    return { unitsChanged, settingsChanged };
+  }
+
   async function maintainPortoPresence(state, person, { touch = true } = {}) {
     const changedBySweep = sweepPortoPresence(state);
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
@@ -146,8 +165,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const { state, person } = context;
       const body = await readBody(req);
       person.portoPhone = String(body.portoPhone || "").trim().slice(0, 40);
-      await persistPortoState(state, { phonePerson: person });
-      sendJson(res, 200, { profile: person });
+      const { unitsChanged, settingsChanged } = refreshActivePortoPhoneForPerson(state, person);
+      await persistPortoState(state, {
+        phonePerson: person,
+        units: unitsChanged ? state.portoUnits : null,
+        settings: settingsChanged
+      });
+      const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
+      await sendPortoState(res, state, person, unit);
       return true;
     }
 

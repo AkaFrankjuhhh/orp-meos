@@ -222,8 +222,11 @@ $("#portoProfileForm").addEventListener("submit", async (event) => {
     return;
   }
   portoProfile = payload.profile || portoProfile;
+  portoDuty = payload.unit || portoDuty;
+  applyPortoPayload(payload);
   renderPortoProfileDialog();
   renderDutyPanel();
+  renderOpsPanel();
   $("#portoProfileDialog").close();
 });
 $("#portoLogoutBtn").addEventListener("click", async () => {

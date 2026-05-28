@@ -32,7 +32,6 @@ let pendingI8ArchiveDeleteId = "";
 let pendingAbsenceId = "";
 let selectedMentorProfileId = "";
 let activeI8Tab = "list";
-let selectedOpsTimesPersonId = "";
 const pageStorageKey = "orp-defensie-current-page";
 const profileStorageKey = "orp-defensie-current-profile";
 const mentorStorageKey = "orp-defensie-current-mentor";
@@ -256,11 +255,9 @@ function opsTimesRowsSince(startDate) {
 
 function renderOpsTimes() {
   const overview = $("#opsTimesOverview");
-  const detail = $("#opsTimesDetail");
-  if (!overview || !detail) return;
+  if (!overview) return;
   if (!hasKaderAccess()) {
     overview.innerHTML = '<div class="feed-item">Geen toegang.</div>';
-    detail.innerHTML = "";
     return;
   }
   const weekStart = startOfWeek();
@@ -296,23 +293,22 @@ function renderOpsTimes() {
       `).join("")}
     `
     : '<div class="feed-item">Nog geen OPS uren gelogd voor deze week.</div>';
-  renderOpsTimesDetail();
 }
 
-function renderOpsTimesDetail() {
-  const detail = $("#opsTimesDetail");
-  if (!detail || !hasKaderAccess()) return;
-  const selected = selectedOpsTimesPersonId;
-  if (!selected) {
-    detail.innerHTML = '<div class="feed-item">Klik op een naam om de OPS diensten van de laatste 4 weken te bekijken.</div>';
-    return;
-  }
+function openOpsTimesDialog(selected) {
+  const dialog = $("#opsTimesDialog");
+  const title = $("#opsTimesDialogTitle");
+  const subtitle = $("#opsTimesDialogSubtitle");
+  const rowsElement = $("#opsTimesDialogRows");
+  if (!dialog || !rowsElement || !selected || !hasKaderAccess()) return;
   const fourWeeksStart = startOfWeek();
   fourWeeksStart.setDate(fourWeeksStart.getDate() - 21);
   const rows = opsTimesRowsSince(fourWeeksStart).filter((entry) => (entry.memberId || entry.name || "onbekend") === selected);
   const totalSeconds = rows.reduce((sum, row) => sum + row.durationSeconds, 0);
   const name = rows[0]?.name || selected;
-  detail.innerHTML = `
+  if (title) title.textContent = name;
+  if (subtitle) subtitle.textContent = `Laatste 4 weken totaal: ${formatMinutes(totalSeconds / 60)}`;
+  rowsElement.innerHTML = `
     <article class="leadership-detail-row ops-times-summary">
       <strong>${escapeHtml(name)}</strong>
       <span>Laatste 4 weken totaal: ${escapeHtml(formatMinutes(totalSeconds / 60))}</span>
@@ -327,6 +323,7 @@ function renderOpsTimesDetail() {
       `).join("")
       : '<div class="feed-item">Geen OPS diensten gevonden in de laatste 4 weken.</div>'}
   `;
+  dialog.showModal();
 }
 
 async function loadState() {
@@ -1438,15 +1435,13 @@ function wireEvents() {
   $("#opsTimesOverview")?.addEventListener("click", (event) => {
     const row = event.target.closest("[data-ops-times-person]");
     if (!row) return;
-    selectedOpsTimesPersonId = row.dataset.opsTimesPerson || "";
-    renderOpsTimesDetail();
+    openOpsTimesDialog(row.dataset.opsTimesPerson || "");
   });
   $("#opsTimesOverview")?.addEventListener("keydown", (event) => {
     if (!event.target.matches("[data-ops-times-person]")) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    selectedOpsTimesPersonId = event.target.dataset.opsTimesPerson || "";
-    renderOpsTimesDetail();
+    openOpsTimesDialog(event.target.dataset.opsTimesPerson || "");
   });
   $("#absenceOverview").addEventListener("contextmenu", (event) => {
     const row = event.target.closest("[data-absence-id]");
@@ -1616,6 +1611,8 @@ function wireEvents() {
     openHoursOverviewDialog(viewed, kind);
   });
   $("#closeBulkHoursDialog")?.addEventListener("click", () => $("#bulkHoursDialog").close());
+  $("#closeOpsTimesDialog")?.addEventListener("click", () => $("#opsTimesDialog").close());
+  $("#closeOpsTimesFooter")?.addEventListener("click", () => $("#opsTimesDialog").close());
   $("#cancelBulkHoursDialog")?.addEventListener("click", () => $("#bulkHoursDialog").close());
   $("#profileHoursEntry")?.addEventListener("submit", async (event) => {
     event.preventDefault();
