@@ -284,9 +284,18 @@ function createPersoneelsportaalRouteHandler(deps) {
   }
 
   function i8NumberForServer(form, forms = []) {
+    if (form?.i8Number) return String(form.i8Number).padStart(3, "0");
     const ordered = forms.slice().sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
     const index = ordered.findIndex((entry) => entry.id === form.id);
     return String(index >= 0 ? index + 1 : ordered.length + 1).padStart(3, "0");
+  }
+
+  function nextI8NumberForServer(forms = []) {
+    const highest = forms.reduce((max, form, index) => {
+      const value = Number.parseInt(form.i8Number || i8NumberForServer(form, forms) || index + 1, 10);
+      return Number.isFinite(value) ? Math.max(max, value) : max;
+    }, 0);
+    return String(highest + 1).padStart(3, "0");
   }
 
   async function persistPersonNotifications(person, state) {
@@ -745,8 +754,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     const createdAt = new Date().toISOString();
+    state.i8Forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
     const form = {
       id: crypto.randomUUID(),
+      i8Number: nextI8NumberForServer(state.i8Forms),
       personId: member.id,
       personName: member.name,
       serviceNumber: member.serviceNumber || "",
@@ -767,7 +778,6 @@ function createPersoneelsportaalRouteHandler(deps) {
       reviewedByName: "",
       rejectionReason: ""
     };
-    state.i8Forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
     state.i8Forms.push(form);
     const activityMessage = `${member.name} heeft een I8 formulier ingediend.`;
     state.activity = state.activity || [];

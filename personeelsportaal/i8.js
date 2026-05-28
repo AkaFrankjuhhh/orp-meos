@@ -2,6 +2,7 @@
 
 let i8ArchiveStatusFilter = "all";
 let ovjLogDetailContext = null;
+let pendingI8ArchiveRouteNumber = "";
 
 function canViewOvJLeadershipLog() {
   return Boolean(permissions.canViewOvJLeadershipLog || hasKaderAccess());
@@ -46,11 +47,24 @@ function resetI8Form() {
 }
 
 function i8NumberFor(form, forms = state.i8Forms || []) {
+  if (form?.i8Number) return String(form.i8Number).padStart(3, "0");
   const ordered = forms
     .slice()
     .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
   const index = ordered.findIndex((entry) => entry.id === form.id);
   return String(index >= 0 ? index + 1 : ordered.length + 1).padStart(3, "0");
+}
+
+function normalizeI8RouteNumber(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits ? digits.padStart(3, "0") : "";
+}
+
+function i8FormByNumber(value) {
+  const number = normalizeI8RouteNumber(value);
+  if (!number) return null;
+  const forms = state.i8Forms || [];
+  return forms.find((form) => i8NumberFor(form, forms) === number) || null;
 }
 
 function i8DateTime(form) {
@@ -169,7 +183,27 @@ function renderI8DetailField(label, value) {
   return `<span><b>${escapeHtml(label)}</b>${escapeHtml(value || "-")}</span>`;
 }
 
-function openI8DetailDialog(formId) {
+function syncI8ArchiveDetailRoute(form, mode = "push") {
+  if (!form || activePageId() !== "i8-archief") return;
+  const number = i8NumberFor(form, state.i8Forms || []);
+  const nextPath = `/i8-archief/${number}`;
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (current === nextPath) return;
+  window.history[mode === "replace" ? "replaceState" : "pushState"]({ page: "i8-archief", i8Number: number }, "", nextPath);
+}
+
+function restoreI8ArchiveRoute(mode = "push") {
+  const currentPath = window.location.pathname.replace(/\/+$/, "");
+  if (!/^\/i8-archief\/[^/]+$/i.test(currentPath)) return;
+  window.history[mode === "replace" ? "replaceState" : "pushState"]({ page: "i8-archief" }, "", "/i8-archief");
+}
+
+function closeI8DetailDialog(options = {}) {
+  $("#i8DetailDialog")?.close();
+  if (options.restoreRoute !== false) restoreI8ArchiveRoute("push");
+}
+
+function openI8DetailDialog(formId, options = {}) {
   const forms = state.i8Forms || [];
   const form = forms.find((entry) => entry.id === formId);
   if (!form) return;
@@ -205,13 +239,45 @@ function openI8DetailDialog(formId) {
     </div>
   `;
   $("#i8DetailDialog").showModal();
+  if (options.syncArchiveUrl) syncI8ArchiveDetailRoute(form, options.routeMode || "push");
+}
+
+async function openI8ArchiveNumberFromRoute(value) {
+  const number = normalizeI8RouteNumber(value);
+  if (!number) return false;
+  if (!canViewOvJChannels()) return false;
+  const form = i8FormByNumber(number);
+  if (!form || !["approved", "rejected"].includes(form.status)) {
+    await showSiteNotice(`I8 ${number} is niet gevonden in het archief.`, "I8 niet gevonden");
+    return false;
+  }
+  openI8DetailDialog(form.id, { syncArchiveUrl: false });
+  return true;
+}
+
+function handleI8ArchiveRoute(route) {
+  const number = route?.page === "i8-archief" ? normalizeI8RouteNumber(route.i8Number) : "";
+  pendingI8ArchiveRouteNumber = number;
+  if (!number) {
+    if ($("#i8DetailDialog")?.open && route?.page === "i8-archief") {
+      $("#i8DetailDialog").close();
+    }
+    return;
+  }
+  if (!canViewOvJChannels()) {
+    showSiteNotice("Geen toegang tot dit I8 formulier.", "Geen toegang");
+    return;
+  }
+  openI8ArchiveNumberFromRoute(number).then((opened) => {
+    if (opened && pendingI8ArchiveRouteNumber === number) pendingI8ArchiveRouteNumber = "";
+  });
 }
 
 function openI8DetailFromEvent(event) {
   if (event.target.closest("button")) return;
   const row = event.target.closest("[data-i8-open]");
   if (!row) return;
-  openI8DetailDialog(row.dataset.i8Open);
+  openI8DetailDialog(row.dataset.i8Open, { syncArchiveUrl: Boolean(row.closest("#i8ArchiveList")) });
 }
 
 function hideI8ArchiveContextMenu() {
@@ -293,6 +359,12 @@ function renderI8Forms() {
         ? archivedForms.map((form) => renderI8ArchiveRow(form, forms)).join("")
         : '<div class="feed-item">Geen gekeurde I8 formulieren in het archief.</div>';
     }
+  }
+  if (pendingI8ArchiveRouteNumber && canViewOvJChannels()) {
+    const number = pendingI8ArchiveRouteNumber;
+    openI8ArchiveNumberFromRoute(number).then((opened) => {
+      if (opened && pendingI8ArchiveRouteNumber === number) pendingI8ArchiveRouteNumber = "";
+    });
   }
 }
 

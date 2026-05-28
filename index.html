@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260524-sidebar-scroll" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260525-klad-updates" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260528-ops-times" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -56,10 +56,11 @@
         <button class="nav-item" data-page="personeel-aannemen" data-ws-only="true" type="button">Personeel Aannemen</button>
         <button class="nav-item" data-page="blacklist" data-ws-only="true" type="button">Blacklist</button>
         <div class="nav-divider" data-restricted-divider="true" aria-hidden="true"></div>
-        <div class="nav-section" data-kader-only="true">Kader Kanalen</div>
+        <div class="nav-section" data-kader-only="true">Leiding Kanalen</div>
         <button class="nav-item" data-page="personeel" data-kader-only="true" type="button">Personeel</button>
         <button class="nav-item" data-page="afwezigheid-overzicht" data-kader-only="true" type="button"><span>Afwezigheid overzicht</span><span id="absenceOverviewCounter" class="nav-counter" hidden>0</span></button>
         <button class="nav-item" data-page="ontslag-overzicht" data-kader-only="true" type="button"><span>Ontslag-Overzicht</span><span id="resignationOverviewCounter" class="nav-counter" hidden>0</span></button>
+        <button class="nav-item" data-page="ops-tijden" data-kader-only="true" type="button">OPS tijden</button>
         <button class="nav-item" data-page="archief" data-kader-only="true" type="button">Personeels-Archief</button>
         <button class="nav-item" data-page="logboek" data-kader-only="true" type="button">Logboek</button>
       </nav>
@@ -191,23 +192,36 @@
 
             <section class="panel profile-hours-panel">
               <div class="panel-head">
-                <h2>Diensturen</h2>
+                <h2>Uren</h2>
               </div>
-              <div class="manual-hours-total">
-                <span>Totaal deze maand</span>
-                <strong id="profileMonthHours">0 uur</strong>
+              <div class="profile-hours-columns">
+                <section class="profile-hours-column" data-profile-hours-kind="manual">
+                  <div class="manual-hours-total">
+                    <span>Diensturen totaal deze maand</span>
+                    <strong id="profileMonthHours">0 uur</strong>
+                  </div>
+                  <div class="manual-hours-spacer" aria-hidden="true"></div>
+                  <div class="manual-hours-heading">Diensturen afgelopen weken</div>
+                  <form id="profileHoursEntry" class="manual-hours-entry" hidden>
+                    <input id="profileHoursPersonId" type="hidden" />
+                    <input id="profileHoursWeekYear" type="hidden" />
+                    <input id="profileHoursWeekNumber" type="hidden" />
+                    <span id="profileHoursCurrentWeekLabel">Week -</span>
+                    <input id="profileHoursInput" type="number" min="0" max="99" step="0.1" placeholder="0" />
+                    <button class="primary small" type="submit">Opslaan</button>
+                  </form>
+                  <div id="profileHoursWeeks" class="manual-hours-weeks"></div>
+                </section>
+                <section class="profile-hours-column" data-profile-hours-kind="ops">
+                  <div class="manual-hours-total">
+                    <span>OPS uren totaal deze maand</span>
+                    <strong id="profileOpsMonthHours">0 uur</strong>
+                  </div>
+                  <div class="manual-hours-spacer" aria-hidden="true"></div>
+                  <div class="manual-hours-heading">OPS uren afgelopen weken</div>
+                  <div id="profileOpsHoursWeeks" class="manual-hours-weeks"></div>
+                </section>
               </div>
-              <div class="manual-hours-spacer" aria-hidden="true"></div>
-              <div class="manual-hours-heading">Weeknummers</div>
-              <form id="profileHoursEntry" class="manual-hours-entry" hidden>
-                <input id="profileHoursPersonId" type="hidden" />
-                <input id="profileHoursWeekYear" type="hidden" />
-                <input id="profileHoursWeekNumber" type="hidden" />
-                <span id="profileHoursCurrentWeekLabel">Week -</span>
-                <input id="profileHoursInput" type="number" min="0" max="99" step="0.1" placeholder="0" />
-                <button class="primary small" type="submit">Opslaan</button>
-              </form>
-              <div id="profileHoursWeeks" class="manual-hours-weeks"></div>
             </section>
           </div>
 
@@ -510,6 +524,18 @@
             <h2>Ontslag-Overzicht</h2>
           </div>
           <div id="resignationOverview" class="resignation-overview-list"></div>
+        </section>
+      </section>
+      <section id="ops-tijden" class="page">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>OPS tijden</h2>
+              <p class="muted">Overzicht van OPS uren deze week per persoon</p>
+            </div>
+          </div>
+          <div id="opsTimesOverview" class="leadership-list"></div>
+          <div id="opsTimesDetail" class="leadership-detail-list ops-times-detail"></div>
         </section>
       </section>
       <section id="archief" class="page">
@@ -843,11 +869,11 @@
     <script src="personeelsportaal/profile.js?v=20260525-stars"></script>
     <script src="personeelsportaal/hours.js?v=20260525-week-select"></script>
     <script src="personeelsportaal/people.js?v=20260525-readiness"></script>
-    <script src="personeelsportaal/i8.js?v=20260522-i8-archive-delete"></script>
+    <script src="personeelsportaal/i8.js?v=20260528-i8-deeplink"></script>
     <script src="personeelsportaal/mentor.js?v=20260522-mentor-autosave"></script>
     <script src="personeelsportaal/absence.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/archive.js?v=20260522-resignation-actions"></script>
     <script src="personeelsportaal-data.js?v=20260525-requirements"></script>
-    <script src="app.js?v=20260525-klad-updates"></script>
+    <script src="app.js?v=20260528-i8-deeplink"></script>
   </body>
 </html>

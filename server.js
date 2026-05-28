@@ -957,7 +957,7 @@ async function handleApi(req, res, url) {
 
 function serveStatic(req, res, url) {
   const publicFormConfig = publicFormForRequest(req, url);
-  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "personeels-archief", "logboek"]);
+  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
   const firstSegment = url.pathname.split("/").filter(Boolean)[0] || "";
   const requested = publicFormConfig ? (["/public-forms.css", "/public-forms.js"].includes(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
   const filePath = path.normalize(path.join(root, requested));

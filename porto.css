@@ -180,6 +180,29 @@ body.porto-locked .porto-lockscreen {
   text-shadow: none;
 }
 
+.porto-status-request-label {
+  width: min(520px, 92vw);
+  display: grid;
+  gap: 8px;
+  color: rgba(229, 231, 235, 0.9);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.porto-status-request-label textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: rgba(10, 17, 30, 0.78);
+  color: #f8fafc;
+  padding: 11px 12px;
+  font: inherit;
+  font-weight: 700;
+}
+
 
 
 body.porto-workspace {
@@ -1682,6 +1705,25 @@ body.porto-ops-workspace .porto-ops-empty {
   border-color: rgba(239, 68, 68, 0.55);
   background: rgba(127, 29, 29, 0.34);
   color: #fecaca;
+}
+
+.porto-ops-request-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.porto-ops-request-note p {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 /* Porto visibility guard: panels met het hidden-attribuut mogen nooit door display:grid/flex regels zichtbaar worden. */
 #portoStatusIntro[hidden],

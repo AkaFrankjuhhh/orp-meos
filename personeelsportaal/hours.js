@@ -78,6 +78,39 @@ function manualHoursForMonth(person) {
     .reduce((sum, entry) => sum + (Number(entry.hours) || Number(entry.minutes || 0) / 60 || 0), 0);
 }
 
+function opsEntrySeconds(entry) {
+  if (Number.isFinite(Number(entry.durationSeconds))) return Math.max(0, Number(entry.durationSeconds));
+  const start = Date.parse(entry.startedAt || "");
+  const end = Date.parse(entry.endedAt || "");
+  return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.round((end - start) / 1000)) : 0;
+}
+
+function opsEntriesForPerson(person) {
+  return (state.portoOpsLog || []).filter((entry) => entry.memberId === person.id);
+}
+
+function opsHoursForMonth(person) {
+  const now = new Date();
+  return opsEntriesForPerson(person)
+    .filter((entry) => {
+      const ended = new Date(entry.endedAt || entry.startedAt || 0);
+      return ended.getFullYear() === now.getFullYear() && ended.getMonth() === now.getMonth();
+    })
+    .reduce((sum, entry) => sum + opsEntrySeconds(entry) / 3600, 0);
+}
+
+function opsHoursForWeek(person, week) {
+  const start = isoWeekStart(week.weekYear, week.weekNumber);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 7);
+  return opsEntriesForPerson(person)
+    .filter((entry) => {
+      const ended = new Date(entry.endedAt || entry.startedAt || 0);
+      return ended >= start && ended < end;
+    })
+    .reduce((sum, entry) => sum + opsEntrySeconds(entry) / 3600, 0);
+}
+
 function renderProfileHours(person) {
   const panel = $(".profile-hours-panel");
   if (!panel) return;
@@ -104,6 +137,18 @@ function renderProfileHours(person) {
       `;
     })
     .join("");
+  $("#profileOpsMonthHours").textContent = `${displayHourValue(opsHoursForMonth(person))} uur`;
+  $("#profileOpsHoursWeeks").innerHTML = recentHourWeeks(4)
+    .map((week) => {
+      const hours = opsHoursForWeek(person, week);
+      return `
+        <div class="manual-hours-week" style="--hours-tone:${hourToneColor(hours)}">
+          <span>Week ${week.weekNumber}</span>
+          <strong>${displayHourValue(hours)} uur</strong>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 
@@ -118,16 +163,40 @@ function allHourEntriesForPerson(person) {
     });
 }
 
-function openHoursOverviewDialog(person = visibleProfile()) {
+function allOpsEntriesForPerson(person) {
+  return opsEntriesForPerson(person)
+    .map((entry) => ({ ...entry, durationSeconds: opsEntrySeconds(entry) }))
+    .sort((a, b) => new Date(b.endedAt || b.startedAt || 0) - new Date(a.endedAt || a.startedAt || 0));
+}
+
+function openHoursOverviewDialog(person = visibleProfile(), kind = "manual") {
   if (!person || !canViewHours(person)) return;
-  const entries = allHourEntriesForPerson(person);
+  const isOps = kind === "ops";
+  const entries = isOps ? allOpsEntriesForPerson(person) : allHourEntriesForPerson(person);
   const title = $("#hoursOverviewTitle");
   const subtitle = $("#hoursOverviewSubtitle");
   const list = $("#hoursOverviewRows");
   if (!title || !subtitle || !list) return;
-  title.textContent = `Diensturen ${person.name || "Onbekend"}`;
+  title.textContent = `${isOps ? "OPS uren" : "Diensturen"} ${person.name || "Onbekend"}`;
   subtitle.textContent = `${person.rank || "-"} - ${person.serviceNumber || "-"}`;
-  list.innerHTML = entries.length
+  list.innerHTML = isOps
+    ? (entries.length
+        ? entries
+            .map((entry) => {
+              const hours = entry.durationSeconds / 3600;
+              return `
+                <article class="hours-overview-row" style="--hours-tone:${hourToneColor(hours)}">
+                  <div>
+                    <strong>${escapeHtml(formatDateTime(entry.startedAt))}</strong>
+                    <span>Tot ${escapeHtml(formatDateTime(entry.endedAt))} - afgesloten door ${escapeHtml(entry.endedByName || "Onbekend")}</span>
+                  </div>
+                  <b>${escapeHtml(displayHourValue(hours))} uur</b>
+                </article>
+              `;
+            })
+            .join("")
+        : '<div class="feed-item">Nog geen OPS uren geregistreerd.</div>')
+    : entries.length
     ? entries
         .map((entry) => {
           const hours = Number(entry.hours) || 0;

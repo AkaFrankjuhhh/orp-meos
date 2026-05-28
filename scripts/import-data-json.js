@@ -139,10 +139,10 @@ async function importAbsences(client, absences = []) {
 async function importI8Forms(client, forms = []) {
   for (const form of forms) {
     await client.query(`
-      insert into i8_forms(id, person_id, person_name, service_number, rank, violence_date, violence_time, location, opco_ovd_name, description, force_used, vehicle_violence, third_party_injury, truth_confirmed, status, rejection_reason, created_at, reviewed_at, reviewed_by_id, reviewed_by_name, raw, updated_at)
-      values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,now())
-      on conflict(id) do update set status = excluded.status, rejection_reason = excluded.rejection_reason, reviewed_at = excluded.reviewed_at, reviewed_by_id = excluded.reviewed_by_id, reviewed_by_name = excluded.reviewed_by_name, raw = excluded.raw, updated_at = now()
-    `, [form.id, form.personId || null, form.personName || "", form.serviceNumber || "", form.rank || "", form.violenceDate || "", form.violenceTime || "", form.location || "", form.opcoOvdName || "", form.description || "", form.forceUsed || "", form.vehicleViolence || "", form.thirdPartyInjury || "", Boolean(form.truthConfirmed), form.status || "pending", form.rejectionReason || "", asDateTime(form.createdAt), asDateTime(form.reviewedAt), form.reviewedById || "", form.reviewedByName || "", json(form, {})]);
+      insert into i8_forms(id, i8_number, person_id, person_name, service_number, rank, violence_date, violence_time, location, opco_ovd_name, description, force_used, vehicle_violence, third_party_injury, truth_confirmed, status, rejection_reason, created_at, reviewed_at, reviewed_by_id, reviewed_by_name, raw, updated_at)
+      values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,now())
+      on conflict(id) do update set i8_number = excluded.i8_number, status = excluded.status, rejection_reason = excluded.rejection_reason, reviewed_at = excluded.reviewed_at, reviewed_by_id = excluded.reviewed_by_id, reviewed_by_name = excluded.reviewed_by_name, raw = excluded.raw, updated_at = now()
+    `, [form.id, form.i8Number || "", form.personId || null, form.personName || "", form.serviceNumber || "", form.rank || "", form.violenceDate || "", form.violenceTime || "", form.location || "", form.opcoOvdName || "", form.description || "", form.forceUsed || "", form.vehicleViolence || "", form.thirdPartyInjury || "", Boolean(form.truthConfirmed), form.status || "pending", form.rejectionReason || "", asDateTime(form.createdAt), asDateTime(form.reviewedAt), form.reviewedById || "", form.reviewedByName || "", json(form, {})]);
   }
 }
 

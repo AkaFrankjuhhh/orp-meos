@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Porto-Systeem | Defensie Oranjestad</title>
     <link rel="stylesheet" href="shared.css?v=20260519-notice-polish" />
-    <link rel="stylesheet" href="porto.css?v=20260525-ops-log" />
+    <link rel="stylesheet" href="porto.css?v=20260528-status0-request" />
   </head>
   <body class="porto-blank porto-locked">
     <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
@@ -50,6 +50,10 @@
         <div id="portoStatusIntro" class="porto-status-intro">
           <h1>Defensie Porto-Systeem</h1>
           <p>Meld je hieronder aan via de status 0 knop om je aan te melden in dienst.</p>
+          <label class="porto-status-request-label">
+            <span>Koppelverzoek:</span>
+            <textarea id="portoStatusRequestInput" maxlength="240" placeholder="Bijvoorbeeld: wil graag gekoppeld worden aan 30-02 of noodhulp."></textarea>
+          </label>
           <button id="portoStatus0Btn" class="porto-status-button" type="button">Status 0</button>
           <div class="porto-current-ops">
             <span id="portoCurrentOpsText">Huidige OPS:</span>
@@ -205,8 +209,8 @@
     <script src="porto/module-registry.js?v=20260518-module-split"></script>
     <script src="porto/audio.js?v=20260525-repeat-alerts"></script>
     <script src="porto/map.js?v=20260518-module-split"></script>
-    <script src="porto/ops.js?v=20260525-ops-timer"></script>
-    <script src="porto/duty.js?v=20260525-ops-info"></script>
+    <script src="porto/ops.js?v=20260528-status0-request"></script>
+    <script src="porto/duty.js?v=20260528-status0-request"></script>
     <script src="porto/profile.js?v=20260518-module-split"></script>
     <script src="porto.js?v=20260525-ops-claim"></script>
   </body>

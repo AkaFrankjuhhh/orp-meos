@@ -188,12 +188,16 @@ function renderOpsRequests() {
     const requestSpecializationsHtml = requestPills.length
       ? `<div class="porto-ops-request-specialties">${requestSpecializations.length ? "<span>Specialisaties</span>" : ""}<div>${requestPills.join("")}</div></div>`
       : "";
+    const requestNoteHtml = request.requestNote
+      ? `<div class="porto-ops-request-note"><span>Koppelverzoek:</span><p>${escapeHtml(request.requestNote)}</p></div>`
+      : "";
     return `
     <article class="porto-ops-request">
       <div class="porto-ops-person">
         <strong>${escapeHtml(request.rank || "-")} - ${escapeHtml(request.name || "Onbekend")}</strong>
         <span>${escapeHtml(request.serviceNumber || "-")} - ${escapeHtml(request.phone || "Geen telefoonnummer")}</span>
         ${requestSpecializationsHtml}
+        ${requestNoteHtml}
       </div>
       <div class="porto-ops-choice">
         <label>
@@ -326,6 +330,8 @@ async function reassignPortoUnit(unitId, assignment) {
   }
   if (payload.unit?.memberId === portoProfile?.id) portoDuty = payload.unit;
   applyPortoPayload(payload);
+  portoOpsRequestInteractionUntil = 0;
+  document.activeElement?.blur?.();
   renderDutyPanel();
   renderOpsPanel();
 }
@@ -380,6 +386,8 @@ async function updatePortoOps(action) {
     return;
   }
   applyPortoPayload(payload);
+  portoOpsRequestInteractionUntil = 0;
+  document.activeElement?.blur?.();
   renderVehicleRanges();
   renderDutyPanel();
   renderOpsPanel();
@@ -401,6 +409,8 @@ async function assignPortoUnit(unitId, assignment) {
     return;
   }
   applyPortoPayload(payload);
+  portoOpsRequestInteractionUntil = 0;
+  document.activeElement?.blur?.();
   renderVehicleRanges();
   renderDutyPanel();
   renderOpsPanel();

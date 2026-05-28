@@ -77,6 +77,7 @@ async function readPostgresState() {
     const i8Forms = i8Result.rows.map((row) => ({
       ...parseJson(row.raw, {}),
       id: row.id,
+      i8Number: row.i8_number || "",
       personId: row.person_id || "",
       personName: row.person_name || "",
       serviceNumber: row.service_number || "",

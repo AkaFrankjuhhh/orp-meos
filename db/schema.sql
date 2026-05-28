@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS absences (
 
 CREATE TABLE IF NOT EXISTS i8_forms (
   id text PRIMARY KEY,
+  i8_number text,
   person_id text REFERENCES people(id) ON DELETE SET NULL,
   person_name text,
   service_number text,
@@ -120,6 +121,21 @@ CREATE TABLE IF NOT EXISTS i8_forms (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE IF EXISTS i8_forms ADD COLUMN IF NOT EXISTS i8_number text;
+
+WITH numbered_i8 AS (
+  SELECT
+    id,
+    lpad(row_number() over (order by created_at nulls last, id asc)::text, 3, '0') AS next_i8_number
+  FROM i8_forms
+)
+UPDATE i8_forms
+SET i8_number = numbered_i8.next_i8_number
+FROM numbered_i8
+WHERE i8_forms.id = numbered_i8.id
+  AND coalesce(i8_forms.i8_number, '') = '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS i8_forms_i8_number_idx ON i8_forms(i8_number) WHERE coalesce(i8_number, '') <> '';
 CREATE INDEX IF NOT EXISTS i8_forms_status_idx ON i8_forms(status);
 CREATE INDEX IF NOT EXISTS i8_forms_person_id_idx ON i8_forms(person_id);
 CREATE INDEX IF NOT EXISTS i8_forms_created_at_idx ON i8_forms(created_at);

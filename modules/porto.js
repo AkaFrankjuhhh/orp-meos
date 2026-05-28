@@ -395,6 +395,7 @@ function createPortoServices() {
             rank: unit.rank,
             serviceNumber: unit.serviceNumber,
             phone: unit.phone,
+            requestNote: unit.requestNote || "",
             completedTrainings: Array.isArray(peopleById.get(unit.memberId)?.completedTrainings) ? peopleById.get(unit.memberId).completedTrainings : [],
             completedOperational: Array.isArray(peopleById.get(unit.memberId)?.completedOperational) ? peopleById.get(unit.memberId).completedOperational : [],
             specializations: [

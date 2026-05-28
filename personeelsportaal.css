@@ -1265,6 +1265,14 @@ dialog::backdrop {
   border-color: rgba(225, 112, 0, 0.42);
 }
 
+.ops-times-detail {
+  margin-top: 14px;
+}
+
+.ops-times-summary {
+  border-color: rgba(225, 112, 0, 0.42);
+}
+
 .mentor-detail-panel {
   display: grid;
   gap: 16px;
@@ -3622,6 +3630,18 @@ body[data-device="mobile"] .profile-rank-number {
   background: rgba(15, 23, 42, 0.48);
 }
 
+.profile-hours-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.profile-hours-column {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+}
+
 .manual-hours-total span,
 .manual-hours-heading,
 .manual-hours-entry span,
@@ -3712,6 +3732,10 @@ body[data-device="mobile"] .manual-hours-week,
 body[data-device="mobile"] .bulk-hours-row {
   grid-template-columns: 1fr;
   align-items: stretch;
+}
+
+body[data-device="mobile"] .profile-hours-columns {
+  grid-template-columns: 1fr;
 }
 
 body[data-device="mobile"] .manual-hours-entry input,

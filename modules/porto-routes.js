@@ -180,6 +180,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 400, { error: "Ongeldige Status 4 reden." });
         return true;
       }
+      const requestNote = status === "0" ? String(body.requestNote || "").trim().slice(0, 240) : "";
       ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
       const now = new Date().toISOString();
@@ -213,6 +214,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (status === "0") {
         unit.reviewStatus = "pending";
         unit.requestedAt = unit.requestedAt || now;
+        unit.requestNote = requestNote;
       }
       if (status === "8") {
         const releasedVehicleNumber = unit.vehicleNumber;

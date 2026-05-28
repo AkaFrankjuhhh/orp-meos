@@ -32,6 +32,7 @@ let pendingI8ArchiveDeleteId = "";
 let pendingAbsenceId = "";
 let selectedMentorProfileId = "";
 let activeI8Tab = "list";
+let selectedOpsTimesPersonId = "";
 const pageStorageKey = "orp-defensie-current-page";
 const profileStorageKey = "orp-defensie-current-profile";
 const mentorStorageKey = "orp-defensie-current-mentor";
@@ -54,6 +55,7 @@ const pageRouteMap = {
   personeel: "/personeel",
   "afwezigheid-overzicht": "/afwezigheid-overzicht",
   "ontslag-overzicht": "/ontslag-overzicht",
+  "ops-tijden": "/ops-tijden",
   archief: "/personeels-archief",
   logboek: "/logboek",
   "mijn-profiel": "/mijn-profiel"
@@ -224,6 +226,107 @@ function formatMinutes(minutes) {
   const hours = Math.floor(safeMinutes / 60);
   const remainder = safeMinutes % 60;
   return `${hours}u ${String(remainder).padStart(2, "0")}m`;
+}
+
+function startOfWeek(date = new Date()) {
+  const start = new Date(date);
+  const day = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - day);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function opsLogEntrySeconds(entry) {
+  if (Number.isFinite(Number(entry.durationSeconds))) return Math.max(0, Number(entry.durationSeconds));
+  const start = Date.parse(entry.startedAt || "");
+  const end = Date.parse(entry.endedAt || "");
+  return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.round((end - start) / 1000)) : 0;
+}
+
+function opsTimesRowsSince(startDate) {
+  const startMs = startDate.getTime();
+  return (state.portoOpsLog || [])
+    .filter((entry) => {
+      const ended = Date.parse(entry.endedAt || entry.startedAt || "");
+      return Number.isFinite(ended) && ended >= startMs;
+    })
+    .map((entry) => ({ ...entry, durationSeconds: opsLogEntrySeconds(entry) }))
+    .sort((a, b) => new Date(b.endedAt || b.startedAt || 0) - new Date(a.endedAt || a.startedAt || 0));
+}
+
+function renderOpsTimes() {
+  const overview = $("#opsTimesOverview");
+  const detail = $("#opsTimesDetail");
+  if (!overview || !detail) return;
+  if (!hasKaderAccess()) {
+    overview.innerHTML = '<div class="feed-item">Geen toegang.</div>';
+    detail.innerHTML = "";
+    return;
+  }
+  const weekStart = startOfWeek();
+  const weekRows = opsTimesRowsSince(weekStart);
+  const totals = new Map();
+  for (const row of weekRows) {
+    const key = row.memberId || row.name || "onbekend";
+    const current = totals.get(key) || {
+      memberId: row.memberId || "",
+      name: row.name || "Onbekend",
+      serviceNumber: row.serviceNumber || "",
+      seconds: 0,
+      count: 0
+    };
+    current.seconds += row.durationSeconds;
+    current.count += 1;
+    totals.set(key, current);
+  }
+  const people = [...totals.values()].sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name, "nl"));
+  overview.innerHTML = people.length
+    ? `
+      <div class="leadership-row leadership-row-head">
+        <span>Naam</span>
+        <span>Dienstnummer</span>
+        <span>Deze week</span>
+      </div>
+      ${people.map((person) => `
+        <button class="leadership-row leadership-row-button" type="button" data-ops-times-person="${escapeHtml(person.memberId || person.name)}">
+          <strong>${escapeHtml(person.name)}</strong>
+          <span>${escapeHtml(person.serviceNumber || "-")}</span>
+          <span class="rank-count"><span>${escapeHtml(formatMinutes(person.seconds / 60))}</span></span>
+        </button>
+      `).join("")}
+    `
+    : '<div class="feed-item">Nog geen OPS uren gelogd voor deze week.</div>';
+  renderOpsTimesDetail();
+}
+
+function renderOpsTimesDetail() {
+  const detail = $("#opsTimesDetail");
+  if (!detail || !hasKaderAccess()) return;
+  const selected = selectedOpsTimesPersonId;
+  if (!selected) {
+    detail.innerHTML = '<div class="feed-item">Klik op een naam om de OPS diensten van de laatste 4 weken te bekijken.</div>';
+    return;
+  }
+  const fourWeeksStart = startOfWeek();
+  fourWeeksStart.setDate(fourWeeksStart.getDate() - 21);
+  const rows = opsTimesRowsSince(fourWeeksStart).filter((entry) => (entry.memberId || entry.name || "onbekend") === selected);
+  const totalSeconds = rows.reduce((sum, row) => sum + row.durationSeconds, 0);
+  const name = rows[0]?.name || selected;
+  detail.innerHTML = `
+    <article class="leadership-detail-row ops-times-summary">
+      <strong>${escapeHtml(name)}</strong>
+      <span>Laatste 4 weken totaal: ${escapeHtml(formatMinutes(totalSeconds / 60))}</span>
+    </article>
+    ${rows.length
+      ? rows.map((row) => `
+        <article class="leadership-detail-row">
+          <strong>${escapeHtml(formatMinutes(row.durationSeconds / 60))}</strong>
+          <span>${escapeHtml(formatDateTime(row.startedAt))} t/m ${escapeHtml(formatDateTime(row.endedAt))}</span>
+          <p>Afgesloten door ${escapeHtml(row.endedByName || "Onbekend")}</p>
+        </article>
+      `).join("")
+      : '<div class="feed-item">Geen OPS diensten gevonden in de laatste 4 weken.</div>'}
+  `;
 }
 
 async function loadState() {
@@ -399,6 +502,9 @@ function routeStateFromLocation() {
     const person = personFromRouteSlug(parts.slice(1).join("/"));
     return person ? { page: "mijn-profiel", profileId: person.id } : { page: "medewerkers", profileId: "" };
   }
+  if (parts[0]?.toLowerCase() === "i8-archief" && parts[1]) {
+    return { page: "i8-archief", profileId: "", i8Number: parts[1] };
+  }
   const normalizedPath = path.toLowerCase();
   return { page: routePageMap[normalizedPath] || "dashboard", profileId: "" };
 }
@@ -419,7 +525,10 @@ function applyRouteState(mode = "replace") {
   if (route.page === "mijn-profiel") renderProfile();
   const resolvedPage = setPage(route.page);
   suppressRouteSync = false;
-  syncBrowserRoute(resolvedPage || activePageId(), mode);
+  if (!route.i8Number || resolvedPage !== route.page) {
+    syncBrowserRoute(resolvedPage || activePageId(), mode);
+  }
+  if (typeof handleI8ArchiveRoute === "function") handleI8ArchiveRoute(route);
 }
 function pageTitle(page) {
   if (page === "mijn-profiel") {
@@ -443,6 +552,7 @@ function pageTitle(page) {
     "ovj-logboek": "hOvJ-Logboek",
     "afwezigheid-overzicht": "Afwezigheid overzicht",
     "ontslag-overzicht": "Ontslag-Overzicht",
+    "ops-tijden": "OPS tijden",
     "personeel-aannemen": "Personeel Aannemen",
     blacklist: "Blacklist",
     archief: "Personeels-Archief",
@@ -451,7 +561,7 @@ function pageTitle(page) {
 }
 
 function validPage(page) {
-  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
   return visiblePages.has(page) ? page : "dashboard";
 }
 
@@ -520,7 +630,7 @@ function cleanLoginRedirect() {
 
 function setPage(page) {
   page = validPage(page);
-  if (["logboek", "archief", "personeel", "afwezigheid-overzicht", "ontslag-overzicht"].includes(page) && !hasKaderAccess()) {
+  if (["logboek", "archief", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden"].includes(page) && !hasKaderAccess()) {
     page = "dashboard";
   }
   if (["i8-controleren", "i8-archief"].includes(page) && !canViewOvJChannels()) {
@@ -1020,6 +1130,7 @@ function render() {
   renderArchive();
   renderI8Forms();
   renderOvJLeadershipLog();
+  renderOpsTimes();
   renderAbsenceOverview();
   renderResignationOverview();
 }
@@ -1090,8 +1201,9 @@ function wireEvents() {
   $("#cancelEditDisciplineDialog").addEventListener("click", () => $("#editDisciplineDialog").close());
   $("#closeDeleteDisciplineDialog").addEventListener("click", () => $("#deleteDisciplineDialog").close());
   $("#cancelDeleteDisciplineDialog").addEventListener("click", () => $("#deleteDisciplineDialog").close());
-  $("#closeI8DetailDialog").addEventListener("click", () => $("#i8DetailDialog").close());
-  $("#closeI8DetailFooter").addEventListener("click", () => $("#i8DetailDialog").close());
+  $("#closeI8DetailDialog").addEventListener("click", () => closeI8DetailDialog());
+  $("#closeI8DetailFooter").addEventListener("click", () => closeI8DetailDialog());
+  $("#i8DetailDialog").addEventListener("close", () => restoreI8ArchiveRoute("replace"));
   $("#closeI8ReviewDialog").addEventListener("click", () => $("#i8ReviewDialog").close());
   $("#cancelI8ReviewDialog").addEventListener("click", () => $("#i8ReviewDialog").close());
   $("#closeDeleteAbsenceDialog").addEventListener("click", () => $("#deleteAbsenceDialog").close());
@@ -1323,6 +1435,19 @@ function wireEvents() {
     const status = approveId ? "Goedgekeurd" : "Afgekeurd";
     if (await runAction(`/api/absences/${encodeURIComponent(absenceId)}/status`, { status })) render();
   });
+  $("#opsTimesOverview")?.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-ops-times-person]");
+    if (!row) return;
+    selectedOpsTimesPersonId = row.dataset.opsTimesPerson || "";
+    renderOpsTimesDetail();
+  });
+  $("#opsTimesOverview")?.addEventListener("keydown", (event) => {
+    if (!event.target.matches("[data-ops-times-person]")) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    selectedOpsTimesPersonId = event.target.dataset.opsTimesPerson || "";
+    renderOpsTimesDetail();
+  });
   $("#absenceOverview").addEventListener("contextmenu", (event) => {
     const row = event.target.closest("[data-absence-id]");
     if (!row) return;
@@ -1487,7 +1612,8 @@ function wireEvents() {
     const viewed = visibleProfile();
     if (!viewed || !canViewHours(viewed)) return;
     event.preventDefault();
-    openHoursOverviewDialog(viewed);
+    const kind = event.target.closest("[data-profile-hours-kind='ops']") ? "ops" : "manual";
+    openHoursOverviewDialog(viewed, kind);
   });
   $("#closeBulkHoursDialog")?.addEventListener("click", () => $("#bulkHoursDialog").close());
   $("#cancelBulkHoursDialog")?.addEventListener("click", () => $("#bulkHoursDialog").close());

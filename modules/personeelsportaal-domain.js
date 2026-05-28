@@ -293,6 +293,7 @@ function stateForProfile(state, permissions, profileId = "") {
   }));
   if (!permissions?.canViewLogbook) {
     nextState.activity = [];
+    nextState.portoOpsLog = (nextState.portoOpsLog || []).filter((entry) => entry.memberId === profileId);
   }
   if (!permissions?.canViewAllHours) {
     nextState.hours = (nextState.hours || []).filter((entry) => entry.personId === profileId);

@@ -175,10 +175,12 @@ async function loadPortoDuty() {
 }
 
 async function updatePortoStatus(status, detail = "") {
+  const requestNoteInput = $("#portoStatusRequestInput");
+  const requestNote = status === "0" ? String(requestNoteInput?.value || "").trim() : "";
   const response = await fetch("/api/porto/status", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status, detail })
+    body: JSON.stringify({ status, detail, requestNote })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -188,6 +190,7 @@ async function updatePortoStatus(status, detail = "") {
   portoDuty = payload.unit || null;
   applyPortoPayload(payload);
   if (payload.profile) portoProfile = payload.profile;
+  if (status === "0" && requestNoteInput) requestNoteInput.value = "";
   renderVehicleRanges();
   renderDutyPanel();
   renderOpsPanel();
