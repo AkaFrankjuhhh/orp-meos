@@ -10,6 +10,7 @@
     "db:export-state": "node scripts/db-export-state.js",
     "db:compare-json": "node scripts/db-compare-json.js",
     "prod:check": "node scripts/prod-check.js",
+    "ops:reset-times": "node scripts/reset-ops-times.js",
     "db:backup": "node scripts/db-backup.js",
     "discord:nicknames:dry": "node scripts/discord-sync-nicknames.js",
     "discord:nicknames:sync": "node scripts/discord-sync-nicknames.js --apply",

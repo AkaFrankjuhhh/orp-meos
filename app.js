@@ -253,6 +253,29 @@ function opsTimesRowsSince(startDate) {
     .sort((a, b) => new Date(b.endedAt || b.startedAt || 0) - new Date(a.endedAt || a.startedAt || 0));
 }
 
+function opsTimesPersonKey(person) {
+  return person?.id || person?.name || "onbekend";
+}
+
+function hasOpsTraining(person) {
+  return Array.isArray(person?.completedOperational) && person.completedOperational.includes("OPS");
+}
+
+function compareServiceNumber(a = "", b = "") {
+  const parse = (value) => String(value || "")
+    .split(/[^0-9]+/)
+    .filter(Boolean)
+    .map((part) => Number(part));
+  const left = parse(a);
+  const right = parse(b);
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const delta = (left[index] ?? Number.MAX_SAFE_INTEGER) - (right[index] ?? Number.MAX_SAFE_INTEGER);
+    if (delta !== 0) return delta;
+  }
+  return String(a || "").localeCompare(String(b || ""), "nl", { numeric: true });
+}
+
 function renderOpsTimes() {
   const overview = $("#opsTimesOverview");
   if (!overview) return;
@@ -263,6 +286,17 @@ function renderOpsTimes() {
   const weekStart = startOfWeek();
   const weekRows = opsTimesRowsSince(weekStart);
   const totals = new Map();
+  state.people
+    .filter((person) => person.status === "Actief" && hasOpsTraining(person))
+    .forEach((person) => {
+      totals.set(opsTimesPersonKey(person), {
+        memberId: person.id || "",
+        name: person.name || "Onbekend",
+        serviceNumber: person.serviceNumber || "",
+        seconds: 0,
+        count: 0
+      });
+    });
   for (const row of weekRows) {
     const key = row.memberId || row.name || "onbekend";
     const current = totals.get(key) || {
@@ -276,7 +310,9 @@ function renderOpsTimes() {
     current.count += 1;
     totals.set(key, current);
   }
-  const people = [...totals.values()].sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name, "nl"));
+  const people = [...totals.values()].sort((a, b) => (
+    compareServiceNumber(a.serviceNumber, b.serviceNumber) || a.name.localeCompare(b.name, "nl")
+  ));
   overview.innerHTML = people.length
     ? `
       <div class="leadership-row leadership-row-head">
@@ -305,7 +341,8 @@ function openOpsTimesDialog(selected) {
   fourWeeksStart.setDate(fourWeeksStart.getDate() - 21);
   const rows = opsTimesRowsSince(fourWeeksStart).filter((entry) => (entry.memberId || entry.name || "onbekend") === selected);
   const totalSeconds = rows.reduce((sum, row) => sum + row.durationSeconds, 0);
-  const name = rows[0]?.name || selected;
+  const person = state.people.find((entry) => opsTimesPersonKey(entry) === selected);
+  const name = rows[0]?.name || person?.name || selected;
   if (title) title.textContent = name;
   if (subtitle) subtitle.textContent = `Laatste 4 weken totaal: ${formatMinutes(totalSeconds / 60)}`;
   rowsElement.innerHTML = `
