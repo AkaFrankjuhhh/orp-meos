@@ -25,6 +25,24 @@ async function appendActivityMessages(client, messages = []) {
   }
 }
 
+async function ensureI8FormSchema(client) {
+  await client.query("alter table if exists i8_forms add column if not exists i8_number text");
+  await client.query(`
+    with numbered_i8 as (
+      select
+        id,
+        lpad(row_number() over (order by created_at nulls last, id asc)::text, 3, '0') as next_i8_number
+      from i8_forms
+    )
+    update i8_forms
+    set i8_number = numbered_i8.next_i8_number
+    from numbered_i8
+    where i8_forms.id = numbered_i8.id
+      and coalesce(i8_forms.i8_number, '') = ''
+  `);
+  await client.query("create unique index if not exists i8_forms_i8_number_idx on i8_forms(i8_number) where coalesce(i8_number, '') <> ''");
+}
+
 async function upsertAbsence(client, absence) {
   await client.query(`
     insert into absences(
@@ -65,6 +83,7 @@ async function upsertAbsence(client, absence) {
 }
 
 async function upsertI8Form(client, form) {
+  await ensureI8FormSchema(client);
   await client.query(`
     insert into i8_forms(
       id, i8_number, person_id, person_name, service_number, rank, violence_date, violence_time,
@@ -145,6 +164,7 @@ function createPostgresFormsStore(options = {}) {
         }
 
         const forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
+        await ensureI8FormSchema(client);
         const formIds = i8IdList(forms);
         if (formIds.length) {
           await client.query("delete from i8_forms where not (id = any($1::text[]))", [formIds]);
@@ -223,6 +243,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await ensureI8FormSchema(client);
         await upsertI8Form(client, form);
         await appendActivityMessages(client, activityMessages);
         await client.query("commit");
@@ -240,6 +261,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await ensureI8FormSchema(client);
         await client.query("delete from i8_forms where id = $1", [formId]);
         await appendActivityMessages(client, activityMessages);
         await client.query("commit");
@@ -256,6 +278,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await ensureI8FormSchema(client);
         await upsertI8Form(client, form);
         await appendActivityMessages(client, activityMessages);
         await client.query("commit");
