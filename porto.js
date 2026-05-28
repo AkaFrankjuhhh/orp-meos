@@ -305,6 +305,20 @@ $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
     closePortoOpsContextMenu();
     return;
   }
+  if (action === "copy-phone") {
+    const phone = String(context.member.phone || "").trim();
+    closePortoOpsContextMenu();
+    if (!phone) {
+      await showPortoNotice("Deze persoon heeft geen telefoonnummer ingevuld.", "Telefoonnummer");
+      return;
+    }
+    const copied = await copyTextToClipboard(phone);
+    await showPortoNotice(
+      copied ? `${phone} is gekopieerd.` : `Kopiëren lukte niet. Nummer: ${phone}`,
+      "Telefoonnummer"
+    );
+    return;
+  }
   if (action === "link") {
     const options = portoLinkableUnits
       .filter((unit) => unit.vehicleNumber !== (context.member.vehicleNumber || context.unit.vehicleNumber))

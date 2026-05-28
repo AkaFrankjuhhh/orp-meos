@@ -124,6 +124,25 @@ function closePortoOpsContextMenu() {
   portoOpsContextUnitId = "";
 }
 
+async function copyTextToClipboard(text) {
+  const value = String(text || "").trim();
+  if (!value) return false;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return true;
+  }
+  const input = document.createElement("textarea");
+  input.value = value;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.opacity = "0";
+  document.body.appendChild(input);
+  input.select();
+  const copied = document.execCommand("copy");
+  input.remove();
+  return copied;
+}
+
 async function chooseOption(title, items) {
   if (!items.length) {
     await showPortoNotice("Geen opties beschikbaar.", title);
@@ -140,6 +159,11 @@ function openPortoOpsContextMenu(event, unitId) {
   portoOpsContextUnitId = unitId;
   const title = menu.querySelector("[data-ops-context-title]");
   if (title) title.textContent = `${context.member.vehicleNumber || context.unit.vehicleNumber || "-"} - ${context.member.name || "Onbekend"}`;
+  const phone = String(context.member.phone || "").trim();
+  const phoneLabel = menu.querySelector("[data-ops-context-phone]");
+  if (phoneLabel) phoneLabel.textContent = phone || "Geen telefoonnummer";
+  const copyButton = menu.querySelector("[data-ops-context-action='copy-phone']");
+  if (copyButton) copyButton.disabled = !phone;
   const left = Math.min(event.clientX, window.innerWidth - 260);
   const top = Math.min(event.clientY, window.innerHeight - 220);
   menu.style.left = `${Math.max(10, left)}px`;

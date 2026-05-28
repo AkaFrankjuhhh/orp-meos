@@ -1336,6 +1336,17 @@ body.porto-ops-workspace .porto-ops-choice select {
   font-size: 13px;
 }
 
+.porto-ops-context-phone {
+  display: block;
+  padding: 7px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #dbeafe;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .porto-ops-context-menu label {
   display: grid;
   gap: 6px;
