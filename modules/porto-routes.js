@@ -156,7 +156,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     const currentOps = activePortoOps(state);
     if (currentOps) {
       const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === "30-00");
-      if (!opsUnit || opsUnit.autoOffline) {
+      if (opsUnit?.autoOffline) {
         settingsChanged = releaseCurrentOps(state, currentOps, { id: "system", name: "Automatisch systeem" }, new Date().toISOString(), "OPS automatisch afgemeld");
       }
     }
@@ -420,8 +420,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         }
         const nowIso = new Date().toISOString();
         state.portoCurrentOps = { memberId: person.id, name: person.name, serviceNumber: person.serviceNumber, phone: person.portoPhone || "", startedAt: currentOps?.startedAt || nowIso, active: true };
-        await persistPortoState(state, { settings: true });
-        sendJson(res, 200, portoOpsPayload(state, person));
+        const unit = ensureOpsUnit(state, person, nowIso);
+        await persistPortoState(state, { settings: true, units: state.portoUnits });
+        await sendPortoState(res, state, person, unit);
         return true;
       }
       if (action === "release") {
