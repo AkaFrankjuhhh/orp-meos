@@ -1005,6 +1005,12 @@ body.porto-duty-workspace .porto-status-choices {
   color: #e5e7eb;
 }
 
+.porto-view-switch-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
 .porto-status-tile:disabled {
   cursor: not-allowed;
   opacity: 0.48;

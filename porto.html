@@ -74,6 +74,9 @@
         </section>
 
         <section id="portoDutyPanel" class="porto-duty-panel" aria-label="Porto bediening" hidden>
+          <div class="porto-view-switch-row">
+            <button id="portoShowOpsViewBtn" class="porto-ops-action ghost" type="button" hidden>OVD/OPCO overzicht</button>
+          </div>
           <div id="portoDutyAssignment" class="porto-duty-assignment">
             <div class="porto-callsign-card">
               <span>Roepnummer</span>
@@ -124,6 +127,7 @@
                   </div>
                   <div class="porto-ops-head-actions">
                     <span id="portoOpsCount" class="porto-status-pill">0 verzoeken</span>
+                    <button id="portoShowDutyViewBtn" class="porto-ops-action ghost" type="button" hidden>Mijn nummer</button>
                     <button id="portoOpsDevTestBtn" class="porto-ops-action ghost dev-test" type="button" hidden>Dev test</button>
                     <button id="portoOpsReleaseWorkspaceBtn" class="porto-ops-action ghost" type="button">OPS neerleggen</button>
                   </div>
@@ -213,9 +217,9 @@
     <script src="porto/module-registry.js?v=20260518-module-split"></script>
     <script src="porto/audio.js?v=20260525-repeat-alerts"></script>
     <script src="porto/map.js?v=20260518-module-split"></script>
-    <script src="porto/ops.js?v=20260529-opco-ovd-workspace"></script>
-    <script src="porto/duty.js?v=20260529-opco-ovd-workspace"></script>
+    <script src="porto/ops.js?v=20260529-opco-ovd-switch"></script>
+    <script src="porto/duty.js?v=20260529-opco-ovd-switch"></script>
     <script src="porto/profile.js?v=20260518-module-split"></script>
-    <script src="porto.js?v=20260529-ops-close"></script>
+    <script src="porto.js?v=20260529-opco-ovd-switch"></script>
   </body>
 </html>

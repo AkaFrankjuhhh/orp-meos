@@ -137,8 +137,10 @@ function renderDutyPanel() {
   if (!intro || !panel || !pendingPanel) return;
   const hasDuty = Boolean(portoDuty && String(portoDuty.status) !== "8");
   const waitingForOps = Boolean(hasDuty && String(portoDuty.status) === "0" && !portoDuty.vehicleNumber);
-  const opsWorkspace = isCurrentOpsUser();
+  const opsWorkspace = canUseOpsWorkspace();
   const assignedDuty = Boolean(hasDuty && portoDuty.vehicleNumber);
+  const opsViewButton = $("#portoShowOpsViewBtn");
+  if (opsViewButton) opsViewButton.hidden = !(assignedDuty && portoCanManageOps && !isCurrentOpsUser());
   intro.hidden = hasDuty || opsWorkspace;
   pendingPanel.hidden = !waitingForOps;
   if (devBypassButton) devBypassButton.hidden = !(waitingForOps && isDevBypassProfile());

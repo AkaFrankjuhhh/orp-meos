@@ -45,7 +45,7 @@ function isCurrentOpsUser() {
 }
 
 function canUseOpsWorkspace() {
-  return Boolean(isCurrentOpsUser() || portoCanManageOps);
+  return Boolean(isCurrentOpsUser() || (portoCanManageOps && portoOpsViewMode === "ops"));
 }
 
 function setPortoOpsPolling(enabled) {
@@ -383,6 +383,8 @@ function renderOpsLog() {
 function renderOpsPanel() {
   const devTestButton = $("#portoOpsDevTestBtn");
   if (devTestButton) devTestButton.hidden = !portoCanUseDevTools;
+  const dutyViewButton = $("#portoShowDutyViewBtn");
+  if (dutyViewButton) dutyViewButton.hidden = !(portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser());
   renderOpsStatus();
   renderOpsRequests();
   renderOpsUnits();

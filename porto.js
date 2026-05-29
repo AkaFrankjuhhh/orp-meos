@@ -33,6 +33,7 @@ let portoEventSource = null;
 let portoLiveRefreshTimer = null;
 let portoLiveRefreshDeferTimer = null;
 let portoCloseBeaconSent = false;
+let portoOpsViewMode = "duty";
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
@@ -259,6 +260,16 @@ $("#portoOpsClaimBtn").addEventListener("click", () => updatePortoOps("claim"));
 $("#portoOpsReleaseBtn").addEventListener("click", () => updatePortoOps("release"));
 $("#portoOpsReleaseWorkspaceBtn").addEventListener("click", () => updatePortoOps("release"));
 $("#portoOpsDevTestBtn").addEventListener("click", runPortoOpsDevTest);
+$("#portoShowOpsViewBtn")?.addEventListener("click", () => {
+  portoOpsViewMode = "ops";
+  renderDutyPanel();
+  renderOpsPanel();
+});
+$("#portoShowDutyViewBtn")?.addEventListener("click", () => {
+  portoOpsViewMode = "duty";
+  renderDutyPanel();
+  renderOpsPanel();
+});
 $("#portoOpsRequests").addEventListener("pointerdown", holdOpsRequestInteraction);
 $("#portoOpsRequests").addEventListener("focusin", holdOpsRequestInteraction);
 $("#portoOpsRequests").addEventListener("change", holdOpsRequestInteraction);
