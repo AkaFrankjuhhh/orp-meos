@@ -89,6 +89,29 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     state.portoOpsLog = state.portoOpsLog.slice(0, 250);
   }
 
+  function releaseCurrentOps(state, currentOps, endedBy, endedAt = new Date().toISOString(), statusDetail = "OPS neergelegd") {
+    if (!currentOps) return false;
+    appendOpsLog(state, currentOps, endedBy, endedAt);
+    state.portoCurrentOps = { ...currentOps, active: false, endedAt };
+    const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === "30-00");
+    if (opsUnit) {
+      Object.assign(opsUnit, {
+        status: "8",
+        statusDetail,
+        active: false,
+        vehicleNumber: "",
+        vehicleCode: "",
+        vehicleType: "",
+        vehicleName: "",
+        endedById: endedBy.id || "",
+        endedByName: endedBy.name || "Onbekend",
+        endedAt,
+        updatedAt: endedAt
+      });
+    }
+    return true;
+  }
+
   function closePendingPortoRequestsForMember(state, memberId, keepUnitId = "") {
     const now = new Date().toISOString();
     for (const entry of state.portoUnits || []) {
@@ -129,7 +152,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   async function maintainPortoPresence(state, person, { touch = true } = {}) {
     const changedBySweep = sweepPortoPresence(state);
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
-    if (changedBySweep || changedByTouch) await persistPortoState(state, { units: state.portoUnits });
+    let settingsChanged = false;
+    const currentOps = activePortoOps(state);
+    if (currentOps) {
+      const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === "30-00");
+      if (!opsUnit || opsUnit.autoOffline) {
+        settingsChanged = releaseCurrentOps(state, currentOps, { id: "system", name: "Automatisch systeem" }, new Date().toISOString(), "OPS automatisch afgemeld");
+      }
+    }
+    if (changedBySweep || changedByTouch || settingsChanged) await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
     return changedBySweep || changedByTouch;
   }
 
@@ -399,29 +430,25 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           return true;
         }
         const endedAt = new Date().toISOString();
-        appendOpsLog(state, currentOps, person, endedAt);
-        state.portoCurrentOps = { ...currentOps, active: false, endedAt };
-        const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === "30-00");
-        if (opsUnit) {
-          Object.assign(opsUnit, {
-            status: "8",
-            statusDetail: "OPS neergelegd",
-            active: false,
-            vehicleNumber: "",
-            vehicleCode: "",
-            vehicleType: "",
-            vehicleName: "",
-            endedById: person.id,
-            endedByName: person.name,
-            endedAt,
-            updatedAt: endedAt
-          });
-        }
+        releaseCurrentOps(state, currentOps, person, endedAt, "OPS neergelegd");
         await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 200, portoOpsPayload(state, person));
         return true;
       }
       sendJson(res, 400, { error: "Ongeldige OPS actie." });
+      return true;
+    }
+
+    if (url.pathname === "/api/porto/ops/close" && req.method === "POST") {
+      const context = await requireActivePerson(req, res);
+      if (!context) return true;
+      const { state, person } = context;
+      const currentOps = activePortoOps(state);
+      if (currentOps?.memberId === person.id) {
+        releaseCurrentOps(state, currentOps, person, new Date().toISOString(), "OPS browser gesloten");
+        await persistPortoState(state, { settings: true, units: state.portoUnits });
+      }
+      sendJson(res, 200, { ok: true });
       return true;
     }
 

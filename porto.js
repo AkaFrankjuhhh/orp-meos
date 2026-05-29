@@ -32,6 +32,7 @@ let portoOpsRequestInteractionUntil = 0;
 let portoEventSource = null;
 let portoLiveRefreshTimer = null;
 let portoLiveRefreshDeferTimer = null;
+let portoCloseBeaconSent = false;
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
@@ -83,6 +84,21 @@ function stopPortoLiveUpdates() {
   if (portoLiveRefreshDeferTimer) window.clearTimeout(portoLiveRefreshDeferTimer);
   portoLiveRefreshTimer = null;
   portoLiveRefreshDeferTimer = null;
+}
+
+function releasePortoOpsOnPageClose() {
+  if (portoCloseBeaconSent || !isCurrentOpsUser()) return;
+  portoCloseBeaconSent = true;
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon("/api/porto/ops/close", new Blob(["{}"], { type: "application/json" }));
+    return;
+  }
+  fetch("/api/porto/ops/close", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+    keepalive: true
+  }).catch(() => {});
 }
 // Porto-audio is verplaatst naar porto/audio.js.
 const PortoAudio = window.PortoAudio;
@@ -201,6 +217,8 @@ function showPortoLockError() {
 // Begrens zoom en slepen zodat de kaart nooit buiten het paneel schuift.
 document.addEventListener("pointerdown", PortoAudio.unlock, { once: true });
 document.addEventListener("keydown", PortoAudio.unlock, { once: true });
+window.addEventListener("pagehide", releasePortoOpsOnPageClose);
+window.addEventListener("beforeunload", releasePortoOpsOnPageClose);
 
 $("#portoLoginBtn").addEventListener("click", () => {
   window.location.href = "/api/auth/login?returnTo=/porto.html";
