@@ -44,6 +44,10 @@ function isCurrentOpsUser() {
   return Boolean(portoCurrentOps && portoProfile && portoCurrentOps.memberId === portoProfile.id);
 }
 
+function canUseOpsWorkspace() {
+  return Boolean(isCurrentOpsUser() || portoCanManageOps);
+}
+
 function setPortoOpsPolling(enabled) {
   if (enabled && !portoOpsPoll) {
     portoOpsPoll = window.setInterval(loadPortoDuty, 3500);
@@ -55,7 +59,7 @@ function setPortoOpsPolling(enabled) {
 }
 
 function renderPortoWorkspaceMode() {
-  const opsWorkspace = isCurrentOpsUser();
+  const opsWorkspace = canUseOpsWorkspace();
   const dutyWorkspace = !opsWorkspace && isAssignedDuty();
   document.body.classList.toggle("porto-workspace", opsWorkspace || dutyWorkspace);
   document.body.classList.toggle("porto-ops-workspace", opsWorkspace);
@@ -192,7 +196,7 @@ function renderOpsRequests() {
   const list = $("#portoOpsRequests");
   const count = $("#portoOpsCount");
   if (!panel || !list || !count) return;
-  const showPanel = Boolean((isCurrentOpsUser() && portoCanManageOps) || (portoCanViewOpsLog && portoOpsLog.length));
+  const showPanel = Boolean((canUseOpsWorkspace() && portoCanManageOps) || (portoCanViewOpsLog && portoOpsLog.length));
   panel.hidden = !showPanel;
   if (!showPanel) return;
   count.textContent = `${portoOpsRequests.length} verzoek${portoOpsRequests.length === 1 ? "" : "en"}`;

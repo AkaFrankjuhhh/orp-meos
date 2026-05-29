@@ -115,10 +115,11 @@ function createPortoServices() {
   }
 
   function canOperatePortoOps(person) {
+    const operational = Array.isArray(person?.completedOperational) ? person.completedOperational : [];
     return Boolean(
       person &&
         person.status === "Actief" &&
-        ((person.completedOperational || []).includes("OPS") || (person.extraFunctions || []).includes("Kader") || isDevOverrideProfile(person))
+        (operational.some((item) => ["OPS", "OPCO", "OVD"].includes(item)) || (person.extraFunctions || []).includes("Kader") || isDevOverrideProfile(person))
     );
   }
 
@@ -384,7 +385,7 @@ function createPortoServices() {
     );
     const canTakeOps = canOperatePortoOps(person);
     const canViewOpsLog = canViewPortoOpsLog(person);
-    const canManageOps = canTakeOps && (!currentOps || currentOps.memberId === person.id || (person.extraFunctions || []).includes("Kader"));
+    const canManageOps = canTakeOps;
     const opsRequests = canManageOps
       ? state.portoUnits
           .filter((unit) => unit.active !== false && String(unit.status) === "0" && !unit.vehicleNumber && !assignedMemberIds.has(unit.memberId))

@@ -159,7 +159,6 @@ function renderDutyPanel() {
 }
 
 async function loadPortoDuty() {
-  if (typeof hasActivePortoLiveInteraction === "function" && hasActivePortoLiveInteraction()) return;
   try {
     const response = await fetch("/api/porto/status");
     if (!response.ok) return;

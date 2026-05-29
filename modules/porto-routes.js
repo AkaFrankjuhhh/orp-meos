@@ -457,10 +457,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const context = await requireActivePerson(req, res);
       if (!context) return true;
       const { state, person } = context;
-      const ops = activePortoOps(state);
       const isKader = (person.extraFunctions || []).includes("Kader");
-      if (!ops || (ops.memberId !== person.id && !isKader)) {
-        sendJson(res, 403, { error: "Alleen de huidige OPS mag eenheden aanpassen." });
+      if (!canOperatePortoOps(person) && !isKader) {
+        sendJson(res, 403, { error: "Alleen OPS, OPCO, OVD of Kader mag eenheden aanpassen." });
         return true;
       }
       ensurePortoVehicleRanges(state);
@@ -641,10 +640,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const context = await requireActivePerson(req, res);
       if (!context) return true;
       const { state, person } = context;
-      const ops = activePortoOps(state);
       const isKader = (person.extraFunctions || []).includes("Kader");
-      if (!ops || (ops.memberId !== person.id && !isKader)) {
-        sendJson(res, 403, { error: "Alleen de huidige OPS mag eenheden indelen." });
+      if (!canOperatePortoOps(person) && !isKader) {
+        sendJson(res, 403, { error: "Alleen OPS, OPCO, OVD of Kader mag eenheden indelen." });
         return true;
       }
       ensurePortoVehicleRanges(state);
