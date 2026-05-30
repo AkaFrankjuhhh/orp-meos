@@ -281,15 +281,14 @@ $("#portoOpsRequests").addEventListener("click", async (event) => {
   if (!unitId) return;
   event.preventDefault();
   holdOpsRequestInteraction();
-  const safeUnitId = CSS.escape(unitId);
   actionButton.disabled = true;
   try {
     if (assignButton) {
-      const select = document.querySelector(`[data-category-select="${safeUnitId}"]`);
+      const select = assignButton.closest(".porto-ops-request")?.querySelector("[data-category-select]");
       await assignPortoUnit(unitId, { vehiclePrefix: select?.value || "" });
       return;
     }
-    const select = document.querySelector(`[data-link-select="${safeUnitId}"]`);
+    const select = linkButton.closest(".porto-ops-request")?.querySelector("[data-link-select]");
     await assignPortoUnit(unitId, { linkToVehicleNumber: select?.value || "" });
   } finally {
     actionButton.disabled = false;

@@ -432,16 +432,16 @@
             <div id="i8OwnList" class="i8-list"></div>
           </div>
           <div id="i8CreatePanel" class="i8-tab-panel">
-            <form id="i8Form" class="form-grid i8-form">
-              <label class="full">Voor- en achternaam:<input id="i8Name" type="text" readonly /></label>
-              <label>Datum geweldsaanwending:<input id="i8Date" type="date" required /></label>
-              <label>Tijd geweldsaanwending:<input id="i8Time" type="time" required /></label>
-              <label class="full">Locatie:<input id="i8Location" type="text" placeholder="bv. Blokkenpark" required /></label>
-              <label class="full">Naam OPCO/OVD:<input id="i8OpcoOvd" type="text" placeholder="bv. Meldano M." required /></label>
-              <label class="full">Beschrijving (mag ook clip):<textarea id="i8Description" placeholder="Beschrijf hier zo gedetailleerd mogelijk je geweldsaanwending" required></textarea></label>
-              <label class="full">Gebruikte geweldsmiddel:<input id="i8ForceUsed" type="text" placeholder="bv. HK P2000" required /></label>
-              <label>Geweld tegen voertuig?:<input id="i8Vehicle" type="text" placeholder="Zo ja, verklaar" required /></label>
-              <label>Letsel bij derden:<input id="i8Injury" type="text" placeholder="Zo ja, verklaar" required /></label>
+            <form id="i8Form" class="form-grid i8-form" autocomplete="off" novalidate>
+              <label class="full">Voor- en achternaam:<input id="i8Name" type="text" autocomplete="off" readonly /></label>
+              <label>Datum geweldsaanwending:<input id="i8Date" type="date" autocomplete="off" required /></label>
+              <label>Tijd geweldsaanwending:<input id="i8Time" type="time" autocomplete="off" required /></label>
+              <label class="full">Locatie:<input id="i8Location" type="text" autocomplete="off" placeholder="bv. Blokkenpark" required /></label>
+              <label class="full">Naam OPCO/OVD:<input id="i8OpcoOvd" type="text" autocomplete="off" placeholder="bv. Meldano M." required /></label>
+              <label class="full">Beschrijving (mag ook clip):<textarea id="i8Description" autocomplete="off" placeholder="Beschrijf hier zo gedetailleerd mogelijk je geweldsaanwending" required></textarea></label>
+              <label class="full">Gebruikte geweldsmiddel:<input id="i8ForceUsed" type="text" autocomplete="off" placeholder="bv. HK P2000" required /></label>
+              <label>Geweld tegen voertuig?:<input id="i8Vehicle" type="text" autocomplete="off" placeholder="Zo ja, verklaar" required /></label>
+              <label>Letsel bij derden:<input id="i8Injury" type="text" autocomplete="off" placeholder="Zo ja, verklaar" required /></label>
               <label class="full check-line"><input id="i8Truth" type="checkbox" required /><span>Ik heb dit I8 formulier opgemaakt naar waarheid.</span></label>
               <button class="primary full" type="submit">Sla I8 formulier op</button>
             </form>
@@ -889,6 +889,6 @@
     <script src="personeelsportaal/absence.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal/archive.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal-data.js?v=20260525-requirements"></script>
-    <script src="app.js?v=20260528-personnel-rights"></script>
+    <script src="app.js?v=20260530-i8-submit-feedback"></script>
   </body>
 </html>

@@ -276,6 +276,25 @@ function createPortoServices() {
     return wasOffline || shouldWriteHeartbeat;
   }
 
+  function portoStatusSortRank(status) {
+    const ranks = { "7": 0, "6": 1, "5": 2, "1": 3, "2": 4, "3": 5, "4": 6 };
+    return Object.prototype.hasOwnProperty.call(ranks, String(status)) ? ranks[String(status)] : 7;
+  }
+
+  function comparePortoMembersByPriority(a, b) {
+    const autoOfflineDelta = Number(Boolean(a.autoOffline)) - Number(Boolean(b.autoOffline));
+    if (autoOfflineDelta) return autoOfflineDelta;
+    const statusDelta = portoStatusSortRank(a.status) - portoStatusSortRank(b.status);
+    if (statusDelta) return statusDelta;
+    return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
+  }
+
+  function portoGroupStatusSortRank(group) {
+    const members = Array.isArray(group?.members) ? group.members : [];
+    if (!members.length) return 7;
+    return Math.min(...members.map((member) => member.autoOffline ? 8 : portoStatusSortRank(member.status)));
+  }
+
   function activePortoUnitGroups(state) {
     const groups = new Map();
     const peopleById = new Map((state.people || []).map((person) => [person.id, person]));
@@ -315,8 +334,15 @@ function createPortoServices() {
       groups.set(unit.vehicleNumber, current);
     }
     return [...groups.values()]
-      .map((group) => ({ ...group, autoOffline: group.members.length > 0 && group.members.every((member) => member.autoOffline) }))
-      .sort((a, b) => a.vehicleNumber.localeCompare(b.vehicleNumber, "nl", { numeric: true }));
+      .map((group) => {
+        const members = group.members.slice().sort(comparePortoMembersByPriority);
+        return { ...group, members, autoOffline: members.length > 0 && members.every((member) => member.autoOffline) };
+      })
+      .sort((a, b) => {
+        const statusDelta = portoGroupStatusSortRank(a) - portoGroupStatusSortRank(b);
+        if (statusDelta) return statusDelta;
+        return a.vehicleNumber.localeCompare(b.vehicleNumber, "nl", { numeric: true });
+      });
   }
 
   function decoratePortoUnit(state, unit) {

@@ -683,6 +683,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 400, { error: "Kies een geldige voertuigcategorie of koppeling." });
         return true;
       }
+      const linkedStatusSource = linkToVehicleNumber
+        ? state.portoUnits.find((entry) => entry.active !== false && entry.vehicleNumber === linkToVehicleNumber)
+        : null;
+      const assignedAt = new Date().toISOString();
       Object.assign(unit, {
         vehicleNumber,
         vehicleCode: range.vehicleCode,
@@ -690,9 +694,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         reviewStatus: linkToVehicleNumber ? "linked" : "assigned",
         assignedById: person.id,
         assignedByName: person.name,
-        assignedAt: new Date().toISOString(),
-        status: "1",
-        statusDetail: "Beschikbaar"
+        assignedAt,
+        status: linkToVehicleNumber ? (linkedStatusSource?.status || "1") : "1",
+        statusDetail: linkToVehicleNumber ? (linkedStatusSource?.statusDetail || "Beschikbaar") : "Beschikbaar"
       });
       closePendingPortoRequestsForMember(state, unit.memberId, unit.id);
       unit.updatedAt = unit.assignedAt;

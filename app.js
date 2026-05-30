@@ -439,24 +439,64 @@ function applyServerState(payload) {
 
 async function runAction(path, body = {}) {
   if (!serverBacked) return false;
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  } catch (error) {
+    await showSiteNotice("Verbinding met de server mislukt. Probeer opnieuw of vernieuw de pagina.", "Actie mislukt");
+    return false;
+  }
+  const payload = await response.json().catch(() => ({}));
   if (response.status === 401) {
     authProfile = null;
     resetPermissions();
     setLocked(true);
+    await showSiteNotice("Je sessie is verlopen. Log opnieuw in en probeer het formulier daarna opnieuw te versturen.", "Opnieuw inloggen");
     return false;
   }
-  const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     await showSiteNotice(payload.error || "Actie kon niet worden uitgevoerd.", "Actie mislukt");
     await loadState();
     return false;
   }
   applyServerState(payload);
+  return true;
+}
+
+function setSubmitBusy(form, busy, label) {
+  const button = form?.querySelector("button[type='submit']");
+  if (!button) return;
+  if (!button.dataset.defaultText) button.dataset.defaultText = button.textContent;
+  button.disabled = Boolean(busy);
+  button.textContent = busy ? label : button.dataset.defaultText;
+}
+
+async function validateI8FormFields() {
+  const fields = [
+    { selector: "#i8Date", label: "Datum geweldsaanwending" },
+    { selector: "#i8Time", label: "Tijd geweldsaanwending" },
+    { selector: "#i8Location", label: "Locatie" },
+    { selector: "#i8OpcoOvd", label: "Naam OPCO/OVD" },
+    { selector: "#i8Description", label: "Beschrijving" },
+    { selector: "#i8ForceUsed", label: "Gebruikte geweldsmiddel" },
+    { selector: "#i8Vehicle", label: "Geweld tegen voertuig" },
+    { selector: "#i8Injury", label: "Letsel bij derden" }
+  ];
+  const missing = fields.find((field) => !String($(field.selector)?.value || "").trim());
+  if (missing) {
+    await showSiteNotice(`Vul het veld '${missing.label}' handmatig in. Browser automatisch invullen telt soms niet goed mee.`, "I8 veld mist");
+    $(missing.selector)?.focus();
+    return false;
+  }
+  if (!$("#i8Truth")?.checked) {
+    await showSiteNotice("Bevestig dat je het I8 formulier naar waarheid hebt opgemaakt.", "I8 bevestiging mist");
+    $("#i8Truth")?.focus();
+    return false;
+  }
   return true;
 }
 
@@ -1460,21 +1500,31 @@ function wireEvents() {
   });
   $("#i8Form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const saved = await runAction("/api/i8-forms", {
-      violenceDate: $("#i8Date").value,
-      violenceTime: $("#i8Time").value,
-      location: $("#i8Location").value.trim(),
-      opcoOvdName: $("#i8OpcoOvd").value.trim(),
-      description: $("#i8Description").value.trim(),
-      forceUsed: $("#i8ForceUsed").value.trim(),
-      vehicleViolence: $("#i8Vehicle").value.trim(),
-      thirdPartyInjury: $("#i8Injury").value.trim(),
-      truthConfirmed: $("#i8Truth").checked
-    });
-    if (!saved) return;
-    resetI8Form();
-    setI8Tab("list");
-    render();
+    const form = event.currentTarget;
+    if (form.dataset.submitting === "true") return;
+    if (!(await validateI8FormFields())) return;
+    form.dataset.submitting = "true";
+    setSubmitBusy(form, true, "I8 formulier opslaan...");
+    try {
+      const saved = await runAction("/api/i8-forms", {
+        violenceDate: $("#i8Date").value,
+        violenceTime: $("#i8Time").value,
+        location: $("#i8Location").value.trim(),
+        opcoOvdName: $("#i8OpcoOvd").value.trim(),
+        description: $("#i8Description").value.trim(),
+        forceUsed: $("#i8ForceUsed").value.trim(),
+        vehicleViolence: $("#i8Vehicle").value.trim(),
+        thirdPartyInjury: $("#i8Injury").value.trim(),
+        truthConfirmed: $("#i8Truth").checked
+      });
+      if (!saved) return;
+      resetI8Form();
+      setI8Tab("list");
+      render();
+    } finally {
+      form.dataset.submitting = "false";
+      setSubmitBusy(form, false);
+    }
   });
   $("#i8ReviewList").addEventListener("click", openI8DetailFromEvent);
   $("#i8ArchiveList").addEventListener("click", openI8DetailFromEvent);
