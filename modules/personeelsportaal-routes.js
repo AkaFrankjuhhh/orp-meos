@@ -313,6 +313,35 @@ function createPersoneelsportaalRouteHandler(deps) {
     return String(highest + 1).padStart(3, "0");
   }
 
+  function normalizeI8Text(value) {
+    return String(value || "").trim().replace(/\s+/g, " ");
+  }
+
+  function i8SubmissionMatchesBody(form, body) {
+    return (
+      normalizeI8Text(form.violenceDate) === normalizeI8Text(body.violenceDate) &&
+      normalizeI8Text(form.violenceTime) === normalizeI8Text(body.violenceTime) &&
+      normalizeI8Text(form.location) === normalizeI8Text(body.location) &&
+      normalizeI8Text(form.opcoOvdName) === normalizeI8Text(body.opcoOvdName) &&
+      normalizeI8Text(form.description) === normalizeI8Text(body.description) &&
+      normalizeI8Text(form.forceUsed) === normalizeI8Text(body.forceUsed) &&
+      normalizeI8Text(form.vehicleViolence) === normalizeI8Text(body.vehicleViolence) &&
+      normalizeI8Text(form.thirdPartyInjury) === normalizeI8Text(body.thirdPartyInjury)
+    );
+  }
+
+  function recentDuplicateI8Form(forms, member, body, createdAt) {
+    const windowMs = 10 * 60 * 1000;
+    const createdMs = Date.parse(createdAt);
+    return (forms || []).find((form) => {
+      if (form.personId !== member.id) return false;
+      const formCreatedMs = Date.parse(form.createdAt || "");
+      if (!Number.isFinite(createdMs) || !Number.isFinite(formCreatedMs)) return false;
+      if (Math.abs(createdMs - formCreatedMs) > windowMs) return false;
+      return i8SubmissionMatchesBody(form, body);
+    }) || null;
+  }
+
   async function persistPersonNotifications(person, state) {
     if (!person) return;
     if (typeof peopleStorage.writePersonNotifications === "function") {
@@ -771,6 +800,20 @@ function createPersoneelsportaalRouteHandler(deps) {
 
     const createdAt = new Date().toISOString();
     state.i8Forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
+    const duplicateForm = recentDuplicateI8Form(state.i8Forms, member, body, createdAt);
+    if (duplicateForm) {
+      const permissions = permissionsForAuth(auth, state);
+      sendJson(res, 200, {
+        ok: true,
+        duplicate: true,
+        i8FormId: duplicateForm.id,
+        i8Number: i8NumberForServer(duplicateForm, state.i8Forms),
+        state: stateForProfile(state, permissions, auth.profile.id),
+        canViewLogbook: permissions.canViewLogbook,
+        permissions
+      });
+      return;
+    }
     const form = {
       id: crypto.randomUUID(),
       i8Number: nextI8NumberForServer(state.i8Forms),

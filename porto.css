@@ -2275,3 +2275,94 @@ body.porto-duty-workspace .porto-duty-ops-info span strong {
     width: 100%;
   }
 }
+
+/* Porto duty viewport stabilisatie: statusknoppen mogen nooit over de eenhedenbalk heen vallen. */
+body.porto-duty-workspace .porto-duty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+body.porto-duty-workspace .porto-duty-assignment,
+body.porto-duty-workspace .porto-unit-member-bar,
+body.porto-duty-workspace .porto-duty-layout {
+  flex: 0 0 auto;
+}
+
+body.porto-duty-workspace .porto-duty-layout {
+  position: static;
+  transform: none;
+  margin-top: 0;
+}
+
+@media (max-height: 780px) and (min-width: 681px) {
+  body.porto-duty-workspace .porto-duty-panel {
+    padding-top: 54px;
+    padding-bottom: 72px;
+    gap: 8px;
+  }
+
+  body.porto-duty-workspace .porto-duty-assignment {
+    width: min(620px, 100%);
+    gap: 10px;
+  }
+
+  body.porto-duty-workspace .porto-callsign-card,
+  body.porto-duty-workspace .porto-vehicle-choice {
+    padding: 12px 14px;
+  }
+
+  body.porto-duty-workspace .porto-callsign-card strong {
+    font-size: 34px;
+  }
+
+  body.porto-duty-workspace .porto-unit-member-bar {
+    width: min(760px, 100%);
+    gap: 8px;
+    padding: 10px;
+  }
+
+  body.porto-duty-workspace .porto-unit-member {
+    min-height: 94px;
+    padding: 12px;
+    gap: 6px;
+  }
+
+  body.porto-duty-workspace .porto-unit-member div {
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  body.porto-duty-workspace .porto-duty-layout {
+    width: min(790px, 100%);
+  }
+
+  body.porto-duty-workspace .porto-duty-card {
+    padding: 12px;
+  }
+
+  body.porto-duty-workspace .porto-duty-card .panel-head {
+    margin-bottom: 8px;
+  }
+
+  body.porto-duty-workspace .porto-status-grid {
+    grid-template-columns: repeat(6, minmax(70px, 1fr));
+    gap: 8px;
+  }
+
+  body.porto-duty-workspace .porto-status-tile {
+    min-height: 54px;
+    padding: 7px 8px;
+  }
+
+  body.porto-duty-workspace .porto-status-tile strong {
+    font-size: 15px;
+  }
+
+  body.porto-duty-workspace .porto-status-tile span {
+    font-size: 10px;
+  }
+}
