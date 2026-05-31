@@ -5,6 +5,10 @@ function openProfilePage(profileId = "") {
   renderProfile();
   setPage("mijn-profiel");
   syncBrowserRoute("mijn-profiel");
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    $("#mijn-profiel")?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+  });
 }
 
 const profileRankLabels = {
@@ -24,6 +28,35 @@ window.profileSideTaskBadges = profileSideTaskBadges;
 
 function profileRankLabel(rank) {
   return profileRankLabels[rank] || rank || "-";
+}
+
+function profileNavigationPeople() {
+  return (state.people || [])
+    .filter((person) => person.status === "Actief")
+    .sort((a, b) => {
+      const rankDelta = rankWeight.get(b.rank) - rankWeight.get(a.rank);
+      if (rankDelta !== 0) return rankDelta;
+      return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
+    });
+}
+
+function adjacentProfileId(direction) {
+  const viewed = visibleProfile();
+  const people = profileNavigationPeople();
+  if (!viewed || !people.length) return "";
+  const index = people.findIndex((person) => person.id === viewed.id);
+  if (index === -1) return "";
+  return people[index + direction]?.id || "";
+}
+
+function updateProfileNavigationButtons(viewed) {
+  const previousButton = $("#profilePrevBtn");
+  const nextButton = $("#profileNextBtn");
+  if (!previousButton || !nextButton) return;
+  const people = profileNavigationPeople();
+  const index = people.findIndex((person) => person.id === viewed?.id);
+  previousButton.disabled = index <= 0;
+  nextButton.disabled = index === -1 || index >= people.length - 1;
 }
 
 function renderProfileChecks(current) {
@@ -371,6 +404,7 @@ function renderProfile() {
   $("#profilePageAvatar").src = avatarFor(viewed);
   $("#profilePageRankNumber").textContent = `${profileRankLabel(viewed.rank)} - ${viewed.serviceNumber || "-"}`;
   $("#profilePageDisplayName").textContent = viewed.name || "-";
+  updateProfileNavigationButtons(viewed);
   renderProfileBadges(viewed);
   renderProfileDistinctions(viewed);
   renderProfileAuditLog(viewed);

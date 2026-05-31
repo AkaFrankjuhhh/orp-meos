@@ -679,6 +679,27 @@ dialog::backdrop {
   text-align: left;
 }
 
+.profile-nav-buttons {
+  grid-column: 1 / -1;
+  justify-self: end;
+  display: inline-flex;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.profile-nav-button {
+  width: 38px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.profile-nav-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .profile-hero-distinctions {
   display: grid;
   gap: 8px;

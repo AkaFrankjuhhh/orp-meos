@@ -1330,6 +1330,14 @@ function wireEvents() {
     const openProfileId = event.target.closest("[data-open-profile]")?.dataset.openProfile;
     if (openProfileId) openProfilePage(openProfileId);
   });
+  $("#profilePrevBtn")?.addEventListener("click", () => {
+    const previousId = adjacentProfileId(-1);
+    if (previousId) openProfilePage(previousId);
+  });
+  $("#profileNextBtn")?.addEventListener("click", () => {
+    const nextId = adjacentProfileId(1);
+    if (nextId) openProfilePage(nextId);
+  });
   $("#addDisciplineBtn").addEventListener("click", openDisciplineDialog);
   $("#closeDisciplineDialog").addEventListener("click", () => $("#disciplineDialog").close());
   $("#cancelDisciplineDialog").addEventListener("click", () => $("#disciplineDialog").close());

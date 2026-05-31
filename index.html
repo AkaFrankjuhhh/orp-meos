@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260524-sidebar-scroll" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260531-side-badges" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260531-profile-nav" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -185,6 +185,10 @@
                     <span>Laatste promotie:</span>
                     <strong id="profilePagePromotionDate">-</strong>
                   </div>
+                </div>
+                <div class="profile-nav-buttons" aria-label="Door medewerkers bladeren">
+                  <button id="profilePrevBtn" class="ghost icon profile-nav-button" type="button" title="Vorige medewerker">&#8592;</button>
+                  <button id="profileNextBtn" class="ghost icon profile-nav-button" type="button" title="Volgende medewerker">&#8594;</button>
                 </div>
                 <div id="profilePageSideBadges" class="profile-side-badge-row" data-profile-side-badges-manage="true"></div>
               </div>
@@ -881,7 +885,7 @@
       });
     </script>    <script src="shared-ui.js?v=20260518-frontend-split"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/profile.js?v=20260531-side-badges"></script>
+    <script src="personeelsportaal/profile.js?v=20260531-profile-nav"></script>
     <script src="personeelsportaal/hours.js?v=20260525-week-select"></script>
     <script src="personeelsportaal/people.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal/i8.js?v=20260528-i8-deeplink"></script>
@@ -889,6 +893,6 @@
     <script src="personeelsportaal/absence.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal/archive.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal-data.js?v=20260525-requirements"></script>
-    <script src="app.js?v=20260531-side-badges"></script>
+    <script src="app.js?v=20260531-profile-nav"></script>
   </body>
 </html>
