@@ -263,6 +263,25 @@ function createPersoneelsportaalRouteHandler(deps) {
       }
     }
   }
+
+  async function syncQualificationDiscordRoles(state, person, changedLabels) {
+    if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncQualificationRolesForPerson !== "function") return;
+    if (!person?.discordId || !changedLabels.some((label) => ["BKV", "OPS", "OPCO"].includes(label))) return;
+    try {
+      const result = await discordBot.syncQualificationRolesForPerson(
+        person,
+        "Defensie Personeelsportaal kwalificatie aangepast"
+      );
+      if (result?.ok && Array.isArray(result.changes) && result.changes.length) {
+        state.activity = state.activity || [];
+        state.activity.push(`Discord kwalificatierollen gesynchroniseerd voor ${person.name}.`);
+      }
+    } catch (error) {
+      state.activity = state.activity || [];
+      state.activity.push(`Discord kwalificatierollen synchroniseren mislukt voor ${person.name}: ${error.message || "onbekende fout"}.`);
+    }
+  }
+
   function addPersonNotification(person, notification) {
     if (!person) return null;
     person.notifications = Array.isArray(person.notifications) ? person.notifications : [];
@@ -1330,9 +1349,17 @@ function createPersoneelsportaalRouteHandler(deps) {
     const activityMessage = changeDetails.length
       ? `${actor.name} wijzigde kwalificaties voor ${person.name}: ${changeDetails.join(", ")}.`
       : `Profiel kwalificaties bijgewerkt voor ${person.name}.`;
+    const activityStartIndex = state.activity.length;
     state.activity.push(activityMessage);
+    await syncQualificationDiscordRoles(state, person, [
+      ...newTrainings,
+      ...newOperational,
+      ...removedTrainings,
+      ...removedOperational
+    ]);
+    const qualificationActivityMessages = state.activity.slice(activityStartIndex);
     if (typeof peopleStorage.writePersonQualifications === "function") {
-      await Promise.resolve(peopleStorage.writePersonQualifications(person, activityMessage));
+      await Promise.resolve(peopleStorage.writePersonQualifications(person, qualificationActivityMessages));
       const nextPermissions = permissionsForAuth(auth, state);
       sendJson(res, 200, {
         ok: true,

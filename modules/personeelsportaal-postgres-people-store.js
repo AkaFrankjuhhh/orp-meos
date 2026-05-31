@@ -317,11 +317,14 @@ function createPostgresPeopleStore(options = {}) {
         if (result.rowCount !== 1) {
           throw new Error("Personeelslid niet gevonden voor kwalificatie-update.");
         }
-        if (activityMessage) {
+        const activityMessages = Array.isArray(activityMessage)
+          ? activityMessage.filter(Boolean)
+          : [activityMessage].filter(Boolean);
+        for (const message of activityMessages) {
           await client.query(`
             insert into activity_log(position, message)
             values((select coalesce(max(position), -1) + 1 from activity_log), $1)
-          `, [String(activityMessage)]);
+          `, [String(message)]);
         }
         await client.query("commit");
       } catch (error) {

@@ -203,6 +203,11 @@ function canViewHours(person) {
 function canManageHours() {
   return Boolean(permissions.canManageHours || hasKaderAccess());
 }
+
+function canViewOpsTimes() {
+  return Boolean(permissions.canViewAllHours || hasKaderAccess());
+}
+
 function canViewOvJChannels() {
   return Boolean(permissions.canViewOvJChannels || hasKaderAccess());
 }
@@ -313,7 +318,7 @@ function compareServiceNumber(a = "", b = "") {
 function renderOpsTimes() {
   const overview = $("#opsTimesOverview");
   if (!overview) return;
-  if (!hasKaderAccess()) {
+  if (!canViewOpsTimes()) {
     overview.innerHTML = '<div class="feed-item">Geen toegang.</div>';
     return;
   }
@@ -370,7 +375,7 @@ function openOpsTimesDialog(selected) {
   const title = $("#opsTimesDialogTitle");
   const subtitle = $("#opsTimesDialogSubtitle");
   const rowsElement = $("#opsTimesDialogRows");
-  if (!dialog || !rowsElement || !selected || !hasKaderAccess()) return;
+  if (!dialog || !rowsElement || !selected || !canViewOpsTimes()) return;
   const fourWeeksStart = startOfWeek();
   fourWeeksStart.setDate(fourWeeksStart.getDate() - 21);
   const rows = opsTimesRowsSince(fourWeeksStart).filter((entry) => (entry.memberId || entry.name || "onbekend") === selected);
@@ -738,7 +743,10 @@ function cleanLoginRedirect() {
 
 function setPage(page) {
   page = validPage(page);
-  if (["logboek", "ops-tijden"].includes(page) && !hasKaderAccess()) {
+  if (page === "logboek" && !hasKaderAccess()) {
+    page = "dashboard";
+  }
+  if (page === "ops-tijden" && !canViewOpsTimes()) {
     page = "dashboard";
   }
   if (page === "afwezigheid-overzicht" && !canReviewAbsences()) page = "dashboard";
@@ -903,6 +911,7 @@ function renderKaderNavigation() {
   const showAbsenceOverview = canReviewAbsences();
   const showResignationOverview = canViewResignationOverview();
   const showPersonnelArchive = canViewPersonnelArchive();
+  const showOpsTimes = canViewOpsTimes();
   const showOvJ = canViewOvJChannels();
   const showMentorOverview = canViewMentorOverview();
   const showMentorTrajectory = canViewOwnMentorTrajectory();
@@ -924,6 +933,9 @@ function renderKaderNavigation() {
   });
   $$('[data-personnel-archive-only="true"]').forEach((element) => {
     element.hidden = !showPersonnelArchive;
+  });
+  $$('[data-ops-times-only="true"]').forEach((element) => {
+    element.hidden = !showOpsTimes;
   });
   $$('[data-ovj-only="true"]').forEach((element) => {
     element.hidden = !showOvJ;
@@ -947,10 +959,13 @@ function renderKaderNavigation() {
     element.hidden = !showMentorLeadership;
   });
   $$('[data-restricted-divider="true"]').forEach((element) => {
-    element.hidden = !(isKader || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
+    element.hidden = !(isKader || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOpsTimes || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
   });
   renderNavigationCounters();
-  if (!isKader && ($("#logboek").classList.contains("active") || $("#ops-tijden").classList.contains("active"))) {
+  if (!isKader && $("#logboek").classList.contains("active")) {
+    setPage("dashboard");
+  }
+  if (!showOpsTimes && $("#ops-tijden").classList.contains("active")) {
     setPage("dashboard");
   }
   if (!showAbsenceOverview && $("#afwezigheid-overzicht").classList.contains("active")) setPage("dashboard");

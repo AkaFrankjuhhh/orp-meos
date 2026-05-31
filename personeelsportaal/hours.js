@@ -50,7 +50,7 @@ function hourEntryFor(personId, weekYear, weekNumber) {
 
 function displayHourValue(value) {
   const number = Math.max(0, Number(value) || 0);
-  return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, "").replace(".", ",");
+  return number.toFixed(1).replace(".", ",");
 }
 
 function parseHourInputValue(value) {

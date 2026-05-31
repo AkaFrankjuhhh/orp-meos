@@ -46,6 +46,24 @@ const rankRoleEnvKeys = {
   "Marechaussee 3de Klasser": "DISCORD_RANK_MARECHAUSSEE_3DE_KLASSER_ROLE_ID",
   "Marechaussee 4de Klasser": "DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID"
 };
+
+const qualificationRoleDefaults = {
+  BKV: {
+    envKey: "DISCORD_MEOS_ROLE_ID",
+    roleId: "1425931664877551708",
+    label: "MEOS"
+  },
+  OPS: {
+    envKey: "DISCORD_OPS_ROLE_ID",
+    roleId: "1423790817738227864",
+    label: "OPS"
+  },
+  OPCO: {
+    envKey: "DISCORD_OPCO_ROLE_ID",
+    roleId: "1424523638526185513",
+    label: "OPCO"
+  }
+};
 const dutchSurnameParticles = new Set([
   "aan", "bij", "de", "del", "den", "der", "des", "du", "het", "in", "la", "op", "ten", "ter", "tot", "uit", "van", "vanden", "ver", "voor"
 ]);
@@ -171,10 +189,28 @@ function createDiscordBotServices(options = {}) {
       .filter((mapping) => String(mapping.roleId || "").trim());
   }
 
+  function configuredQualificationRoleMappings() {
+    return Object.entries(qualificationRoleDefaults)
+      .map(([qualification, config]) => ({
+        qualification,
+        label: config.label,
+        envKey: config.envKey,
+        roleId: process.env[config.envKey] || config.roleId
+      }))
+      .filter((mapping) => String(mapping.roleId || "").trim());
+  }
+
   function rankRoleIdForPerson(person) {
     const rank = String(person?.rank || "").trim();
     const mapping = configuredRankRoleMappings().find((entry) => entry.rank === rank);
     return mapping?.roleId || "";
+  }
+
+  function completedQualificationSetForPerson(person) {
+    return new Set([
+      ...(Array.isArray(person?.completedTrainings) ? person.completedTrainings : []),
+      ...(Array.isArray(person?.completedOperational) ? person.completedOperational : [])
+    ].map((item) => String(item || "").trim()).filter(Boolean));
   }
 
   function configuredVoiceChannels() {
@@ -317,11 +353,30 @@ function createDiscordBotServices(options = {}) {
     return syncRankRoleForPerson(person, auditReason);
   }
 
+  async function syncQualificationRolesForPerson(person, auditReason = "Defensie Personeelsportaal kwalificatierollen gesynchroniseerd") {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
+    const memberId = normalizeDiscordId(person?.discordId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+    const mappings = configuredQualificationRoleMappings();
+    const managedRoleIds = mappings.map((mapping) => mapping.roleId);
+    if (!managedRoleIds.length) return { skipped: true, reason: "Geen Discord kwalificatierollen ingesteld." };
+    const completed = completedQualificationSetForPerson(person);
+    const desiredRoleIds = mappings
+      .filter((mapping) => completed.has(mapping.qualification))
+      .map((mapping) => mapping.roleId);
+    return syncRoleSet(memberId, desiredRoleIds, managedRoleIds, auditReason);
+  }
+
+  async function syncQualificationRolesForPersonIfNeeded(person, auditReason = "Defensie Personeelsportaal periodieke kwalificatierol controle") {
+    return syncQualificationRolesForPerson(person, auditReason);
+  }
+
   async function syncDiscordForPersonIfNeeded(person, auditReason = "Defensie Personeelsportaal Discord profiel gesynchroniseerd") {
     if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
     const nickname = await syncNicknameForPersonIfNeeded(person, auditReason);
     const rankRole = await syncRankRoleForPersonIfNeeded(person, auditReason);
-    return { ok: true, nickname, rankRole };
+    const qualificationRoles = await syncQualificationRolesForPersonIfNeeded(person, auditReason);
+    return { ok: true, nickname, rankRole, qualificationRoles };
   }
 
   function buildServiceNickname(person, template = process.env.DISCORD_NICKNAME_TEMPLATE || "personeelsportaal") {
@@ -400,6 +455,7 @@ function createDiscordBotServices(options = {}) {
     isConfigured,
     configuredRoleMappings,
     configuredRankRoleMappings,
+    configuredQualificationRoleMappings,
     configuredVoiceChannels,
     resolveVoiceChannelId,
     getGuildMember,
@@ -412,6 +468,8 @@ function createDiscordBotServices(options = {}) {
     rankRoleIdForPerson,
     syncRankRoleForPerson,
     syncRankRoleForPersonIfNeeded,
+    syncQualificationRolesForPerson,
+    syncQualificationRolesForPersonIfNeeded,
     syncDiscordForPersonIfNeeded,
     rankSymbolsFor,
     formatNameForDiscordNickname,

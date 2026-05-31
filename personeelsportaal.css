@@ -2518,9 +2518,9 @@ summary {
 
 #personeel .leadership-overview {
   display: grid;
-  grid-template-columns: minmax(320px, 0.82fr) minmax(360px, 1.18fr);
+  grid-template-columns: minmax(340px, 360px) minmax(0, 1fr);
   gap: 16px;
-  align-items: stretch;
+  align-items: start;
 }
 
 #personeel .personnel-commander-field,
@@ -2537,7 +2537,8 @@ summary {
 }
 
 #personeel .personnel-commander-field .person-card {
-  height: calc(100% - 24px);
+  width: 100%;
+  height: auto;
 }
 
 #personeel .personnel-commander-empty {

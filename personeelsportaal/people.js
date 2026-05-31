@@ -216,7 +216,7 @@ function renderLeadershipOverview(people, allActivePeople) {
   return `
     <div class="leadership-overview">
       <section class="personnel-commander-field">
-        <div class="personnel-section-kicker">Commandant</div>
+        <div class="personnel-section-kicker">Luitenant-Generaal</div>
         ${commanderCard}
       </section>
       <aside class="personnel-hours-top5" aria-label="Top 5 uren">
