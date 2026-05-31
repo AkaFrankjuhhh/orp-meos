@@ -125,6 +125,108 @@ function renderPersonnelHourBadges(person) {
   `;
 }
 
+function personnelServiceHoursThisWeek(person) {
+  return personnelCurrentWeekHours(person);
+}
+
+function personnelOpsHoursForTop(person) {
+  return personnelOpsHoursLastWeeks(person, 2);
+}
+
+function renderPersonnelTopHoursList(title, subtitle, people, valueForPerson, className) {
+  const rows = people
+    .map((person) => ({ person, hours: valueForPerson(person) }))
+    .filter((entry) => entry.hours > 0)
+    .sort((a, b) => {
+      const hourDelta = b.hours - a.hours;
+      if (hourDelta !== 0) return hourDelta;
+      return (a.person.serviceNumber || "").localeCompare(b.person.serviceNumber || "", "nl", { numeric: true });
+    })
+    .slice(0, 5);
+  return `
+    <section class="personnel-top-hours ${className}">
+      <div>
+        <h3>${escapeHtml(title)}</h3>
+        <span>${escapeHtml(subtitle)}</span>
+      </div>
+      <div class="personnel-top-hours-list">
+        ${rows.length ? rows.map((entry, index) => `
+          <button class="personnel-top-hours-row" type="button" data-open-person-profile="${escapeHtml(entry.person.id)}">
+            <span>${index + 1}</span>
+            <strong>${escapeHtml(entry.person.serviceNumber || "-")}</strong>
+            <em>${escapeHtml(entry.person.name || "Onbekend")}</em>
+            <b>${escapeHtml(displayHourValue(entry.hours))}u</b>
+          </button>
+        `).join("") : '<div class="feed-item">Nog geen uren geregistreerd.</div>'}
+      </div>
+    </section>
+  `;
+}
+
+function renderPersonnelCard(person) {
+  return `
+      <article class="person-card" data-person-card="${person.id}">
+        <div class="card-menu-wrap">
+          <button class="card-menu" type="button" aria-label="Meer opties">...</button>
+          <div class="card-menu-panel">
+            <button type="button" data-open-person-profile="${person.id}">Profiel openen</button>
+            ${hasKaderAccess() ? `<button type="button" data-edit="${person.id}">Bewerken</button>` : ""}
+            ${hasKaderAccess() ? `<button type="button" data-clear-history="${person.id}">Rang geschiedenis wissen</button>` : ""}
+          </div>
+        </div>
+        <div class="person-head">
+          <div class="avatar-status-wrap">
+            <img class="avatar" src="${avatarFor(person)}" alt="" />
+            <span class="status-dot ${statusInfoFor(person).className}" title="${escapeHtml(statusInfoFor(person).label)}" aria-label="${escapeHtml(statusInfoFor(person).label)}"></span>
+          </div>
+          <div>
+            <span class="person-label">Naam</span>
+            <h2>${escapeHtml(person.name)}</h2>
+            <p class="muted">${escapeHtml(person.rank)} - ${escapeHtml(person.serviceNumber || "Geen roepnummer")}</p>
+            <div class="person-status-line">
+              <span class="person-status ${statusInfoFor(person).className}">${escapeHtml(statusInfoFor(person).label)}</span>
+              ${renderPersonnelHourBadges(person)}
+            </div>
+          </div>
+        </div>
+        <div class="person-meta">
+          <span>Datum aangenomen: ${escapeHtml(formatDate(hiredDateFor(person)))}</span>
+          <span>Laatste promotie: ${escapeHtml(formatDate(person.promotionDate))}</span>
+        </div>
+        <details>
+          <summary>Rang geschiedenis</summary>
+          <div class="feed">
+            ${(person.rankHistory || []).map((item) => `<div class="feed-item">${escapeHtml(formatDate(item.date))}: ${escapeHtml(item.rank)} (${escapeHtml(item.serviceNumber || "-")})</div>`).join("")}
+          </div>
+        </details>
+        <div class="person-actions">
+          ${canManagePersonnelRanksFor(person, "promote") && ranks.indexOf(person.rank) > 0 ? `<button class="primary" type="button" data-promote="${person.id}">Promotie</button>` : ""}
+          ${canManagePersonnelRanksFor(person, "demote") && ranks.indexOf(person.rank) < ranks.length - 1 ? `<button class="ghost secondary" type="button" data-demote="${person.id}">Degraderen</button>` : ""}
+          ${hasKaderAccess() ? `<button class="ghost danger" type="button" data-dismiss="${person.id}">Ontslag</button>` : ""}
+        </div>
+      </article>
+  `;
+}
+
+function renderLeadershipOverview(people, allActivePeople) {
+  const commander = people.find((person) => person.rank === "Luitenant-Generaal");
+  const commanderCard = commander
+    ? renderPersonnelCard(commander)
+    : '<div class="personnel-commander-empty">Geen Luitenant-Generaal ingesteld.</div>';
+  return `
+    <div class="leadership-overview">
+      <section class="personnel-commander-field">
+        <div class="personnel-section-kicker">Commandant</div>
+        ${commanderCard}
+      </section>
+      <aside class="personnel-hours-top5" aria-label="Top 5 uren">
+        ${renderPersonnelTopHoursList("Top 5 diensturen", "Huidige week", allActivePeople, personnelServiceHoursThisWeek, "service-hours")}
+        ${renderPersonnelTopHoursList("Top 5 OPS uren", "Laatste 2 weken", allActivePeople, personnelOpsHoursForTop, "ops-hours")}
+      </aside>
+    </div>
+  `;
+}
+
 function renderPersonnelReadiness(person) {
   const hours = personnelCurrentWeekHours(person);
   const hourText = typeof displayHourValue === "function" ? displayHourValue(hours) : String(hours);
@@ -167,26 +269,29 @@ function renderPeople() {
       if (rankDelta !== 0) return rankDelta;
       return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
     });
+  const allActivePeople = state.people.filter((person) => person.status === "Actief");
 
   const groups = rankCategories
     .map((category) => ({
       ...category,
       rankGroups: category.ranks
+        .filter((rank) => !(category.title === "Kader" && rank === "Luitenant-Generaal"))
         .map((rank) => ({
           rank,
           people: people.filter((person) => person.rank === rank)
         }))
         .filter((group) => group.people.length > 0)
     }))
-    .filter((category) => category.rankGroups.length > 0);
+    .filter((category) => category.rankGroups.length > 0 || (category.title === "Kader" && people.some((person) => person.rank === "Luitenant-Generaal")));
 
   $("#peopleList").innerHTML = groups
     .map((category) => `
       <section class="rank-category">
         <div class="rank-category-title">
           <h2>${escapeHtml(category.title)}</h2>
-          <span>${category.rankGroups.reduce((sum, group) => sum + group.people.length, 0)}</span>
+          <span>${category.rankGroups.reduce((sum, group) => sum + group.people.length, 0) + (category.title === "Kader" && people.some((person) => person.rank === "Luitenant-Generaal") ? 1 : 0)}</span>
         </div>
+        ${category.title === "Kader" ? renderLeadershipOverview(people, allActivePeople) : ""}
         ${category.rankGroups
           .map((group) => `
             <section class="rank-group">
@@ -194,48 +299,7 @@ function renderPeople() {
                 <span>${group.people.length}</span><h3>${escapeHtml(group.rank)}</h3>
               </div>
               <div class="rank-group-list">
-                ${group.people.map((person) => `
-      <article class="person-card" data-person-card="${person.id}">
-        <div class="card-menu-wrap">
-          <button class="card-menu" type="button" aria-label="Meer opties">...</button>
-          <div class="card-menu-panel">
-            <button type="button" data-open-person-profile="${person.id}">Profiel openen</button>
-            ${hasKaderAccess() ? `<button type="button" data-edit="${person.id}">Bewerken</button>` : ""}
-            ${hasKaderAccess() ? `<button type="button" data-clear-history="${person.id}">Rang geschiedenis wissen</button>` : ""}
-          </div>
-        </div>
-        <div class="person-head">
-          <div class="avatar-status-wrap">
-            <img class="avatar" src="${avatarFor(person)}" alt="" />
-            <span class="status-dot ${statusInfoFor(person).className}" title="${escapeHtml(statusInfoFor(person).label)}" aria-label="${escapeHtml(statusInfoFor(person).label)}"></span>
-          </div>
-          <div>
-            <span class="person-label">Naam</span>
-            <h2>${escapeHtml(person.name)}</h2>
-            <p class="muted">${escapeHtml(person.rank)} - ${escapeHtml(person.serviceNumber || "Geen roepnummer")}</p>
-            <div class="person-status-line">
-              <span class="person-status ${statusInfoFor(person).className}">${escapeHtml(statusInfoFor(person).label)}</span>
-              ${renderPersonnelHourBadges(person)}
-            </div>
-          </div>
-        </div>
-        <div class="person-meta">
-          <span>Datum aangenomen: ${escapeHtml(formatDate(hiredDateFor(person)))}</span>
-          <span>Laatste promotie: ${escapeHtml(formatDate(person.promotionDate))}</span>
-        </div>
-        <details>
-          <summary>Rang geschiedenis</summary>
-          <div class="feed">
-            ${(person.rankHistory || []).map((item) => `<div class="feed-item">${escapeHtml(formatDate(item.date))}: ${escapeHtml(item.rank)} (${escapeHtml(item.serviceNumber || "-")})</div>`).join("")}
-          </div>
-        </details>
-        <div class="person-actions">
-          ${canManagePersonnelRanksFor(person, "promote") && ranks.indexOf(person.rank) > 0 ? `<button class="primary" type="button" data-promote="${person.id}">Promotie</button>` : ""}
-          ${canManagePersonnelRanksFor(person, "demote") && ranks.indexOf(person.rank) < ranks.length - 1 ? `<button class="ghost secondary" type="button" data-demote="${person.id}">Degraderen</button>` : ""}
-          ${hasKaderAccess() ? `<button class="ghost danger" type="button" data-dismiss="${person.id}">Ontslag</button>` : ""}
-        </div>
-      </article>
-                `).join("")}
+                ${group.people.map(renderPersonnelCard).join("")}
               </div>
             </section>
           `)

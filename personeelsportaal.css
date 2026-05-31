@@ -2516,6 +2516,137 @@ summary {
   align-items: start;
 }
 
+#personeel .leadership-overview {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.82fr) minmax(360px, 1.18fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+#personeel .personnel-commander-field,
+#personeel .personnel-hours-top5 {
+  min-width: 0;
+}
+
+#personeel .personnel-section-kicker {
+  margin: 0 0 8px 2px;
+  color: #f59e0b;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+#personeel .personnel-commander-field .person-card {
+  height: calc(100% - 24px);
+}
+
+#personeel .personnel-commander-empty {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  border: 1px dashed rgba(148, 163, 184, 0.32);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.44);
+  color: #94a3b8;
+  font-weight: 800;
+}
+
+#personeel .personnel-hours-top5 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#personeel .personnel-top-hours {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  background: #1e293b;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
+}
+
+#personeel .personnel-top-hours h3 {
+  margin: 0;
+  color: #e5e7eb;
+  font-size: 15px;
+}
+
+#personeel .personnel-top-hours > div > span {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+#personeel .personnel-top-hours-list {
+  display: grid;
+  gap: 8px;
+}
+
+#personeel .personnel-top-hours-row {
+  display: grid;
+  grid-template-columns: 24px minmax(48px, auto) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 9px;
+  border: 1px solid rgba(51, 65, 85, 0.88);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.46);
+  color: #cbd5e1;
+  text-align: left;
+}
+
+#personeel .personnel-top-hours-row:hover {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(15, 23, 42, 0.7);
+}
+
+#personeel .personnel-top-hours-row span {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: #e5e7eb;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+#personeel .personnel-top-hours-row strong,
+#personeel .personnel-top-hours-row b {
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+#personeel .personnel-top-hours-row em {
+  min-width: 0;
+  overflow: hidden;
+  color: #e5e7eb;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#personeel .personnel-top-hours.service-hours .personnel-top-hours-row b {
+  color: #fb923c;
+}
+
+#personeel .personnel-top-hours.ops-hours .personnel-top-hours-row b {
+  color: #fde047;
+}
+
 #personeel .person-card {
   min-height: 100%;
   padding: 16px;
@@ -3418,6 +3549,13 @@ body[data-device="mobile"] .i8-archive-row .i8-review-meta {
 #personeel .rank-category-title {
   justify-content: flex-start;
   gap: 10px;
+}
+
+@media (max-width: 980px) {
+  #personeel .leadership-overview,
+  #personeel .personnel-hours-top5 {
+    grid-template-columns: 1fr;
+  }
 }
 
 #personeel .rank-category-title span {
