@@ -679,15 +679,20 @@ dialog::backdrop {
   text-align: left;
 }
 
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.page-title-row h1 {
+  margin: 0;
+}
+
 .profile-nav-buttons {
-  position: absolute;
-  right: 0;
-  top: 86px;
-  grid-column: 1 / -1;
-  justify-self: end;
   display: inline-flex;
   gap: 8px;
-  z-index: 4;
 }
 
 .profile-nav-button {
@@ -4710,12 +4715,6 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
 @media (max-width: 920px) {
   .profile-hero {
     padding-bottom: 0;
-  }
-
-  .profile-nav-buttons {
-    position: static;
-    grid-column: 1 / -1;
-    justify-self: flex-start;
   }
 
   .profile-side-badge-row {

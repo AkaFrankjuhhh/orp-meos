@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260524-sidebar-scroll" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260531-profile-nav-visible" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260531-profile-nav-title" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -70,7 +70,13 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Koninklijke Marechaussee</p>
-          <h1 id="pageTitle">Dashboard</h1>
+          <div class="page-title-row">
+            <h1 id="pageTitle">Dashboard</h1>
+            <div class="profile-nav-buttons" aria-label="Door medewerkers bladeren" hidden>
+              <button id="profilePrevBtn" class="ghost profile-nav-button" type="button" title="Vorige medewerker">Vorige</button>
+              <button id="profileNextBtn" class="ghost profile-nav-button" type="button" title="Volgende medewerker">Volgende</button>
+            </div>
+          </div>
         </div>
         <div class="topbar-actions">
           <section class="notification-center" aria-label="Persoonlijke meldingen">
@@ -187,10 +193,6 @@
                   </div>
                 </div>
                 <div id="profilePageSideBadges" class="profile-side-badge-row" data-profile-side-badges-manage="true"></div>
-                <div class="profile-nav-buttons" aria-label="Door medewerkers bladeren">
-                  <button id="profilePrevBtn" class="ghost profile-nav-button" type="button" title="Vorige medewerker">Vorige</button>
-                  <button id="profileNextBtn" class="ghost profile-nav-button" type="button" title="Volgende medewerker">Volgende</button>
-                </div>
               </div>
             </section>
 
@@ -885,7 +887,7 @@
       });
     </script>    <script src="shared-ui.js?v=20260518-frontend-split"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/profile.js?v=20260531-profile-nav-visible"></script>
+    <script src="personeelsportaal/profile.js?v=20260531-profile-nav-title"></script>
     <script src="personeelsportaal/hours.js?v=20260525-week-select"></script>
     <script src="personeelsportaal/people.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal/i8.js?v=20260528-i8-deeplink"></script>
@@ -893,6 +895,6 @@
     <script src="personeelsportaal/absence.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal/archive.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal-data.js?v=20260525-requirements"></script>
-    <script src="app.js?v=20260531-profile-nav-visible"></script>
+    <script src="app.js?v=20260531-profile-nav-title"></script>
   </body>
 </html>

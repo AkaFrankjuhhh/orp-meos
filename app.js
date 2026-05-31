@@ -771,6 +771,9 @@ function setPage(page) {
   $$(".page").forEach((element) => element.classList.toggle("active", element.id === page));
   $$(".nav-item").forEach((element) => element.classList.toggle("active", element.dataset.page === page));
   $("#pageTitle").textContent = pageTitle(page);
+  const profileNav = $(".profile-nav-buttons");
+  if (profileNav) profileNav.hidden = page !== "mijn-profiel";
+  if (page === "mijn-profiel") updateProfileNavigationButtons(visibleProfile());
   saveCurrentPage(page);
   syncBrowserRoute(page);
   return page;

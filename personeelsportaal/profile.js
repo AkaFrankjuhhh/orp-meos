@@ -50,9 +50,11 @@ function adjacentProfileId(direction) {
 }
 
 function updateProfileNavigationButtons(viewed) {
+  const navigation = $(".profile-nav-buttons");
   const previousButton = $("#profilePrevBtn");
   const nextButton = $("#profileNextBtn");
   if (!previousButton || !nextButton) return;
+  if (navigation) navigation.hidden = false;
   const people = profileNavigationPeople();
   const index = people.findIndex((person) => person.id === viewed?.id);
   previousButton.disabled = index <= 0;
