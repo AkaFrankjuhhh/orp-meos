@@ -76,7 +76,8 @@ function renderProfileBadges(person) {
 
   const sideContainer = $("#profilePageSideBadges");
   if (sideContainer) {
-    sideContainer.innerHTML = sideRow;
+    const canManageSideBadges = canManageProfileBadges();
+    sideContainer.innerHTML = sideRow || (canManageSideBadges ? '<span class="profile-badge task side-task side-empty" aria-label="Neventaken beheren">+</span>' : "");
   }
 }
 

@@ -1409,6 +1409,12 @@ function wireEvents() {
     event.preventDefault();
     openProfileBadgeDialog(sideTarget ? "side" : "main");
   });
+  $("#mijn-profiel").addEventListener("click", (event) => {
+    const sideTarget = event.target.closest("[data-profile-side-badges-manage]");
+    if (!sideTarget || !canManageProfileBadges()) return;
+    event.preventDefault();
+    openProfileBadgeDialog("side");
+  });
   $("#closeProfileBadgeDialog").addEventListener("click", () => $("#profileBadgeDialog").close());
   $("#cancelProfileBadgeDialog").addEventListener("click", () => $("#profileBadgeDialog").close());
   $("#profileBadgeForm").addEventListener("submit", async (event) => {

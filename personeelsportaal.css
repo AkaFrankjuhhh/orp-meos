@@ -4662,6 +4662,7 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
   justify-content: flex-end;
   gap: 8px;
   max-width: 46%;
+  min-width: 40px;
   min-height: 30px;
   cursor: context-menu;
 }
@@ -4673,6 +4674,8 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
 
 .profile-side-badge-row .side-empty {
   opacity: 0.45;
+  min-width: 34px;
+  justify-content: center;
 }
 
 @media (max-width: 920px) {
