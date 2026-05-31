@@ -114,18 +114,43 @@ const publicFormConfigs = {
   hovj: {
     slug: "hovj",
     hostnames: ["hovj.orpdefensie.nl"],
-    title: "ORP - hOvJ Aanmeldformulier",
-    subtitle: "Aanmelding voor hOvJ werkzaamheden binnen Defensie Oranjestad.",
-    accent: "#60a5fa",
+    title: "Sollicitatie hulpofficier van justitie (hOvJ)",
+    subtitle: "Dit formulier dient voor het verzamelen van gegevens ten behoeve van de beoordeling van uw sollicitatie voor de functie van hulp Officier van Justitie.\n\nU wordt verzocht uw persoonlijke gegevens, ervaring en relevante competenties volledig en naar waarheid in te vullen. Tevens dient u uw motivatie toe te lichten.\n\nDe verstrekte informatie wordt uitsluitend gebruikt voor de selectieprocedure en vertrouwelijk behandeld.\n\nHet gebruik van AI wordt gecontroleerd. Let op uw taalgebruik en geef authentieke, eigen antwoorden.",
+    notice: "Indien tijdens de selectie of proefperiode blijkt dat u niet over de vereiste competenties beschikt, kan dit alsnog leiden tot beëindiging van uw aanstelling.",
+    accent: "#6d5dfc",
     internalOnly: true,
     webhookEnv: "DISCORD_FORM_HOVJ_WEBHOOK_URL",
     questions: [
-      { id: "fullName", label: "Naam + achternaam (in-game)", type: "text", required: true },
-      { id: "discord", label: "Discord naam + ID", type: "text", required: true },
-      { id: "rank", label: "Huidige rang", type: "text", required: true },
-      { id: "i8Knowledge", label: "Wat weet jij over I8 formulieren?", type: "textarea", required: true },
-      { id: "decisionMaking", label: "Hoe ga jij om met objectief beoordelen?", type: "textarea", required: true },
-      { id: "motivation", label: "Waarom wil jij hOvJ worden?", type: "textarea", required: true }
+      { id: "name", label: "1. Wat is je naam?", type: "text", required: true },
+      { id: "rankServiceNumber", label: "2. Huidige rang en roepnummer?", type: "text", required: true },
+      { id: "motivation", label: "3. Wat is je motivatie om hOvJ te worden?", type: "text", required: true },
+      { id: "experience", label: "4. Heb je al ervaring als hOvJ?", type: "text", required: true },
+      { id: "tasks", label: "5. Wat zijn volgens jou de belangrijkste taken van een hOvJ?", type: "text", required: true },
+      { id: "whyYou", label: "6. Waarom moeten we jou aannemen en niet iemand anders als hOvJ?", type: "text", required: true },
+      {
+        id: "knowledgeIntro",
+        label: "Kennis vragen",
+        type: "section",
+        help: "In deze sectie wordt uw kennis en inzicht in de rol van hulp Officier van Justitie beoordeeld. De vragen zijn gericht op uw begrip van bevoegdheden, procedures en besluitvorming. Van jou wordt verwacht dat je onderbouwde en realistische antwoorden geeft die aansluiten op je rol als hOvJ."
+      },
+      { id: "custody", label: "1. Wanneer mag een verdachte in verzekering worden gesteld?", type: "text", required: true },
+      { id: "decisionDoubt", label: "2. Hoe ga je om met twijfel bij het nemen van een beslissing?", type: "text", required: true },
+      { id: "lowEvidencePressure", label: "3. Je krijgt een verdachte aangeleverd met weinig bewijs, maar hoge druk vanuit de politie om door te pakken. Wat doe je?", type: "text", required: true },
+      { id: "agentMisconduct", label: "4. Een agent heeft mogelijk onrechtmatig gehandeld. Hoe pak je dit aan als hOvJ?", type: "text", required: true },
+      { id: "thermiteVehicle", label: "5. Bij een verdachte wordt in een voertuig thermiet aangetroffen. De advocaat stelt dat het voertuig eerder is gestolen en dat de thermiet door een derde is geplaatst. Hoe beoordeel je deze situatie en welke tegen argumenten gebruik je?", type: "text", required: true },
+      { id: "robberyWeaponFound", label: "6. Iemand pleegt een plofkraak en word schuldig bevonden dat hij/zij die plofkraak pleegde en is aangetroffen met thermiet op zak. Voor welke overtredingen en misdrijven ga je deze persoon veroordelen en benoem de totale straf.", type: "text", required: true },
+      {
+        id: "insufficientEvidenceChoice",
+        label: "7. Een verdachte is aangehouden voor een mogelijk strafbaar feit, maar tijdens het onderzoek blijkt dat er onvoldoende bewijs is om de betrokkenheid van de verdachte vast te stellen. Er zijn geen getuigenverklaringen en het beschikbare bewijsmateriaal is niet doorslaggevend.",
+        type: "select",
+        required: true,
+        options: [
+          "A= Kijken waar je hem minimaal voor kan veroordelen.",
+          "B= De zaak doorzetten en de verdachte met zijn advocaat overtreffen in argumenten.",
+          "C= De zaak seponeren.",
+          "D= De strafzaak wordt beëindigd wegens onvoldoende grond."
+        ]
+      }
     ]
   }
 };
@@ -159,7 +184,7 @@ function canManagePublicForm(profile, config) {
 }
 
 function sanitizeQuestion(rawQuestion) {
-  const allowedTypes = new Set(["text", "textarea", "select", "checkboxGroup", "file"]);
+  const allowedTypes = new Set(["text", "textarea", "select", "checkboxGroup", "file", "section"]);
   const id = normalizeSlug(rawQuestion?.id || rawQuestion?.label || "vraag").slice(0, 48);
   const label = String(rawQuestion?.label || "Vraag").trim().slice(0, 160);
   const type = allowedTypes.has(rawQuestion?.type) ? rawQuestion.type : "text";
@@ -167,7 +192,7 @@ function sanitizeQuestion(rawQuestion) {
     id,
     label,
     type,
-    required: Boolean(rawQuestion?.required)
+    required: type === "section" ? false : Boolean(rawQuestion?.required)
   };
   if (rawQuestion?.placeholder) question.placeholder = String(rawQuestion.placeholder).trim().slice(0, 180);
   if (rawQuestion?.help) question.help = String(rawQuestion.help).trim().slice(0, 320);

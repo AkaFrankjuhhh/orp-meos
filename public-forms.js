@@ -43,6 +43,10 @@ function updateConditionalFields() {
 }
 
 function renderQuestion(question) {
+  if (question.type === "section") {
+    const help = question.help ? `<p>${escapeHtml(question.help)}</p>` : "";
+    return `<section class="field-section"><h2>${escapeHtml(question.label)}</h2>${help}</section>`;
+  }
   const required = question.required ? '<span class="required">*</span>' : "";
   const help = question.help ? `<p class="help">${escapeHtml(question.help)}</p>` : "";
   const common = `id="field-${escapeHtml(question.id)}" name="${escapeHtml(question.id)}" ${question.required ? "required" : ""}`;
@@ -85,6 +89,11 @@ function adminMessage(text, tone = "ok") {
   element.textContent = text;
 }
 
+function parseAdminQuestionsJson(value) {
+  const text = String(value || "").replace(/,\s*([}\]])/g, "$1");
+  return JSON.parse(text || "[]");
+}
+
 function renderFormAdmin(config) {
   const panel = $("#formAdminPanel");
   if (!panel) return;
@@ -103,10 +112,10 @@ async function saveFormAdmin(event) {
   if (!formState.config?.canManage) return;
   let questions = [];
   try {
-    questions = JSON.parse($("#adminFormQuestions").value || "[]");
+    questions = parseAdminQuestionsJson($("#adminFormQuestions").value);
     if (!Array.isArray(questions)) throw new Error("Vragen moeten een JSON-array zijn.");
   } catch (error) {
-    adminMessage(error.message || "Vragen JSON is ongeldig.", "error");
+    adminMessage("Vragen JSON is ongeldig. Controleer aanhalingstekens, haakjes en komma's.", "error");
     return;
   }
   const payload = {

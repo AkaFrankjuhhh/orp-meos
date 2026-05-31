@@ -139,6 +139,32 @@ h1 {
 .field:first-child { padding-top: 0; }
 .field:last-child { border-bottom: 0; }
 
+.field-section {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.field-section h2 {
+  margin: 0;
+  padding: 13px 16px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.field-section p {
+  margin: 0;
+  padding: 0 16px 16px;
+  color: var(--text);
+  line-height: 1.55;
+}
+
 label {
   display: block;
   margin-bottom: 10px;
