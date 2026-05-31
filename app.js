@@ -1785,8 +1785,12 @@ function wireEvents() {
     const personId = $("#profileHoursPersonId").value;
     const weekYear = Number($("#profileHoursWeekYear").value);
     const weekNumber = Number($("#profileHoursWeekNumber").value);
-    const hours = Number($("#profileHoursInput").value || 0);
+    const hours = parseHourInputValue($("#profileHoursInput").value);
     if (!personId || !canManageHours()) return;
+    if (!Number.isFinite(hours) || hours < 0 || hours > 99) {
+      await showSiteNotice("Vul een geldig aantal uren in tussen 0 en 99. Komma's en punten mogen allebei.", "Ongeldige uren");
+      return;
+    }
     if (await saveManualHours([{ personId, hours }], weekYear, weekNumber)) render();
   });
   $("#bulkHoursWeekOptions")?.addEventListener("click", (event) => {
@@ -1802,15 +1806,21 @@ function wireEvents() {
     const weekYear = Number($("#bulkHoursWeekYear").value);
     const weekNumber = Number($("#bulkHoursWeekNumber").value);
     const entries = $$("[data-bulk-hours-person]")
-      .filter((input) => input.value !== "")
-      .map((input) => ({ personId: input.dataset.bulkHoursPerson, hours: Number(input.value || 0) }));
+      .map((input) => ({ input, hours: parseHourInputValue(input.value) }))
+      .filter((entry) => entry.hours !== null)
+      .map((entry) => ({ personId: entry.input.dataset.bulkHoursPerson, hours: entry.hours }));
     if (!entries.length) {
       await showSiteNotice("Vul minimaal een urenregel in.", "Geen uren ingevuld");
+      return;
+    }
+    if (entries.some((entry) => !Number.isFinite(entry.hours) || entry.hours < 0 || entry.hours > 99)) {
+      await showSiteNotice("Controleer de uren. Gebruik alleen waarden tussen 0 en 99; komma's en punten mogen allebei.", "Ongeldige uren");
       return;
     }
     if (await saveManualHours(entries, weekYear, weekNumber)) {
       $("#bulkHoursDialog").close();
       render();
+      await showSiteNotice(`Uren opgeslagen voor week ${weekNumber}`, "Uren opgeslagen");
     }
   });
   $("#addMemberBtn").addEventListener("click", () => openMemberDialog());

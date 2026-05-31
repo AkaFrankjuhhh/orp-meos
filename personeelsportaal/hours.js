@@ -50,7 +50,14 @@ function hourEntryFor(personId, weekYear, weekNumber) {
 
 function displayHourValue(value) {
   const number = Math.max(0, Number(value) || 0);
-  return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, "");
+  return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, "").replace(".", ",");
+}
+
+function parseHourInputValue(value) {
+  const normalized = String(value ?? "").trim().replace(",", ".");
+  if (!normalized) return null;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : NaN;
 }
 
 function hourToneColor(hours) {
@@ -239,7 +246,7 @@ function renderBulkHoursRows(week) {
             <strong>${escapeHtml(person.serviceNumber || "-")} - ${escapeHtml(person.name)}</strong>
             <small>${escapeHtml(person.rank || "-")}</small>
           </span>
-          <input type="number" min="0" max="99" step="0.1" value="${entry ? escapeHtml(displayHourValue(entry.hours)) : ""}" data-bulk-hours-person="${escapeHtml(person.id)}" placeholder="0" />
+          <input type="text" inputmode="decimal" value="${entry ? escapeHtml(displayHourValue(entry.hours)) : ""}" data-bulk-hours-person="${escapeHtml(person.id)}" placeholder="0" />
         </label>
       `;
     })

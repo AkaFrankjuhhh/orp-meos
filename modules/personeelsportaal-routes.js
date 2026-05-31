@@ -400,7 +400,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const start = isoWeekStart(weekYear, weekNumber);
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + 7);
-    const cleanHours = Math.max(0, Math.min(99, Number(hours) || 0));
+    const cleanHours = Math.max(0, Math.min(99, Number(hours)));
     return {
       id: `manual-${person.id}-${weekYear}-${weekNumber}`,
       personId: person.id,
@@ -426,6 +426,14 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (index >= 0) state.hours[index] = entry;
     else state.hours.push(entry);
   }
+
+  function parseManualHoursValue(value) {
+    if (value === null || value === undefined) return NaN;
+    const normalized = typeof value === "string" ? value.trim().replace(",", ".") : value;
+    if (normalized === "") return NaN;
+    return Number(normalized);
+  }
+
   async function handlePersoneelsportaalApi(req, res, url) {
     if (url.pathname === "/api/notifications/read" && req.method === "POST") {
       const auth = requireAuth(req, res);
@@ -988,7 +996,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     for (const item of rawEntries) {
       const person = (state.people || []).find((entry) => entry.id === item.personId && entry.status === "Actief");
       if (!person) continue;
-      const hours = Number(item.hours);
+      const hours = parseManualHoursValue(item.hours);
       if (!Number.isFinite(hours) || hours < 0 || hours > 99) continue;
       const entry = normalizeManualHourEntry(person, weekYear, weekNumber, hours, enteredBy);
       upsertStateHourEntry(state, entry);
