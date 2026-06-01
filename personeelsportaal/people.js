@@ -157,7 +157,7 @@ function renderPersonnelTopHoursList(title, subtitle, people, valueForPerson, cl
             <em>${escapeHtml(entry.person.name || "Onbekend")}</em>
             <b>${escapeHtml(displayHourValue(entry.hours))}u</b>
           </button>
-        `).join("") : '<div class="feed-item">Nog geen uren geregistreerd.</div>'}
+        `).join("") : '<div class="personnel-top-hours-empty">Nog geen uren geregistreerd.</div>'}
       </div>
     </section>
   `;

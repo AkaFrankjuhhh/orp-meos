@@ -2556,14 +2556,17 @@ summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-self: start;
 }
 
 #personeel .personnel-top-hours {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  align-self: start;
+  min-height: 0;
   min-width: 0;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid #334155;
   border-radius: 12px;
   background: #1e293b;
@@ -2573,7 +2576,8 @@ summary {
 #personeel .personnel-top-hours h3 {
   margin: 0;
   color: #e5e7eb;
-  font-size: 15px;
+  font-size: 16px;
+  line-height: 1.2;
 }
 
 #personeel .personnel-top-hours > div > span {
@@ -2586,17 +2590,17 @@ summary {
 
 #personeel .personnel-top-hours-list {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 #personeel .personnel-top-hours-row {
   display: grid;
-  grid-template-columns: 24px minmax(48px, auto) minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: 28px minmax(58px, auto) minmax(0, 1fr) minmax(56px, auto);
+  gap: 10px;
   align-items: center;
   width: 100%;
-  min-height: 38px;
-  padding: 8px 9px;
+  min-height: 42px;
+  padding: 9px 10px;
   border: 1px solid rgba(51, 65, 85, 0.88);
   border-radius: 8px;
   background: rgba(15, 23, 42, 0.46);
@@ -2611,33 +2615,50 @@ summary {
 
 #personeel .personnel-top-hours-row span {
   display: inline-grid;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.14);
   color: #e5e7eb;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 950;
 }
 
 #personeel .personnel-top-hours-row strong,
 #personeel .personnel-top-hours-row b {
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   font-weight: 950;
   white-space: nowrap;
+}
+
+#personeel .personnel-top-hours-row b {
+  justify-self: end;
 }
 
 #personeel .personnel-top-hours-row em {
   min-width: 0;
   overflow: hidden;
   color: #e5e7eb;
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#personeel .personnel-top-hours-empty {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.5);
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 #personeel .personnel-top-hours.service-hours .personnel-top-hours-row b {
@@ -2702,8 +2723,8 @@ summary {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  gap: 5px;
-  margin-top: 8px;
+  gap: 7px;
+  margin-top: 10px;
   min-width: 0;
   overflow: visible;
 }
@@ -2711,25 +2732,27 @@ summary {
 #personeel .person-hours-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   width: fit-content;
-  min-height: 22px;
-  padding: 3px 7px;
+  min-height: 24px;
+  padding: 4px 9px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 950;
+  line-height: 1;
   white-space: nowrap;
 }
 
 #personeel .person-hours-badge.service-hours {
-  border: 1px solid rgba(249, 115, 22, 0.34);
-  background: rgba(249, 115, 22, 0.14);
-  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.58);
+  background: rgba(249, 115, 22, 0.2);
+  color: #fdba74;
 }
 
 #personeel .person-hours-badge.ops-hours {
-  border: 1px solid rgba(250, 204, 21, 0.34);
-  background: rgba(250, 204, 21, 0.14);
-  color: #fde047;
+  border: 1px solid rgba(250, 204, 21, 0.62);
+  background: rgba(250, 204, 21, 0.2);
+  color: #fef08a;
 }
 
 #personeel .person-status.active {
