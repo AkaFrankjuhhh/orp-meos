@@ -134,6 +134,18 @@ async function upsertPortoUnit(client, unit) {
 
 function createPostgresPortoStore(options = {}) {
   const afterWrite = typeof options.afterWrite === "function" ? options.afterWrite : null;
+  let writeQueue = Promise.resolve();
+
+  function enqueuePortoWrite(task) {
+    const run = writeQueue.then(task, task);
+    writeQueue = run.catch(() => {});
+    return run;
+  }
+
+  async function lockPortoWrite(client) {
+    await client.query("select pg_advisory_xact_lock(hashtext($1))", ["porto-write"]);
+  }
+
   async function readState() {
     return withClient(async (client) => {
       const settingsResult = await client.query("select value from app_settings where key = 'main'");
@@ -151,10 +163,11 @@ function createPostgresPortoStore(options = {}) {
     });
   }
 
-  async function writePortoSettings(state) {
+  async function doWritePortoSettings(state) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockPortoWrite(client);
         const settingsResult = await client.query("select value from app_settings where key = 'main' for update");
         const currentSettings = settingsResult.rows[0]?.value || {};
         const nextSettings = {
@@ -177,17 +190,28 @@ function createPostgresPortoStore(options = {}) {
     return state;
   }
 
-  async function writePortoPhone(personId, portoPhone) {
-    await withClient((client) => client.query("update people set porto_phone = $2, updated_at = now() where id = $1", [personId, portoPhone || ""]));
+  async function doWritePortoPhone(personId, portoPhone) {
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        await lockPortoWrite(client);
+        await client.query("update people set porto_phone = $2, updated_at = now() where id = $1", [personId, portoPhone || ""]);
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
     if (afterWrite) afterWrite();
     return { personId, portoPhone };
   }
 
-  async function writePortoUnits(units) {
+  async function doWritePortoUnits(units) {
     const uniqueUnits = [...new Map((units || []).filter((unit) => unit?.id).map((unit) => [unit.id, unit])).values()];
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockPortoWrite(client);
         for (const unit of uniqueUnits) {
           await upsertPortoUnit(client, unit);
         }
@@ -201,14 +225,28 @@ function createPostgresPortoStore(options = {}) {
     return uniqueUnits;
   }
 
+  async function writePortoSettings(state) {
+    return enqueuePortoWrite(() => doWritePortoSettings(state));
+  }
+
+  async function writePortoPhone(personId, portoPhone) {
+    return enqueuePortoWrite(() => doWritePortoPhone(personId, portoPhone));
+  }
+
+  async function writePortoUnits(units) {
+    return enqueuePortoWrite(() => doWritePortoUnits(units));
+  }
+
   async function writeState(state) {
     // Fallbackpad: upsert alleen bekende Porto units en instellingen, zonder de hele porto_units tabel te verwijderen.
-    await writePortoSettings(state);
-    for (const person of state.people || []) {
-      await writePortoPhone(person.id, person.portoPhone || "");
-    }
-    await writePortoUnits(state.portoUnits || []);
-    return state;
+    return enqueuePortoWrite(async () => {
+      await doWritePortoSettings(state);
+      for (const person of state.people || []) {
+        await doWritePortoPhone(person.id, person.portoPhone || "");
+      }
+      await doWritePortoUnits(state.portoUnits || []);
+      return state;
+    });
   }
 
   return { readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits };

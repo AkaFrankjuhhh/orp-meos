@@ -20,6 +20,13 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     decoratePortoUnit,
     portoOpsPayload
   } = createPortoServices();
+  let mutationQueue = Promise.resolve();
+
+  function enqueuePortoMutation(task) {
+    const run = mutationQueue.then(task, task);
+    mutationQueue = run.catch(() => {});
+    return run;
+  }
 
   async function persistPortoState(state, options = {}) {
     const units = options.units || null;
@@ -189,7 +196,13 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   async function handlePortoApi(req, res, url) {
     if (!url.pathname.startsWith("/api/porto/")) return false;
+    if (req.method !== "GET") {
+      return enqueuePortoMutation(() => handlePortoApiInner(req, res, url));
+    }
+    return handlePortoApiInner(req, res, url);
+  }
 
+  async function handlePortoApiInner(req, res, url) {
     if (url.pathname === "/api/porto/profile" && req.method === "POST") {
       const context = await requireActivePerson(req, res);
       if (!context) return true;
