@@ -109,6 +109,26 @@ function personnelCurrentWeekHours(person) {
   return Number(entry?.hours) || 0;
 }
 
+function personnelServiceTopWeek(date = new Date()) {
+  if (typeof isoWeekInfo !== "function" || typeof isoWeekStart !== "function") {
+    return typeof currentHourWeek === "function" ? currentHourWeek() : null;
+  }
+  const current = isoWeekInfo(date);
+  const isSundayAfterCutoff = date.getDay() === 0 && (
+    date.getHours() > 19 || (date.getHours() === 19 && date.getMinutes() >= 0)
+  );
+  if (isSundayAfterCutoff) return current;
+  const previousStart = isoWeekStart(current.weekYear, current.weekNumber);
+  previousStart.setUTCDate(previousStart.getUTCDate() - 7);
+  return isoWeekInfo(previousStart);
+}
+
+function personnelServiceHoursForWeek(person, week) {
+  if (!week || typeof hourEntryFor !== "function") return 0;
+  const entry = hourEntryFor(person.id, week.weekYear, week.weekNumber);
+  return Number(entry?.hours) || 0;
+}
+
 function personnelOpsHoursLastWeeks(person, count = 2) {
   if (typeof recentHourWeeks !== "function" || typeof opsHoursForWeek !== "function") return 0;
   return recentHourWeeks(count).reduce((sum, week) => sum + opsHoursForWeek(person, week), 0);
@@ -133,7 +153,7 @@ function personnelOpsHoursForTop(person) {
   return personnelOpsHoursLastWeeks(person, 2);
 }
 
-function renderPersonnelTopHoursList(title, subtitle, people, valueForPerson, className) {
+function renderPersonnelTopHoursList(title, subtitle, people, valueForPerson, className, emptyText = "Nog geen uren geregistreerd.") {
   const rows = people
     .map((person) => ({ person, hours: valueForPerson(person) }))
     .filter((entry) => entry.hours > 0)
@@ -157,7 +177,12 @@ function renderPersonnelTopHoursList(title, subtitle, people, valueForPerson, cl
             <em>${escapeHtml(entry.person.name || "Onbekend")}</em>
             <b>${escapeHtml(displayHourValue(entry.hours))}u</b>
           </button>
-        `).join("") : '<div class="personnel-top-hours-empty">Nog geen uren geregistreerd.</div>'}
+        `).join("") : `
+          <div class="personnel-top-hours-row personnel-top-hours-empty">
+            <span>-</span>
+            <em>${escapeHtml(emptyText)}</em>
+          </div>
+        `}
       </div>
     </section>
   `;
@@ -210,6 +235,7 @@ function renderPersonnelCard(person) {
 
 function renderLeadershipOverview(people, allActivePeople) {
   const commander = people.find((person) => person.rank === "Luitenant-Generaal");
+  const serviceTopWeek = personnelServiceTopWeek();
   const commanderCard = commander
     ? renderPersonnelCard(commander)
     : '<div class="personnel-commander-empty">Geen Luitenant-Generaal ingesteld.</div>';
@@ -220,7 +246,13 @@ function renderLeadershipOverview(people, allActivePeople) {
         ${commanderCard}
       </section>
       <aside class="personnel-hours-top5" aria-label="Top 5 uren">
-        ${renderPersonnelTopHoursList("Top 5 diensturen", "Huidige week", allActivePeople, personnelServiceHoursThisWeek, "service-hours")}
+        ${renderPersonnelTopHoursList(
+          `Meeste diensturen week ${serviceTopWeek?.weekNumber || "-"}`,
+          "Tot zondag 19:00",
+          allActivePeople,
+          (person) => personnelServiceHoursForWeek(person, serviceTopWeek),
+          "service-hours"
+        )}
         ${renderPersonnelTopHoursList("Top 5 OPS uren", "Laatste 2 weken", allActivePeople, personnelOpsHoursForTop, "ops-hours")}
       </aside>
     </div>
