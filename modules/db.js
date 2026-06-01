@@ -41,6 +41,14 @@ function databaseConfig() {
   };
 }
 
+function databaseRuntimeTimeouts() {
+  return {
+    statementTimeoutMs: Number(process.env.DATABASE_STATEMENT_TIMEOUT_MS || 15000),
+    lockTimeoutMs: Number(process.env.DATABASE_LOCK_TIMEOUT_MS || 5000),
+    idleTransactionTimeoutMs: Number(process.env.DATABASE_IDLE_TX_TIMEOUT_MS || 10000)
+  };
+}
+
 function createPool() {
   if (sharedPool) return sharedPool;
   const { Pool } = requirePg();
@@ -55,10 +63,32 @@ async function withClient(callback) {
   const pool = createPool();
   const client = await pool.connect();
   try {
+    const timeouts = databaseRuntimeTimeouts();
+    await client.query("select set_config('statement_timeout', $1, false)", [`${Math.max(0, timeouts.statementTimeoutMs || 0)}ms`]);
+    await client.query("select set_config('lock_timeout', $1, false)", [`${Math.max(0, timeouts.lockTimeoutMs || 0)}ms`]);
+    await client.query("select set_config('idle_in_transaction_session_timeout', $1, false)", [`${Math.max(0, timeouts.idleTransactionTimeoutMs || 0)}ms`]);
     return await callback(client);
   } finally {
     client.release();
   }
+}
+
+async function withTransaction(callback) {
+  return withClient(async (client) => {
+    await client.query("begin");
+    try {
+      const result = await callback(client);
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      try {
+        await client.query("rollback");
+      } catch (rollbackError) {
+        console.error("PostgreSQL rollback mislukt:", rollbackError.message || rollbackError);
+      }
+      throw error;
+    }
+  });
 }
 
 async function closePool() {
@@ -68,4 +98,4 @@ async function closePool() {
   await pool.end();
 }
 
-module.exports = { loadEnv, createPool, withClient, closePool };
+module.exports = { loadEnv, createPool, withClient, withTransaction, closePool };

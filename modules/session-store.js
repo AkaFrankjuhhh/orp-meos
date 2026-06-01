@@ -21,6 +21,13 @@ function cloneSession(session) {
 
 function createSessionStore() {
   const cache = new Map();
+  let writeQueue = Promise.resolve();
+
+  function enqueueSessionWrite(task) {
+    const run = writeQueue.then(task, task);
+    writeQueue = run.catch(() => {});
+    return run;
+  }
 
   function attachSessionId(id, session) {
     if (!session || typeof session !== "object") return session;
@@ -54,14 +61,14 @@ function createSessionStore() {
     if (!isPostgresStorage()) return;
     const payload = cloneSession(session);
     delete payload.id;
-    withClient(async (client) => {
+    enqueueSessionWrite(() => withClient(async (client) => {
       await client.query(
         `insert into app_sessions (id, payload, expires_at, updated_at)
          values ($1, $2::jsonb, $3, now())
          on conflict (id) do update set payload = excluded.payload, expires_at = excluded.expires_at, updated_at = now()`,
         [id, JSON.stringify(payload), sessionExpiryDate()]
       );
-    }).catch((error) => {
+    })).catch((error) => {
       console.error(`Sessie opslaan mislukt: ${error.message}`);
     });
   }
@@ -80,9 +87,9 @@ function createSessionStore() {
   function remove(id) {
     cache.delete(id);
     if (!isPostgresStorage()) return;
-    withClient(async (client) => {
+    enqueueSessionWrite(() => withClient(async (client) => {
       await client.query("delete from app_sessions where id = $1", [id]);
-    }).catch((error) => {
+    })).catch((error) => {
       console.error(`Sessie verwijderen mislukt: ${error.message}`);
     });
   }

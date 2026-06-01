@@ -1,11 +1,14 @@
 const crypto = require("node:crypto");
 const { withClient } = require("./db");
 
+let ensuredDiscordSyncJobsTable = false;
+
 function safeJson(value, fallback = {}) {
   return value == null ? fallback : value;
 }
 
 async function ensureDiscordSyncJobsTable() {
+  if (ensuredDiscordSyncJobsTable) return;
   await withClient(async (client) => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS discord_sync_jobs (
@@ -30,6 +33,7 @@ async function ensureDiscordSyncJobsTable() {
     await client.query("CREATE INDEX IF NOT EXISTS discord_sync_jobs_person_idx ON discord_sync_jobs(person_id, created_at DESC)");
     await client.query("CREATE INDEX IF NOT EXISTS discord_sync_jobs_discord_idx ON discord_sync_jobs(discord_id, created_at DESC)");
   });
+  ensuredDiscordSyncJobsTable = true;
 }
 
 async function enqueueDiscordSyncJob(type, payload = {}, options = {}) {
