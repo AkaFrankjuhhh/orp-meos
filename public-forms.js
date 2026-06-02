@@ -43,6 +43,15 @@ function resizeAutoGrowingTextarea(textarea) {
   textarea.style.height = `${Math.max(minHeight, textarea.scrollHeight)}px`;
 }
 
+function scheduleAutoGrowingTextareaResize(textarea) {
+  if (!textarea || textarea.dataset.autoGrowQueued === "true") return;
+  textarea.dataset.autoGrowQueued = "true";
+  requestAnimationFrame(() => {
+    textarea.dataset.autoGrowQueued = "false";
+    resizeAutoGrowingTextarea(textarea);
+  });
+}
+
 function bindAutoGrowingTextareas(root = document) {
   const scope = root || document;
   const textareas = scope.matches?.("textarea") ? [scope] : [...scope.querySelectorAll("textarea")];
@@ -51,7 +60,7 @@ function bindAutoGrowingTextareas(root = document) {
     resizeAutoGrowingTextarea(textarea);
     if (textarea.dataset.autoGrowBound === "true") return;
     textarea.dataset.autoGrowBound = "true";
-    textarea.addEventListener("input", () => resizeAutoGrowingTextarea(textarea));
+    textarea.addEventListener("input", () => scheduleAutoGrowingTextareaResize(textarea));
   });
 }
 
