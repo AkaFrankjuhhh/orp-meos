@@ -284,18 +284,13 @@ $("#portoOpsRequests").addEventListener("change", holdOpsRequestInteraction);
 $("#portoOpsRequests").addEventListener("click", async (event) => {
   const assignButton = event.target.closest("[data-assign-unit]");
   const linkButton = event.target.closest("[data-link-unit]");
-  const rejectButton = event.target.closest("[data-reject-unit]");
-  const actionButton = assignButton || linkButton || rejectButton;
-  const unitId = assignButton?.dataset.assignUnit || linkButton?.dataset.linkUnit || rejectButton?.dataset.rejectUnit;
+  const actionButton = assignButton || linkButton;
+  const unitId = assignButton?.dataset.assignUnit || linkButton?.dataset.linkUnit;
   if (!unitId) return;
   event.preventDefault();
   holdOpsRequestInteraction();
   actionButton.disabled = true;
   try {
-    if (rejectButton) {
-      await rejectPortoRequest(unitId);
-      return;
-    }
     if (assignButton) {
       const select = assignButton.closest(".porto-ops-request")?.querySelector("[data-category-select]");
       await assignPortoUnit(unitId, { vehiclePrefix: select?.value || "" });
@@ -306,6 +301,11 @@ $("#portoOpsRequests").addEventListener("click", async (event) => {
   } finally {
     actionButton.disabled = false;
   }
+});
+$("#portoOpsRequests").addEventListener("contextmenu", async (event) => {
+  const request = event.target.closest("[data-ops-request]");
+  if (!request?.dataset.opsRequest) return;
+  await openPortoRequestContextMenu(event, request.dataset.opsRequest);
 });
 $("#portoOpsUnits").addEventListener("click", (event) => {
   if (event.target.closest("[data-ops-status-unit]")) event.preventDefault();

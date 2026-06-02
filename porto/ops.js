@@ -220,7 +220,7 @@ function renderOpsRequests() {
       ? `<div class="porto-ops-request-note"><span>Koppelverzoek:</span><p>${escapeHtml(request.requestNote)}</p></div>`
       : "";
     return `
-    <article class="porto-ops-request">
+    <article class="porto-ops-request" data-ops-request="${escapeHtml(request.id)}" title="Rechtermuisknop voor extra opties">
       <div class="porto-ops-person">
         <strong>${escapeHtml(request.rank || "-")} - ${escapeHtml(request.name || "Onbekend")}</strong>
         <span>${escapeHtml(request.serviceNumber || "-")} - ${escapeHtml(request.phone || "Geen telefoonnummer")}</span>
@@ -241,7 +241,6 @@ function renderOpsRequests() {
         </label>
         <button class="porto-ops-assign" type="button" data-assign-unit="${escapeHtml(request.id)}">Indelen</button>
       </div>
-      <button class="porto-ops-assign danger" type="button" data-reject-unit="${escapeHtml(request.id)}">Weigeren</button>
     </article>`;
   }).join("");
 }
@@ -465,6 +464,17 @@ async function rejectPortoRequest(unitId) {
   );
   if (!confirmed) return;
   await assignPortoUnit(unitId, { reject: true });
+}
+
+async function openPortoRequestContextMenu(event, unitId) {
+  event.preventDefault();
+  holdOpsRequestInteraction();
+  const request = (portoOpsRequests || []).find((entry) => String(entry.id) === String(unitId));
+  if (!request) return;
+  const selected = await showPortoContextChoice(event, request.name || "Aanmelding", [
+    { value: "reject", label: "Weigeren" }
+  ]);
+  if (selected?.value === "reject") await rejectPortoRequest(unitId);
 }
 
 window.PortoModules.registerFeature("ops", { ready: true });
