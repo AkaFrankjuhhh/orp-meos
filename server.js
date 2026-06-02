@@ -657,6 +657,9 @@ function sendPublicFormWebhookInBackground(config, submission, files = []) {
       logServerError(`Public form webhook failed for ${config.slug}`, error);
       webhookResult = { ok: false, status: "error", error: error.message || "webhook failed" };
     }
+    if (webhookResult && !webhookResult.ok && !webhookResult.skipped) {
+      logServerError(`Public form webhook rejected for ${config.slug}`, new Error(`status=${webhookResult.status || "unknown"} body=${webhookResult.body || webhookResult.error || ""}`));
+    }
     try {
       await publicFormsStore.saveSubmission(submission, webhookResult);
     } catch (error) {

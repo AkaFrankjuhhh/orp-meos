@@ -366,53 +366,72 @@ function formatCaseNumber(value) {
   return Number.isFinite(number) && number > 0 ? String(number).padStart(3, "0") : "-";
 }
 
+function truncateDiscordText(value, maxLength) {
+  const text = String(value || "-").trim() || "-";
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
 function buildPublicFormWebhookPayload(config, submission) {
-  const fields = (config.questions || []).filter((question) => question.type !== "file" && conditionMatches(question.showIf, submission.answers)).map((question) => {
-    const rawValue = submission.answers?.[question.id];
-    const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue || "-";
-    return {
-      name: question.label,
-      value: value.length > 1024 ? `${value.slice(0, 1018)}...` : value,
-      inline: false
-    };
-  });
+  const embedTitle = config.slug === "klachten" ? "ORP - Defensie Klachtenformulier" : `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`;
+  const footerText = `Formulier: ${config.slug}`;
+  const fields = [];
+  const maxFields = 25;
+  const maxTotalChars = 5600;
+  let usedChars = embedTitle.length + footerText.length;
+
+  function addField(name, value) {
+    if (fields.length >= maxFields) return false;
+    const cleanName = truncateDiscordText(name, 220);
+    const remaining = maxTotalChars - usedChars - cleanName.length - 32;
+    if (remaining < 80) return false;
+    const cleanValue = truncateDiscordText(value, Math.min(900, remaining));
+    fields.push({ name: cleanName, value: cleanValue, inline: false });
+    usedChars += cleanName.length + cleanValue.length;
+    return true;
+  }
 
   if (submission.submittedBy) {
     const submittedBy = submission.submittedBy;
     const discordLine = submittedBy.discordUsername || submittedBy.discordId
       ? `${submittedBy.discordUsername || "Discord onbekend"} (${submittedBy.discordId || "ID onbekend"})`
       : "Discord onbekend";
-    fields.unshift({
-      name: "Formulier ingediend door:",
-      value: `${submittedBy.serviceNumber || "-"} - ${submittedBy.rank || "-"}\n${submittedBy.name || "-"}\n${discordLine}`,
-      inline: false
-    });
+    addField("Formulier ingediend door:", `${submittedBy.serviceNumber || "-"} - ${submittedBy.rank || "-"}\n${submittedBy.name || "-"}\n${discordLine}`);
   }
 
   // Klachten krijgen een vast zaaknummer bovenaan de Discord embed, zodat leiding dit makkelijk kan terugvinden.
   if (config.slug === "klachten") {
-    fields.unshift({
-      name: "Zaaknummer",
-      value: formatCaseNumber(submission.caseNumber),
-      inline: false
-    });
-  }
-  if (submission.attachments?.length) {
-    fields.push({
-      name: "Bijlage",
-      value: submission.attachments.map((file) => `${file.filename} (${Math.round(file.size / 1024)} KB)`).join("\n"),
-      inline: false
-    });
+    fields.unshift({ name: "Zaaknummer", value: formatCaseNumber(submission.caseNumber), inline: false });
+    usedChars += "Zaaknummer".length + formatCaseNumber(submission.caseNumber).length;
   }
 
-  const embedTitle = config.slug === "klachten" ? "ORP - Defensie Klachtenformulier" : `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`;
+  let truncatedOrSkipped = false;
+  for (const question of (config.questions || [])) {
+    if (question.type === "file" || !conditionMatches(question.showIf, submission.answers)) continue;
+    const rawValue = submission.answers?.[question.id];
+    const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue || "-";
+    const beforeCount = fields.length;
+    if (!addField(question.label, value)) {
+      truncatedOrSkipped = true;
+      break;
+    }
+    if (fields.length > beforeCount && String(value).length > String(fields[fields.length - 1].value).length) truncatedOrSkipped = true;
+  }
+
+  if (submission.attachments?.length) {
+    if (!addField("Bijlage", submission.attachments.map((file) => `${file.filename} (${Math.round(file.size / 1024)} KB)`).join("\n"))) truncatedOrSkipped = true;
+  }
+  if (truncatedOrSkipped && fields.length < maxFields) {
+    addField("Let op", "Een deel van de antwoorden is ingekort voor Discord. De volledige inzending staat opgeslagen in het portaal.");
+  }
+
   return {
     embeds: [
       {
         title: embedTitle,
         color: Number.parseInt(String(config.accent || "#f59e0b").replace("#", ""), 16) || 0xf59e0b,
         fields,
-        footer: { text: `Formulier: ${config.slug}` },
+        footer: { text: footerText },
         timestamp: submission.submittedAt
       }
     ]

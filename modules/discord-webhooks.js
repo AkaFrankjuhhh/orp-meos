@@ -1,5 +1,10 @@
 async function sendDiscordWebhook(webhookUrl, payload, files = []) {
   if (!webhookUrl) return { skipped: true };
+  async function webhookResult(response) {
+    if (response.ok) return { ok: true, status: response.status };
+    const body = await response.text().catch(() => "");
+    return { ok: false, status: response.status, body: body.slice(0, 800) };
+  }
 
   if (Array.isArray(files) && files.length) {
     const formData = new FormData();
@@ -12,7 +17,7 @@ async function sendDiscordWebhook(webhookUrl, payload, files = []) {
       method: "POST",
       body: formData
     });
-    return { ok: response.ok, status: response.status };
+    return webhookResult(response);
   }
 
   const response = await fetch(webhookUrl, {
@@ -20,7 +25,7 @@ async function sendDiscordWebhook(webhookUrl, payload, files = []) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  return { ok: response.ok, status: response.status };
+  return webhookResult(response);
 }
 
 function createDiscordWebhookServices({ formatDate }) {
