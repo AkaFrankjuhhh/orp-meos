@@ -35,7 +35,7 @@ function statusClassName(unit) {
 
 function setPortoDutyPolling(enabled) {
   if (enabled && !portoDutyPoll) {
-    portoDutyPoll = window.setInterval(loadPortoDuty, 3500);
+    portoDutyPoll = window.setInterval(() => loadPortoDuty({ automatic: true }), PORTO_AUTO_REFRESH_MS);
   }
   if (!enabled && portoDutyPoll) {
     window.clearInterval(portoDutyPoll);
@@ -160,8 +160,22 @@ function renderDutyPanel() {
   });
 }
 
-async function loadPortoDuty() {
+async function loadPortoDuty(options = {}) {
+  const automatic = Boolean(options.automatic);
   if (portoDutyLoadPromise) return portoDutyLoadPromise;
+  if (automatic) {
+    const elapsed = Date.now() - portoLastDutyLoadAt;
+    if (elapsed < PORTO_AUTO_REFRESH_MS) {
+      if (!portoDeferredDutyLoadTimer) {
+        portoDeferredDutyLoadTimer = window.setTimeout(() => {
+          portoDeferredDutyLoadTimer = null;
+          loadPortoDuty({ automatic: true });
+        }, PORTO_AUTO_REFRESH_MS - elapsed);
+      }
+      return null;
+    }
+  }
+  portoLastDutyLoadAt = Date.now();
   portoDutyLoadPromise = (async () => {
     const response = await fetch("/api/porto/status");
     if (!response.ok) {
@@ -171,6 +185,7 @@ async function loadPortoDuty() {
     }
     const payload = await response.json();
     portoDuty = payload.unit || null;
+    portoLastDutyLoadAt = Date.now();
     applyPortoPayload(payload);
     renderVehicleRanges();
     renderDutyPanel();
@@ -202,6 +217,7 @@ async function updatePortoStatus(status, detail = "") {
       return;
     }
     portoDuty = payload.unit || null;
+    portoLastDutyLoadAt = Date.now();
     applyPortoPayload(payload);
     if (payload.profile) portoProfile = payload.profile;
     if (status === "0" && requestNoteInput) requestNoteInput.value = "";
@@ -223,6 +239,7 @@ async function runPortoDevBypass() {
     return;
   }
   portoDuty = payload.unit || null;
+  portoLastDutyLoadAt = Date.now();
   if (payload.profile) portoProfile = payload.profile;
   applyPortoPayload(payload);
   renderVehicleRanges();

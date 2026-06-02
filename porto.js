@@ -38,6 +38,9 @@ let portoInlineErrorTimer = null;
 let portoDutyLoadPromise = null;
 let portoStatusWritePromise = null;
 let portoOpsWritePromise = null;
+let portoLastDutyLoadAt = 0;
+let portoDeferredDutyLoadTimer = null;
+const PORTO_AUTO_REFRESH_MS = 8000;
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
@@ -62,8 +65,8 @@ function schedulePortoLiveRefresh(scope = "porto") {
       }
       return;
     }
-    await loadPortoDuty();
-  }, 250);
+    await loadPortoDuty({ automatic: true });
+  }, 1000);
 }
 
 function startPortoLiveUpdates() {

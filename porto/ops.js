@@ -50,7 +50,7 @@ function canUseOpsWorkspace() {
 
 function setPortoOpsPolling(enabled) {
   if (enabled && !portoOpsPoll) {
-    portoOpsPoll = window.setInterval(loadPortoDuty, 3500);
+    portoOpsPoll = window.setInterval(() => loadPortoDuty({ automatic: true }), PORTO_AUTO_REFRESH_MS);
   }
   if (!enabled && portoOpsPoll) {
     window.clearInterval(portoOpsPoll);
@@ -357,6 +357,7 @@ async function reassignPortoUnit(unitId, assignment) {
     return;
   }
   if (payload.unit?.memberId === portoProfile?.id) portoDuty = payload.unit;
+  portoLastDutyLoadAt = Date.now();
   applyPortoPayload(payload);
   portoOpsRequestInteractionUntil = 0;
   document.activeElement?.blur?.();
@@ -418,6 +419,7 @@ async function updatePortoOps(action) {
       await showPortoNotice(payload.error || "OPS kon niet worden bijgewerkt.", "OPS mislukt");
       return;
     }
+    portoLastDutyLoadAt = Date.now();
     applyPortoPayload(payload);
     portoOpsRequestInteractionUntil = 0;
     document.activeElement?.blur?.();
@@ -446,6 +448,7 @@ async function assignPortoUnit(unitId, assignment) {
     await showPortoNotice(payload.error || "Eenheid kon niet worden ingedeeld.", "Indelen mislukt");
     return;
   }
+  portoLastDutyLoadAt = Date.now();
   applyPortoPayload(payload);
   portoOpsRequestInteractionUntil = 0;
   document.activeElement?.blur?.();
