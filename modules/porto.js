@@ -1,5 +1,3 @@
-const PORTO_PRESENCE_TIMEOUT_MS = 15 * 60 * 1000;
-const PORTO_PRESENCE_GRACE_MS = 5 * 60 * 1000;
 const PORTO_HEARTBEAT_WRITE_MS = 60 * 1000;
 
 function normalizeDiscordId(value) {
@@ -220,9 +218,7 @@ function createPortoServices() {
 
   function sweepPortoPresence(state, now = new Date()) {
     state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
-    const nowMs = now.getTime();
     const nowIso = now.toISOString();
-    const syncNumbers = new Set();
     let changed = false;
 
     for (const unit of state.portoUnits) {
@@ -232,41 +228,13 @@ function createPortoServices() {
         changed = true;
         continue;
       }
-
-      if (unit.autoOffline) {
-        const removeMs = timestampMs(unit.autoRemoveAt);
-        if (removeMs && nowMs >= removeMs) {
-          const oldVehicleNumber = unit.vehicleNumber;
-          Object.assign(unit, {
-            status: "8",
-            statusDetail: "Automatisch afgemeld",
-            active: false,
-            vehicleNumber: "",
-            vehicleCode: "",
-            vehicleType: "",
-            vehicleName: "",
-            linkedWith: [],
-            endedByName: "Automatisch systeem",
-            endedAt: nowIso,
-            updatedAt: nowIso
-          });
-          clearPortoAutoOffline(unit);
-          syncNumbers.add(oldVehicleNumber);
-          changed = true;
-        }
-        continue;
-      }
-
-      if (nowMs - timestampMs(unit.lastSeenAt) >= PORTO_PRESENCE_TIMEOUT_MS) {
-        unit.autoOffline = true;
-        unit.autoOfflineAt = nowIso;
-        unit.autoRemoveAt = new Date(nowMs + PORTO_PRESENCE_GRACE_MS).toISOString();
+      if (unit.autoOffline || unit.autoOfflineAt || unit.autoRemoveAt) {
+        clearPortoAutoOffline(unit);
         unit.updatedAt = nowIso;
         changed = true;
       }
     }
 
-    for (const number of syncNumbers) syncPortoLinkedNames(state, number);
     return changed;
   }
 
@@ -275,8 +243,6 @@ function createPortoServices() {
     const unit = (state.portoUnits || []).find((entry) => entry.memberId === person.id && entry.active !== false && entry.vehicleNumber);
     if (!unit) return false;
     const nowMs = now.getTime();
-    const removeMs = timestampMs(unit.autoRemoveAt);
-    if (unit.autoOffline && removeMs && nowMs >= removeMs) return false;
     const wasOffline = Boolean(unit.autoOffline);
     const previousLastSeenAt = unit.lastSeenAt || "";
     const nowIso = now.toISOString();
@@ -295,8 +261,6 @@ function createPortoServices() {
   }
 
   function comparePortoMembersByPriority(a, b) {
-    const autoOfflineDelta = Number(Boolean(a.autoOffline)) - Number(Boolean(b.autoOffline));
-    if (autoOfflineDelta) return autoOfflineDelta;
     const statusDelta = portoStatusSortRank(a.status) - portoStatusSortRank(b.status);
     if (statusDelta) return statusDelta;
     return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
@@ -305,7 +269,7 @@ function createPortoServices() {
   function portoGroupStatusSortRank(group) {
     const members = Array.isArray(group?.members) ? group.members : [];
     if (!members.length) return 7;
-    return Math.min(...members.map((member) => member.autoOffline ? 8 : portoStatusSortRank(member.status)));
+    return Math.min(...members.map((member) => portoStatusSortRank(member.status)));
   }
 
   function newerPortoUnit(a, b) {
@@ -353,16 +317,13 @@ function createPortoServices() {
         vehicleCode: unit.vehicleCode || range?.vehicleCode || "",
         vehicleType: unit.vehicleType || range?.vehicleType || "",
         vehicleName: unit.vehicleName || "",
-        autoOffline: Boolean(unit.autoOffline),
-        autoOfflineAt: unit.autoOfflineAt || "",
-        autoRemoveAt: unit.autoRemoveAt || ""
       });
       groups.set(unit.vehicleNumber, current);
     }
     return [...groups.values()]
       .map((group) => {
         const members = group.members.slice().sort(comparePortoMembersByPriority);
-        return { ...group, members, autoOffline: members.length > 0 && members.every((member) => member.autoOffline) };
+        return { ...group, members };
       })
       .sort((a, b) => {
         const statusDelta = portoGroupStatusSortRank(a) - portoGroupStatusSortRank(b);
@@ -397,9 +358,6 @@ function createPortoServices() {
             status: entry.status,
             statusDetail: entry.statusDetail,
             vehicleName: entry.vehicleName || "",
-            autoOffline: Boolean(entry.autoOffline),
-            autoOfflineAt: entry.autoOfflineAt || "",
-            autoRemoveAt: entry.autoRemoveAt || ""
           }))
       : [{
           id: unit.id,
@@ -414,9 +372,6 @@ function createPortoServices() {
           status: unit.status,
           statusDetail: unit.statusDetail,
           vehicleName: unit.vehicleName || "",
-          autoOffline: Boolean(unit.autoOffline),
-          autoOfflineAt: unit.autoOfflineAt || "",
-          autoRemoveAt: unit.autoRemoveAt || ""
         }];
     return {
       ...unit,

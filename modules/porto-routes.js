@@ -227,12 +227,6 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           unitsChanged = true;
         }
       }
-      if (opsUnit?.autoOffline) {
-        if (releaseCurrentOps(state, currentOps, { id: "system", name: "Automatisch systeem" }, new Date().toISOString(), "OPS automatisch afgemeld")) {
-          settingsChanged = true;
-          unitsChanged = true;
-        }
-      }
     }
     if (unitsChanged || settingsChanged) await persistPortoState(state, { units: unitsChanged ? state.portoUnits : null, settings: settingsChanged });
     return unitsChanged || settingsChanged;
