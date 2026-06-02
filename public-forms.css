@@ -195,7 +195,8 @@ select {
 
 textarea {
   min-height: 132px;
-  resize: vertical;
+  overflow: hidden;
+  resize: none;
 }
 
 
@@ -360,7 +361,8 @@ select:focus {
 }
 
 .form-admin-grid textarea {
-  resize: vertical;
+  overflow: hidden;
+  resize: none;
 }
 
 .form-admin-grid menu {

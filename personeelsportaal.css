@@ -189,7 +189,8 @@ textarea {
 
 textarea {
   min-height: 120px;
-  resize: vertical;
+  overflow: hidden;
+  resize: none;
 }
 
 .primary {

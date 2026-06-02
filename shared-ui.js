@@ -120,12 +120,39 @@
     return { ensureDialog, showNotice, showConfirm, showChoice };
   }
 
+  function resizeAutoGrowingTextarea(textarea) {
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    const minHeight = Number.parseFloat(getComputedStyle(textarea).minHeight) || 0;
+    textarea.style.height = `${Math.max(minHeight, textarea.scrollHeight)}px`;
+  }
+
+  function bindAutoGrowingTextareas(root = document) {
+    const scope = root || document;
+    const textareas = scope.matches?.("textarea") ? [scope] : queryAll("textarea", scope);
+    textareas.forEach((textarea) => {
+      textarea.dataset.autoGrow = "true";
+      resizeAutoGrowingTextarea(textarea);
+      if (textarea.dataset.autoGrowBound === "true") return;
+      textarea.dataset.autoGrowBound = "true";
+      textarea.addEventListener("input", () => resizeAutoGrowingTextarea(textarea));
+    });
+  }
+
+  function resizeAutoGrowingTextareas(root = document) {
+    const scope = root || document;
+    const textareas = scope.matches?.("textarea") ? [scope] : queryAll('textarea[data-auto-grow="true"]', scope);
+    textareas.forEach(resizeAutoGrowingTextarea);
+  }
+
   window.DefensiePortalUI = {
     query,
     queryAll,
     escapeHtml,
     formatDate,
     formatDateTime,
-    createNoticeDialog
+    createNoticeDialog,
+    bindAutoGrowingTextareas,
+    resizeAutoGrowingTextareas
   };
 }());

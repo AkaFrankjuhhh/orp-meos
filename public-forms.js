@@ -20,6 +20,25 @@ function showMessage(text, tone = "ok") {
   element.textContent = text;
 }
 
+function resizeAutoGrowingTextarea(textarea) {
+  if (!textarea) return;
+  textarea.style.height = "auto";
+  const minHeight = Number.parseFloat(getComputedStyle(textarea).minHeight) || 0;
+  textarea.style.height = `${Math.max(minHeight, textarea.scrollHeight)}px`;
+}
+
+function bindAutoGrowingTextareas(root = document) {
+  const scope = root || document;
+  const textareas = scope.matches?.("textarea") ? [scope] : [...scope.querySelectorAll("textarea")];
+  textareas.forEach((textarea) => {
+    textarea.dataset.autoGrow = "true";
+    resizeAutoGrowingTextarea(textarea);
+    if (textarea.dataset.autoGrowBound === "true") return;
+    textarea.dataset.autoGrowBound = "true";
+    textarea.addEventListener("input", () => resizeAutoGrowingTextarea(textarea));
+  });
+}
+
 function conditionMatches(condition) {
   if (!condition?.field) return true;
   const checked = [...document.querySelectorAll(`[name="${CSS.escape(condition.field)}"]:checked`)].map((input) => input.value);
@@ -39,7 +58,41 @@ function updateConditionalFields() {
     field.querySelectorAll("input, textarea, select").forEach((control) => {
       control.disabled = !visible;
     });
+    if (visible) field.querySelectorAll("textarea").forEach(resizeAutoGrowingTextarea);
   });
+}
+
+const multilineQuestionIds = new Set([
+  "motivation",
+  "experience",
+  "tasks",
+  "whyYou",
+  "custody",
+  "decisionDoubt",
+  "lowEvidencePressure",
+  "agentMisconduct",
+  "thermiteVehicle",
+  "robberyWeaponFound",
+  "leftReason",
+  "returnReason",
+  "switchReason",
+  "goal",
+  "knowledge",
+  "description",
+  "evidence",
+  "desiredOutcome",
+  "trainerReason",
+  "mentorReason",
+  "intro",
+  "sideTasks",
+  "strengths",
+  "weaknesses",
+  "whyAccept",
+  "questions"
+]);
+
+function shouldRenderQuestionAsTextarea(question) {
+  return question.type === "textarea" || multilineQuestionIds.has(question.id) || String(question.label || "").length >= 110;
 }
 
 function renderQuestion(question) {
@@ -52,7 +105,7 @@ function renderQuestion(question) {
   const common = `id="field-${escapeHtml(question.id)}" name="${escapeHtml(question.id)}" ${question.required ? "required" : ""}`;
   const showIf = question.showIf ? ` data-show-if='${escapeHtml(JSON.stringify(question.showIf))}' hidden` : "";
   let control = "";
-  if (question.type === "textarea") {
+  if (shouldRenderQuestionAsTextarea(question)) {
     control = `<textarea ${common} placeholder="${escapeHtml(question.placeholder || "")}"></textarea>`;
   } else if (question.type === "select") {
     const options = (question.options || []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
@@ -105,6 +158,7 @@ function renderFormAdmin(config) {
   $("#adminFormNotice").value = config.editable?.notice || "";
   $("#adminFormAccent").value = config.editable?.accent || config.accent || "#f59e0b";
   $("#adminFormQuestions").value = JSON.stringify(config.editable?.questions || config.questions || [], null, 2);
+  bindAutoGrowingTextareas(panel);
 }
 
 async function saveFormAdmin(event) {
@@ -149,6 +203,7 @@ function bindFormAdmin() {
   $("#toggleFormAdmin")?.addEventListener("click", () => {
     const form = $("#formAdminForm");
     form.hidden = !form.hidden;
+    if (!form.hidden) bindAutoGrowingTextareas(form);
   });
   $("#cancelFormAdmin")?.addEventListener("click", () => {
     $("#formAdminForm").hidden = true;
@@ -168,6 +223,7 @@ function applyLoadedConfig(config) {
   notice.textContent = config.notice || "";
   $("#questions").innerHTML = (config.questions || []).map(renderQuestion).join("");
   $("#questions").addEventListener("change", updateConditionalFields);
+  bindAutoGrowingTextareas($("#questions"));
   updateConditionalFields();
   renderFormAdmin(config);
 }
@@ -245,6 +301,7 @@ async function submitForm(event) {
     if (!response.ok) throw new Error(data.error || "Formulier verzenden is mislukt.");
     $("#publicForm").reset();
     updateConditionalFields();
+    bindAutoGrowingTextareas($("#questions"));
     showMessage("Formulier verzonden. Bedankt voor je inzending.", "ok");
   } catch (error) {
     showMessage(error.message || "Formulier verzenden is mislukt.", "error");

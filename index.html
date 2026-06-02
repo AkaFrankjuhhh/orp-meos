@@ -446,8 +446,8 @@
               <label class="full">Naam OPCO/OVD:<input id="i8OpcoOvd" type="text" autocomplete="off" placeholder="bv. Meldano M." required /></label>
               <label class="full">Beschrijving (mag ook clip):<textarea id="i8Description" autocomplete="off" placeholder="Beschrijf hier zo gedetailleerd mogelijk je geweldsaanwending" required></textarea></label>
               <label class="full">Gebruikte geweldsmiddel:<input id="i8ForceUsed" type="text" autocomplete="off" placeholder="bv. HK P2000" required /></label>
-              <label>Geweld tegen voertuig?:<input id="i8Vehicle" type="text" autocomplete="off" placeholder="Zo ja, verklaar" required /></label>
-              <label>Letsel bij derden:<input id="i8Injury" type="text" autocomplete="off" placeholder="Zo ja, verklaar" required /></label>
+              <label>Geweld tegen voertuig?:<textarea id="i8Vehicle" autocomplete="off" placeholder="Zo ja, verklaar" required></textarea></label>
+              <label>Letsel bij derden:<textarea id="i8Injury" autocomplete="off" placeholder="Zo ja, verklaar" required></textarea></label>
               <label class="full check-line"><input id="i8Truth" type="checkbox" required /><span>Ik heb dit I8 formulier opgemaakt naar waarheid.</span></label>
               <button class="primary full" type="submit">Sla I8 formulier op</button>
             </form>
@@ -885,7 +885,7 @@
           body: JSON.stringify({ message: reason, source: "unhandledrejection", line: "", page: location.href })
         }).catch(function () {});
       });
-    </script>    <script src="shared-ui.js?v=20260518-frontend-split"></script>
+    </script>    <script src="shared-ui.js?v=20260602-autogrow-textareas"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/profile.js?v=20260531-profile-nav-title"></script>
     <script src="personeelsportaal/hours.js?v=20260531-hour-decimals"></script>
@@ -895,6 +895,6 @@
     <script src="personeelsportaal/absence.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal/archive.js?v=20260528-personnel-rights"></script>
     <script src="personeelsportaal-data.js?v=20260525-requirements"></script>
-    <script src="app.js?v=20260601-hours-visibility"></script>
+    <script src="app.js?v=20260602-autogrow-textareas"></script>
   </body>
 </html>

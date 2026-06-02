@@ -1287,10 +1287,12 @@ function render() {
   renderOpsTimes();
   renderAbsenceOverview();
   renderResignationOverview();
+  DefensiePortalUI.bindAutoGrowingTextareas?.();
 }
 
 function wireEvents() {
   window.addEventListener("resize", updateDeviceMode);
+  window.addEventListener("resize", () => DefensiePortalUI.resizeAutoGrowingTextareas?.());
   window.addEventListener("popstate", () => applyRouteState("replace"));
   $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
   const rankPie = $("#rankPie");
