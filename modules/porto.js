@@ -324,6 +324,10 @@ function createPortoServices() {
       const person = peopleById.get(unit.memberId) || {};
       const completedTrainings = Array.isArray(person.completedTrainings) ? person.completedTrainings : [];
       const completedOperational = Array.isArray(person.completedOperational) ? person.completedOperational : [];
+      if (unit.memberId && current.members.some((member) => member.memberId === unit.memberId)) {
+        groups.set(unit.vehicleNumber, current);
+        continue;
+      }
       current.members.push({
         id: unit.id,
         memberId: unit.memberId,
@@ -362,9 +366,9 @@ function createPortoServices() {
     if (!unit) return null;
     const range = vehicleRangeForNumber(state, unit.vehicleNumber);
     const members = unit.vehicleNumber
-      ? (state.portoUnits || [])
+      ? [...new Map((state.portoUnits || [])
           .filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber)
-          .map((entry) => ({
+          .map((entry) => [entry.memberId || entry.id, {
             id: entry.id,
             memberId: entry.memberId,
             name: entry.name,
@@ -380,7 +384,7 @@ function createPortoServices() {
             autoOffline: Boolean(entry.autoOffline),
             autoOfflineAt: entry.autoOfflineAt || "",
             autoRemoveAt: entry.autoRemoveAt || ""
-          }))
+          }])).values()]
       : [{
           id: unit.id,
           memberId: unit.memberId,
