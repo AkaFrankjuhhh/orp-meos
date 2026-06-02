@@ -128,6 +128,37 @@ function syncProfileFromDiscord(state, profile, user, member) {
   profile.permRole = resolveSyncedPermRole(profile, roles, state);
 }
 
+async function persistDiscordProfileSync(state, profile) {
+  if (storageMode !== "postgres") {
+    await Promise.resolve(writeState(state));
+    return;
+  }
+  await withClient(async (client) => {
+    const result = await client.query(`
+      update people
+      set
+        discord_username = $2,
+        avatar = $3,
+        discord_roles = $4::jsonb,
+        perm_role = $5,
+        raw = $6::jsonb,
+        updated_at = now()
+      where id = $1
+    `, [
+      profile.id,
+      profile.discordUsername || "",
+      profile.avatar || "",
+      JSON.stringify(profile.discordRoles || []),
+      profile.permRole || "Geen",
+      JSON.stringify(profile)
+    ]);
+    if (result.rowCount !== 1) {
+      throw new Error("Profiel niet gevonden voor Porto Discord sync.");
+    }
+  });
+  afterStorageWrite("people");
+}
+
 function errorPage(title, message) {
   return `<!doctype html>
     <html lang="nl">
@@ -313,7 +344,7 @@ async function handleApi(req, res, url) {
         return;
       }
       syncProfileFromDiscord(state, profile, user, member);
-      await Promise.resolve(writeState(state));
+      await persistDiscordProfileSync(state, profile);
       createSession(res, user, profile, { accessToken: token.access_token, roles: member.roles || [] });
       const sessionCookie = res.getHeader("Set-Cookie");
       res.writeHead(302, {
