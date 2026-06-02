@@ -15,17 +15,35 @@ function createEventBus() {
     });
     const client = res;
     clients.add(client);
-    send(client, "connected", { profileId: profile?.id || "", at: new Date().toISOString() });
-    const heartbeat = setInterval(() => send(client, "heartbeat", { at: new Date().toISOString() }), 25000);
-    req.on("close", () => {
+    const heartbeat = setInterval(() => {
+      try {
+        send(client, "heartbeat", { at: new Date().toISOString() });
+      } catch {
+        cleanup();
+      }
+    }, 25000);
+    function cleanup() {
       clearInterval(heartbeat);
       clients.delete(client);
-    });
+    }
+    try {
+      send(client, "connected", { profileId: profile?.id || "", at: new Date().toISOString() });
+    } catch {
+      cleanup();
+    }
+    req.on("aborted", cleanup);
+    req.on("close", cleanup);
+    res.on("close", cleanup);
+    res.on("error", cleanup);
   }
 
   function publish(event, payload = {}) {
     for (const client of clients) {
-      send(client, event, { ...payload, at: new Date().toISOString() });
+      try {
+        send(client, event, { ...payload, at: new Date().toISOString() });
+      } catch {
+        clients.delete(client);
+      }
     }
   }
 

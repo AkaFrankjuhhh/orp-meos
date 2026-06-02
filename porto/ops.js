@@ -405,23 +405,30 @@ async function runPortoOpsDevTest() {
 }
 
 async function updatePortoOps(action) {
-  const response = await fetch("/api/porto/ops", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action })
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    showPortoInlineError(payload.error || "OPS kon niet worden bijgewerkt.");
-    await showPortoNotice(payload.error || "OPS kon niet worden bijgewerkt.", "OPS mislukt");
-    return;
-  }
-  applyPortoPayload(payload);
-  portoOpsRequestInteractionUntil = 0;
-  document.activeElement?.blur?.();
-  renderVehicleRanges();
-  renderDutyPanel();
-  renderOpsPanel();
+  if (portoOpsWritePromise) return portoOpsWritePromise;
+  portoOpsWritePromise = (async () => {
+    const response = await fetch("/api/porto/ops", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showPortoInlineError(payload.error || "OPS kon niet worden bijgewerkt.");
+      await showPortoNotice(payload.error || "OPS kon niet worden bijgewerkt.", "OPS mislukt");
+      return;
+    }
+    applyPortoPayload(payload);
+    portoOpsRequestInteractionUntil = 0;
+    document.activeElement?.blur?.();
+    renderVehicleRanges();
+    renderDutyPanel();
+    renderOpsPanel();
+  })()
+    .finally(() => {
+      portoOpsWritePromise = null;
+    });
+  return portoOpsWritePromise;
 }
 
 async function assignPortoUnit(unitId, assignment) {

@@ -161,7 +161,8 @@ function renderDutyPanel() {
 }
 
 async function loadPortoDuty() {
-  try {
+  if (portoDutyLoadPromise) return portoDutyLoadPromise;
+  portoDutyLoadPromise = (async () => {
     const response = await fetch("/api/porto/status");
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
@@ -174,32 +175,44 @@ async function loadPortoDuty() {
     renderVehicleRanges();
     renderDutyPanel();
     renderOpsPanel();
-  } catch (error) {
-    showPortoInlineError("Porto status laden mislukt. Probeer opnieuw of herlaad de pagina.");
-  }
+  })()
+    .catch(() => {
+      showPortoInlineError("Porto status laden mislukt. Probeer opnieuw of herlaad de pagina.");
+    })
+    .finally(() => {
+      portoDutyLoadPromise = null;
+    });
+  return portoDutyLoadPromise;
 }
 
 async function updatePortoStatus(status, detail = "") {
-  const requestNoteInput = $("#portoStatusRequestInput");
-  const requestNote = status === "0" ? String(requestNoteInput?.value || "").trim() : "";
-  const response = await fetch("/api/porto/status", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status, detail, requestNote })
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    showPortoInlineError(payload.error || "Porto status kon niet worden opgeslagen.");
-    await showPortoNotice(payload.error || "Porto status kon niet worden opgeslagen.", "Status mislukt");
-    return;
-  }
-  portoDuty = payload.unit || null;
-  applyPortoPayload(payload);
-  if (payload.profile) portoProfile = payload.profile;
-  if (status === "0" && requestNoteInput) requestNoteInput.value = "";
-  renderVehicleRanges();
-  renderDutyPanel();
-  renderOpsPanel();
+  if (portoStatusWritePromise) return portoStatusWritePromise;
+  portoStatusWritePromise = (async () => {
+    const requestNoteInput = $("#portoStatusRequestInput");
+    const requestNote = status === "0" ? String(requestNoteInput?.value || "").trim() : "";
+    const response = await fetch("/api/porto/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, detail, requestNote })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showPortoInlineError(payload.error || "Porto status kon niet worden opgeslagen.");
+      await showPortoNotice(payload.error || "Porto status kon niet worden opgeslagen.", "Status mislukt");
+      return;
+    }
+    portoDuty = payload.unit || null;
+    applyPortoPayload(payload);
+    if (payload.profile) portoProfile = payload.profile;
+    if (status === "0" && requestNoteInput) requestNoteInput.value = "";
+    renderVehicleRanges();
+    renderDutyPanel();
+    renderOpsPanel();
+  })()
+    .finally(() => {
+      portoStatusWritePromise = null;
+    });
+  return portoStatusWritePromise;
 }
 
 async function runPortoDevBypass() {

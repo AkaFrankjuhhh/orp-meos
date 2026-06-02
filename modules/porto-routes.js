@@ -189,7 +189,6 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   }
 
   async function sendPortoState(res, state, person, unit = null, extra = {}) {
-    await maintainPortoPresence(state, person);
     sendJson(res, 200, {
       ...extra,
       unit: decoratePortoUnit(state, unit),
@@ -241,11 +240,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const context = await requireActivePerson(req, res);
       if (!context) return true;
       const { state, person } = context;
-      const vehicleRangesChanged = ensurePortoVehicleRanges(state);
+      ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
-      const presenceChanged = await maintainPortoPresence(state, person);
       const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
-      if (vehicleRangesChanged && !presenceChanged) await persistPortoState(state, { settings: true });
       await sendPortoState(res, state, person, unit);
       return true;
     }

@@ -35,6 +35,9 @@ let portoLiveRefreshDeferTimer = null;
 let portoCloseBeaconSent = false;
 let portoOpsViewMode = "duty";
 let portoInlineErrorTimer = null;
+let portoDutyLoadPromise = null;
+let portoStatusWritePromise = null;
+let portoOpsWritePromise = null;
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
