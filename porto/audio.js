@@ -2,6 +2,8 @@
   let audioContext = null;
   let audioUnlocked = false;
   let opsSoundPrimed = false;
+  let ownAssignmentPrimed = false;
+  let previousOwnAssignmentSignature = "";
   let previousOpsRequestIds = new Set();
   let previousOpsStatuses = new Map();
   const activeOpsAlerts = new Map();
@@ -63,7 +65,17 @@
       playTone(context, 740, 0, 0.18, 0.085, "sawtooth");
       playTone(context, 740, 0.24, 0.18, 0.085, "sawtooth");
       playTone(context, 980, 0.48, 0.22, 0.095, "sawtooth");
+      return;
     }
+    if (type === "assignment") {
+      playTone(context, 760, 0, 0.10, 0.045, "triangle");
+      playTone(context, 1040, 0.14, 0.12, 0.045, "triangle");
+    }
+  }
+
+  function playAssignmentSound() {
+    playOpsSound("assignment");
+    window.setTimeout(() => playOpsSound("assignment"), 620);
   }
 
   function collectOpsStatuses(activeUnits) {
@@ -111,7 +123,33 @@
     opsSoundPrimed = false;
   }
 
+  function ownAssignmentSignature(unit) {
+    if (!unit || String(unit.status) === "8" || !unit.vehicleNumber) return "";
+    return [
+      unit.id || "",
+      unit.vehicleNumber || "",
+      unit.vehicleCode || "",
+      unit.vehicleType || "",
+      unit.vehicleName || ""
+    ].join("|");
+  }
+
+  function trackOwnAssignmentSound(payload, profile) {
+    if (!profile) return;
+    const signature = ownAssignmentSignature(payload.unit || null);
+    if (!ownAssignmentPrimed) {
+      previousOwnAssignmentSignature = signature;
+      ownAssignmentPrimed = true;
+      return;
+    }
+    if (signature && signature !== previousOwnAssignmentSignature) {
+      playAssignmentSound();
+    }
+    previousOwnAssignmentSignature = signature;
+  }
+
   function trackOpsSounds(payload, profile) {
+    trackOwnAssignmentSound(payload, profile);
     const currentOps = payload.currentOps || null;
     const isAssignedOps = Boolean(currentOps && profile && currentOps.memberId === profile.id && payload.canManageOps);
     if (!isAssignedOps) {
@@ -151,6 +189,7 @@
   window.PortoAudio = window.PortoModules.registerFeature("audio", {
     unlock,
     playOpsSound,
+    playAssignmentSound,
     resetSoundState,
     trackOpsSounds
   });
