@@ -41,6 +41,12 @@ async function discordFetch(url, options = {}) {
 }
 
 function createAuthServices({ sessions, readState, discordConfigured, allowDevUnauth, sessionMaxAgeSeconds = () => 604800 }) {
+  function sessionCookieSecureSuffix() {
+    const secureCookieEnabled = String(process.env.SESSION_COOKIE_SECURE || "").toLowerCase() === "true";
+    const configuredBaseUrls = [process.env.APP_BASE_URL, process.env.PORTO_APP_BASE_URL].filter(Boolean);
+    return secureCookieEnabled || configuredBaseUrls.some((baseUrl) => String(baseUrl).startsWith("https://")) ? "; Secure" : "";
+  }
+
   function getSession(req) {
     const sid = parseCookies(req).orp_session;
     if (!sid) return null;
@@ -59,14 +65,14 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
       roleSyncedAt: Date.now(),
       createdAt: Date.now()
     });
-    const secure = process.env.APP_BASE_URL?.startsWith("https://") ? "; Secure" : "";
+    const secure = sessionCookieSecureSuffix();
     res.setHeader("Set-Cookie", `orp_session=${sid}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionMaxAgeSeconds()}${secure}`);
   }
 
   function clearSession(req, res) {
     const sid = parseCookies(req).orp_session;
     if (sid) sessions.delete(sid);
-    res.setHeader("Set-Cookie", "orp_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+    res.setHeader("Set-Cookie", `orp_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${sessionCookieSecureSuffix()}`);
   }
 
   function getLoggedInProfile(req) {

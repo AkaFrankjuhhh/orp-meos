@@ -1,4 +1,5 @@
 const formState = { config: null };
+let questionsChangeBound = false;
 
 function $(selector) {
   return document.querySelector(selector);
@@ -246,9 +247,13 @@ function applyLoadedConfig(config) {
   const notice = $("#formNotice");
   notice.hidden = !config.notice;
   notice.textContent = config.notice || "";
-  $("#questions").innerHTML = (config.questions || []).map(renderQuestion).join("");
-  $("#questions").addEventListener("change", updateConditionalFields);
-  bindAutoGrowingTextareas($("#questions"));
+  const questionsElement = $("#questions");
+  questionsElement.innerHTML = (config.questions || []).map(renderQuestion).join("");
+  if (!questionsChangeBound) {
+    questionsElement.addEventListener("change", updateConditionalFields);
+    questionsChangeBound = true;
+  }
+  bindAutoGrowingTextareas(questionsElement);
   updateConditionalFields();
   renderFormAdmin(config);
 }

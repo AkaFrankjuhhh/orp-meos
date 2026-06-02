@@ -68,7 +68,9 @@ const publicFormConfigs = {
       { id: "applicationType", label: "Training / Mentor", type: "checkboxGroup", required: true, options: [{ value: "trainer", label: "Trainer" }, { value: "mentor", label: "Mentor" }], help: "Je mag voor beide solliciteren." },
       { id: "trainerReason", label: "Waarom wil je trainer worden?", type: "textarea", required: true, showIf: { field: "applicationType", includes: "trainer" } },
       { id: "mentorReason", label: "Waarom wil je mentor worden?", type: "textarea", required: true, showIf: { field: "applicationType", includes: "mentor" } },
-      { id: "experience", label: "Welke relevante ervaring heb je?", type: "textarea", required: false }
+      { id: "experience", label: "Welke relevante ervaring heb je?", type: "textarea", required: false },
+      { id: "weeklyAvailability", label: "Hoeveel tijd denk je hieraan gemiddeld te kunnen besteden per week?", type: "textarea", required: true },
+      { id: "additionalNotes", label: "Heb je nog aanvullende opmerkingen?", type: "textarea", required: false }
     ]
   },
   hrb: {
