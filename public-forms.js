@@ -1,4 +1,4 @@
-const formState = { config: null };
+const formState = { config: null, adminQuestions: [] };
 let questionsChangeBound = false;
 
 function $(selector) {
@@ -168,11 +168,6 @@ function adminMessage(text, tone = "ok") {
   element.textContent = text;
 }
 
-function parseAdminQuestionsJson(value) {
-  const text = String(value || "").replace(/,\s*([}\]])/g, "$1");
-  return JSON.parse(text || "[]");
-}
-
 function renderFormAdmin(config) {
   const panel = $("#formAdminPanel");
   if (!panel) return;
@@ -183,19 +178,88 @@ function renderFormAdmin(config) {
   $("#adminFormSubtitle").value = config.editable?.subtitle || "";
   $("#adminFormNotice").value = config.editable?.notice || "";
   $("#adminFormAccent").value = config.editable?.accent || config.accent || "#f59e0b";
-  $("#adminFormQuestions").value = JSON.stringify(config.editable?.questions || config.questions || [], null, 2);
+  formState.adminQuestions = (config.editable?.questions || config.questions || []).map((question) => ({ ...question }));
+  renderAdminQuestionEditor();
   bindAutoGrowingTextareas(panel);
+}
+
+function normalizeQuestionId(label, fallback = "vraag") {
+  return String(label || fallback)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || fallback;
+}
+
+function uniqueQuestionId(baseId, currentIndex) {
+  const used = new Set(formState.adminQuestions.map((question, index) => index === currentIndex ? "" : question.id).filter(Boolean));
+  let id = baseId;
+  let counter = 2;
+  while (used.has(id)) {
+    id = `${baseId}-${counter}`;
+    counter += 1;
+  }
+  return id;
+}
+
+function renderAdminQuestionEditor() {
+  const list = $("#adminQuestionList");
+  if (!list) return;
+  list.innerHTML = formState.adminQuestions.map((question, index) => {
+    const optionsValue = Array.isArray(question.options)
+      ? question.options.map((option) => typeof option === "object" ? (option.label || option.value || "") : option).join(", ")
+      : "";
+    const type = question.type || (multilineQuestionIds.has(question.id) ? "textarea" : "text");
+    return `
+      <article class="admin-question-card" data-question-index="${index}">
+        <label>Vraagtekst<input class="admin-question-label" type="text" value="${escapeHtml(question.label || "")}" /></label>
+        <label>Type
+          <select class="admin-question-type">
+            ${["text", "textarea", "select", "checkboxGroup", "file", "section"].map((option) => `<option value="${option}" ${type === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="question-meta"><input class="admin-question-required" type="checkbox" ${question.required ? "checked" : ""} /> Verplicht</label>
+        <button class="ghost-button admin-question-remove" type="button">Verwijder</button>
+        <label class="question-options">Opties, gescheiden met komma's<input class="admin-question-options" type="text" value="${escapeHtml(optionsValue)}" ${["select", "checkboxGroup"].includes(type) ? "" : "disabled"} /></label>
+      </article>
+    `;
+  }).join("");
+}
+
+function collectAdminQuestions() {
+  const cards = [...document.querySelectorAll(".admin-question-card")];
+  return cards.map((card, index) => {
+    const previous = formState.adminQuestions[Number(card.dataset.questionIndex)] || {};
+    const label = card.querySelector(".admin-question-label")?.value.trim() || `Vraag ${index + 1}`;
+    const type = card.querySelector(".admin-question-type")?.value || "text";
+    const id = uniqueQuestionId(previous.id || normalizeQuestionId(label, `vraag-${index + 1}`), index);
+    const question = {
+      ...previous,
+      id,
+      label,
+      type,
+      required: Boolean(card.querySelector(".admin-question-required")?.checked)
+    };
+    if (type === "select" || type === "checkboxGroup") {
+      question.options = String(card.querySelector(".admin-question-options")?.value || "")
+        .split(",")
+        .map((option) => option.trim())
+        .filter(Boolean);
+    } else {
+      delete question.options;
+    }
+    return question;
+  });
 }
 
 async function saveFormAdmin(event) {
   event.preventDefault();
   if (!formState.config?.canManage) return;
-  let questions = [];
-  try {
-    questions = parseAdminQuestionsJson($("#adminFormQuestions").value);
-    if (!Array.isArray(questions)) throw new Error("Vragen moeten een JSON-array zijn.");
-  } catch (error) {
-    adminMessage("Vragen JSON is ongeldig. Controleer aanhalingstekens, haakjes en komma's.", "error");
+  const questions = collectAdminQuestions();
+  if (!questions.length) {
+    adminMessage("Voeg minimaal 1 vraag toe.", "error");
     return;
   }
   const payload = {
@@ -234,6 +298,27 @@ function bindFormAdmin() {
   $("#cancelFormAdmin")?.addEventListener("click", () => {
     $("#formAdminForm").hidden = true;
     renderFormAdmin(formState.config);
+  });
+  $("#addAdminQuestion")?.addEventListener("click", () => {
+    if (document.querySelector(".admin-question-card")) formState.adminQuestions = collectAdminQuestions();
+    formState.adminQuestions.push({ id: uniqueQuestionId("nieuwe-vraag", -1), label: "Nieuwe vraag", type: "text", required: false });
+    renderAdminQuestionEditor();
+  });
+  $("#adminQuestionList")?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest(".admin-question-remove");
+    if (!removeButton) return;
+    const card = removeButton.closest(".admin-question-card");
+    const index = Number(card?.dataset.questionIndex);
+    if (!Number.isInteger(index)) return;
+    formState.adminQuestions = collectAdminQuestions();
+    formState.adminQuestions.splice(index, 1);
+    renderAdminQuestionEditor();
+  });
+  $("#adminQuestionList")?.addEventListener("change", (event) => {
+    if (!event.target.classList.contains("admin-question-type")) return;
+    const card = event.target.closest(".admin-question-card");
+    const options = card?.querySelector(".admin-question-options");
+    if (options) options.disabled = !["select", "checkboxGroup"].includes(event.target.value);
   });
   $("#formAdminForm")?.addEventListener("submit", saveFormAdmin);
 }

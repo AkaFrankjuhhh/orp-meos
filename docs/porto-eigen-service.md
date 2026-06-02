@@ -9,6 +9,7 @@ Daarmee kun je het personeelsportaal herstarten zonder actieve OPS/Porto-gebruik
 - Porto-Systeem: `porto-server.js` op poort `3002`
 - Database: voorlopig dezelfde PostgreSQL database
 - Auth: Porto heeft een eigen Discord login/callback op `porto.orpdefensie.nl`
+- Live updates: beide services sturen database-wijzigingen door via PostgreSQL `NOTIFY/LISTEN`
 
 De oude `/porto.html` route in `server.js` blijft voorlopig bestaan als fallback. Zodra Caddy `porto.orpdefensie.nl` naar poort `3002` stuurt, gebruikt iedereen de nieuwe Porto-service.
 
@@ -85,6 +86,6 @@ sudo systemctl restart defensie-porto
 
 Personeelsportaal blijft dan draaien.
 
-## Aandachtspunt
+## Live updates
 
-Live events zijn proces-lokaal. Porto-wijzigingen binnen Porto blijven live, maar personeelswijzigingen uit het portaal pushen niet automatisch een event naar de Porto-service. Porto blijft wel via eigen API/polling actuele databasegegevens ophalen. Een latere verbetering kan PostgreSQL `NOTIFY/LISTEN` zijn voor proces-overstijgende live updates.
+De browser gebruikt Server-Sent Events via `/api/events`. Omdat Porto en het portaal nu losse Node-processen zijn, sturen beide services hun lokale update-events ook door via PostgreSQL `NOTIFY/LISTEN`. Daardoor kan een wijziging in het personeelsportaal ook de Porto-service laten refreshen, en andersom.

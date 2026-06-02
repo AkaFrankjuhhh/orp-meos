@@ -17,6 +17,8 @@ const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-d
 const { withClient, closePool } = require("./modules/db");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 const { createEventBus } = require("./modules/event-bus");
+const { createHttpResponder, createJsonBodyReader, readRawBody, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
+const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
 const { enqueueAllDiscordSync } = require("./modules/discord-sync-jobs");
 const { createPublicFormsStore } = require("./modules/public-forms-store");
 const {
@@ -47,8 +49,15 @@ const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 1024 * 1024);
 const publicFormMaxBodyBytes = Number(process.env.PUBLIC_FORM_MAX_BODY_BYTES || 9 * 1024 * 1024);
 const publicFormMaxFileBytes = Number(process.env.PUBLIC_FORM_MAX_FILE_BYTES || 8 * 1024 * 1024);
 const eventBus = createEventBus();
+const postgresEventBridge = createPostgresEventBridge({
+  enabled: storageMode === "postgres",
+  serviceName: "portal",
+  publishLocal: publishScopedEvent,
+  logError: logServerError
+});
 const publicFormRateLimit = new Map();
-const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const { writeHeadSecure, sendJson, sendHtml } = createHttpResponder({ appBaseUrl });
+const readBody = createJsonBodyReader(maxBodyBytes);
 const {
   parseCookies,
   createSession,
@@ -130,33 +139,6 @@ function normalizeDiscordId(value) {
 
 
 
-function requestHost(req) {
-  return String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim().toLowerCase();
-}
-
-function configuredAppHost() {
-  try {
-    return new URL(appBaseUrl).host.toLowerCase();
-  } catch (error) {
-    return "";
-  }
-}
-
-function isTrustedMutationOrigin(req) {
-  const fetchSite = String(req.headers["sec-fetch-site"] || "").toLowerCase();
-  if (fetchSite === "cross-site") return false;
-
-  const origin = String(req.headers.origin || "").trim();
-  if (!origin) return true;
-
-  try {
-    const originUrl = new URL(origin);
-    const allowedHosts = new Set([requestHost(req), configuredAppHost()].filter(Boolean));
-    return allowedHosts.has(originUrl.host.toLowerCase());
-  } catch (error) {
-    return false;
-  }
-}
 function logServerError(label, error) {
   const message = `[${new Date().toISOString()}] ${label}: ${error?.stack || error?.message || error}\n`;
   fs.appendFile(path.join(root, "server.run.log"), message, () => {});
@@ -171,51 +153,10 @@ function logAuthDebug(message, details = {}) {
   fs.appendFile(path.join(root, "auth.debug.log"), line, { encoding: "utf8" }, () => {});
 }
 
-function securityHeaders(contentType = "") {
-  const headers = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-    "Cross-Origin-Opener-Policy": "same-origin"
-  };
-  if (appBaseUrl.startsWith("https://")) {
-    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
-  }
-  if (contentType.includes("text/html")) {
-    headers["Content-Security-Policy"] = [
-      "default-src 'self'",
-      "script-src 'self'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https://cdn.discordapp.com https://*.discordapp.com",
-      "connect-src 'self' https://discord.com https://discordapp.com",
-      "font-src 'self' data:",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "frame-ancestors 'none'"
-    ].join("; ");
-  }
-  return headers;
+function publishScopedEvent(scope, extra = {}) {
+  eventBus.publish(`${scope}:update`, { scope, ...extra });
+  eventBus.publish("state:update", { scope, ...extra });
 }
-
-function writeHeadSecure(res, status, headers = {}) {
-  res.writeHead(status, { ...securityHeaders(headers["Content-Type"] || ""), ...headers });
-}
-
-function sendJson(res, status, body) {
-  const payload = JSON.stringify(body);
-  writeHeadSecure(res, status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(payload)
-  });
-  res.end(payload);
-}
-
-function sendHtml(res, status, html) {
-  writeHeadSecure(res, status, { "Content-Type": "text/html; charset=utf-8" });
-  res.end(html);
-}
-
 
 function requireAuth(req, res) {
   const auth = getLoggedInProfile(req);
@@ -341,34 +282,6 @@ function sendStateAfterMutation(req, res, auth, state) {
     canViewLogbook: permissions.canViewLogbook,
     permissions
   });
-}
-
-async function readRawBody(req, limitBytes) {
-  const chunks = [];
-  let totalBytes = 0;
-  for await (const chunk of req) {
-    totalBytes += chunk.length;
-    if (totalBytes > limitBytes) {
-      const error = new Error("Request body is te groot.");
-      error.status = 413;
-      throw error;
-    }
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
-}
-
-async function readBody(req) {
-  const buffer = await readRawBody(req, maxBodyBytes);
-  const body = buffer.toString("utf8");
-  if (!body) return {};
-  try {
-    return JSON.parse(body);
-  } catch (error) {
-    const parseError = new Error("Ongeldige JSON body.");
-    parseError.status = 400;
-    throw parseError;
-  }
 }
 
 function parseMultipartDisposition(value = "") {
@@ -517,8 +430,8 @@ async function healthPayload() {
 // Porto gebruikt in database-modus een directe PostgreSQL-store; de rest van Defensie Personeelsportaal blijft voorlopig via de centrale storage lopen.
 function afterStorageWrite(scope) {
   storage.resetStateCache?.();
-  eventBus.publish(`${scope}:update`, { scope });
-  eventBus.publish("state:update", { scope });
+  publishScopedEvent(scope);
+  postgresEventBridge.notify(scope).catch((error) => logServerError(`Postgres event notify failed for ${scope}`, error));
   if (scope === "people") scheduleDiscordSyncAllJob("people_state_changed");
 }
 const portoStorage = storageMode === "postgres" ? createPostgresPortoStore({ afterWrite: () => afterStorageWrite("porto") }) : { readState, writeState };
@@ -982,50 +895,21 @@ function serveStatic(req, res, url) {
   const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
   const firstSegment = url.pathname.split("/").filter(Boolean)[0] || "";
   const requested = publicFormConfig ? (["/public-forms.css", "/public-forms.js"].includes(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
-  const filePath = path.normalize(path.join(root, requested));
-  const relativePath = path.relative(root, filePath);
-  const isOutsideRoot = relativePath.startsWith("..") || path.isAbsolute(relativePath);
-  const normalizedRelative = relativePath.replaceAll("\\", "/");
   const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "porto.css", "app.js", "personeelsportaal-data.js", "porto.html", "porto.js", "shared-ui.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
-  const isAsset = normalizedRelative.startsWith("assets/");
-  const isFeatureScript = /^(personeelsportaal|porto)\/[^/]+\.js$/.test(normalizedRelative);
-  const isPublicRootFile = publicRootFiles.has(normalizedRelative);
-
-  if (isOutsideRoot || (!isPublicRootFile && !isAsset && !isFeatureScript) || path.basename(filePath).startsWith(".")) {
-    writeHeadSecure(res, 403);
-    res.end("Forbidden");
-    return;
-  }
-
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
-      writeHeadSecure(res, 404);
-      res.end("Not found");
-      return;
-    }
-    const extension = path.extname(filePath);
-    const contentType = {
-      ".html": "text/html; charset=utf-8",
-      ".css": "text/css; charset=utf-8",
-      ".js": "text/javascript; charset=utf-8",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml; charset=utf-8"
-    }[extension] || "application/octet-stream";
-    writeHeadSecure(res, 200, {
-      "Content-Type": contentType,
-      "Cache-Control": "no-store"
-    });
-    res.end(data);
+  serveWhitelistedStatic({
+    root,
+    requested,
+    res,
+    writeHeadSecure,
+    publicRootFiles,
+    isAllowedFeatureScript: (relativePath) => /^(personeelsportaal|porto)\/[^/]+\.js$/.test(relativePath)
   });
 }
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, appBaseUrl);
   try {
-    if (stateChangingMethods.has(req.method) && !isTrustedMutationOrigin(req)) {
+    if (shouldRejectMutation(req, appBaseUrl)) {
       sendJson(res, 403, { error: "Verzoek geweigerd: ongeldige herkomst." });
       return;
     }
@@ -1043,6 +927,7 @@ async function startServer() {
   await sessions.load?.();
   await sessions.cleanup?.();
   if (storageMode === "postgres") await publicFormsStore.ensurePublicFormsTable?.();
+  await postgresEventBridge.start();
   server.listen(port, () => {
     console.log(`Oranjestad Defensie draait op ${appBaseUrl}`);
     console.log(`Storage mode: ${storageMode}`);
@@ -1066,6 +951,7 @@ startServer().catch((error) => {
 async function shutdown() {
   try {
     stopDiscordNicknameSync();
+    await postgresEventBridge.stop();
     await closePool();
   } finally {
     process.exit(0);

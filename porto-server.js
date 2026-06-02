@@ -11,6 +11,8 @@ const { createPostgresPortoStore } = require("./modules/porto-postgres-store");
 const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-domain");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 const { createEventBus } = require("./modules/event-bus");
+const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
+const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
 const { closePool, withClient } = require("./modules/db");
 
 loadEnv();
@@ -25,7 +27,14 @@ const appBaseUrl = process.env.PORTO_APP_BASE_URL || process.env.APP_BASE_URL ||
 const sessions = createSessionStore();
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 1024 * 1024);
 const eventBus = createEventBus();
-const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const postgresEventBridge = createPostgresEventBridge({
+  enabled: storageMode === "postgres",
+  serviceName: "porto",
+  publishLocal: publishScopedEvent,
+  logError: logServerError
+});
+const { writeHeadSecure, sendJson, sendHtml } = createHttpResponder({ appBaseUrl });
+const readBody = createJsonBodyReader(maxBodyBytes);
 
 const {
   profileTrainings,
@@ -81,32 +90,6 @@ function allowDevUnauth() {
   return process.env.DEV_ALLOW_UNAUTH !== "false";
 }
 
-function requestHost(req) {
-  return String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim().toLowerCase();
-}
-
-function configuredAppHost() {
-  try {
-    return new URL(appBaseUrl).host.toLowerCase();
-  } catch (error) {
-    return "";
-  }
-}
-
-function isTrustedMutationOrigin(req) {
-  const fetchSite = String(req.headers["sec-fetch-site"] || "").toLowerCase();
-  if (fetchSite === "cross-site") return false;
-  const origin = String(req.headers.origin || "").trim();
-  if (!origin) return true;
-  try {
-    const originUrl = new URL(origin);
-    const allowedHosts = new Set([requestHost(req), configuredAppHost()].filter(Boolean));
-    return allowedHosts.has(originUrl.host.toLowerCase());
-  } catch (error) {
-    return false;
-  }
-}
-
 function logServerError(label, error) {
   const message = `[${new Date().toISOString()}] ${label}: ${error?.stack || error?.message || error}\n`;
   fs.appendFile(path.join(root, "porto-server.run.log"), message, () => {});
@@ -121,49 +104,9 @@ function logAuthDebug(message, details = {}) {
   fs.appendFile(path.join(root, "auth.debug.log"), line, { encoding: "utf8" }, () => {});
 }
 
-function securityHeaders(contentType = "") {
-  const headers = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-    "Cross-Origin-Opener-Policy": "same-origin"
-  };
-  if (appBaseUrl.startsWith("https://")) {
-    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
-  }
-  if (contentType.includes("text/html")) {
-    headers["Content-Security-Policy"] = [
-      "default-src 'self'",
-      "script-src 'self'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https://cdn.discordapp.com https://*.discordapp.com",
-      "connect-src 'self' https://discord.com https://discordapp.com",
-      "font-src 'self' data:",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "frame-ancestors 'none'"
-    ].join("; ");
-  }
-  return headers;
-}
-
-function writeHeadSecure(res, status, headers = {}) {
-  res.writeHead(status, { ...securityHeaders(headers["Content-Type"] || ""), ...headers });
-}
-
-function sendJson(res, status, body) {
-  const payload = JSON.stringify(body);
-  writeHeadSecure(res, status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(payload)
-  });
-  res.end(payload);
-}
-
-function sendHtml(res, status, html) {
-  writeHeadSecure(res, status, { "Content-Type": "text/html; charset=utf-8" });
-  res.end(html);
+function publishScopedEvent(scope, extra = {}) {
+  eventBus.publish(`${scope}:update`, { scope, ...extra });
+  eventBus.publish("state:update", { scope, ...extra });
 }
 
 function requireAuth(req, res) {
@@ -173,34 +116,6 @@ function requireAuth(req, res) {
     return null;
   }
   return auth;
-}
-
-async function readRawBody(req, limitBytes) {
-  const chunks = [];
-  let totalBytes = 0;
-  for await (const chunk of req) {
-    totalBytes += chunk.length;
-    if (totalBytes > limitBytes) {
-      const error = new Error("Request body is te groot.");
-      error.status = 413;
-      throw error;
-    }
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
-}
-
-async function readBody(req) {
-  const buffer = await readRawBody(req, maxBodyBytes);
-  const body = buffer.toString("utf8");
-  if (!body) return {};
-  try {
-    return JSON.parse(body);
-  } catch (error) {
-    const parseError = new Error("Ongeldige JSON body.");
-    parseError.status = 400;
-    throw parseError;
-  }
 }
 
 function syncProfileFromDiscord(state, profile, user, member) {
@@ -268,8 +183,8 @@ function redirectWithAuthError(req, res, code) {
 
 function afterStorageWrite(scope) {
   storage.resetStateCache?.();
-  eventBus.publish(`${scope}:update`, { scope });
-  eventBus.publish("state:update", { scope });
+  publishScopedEvent(scope);
+  postgresEventBridge.notify(scope).catch((error) => logServerError(`Postgres event notify failed for ${scope}`, error));
 }
 
 const portoStorage = storageMode === "postgres" ? createPostgresPortoStore({ afterWrite: () => afterStorageWrite("porto") }) : { readState, writeState };
@@ -424,48 +339,21 @@ async function handleApi(req, res, url) {
 
 function serveStatic(req, res, url) {
   const requested = url.pathname === "/" ? "/porto.html" : url.pathname;
-  const filePath = path.normalize(path.join(root, requested));
-  const relativePath = path.relative(root, filePath);
-  const normalizedRelative = relativePath.replaceAll("\\", "/");
-  const isOutsideRoot = relativePath.startsWith("..") || path.isAbsolute(relativePath);
   const publicRootFiles = new Set(["porto.html", "porto.css", "porto.js", "shared.css", "shared-ui.js"]);
-  const isAsset = normalizedRelative.startsWith("assets/");
-  const isFeatureScript = /^porto\/[^/]+\.js$/.test(normalizedRelative);
-  const isPublicRootFile = publicRootFiles.has(normalizedRelative);
-  if (isOutsideRoot || (!isPublicRootFile && !isAsset && !isFeatureScript) || path.basename(filePath).startsWith(".")) {
-    writeHeadSecure(res, 403);
-    res.end("Forbidden");
-    return;
-  }
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
-      writeHeadSecure(res, 404);
-      res.end("Not found");
-      return;
-    }
-    const extension = path.extname(filePath);
-    const contentType = {
-      ".html": "text/html; charset=utf-8",
-      ".css": "text/css; charset=utf-8",
-      ".js": "text/javascript; charset=utf-8",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml; charset=utf-8"
-    }[extension] || "application/octet-stream";
-    writeHeadSecure(res, 200, {
-      "Content-Type": contentType,
-      "Cache-Control": "no-store"
-    });
-    res.end(data);
+  serveWhitelistedStatic({
+    root,
+    requested,
+    res,
+    writeHeadSecure,
+    publicRootFiles,
+    isAllowedFeatureScript: (relativePath) => /^porto\/[^/]+\.js$/.test(relativePath)
   });
 }
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, appBaseUrl);
   try {
-    if (stateChangingMethods.has(req.method) && !isTrustedMutationOrigin(req)) {
+    if (shouldRejectMutation(req, appBaseUrl)) {
       sendJson(res, 403, { error: "Verzoek geweigerd: ongeldige herkomst." });
       return;
     }
@@ -482,6 +370,7 @@ const server = http.createServer(async (req, res) => {
 async function startServer() {
   await sessions.load?.();
   await sessions.cleanup?.();
+  await postgresEventBridge.start();
   server.listen(port, () => {
     console.log(`Porto-Systeem draait op ${appBaseUrl}`);
     console.log(`Storage mode: ${storageMode}`);
@@ -497,6 +386,7 @@ startServer().catch((error) => {
 
 async function shutdown() {
   try {
+    await postgresEventBridge.stop();
     await closePool();
   } finally {
     process.exit(0);

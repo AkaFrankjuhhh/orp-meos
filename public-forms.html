@@ -30,7 +30,13 @@
           <label>Subtitel<textarea id="adminFormSubtitle" rows="2"></textarea></label>
           <label>Notice<textarea id="adminFormNotice" rows="3"></textarea></label>
           <label>Accentkleur<input id="adminFormAccent" type="text" placeholder="#f59e0b" /></label>
-          <label class="full">Vragen JSON<textarea id="adminFormQuestions" rows="12" spellcheck="false"></textarea></label>
+          <div class="full form-question-editor">
+            <div class="form-question-editor-head">
+              <h3>Vragen</h3>
+              <button id="addAdminQuestion" type="button" class="ghost-button">Vraag toevoegen</button>
+            </div>
+            <div id="adminQuestionList" class="admin-question-list"></div>
+          </div>
           <div id="formAdminMessage" class="form-message" hidden></div>
           <menu>
             <button id="cancelFormAdmin" type="button" class="ghost-button">Annuleren</button>
