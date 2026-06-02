@@ -159,6 +159,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   async function maintainPortoPresence(state, person, { touch = true } = {}) {
     const changedBySweep = sweepPortoPresence(state);
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
+    let unitsChanged = changedBySweep || changedByTouch;
     let settingsChanged = false;
     const currentOps = activePortoOps(state);
     if (currentOps?.recoveredFromUnit) {
@@ -173,14 +174,18 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         if (opsPerson) {
           opsUnit = ensureOpsUnit(state, opsPerson);
           settingsChanged = true;
+          unitsChanged = true;
         }
       }
       if (opsUnit?.autoOffline) {
-        settingsChanged = releaseCurrentOps(state, currentOps, { id: "system", name: "Automatisch systeem" }, new Date().toISOString(), "OPS automatisch afgemeld");
+        if (releaseCurrentOps(state, currentOps, { id: "system", name: "Automatisch systeem" }, new Date().toISOString(), "OPS automatisch afgemeld")) {
+          settingsChanged = true;
+          unitsChanged = true;
+        }
       }
     }
-    if (changedBySweep || changedByTouch || settingsChanged) await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
-    return changedBySweep || changedByTouch;
+    if (unitsChanged || settingsChanged) await persistPortoState(state, { units: unitsChanged ? state.portoUnits : null, settings: settingsChanged });
+    return unitsChanged || settingsChanged;
   }
 
   async function sendPortoState(res, state, person, unit = null, extra = {}) {
