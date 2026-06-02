@@ -22,6 +22,21 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   } = createPortoServices();
   let mutationQueue = Promise.resolve();
 
+  function timestampMs(value) {
+    const time = Date.parse(value || "");
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function preferredActiveUnit(a, b) {
+    const aAssigned = Boolean(a.vehicleNumber);
+    const bAssigned = Boolean(b.vehicleNumber);
+    if (aAssigned !== bAssigned) return aAssigned ? a : b;
+    const aTime = timestampMs(a.updatedAt || a.assignedAt || a.requestedAt || a.lastSeenAt);
+    const bTime = timestampMs(b.updatedAt || b.assignedAt || b.requestedAt || b.lastSeenAt);
+    if (aTime !== bTime) return aTime > bTime ? a : b;
+    return String(a.id || "").localeCompare(String(b.id || "")) >= 0 ? a : b;
+  }
+
   function enqueuePortoMutation(task) {
     const run = mutationQueue.then(task, task);
     mutationQueue = run.catch(() => {});
@@ -107,7 +122,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     if (activeUnits.length <= 1) return false;
     const keepUnit = activeUnits.find((entry) => entry.id === keepUnitId) || activeUnits
       .slice()
-      .sort((a, b) => Date.parse(b.updatedAt || b.assignedAt || b.requestedAt || 0) - Date.parse(a.updatedAt || a.assignedAt || a.requestedAt || 0))[0];
+      .reduce((best, entry) => preferredActiveUnit(best, entry), activeUnits[0]);
     let changed = false;
     for (const entry of activeUnits) {
       if (entry.id === keepUnit.id) continue;
@@ -315,6 +330,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       let unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
       if (!unit && status !== "0") {
         sendJson(res, 409, { error: "Je moet eerst Status 0 doen voordat OPS je kan indelen." });
+        return true;
+      }
+      if (unit && unit.vehicleNumber && status === "0") {
+        await sendPortoState(res, state, person, unit);
         return true;
       }
       if (unit && !unit.vehicleNumber && !["0", "8"].includes(status)) {

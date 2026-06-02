@@ -30,6 +30,9 @@ function timestampMs(value) {
 }
 
 function newerPortoUnit(a, b) {
+  const aAssigned = Boolean(a.vehicleNumber);
+  const bAssigned = Boolean(b.vehicleNumber);
+  if (aAssigned !== bAssigned) return aAssigned ? a : b;
   const aTime = timestampMs(a.updatedAt || a.assignedAt || a.requestedAt || a.lastSeenAt);
   const bTime = timestampMs(b.updatedAt || b.assignedAt || b.requestedAt || b.lastSeenAt);
   if (aTime !== bTime) return aTime > bTime ? a : b;
@@ -120,24 +123,43 @@ function portoUnitFromRow(row) {
 
 async function upsertPortoUnit(client, unit) {
   if (unit.active !== false && unit.memberId) {
-    await client.query(
-      `update porto_units
-       set
-         active = false,
-         status = '8',
-         status_detail = 'Dubbele Porto-aanmelding automatisch gesloten',
-         vehicle_number = '',
-         vehicle_code = '',
-         vehicle_type = '',
-         vehicle_name = '',
-         linked_with = '[]'::jsonb,
-         ended_at = coalesce(ended_at, now()),
-         updated_at = now()
-       where member_id = $1
-         and id <> $2
-         and active = true`,
-      [unit.memberId, unit.id]
-    );
+    if (unit.vehicleNumber) {
+      await client.query(
+        `update porto_units
+         set
+           active = false,
+           status = '8',
+           status_detail = 'Dubbele Porto-aanmelding automatisch gesloten',
+           vehicle_number = '',
+           vehicle_code = '',
+           vehicle_type = '',
+           vehicle_name = '',
+           linked_with = '[]'::jsonb,
+           ended_at = coalesce(ended_at, now()),
+           updated_at = now()
+         where member_id = $1
+           and id <> $2
+           and active = true`,
+        [unit.memberId, unit.id]
+      );
+    } else {
+      const assignedResult = await client.query(
+        `select id
+         from porto_units
+         where member_id = $1
+           and id <> $2
+           and active = true
+           and coalesce(vehicle_number, '') <> ''
+         limit 1`,
+        [unit.memberId, unit.id]
+      );
+      if (assignedResult.rowCount) {
+        unit.active = false;
+        unit.status = "8";
+        unit.statusDetail = "Status 0-aanmelding genegeerd: persoon is al ingedeeld";
+        unit.endedAt = unit.endedAt || new Date().toISOString();
+      }
+    }
   }
   await client.query(
     `insert into porto_units(
