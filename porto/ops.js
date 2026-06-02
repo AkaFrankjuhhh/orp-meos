@@ -412,6 +412,7 @@ async function updatePortoOps(action) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    showPortoInlineError(payload.error || "OPS kon niet worden bijgewerkt.");
     await showPortoNotice(payload.error || "OPS kon niet worden bijgewerkt.", "OPS mislukt");
     return;
   }

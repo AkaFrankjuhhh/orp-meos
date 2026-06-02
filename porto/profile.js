@@ -27,6 +27,8 @@ async function loadPortoProfile() {
   try {
     const response = await fetch("/api/auth/me");
     if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      showPortoInlineError(payload.error || "Porto sessie is verlopen. Log opnieuw in.");
       setPortoLocked(true);
       return;
     }
@@ -39,6 +41,7 @@ async function loadPortoProfile() {
     renderStatusButtons();
     await loadPortoDuty();
   } catch (error) {
+    showPortoInlineError("Porto kon je profiel niet laden. Controleer de verbinding of probeer opnieuw.");
     setPortoLocked(true);
   }
 }

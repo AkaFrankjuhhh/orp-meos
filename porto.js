@@ -34,6 +34,7 @@ let portoLiveRefreshTimer = null;
 let portoLiveRefreshDeferTimer = null;
 let portoCloseBeaconSent = false;
 let portoOpsViewMode = "duty";
+let portoInlineErrorTimer = null;
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
@@ -213,6 +214,18 @@ function showPortoLockError() {
   errorElement.textContent = messages[errorCode];
   errorElement.hidden = false;
   window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+function showPortoInlineError(message) {
+  const errorElement = $("#portoLockError");
+  if (!errorElement) return;
+  errorElement.textContent = message;
+  errorElement.hidden = false;
+  if (portoInlineErrorTimer) window.clearTimeout(portoInlineErrorTimer);
+  portoInlineErrorTimer = window.setTimeout(() => {
+    errorElement.hidden = true;
+    portoInlineErrorTimer = null;
+  }, 8000);
 }
 
 // Begrens zoom en slepen zodat de kaart nooit buiten het paneel schuift.

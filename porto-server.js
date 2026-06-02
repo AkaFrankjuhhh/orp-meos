@@ -394,6 +394,7 @@ const server = http.createServer(async (req, res) => {
     }
     serveStatic(req, res, url);
   } catch (error) {
+    logServerError(`Request failed ${req.method} ${url.pathname}`, error);
     sendJson(res, error.status || 500, { error: error.message });
   }
 });

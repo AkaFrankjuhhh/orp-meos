@@ -163,7 +163,11 @@ function renderDutyPanel() {
 async function loadPortoDuty() {
   try {
     const response = await fetch("/api/porto/status");
-    if (!response.ok) return;
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      showPortoInlineError(payload.error || "Porto status kon niet worden geladen.");
+      return;
+    }
     const payload = await response.json();
     portoDuty = payload.unit || null;
     applyPortoPayload(payload);
@@ -171,7 +175,7 @@ async function loadPortoDuty() {
     renderDutyPanel();
     renderOpsPanel();
   } catch (error) {
-    // Statusbediening blijft bruikbaar na opnieuw proberen via Status 0.
+    showPortoInlineError("Porto status laden mislukt. Probeer opnieuw of herlaad de pagina.");
   }
 }
 
@@ -185,6 +189,7 @@ async function updatePortoStatus(status, detail = "") {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    showPortoInlineError(payload.error || "Porto status kon niet worden opgeslagen.");
     await showPortoNotice(payload.error || "Porto status kon niet worden opgeslagen.", "Status mislukt");
     return;
   }

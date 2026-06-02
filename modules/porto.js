@@ -116,10 +116,13 @@ function createPortoServices() {
 
   function canOperatePortoOps(person) {
     const operational = Array.isArray(person?.completedOperational) ? person.completedOperational : [];
+    const badges = Array.isArray(person?.badges) ? person.badges : [];
+    const functions = Array.isArray(person?.extraFunctions) ? person.extraFunctions : [];
+    const opsValues = [...operational, ...badges, ...functions];
     return Boolean(
       person &&
         person.status === "Actief" &&
-        (operational.some((item) => ["OPS", "OPCO", "OVD"].includes(item)) || (person.extraFunctions || []).includes("Kader") || isDevOverrideProfile(person))
+        (opsValues.some((item) => ["OPS", "OPCO", "OVD", "Kader"].includes(item)) || isDevOverrideProfile(person))
     );
   }
 
