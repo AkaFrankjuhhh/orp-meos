@@ -1064,7 +1064,7 @@ body.porto-duty-workspace .porto-status-choices {
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(280px, 1fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(240px, 0.8fr) minmax(240px, 1fr) minmax(240px, 1fr) auto;
   gap: 12px;
   align-items: end;
   padding: 12px;
@@ -1121,6 +1121,18 @@ body.porto-ops-workspace .porto-ops-choice select {
   padding: 8px 14px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.porto-ops-assign.danger {
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  background: rgba(127, 29, 29, 0.78);
+  color: #fecaca;
+}
+
+.porto-ops-assign.danger:hover {
+  border-color: rgba(248, 113, 113, 0.76);
+  background: rgba(185, 28, 28, 0.88);
+  color: #fff;
 }
 
 .porto-ops-empty {

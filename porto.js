@@ -295,13 +295,18 @@ $("#portoOpsRequests").addEventListener("change", holdOpsRequestInteraction);
 $("#portoOpsRequests").addEventListener("click", async (event) => {
   const assignButton = event.target.closest("[data-assign-unit]");
   const linkButton = event.target.closest("[data-link-unit]");
-  const actionButton = assignButton || linkButton;
-  const unitId = assignButton?.dataset.assignUnit || linkButton?.dataset.linkUnit;
+  const rejectButton = event.target.closest("[data-reject-unit]");
+  const actionButton = assignButton || linkButton || rejectButton;
+  const unitId = assignButton?.dataset.assignUnit || linkButton?.dataset.linkUnit || rejectButton?.dataset.rejectUnit;
   if (!unitId) return;
   event.preventDefault();
   holdOpsRequestInteraction();
   actionButton.disabled = true;
   try {
+    if (rejectButton) {
+      await rejectPortoRequest(unitId);
+      return;
+    }
     if (assignButton) {
       const select = assignButton.closest(".porto-ops-request")?.querySelector("[data-category-select]");
       await assignPortoUnit(unitId, { vehiclePrefix: select?.value || "" });

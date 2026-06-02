@@ -733,9 +733,30 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const unitId = String(body.unitId || "").trim();
       const vehiclePrefix = String(body.vehiclePrefix || "").trim();
       const linkToVehicleNumber = String(body.linkToVehicleNumber || "").trim();
+      const reject = Boolean(body.reject);
       const unit = state.portoUnits.find((entry) => entry.id === unitId && entry.active !== false);
       if (!unit) {
         sendJson(res, 404, { error: "Aanmelding niet gevonden." });
+        return true;
+      }
+      if (reject) {
+        if (String(unit.status) !== "0" || unit.vehicleNumber) {
+          sendJson(res, 409, { error: "Alleen open Status 0-aanmeldingen kunnen worden geweigerd." });
+          return true;
+        }
+        const rejectedAt = new Date().toISOString();
+        Object.assign(unit, {
+          active: false,
+          status: "8",
+          statusDetail: "Geweigerd door OPS",
+          reviewStatus: "rejected",
+          endedById: person.id,
+          endedByName: person.name,
+          endedAt: rejectedAt,
+          updatedAt: rejectedAt
+        });
+        await persistPortoState(state, { units: state.portoUnits });
+        sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
         return true;
       }
       let vehicleNumber = "";

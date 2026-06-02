@@ -241,6 +241,7 @@ function renderOpsRequests() {
         </label>
         <button class="porto-ops-assign" type="button" data-assign-unit="${escapeHtml(request.id)}">Indelen</button>
       </div>
+      <button class="porto-ops-assign danger" type="button" data-reject-unit="${escapeHtml(request.id)}">Weigeren</button>
     </article>`;
   }).join("");
 }
@@ -455,6 +456,16 @@ async function assignPortoUnit(unitId, assignment) {
   renderVehicleRanges();
   renderDutyPanel();
   renderOpsPanel();
+}
+
+async function rejectPortoRequest(unitId) {
+  const request = (portoOpsRequests || []).find((entry) => String(entry.id) === String(unitId));
+  const confirmed = await showPortoConfirm(
+    `${request?.name || "Deze aanmelding"} weigeren en niet aanmelden?`,
+    "Aanmelding weigeren"
+  );
+  if (!confirmed) return;
+  await assignPortoUnit(unitId, { reject: true });
 }
 
 window.PortoModules.registerFeature("ops", { ready: true });
