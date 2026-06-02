@@ -1,8 +1,19 @@
-# Defensie Personeelsportaal + Porto + publieke formulieren.
-# Alle hostnames gaan naar dezelfde Node.js server; de app scheidt daarna zelf portal/porto/formulieren.
-orpdefensie.nl, www.orpdefensie.nl, porto.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, klachten.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl, hovj.orpdefensie.nl {
+# Defensie Personeelsportaal + publieke formulieren.
+orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, klachten.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl, hovj.orpdefensie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
+}
+
+# Porto draait als eigen service, zodat personeelsportaal deploys OPS niet onderbreken.
+porto.orpdefensie.nl {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3002
 
   header {
     X-Content-Type-Options nosniff

@@ -733,6 +733,12 @@ function authLoginUrl() {
   return "/api/auth/login";
 }
 
+function portoAppUrl() {
+  if (window.PORTO_APP_URL) return window.PORTO_APP_URL;
+  if (["localhost", "127.0.0.1"].includes(window.location.hostname)) return "http://localhost:3002";
+  return "https://porto.orpdefensie.nl";
+}
+
 function cleanLoginRedirect() {
   const url = new URL(window.location.href);
   if (!url.searchParams.has("login")) return;
@@ -1300,7 +1306,7 @@ function wireEvents() {
   rankPie?.addEventListener("mouseleave", hideRankPieTooltip);
   const portoButton = $("[data-open-porto]");
   if (portoButton) {
-    portoButton.addEventListener("click", () => window.open("/porto.html", "_blank", "noopener"));
+    portoButton.addEventListener("click", () => window.open(portoAppUrl(), "_blank", "noopener"));
   }
   $("#loginBtn").addEventListener("click", () => {
     window.location.href = authLoginUrl();
