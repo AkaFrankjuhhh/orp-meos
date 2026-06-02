@@ -247,7 +247,6 @@ function renderOpsRequests() {
 }
 
 function memberStatusLabel(member) {
-  if (member?.autoOffline) return "Automatisch afgemeld";
   const status = portoStatuses.find((entry) => entry.code === String(member.status));
   if (!status) return "Status 0";
   return member.statusDetail ? `${status.title} - ${member.statusDetail}` : `${status.title} - ${status.label}`;

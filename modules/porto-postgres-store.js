@@ -24,6 +24,43 @@ function json(value, fallback) {
   return JSON.stringify(value == null ? fallback : value);
 }
 
+function timestampMs(value) {
+  const time = Date.parse(value || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
+function newerPortoUnit(a, b) {
+  const aTime = timestampMs(a.updatedAt || a.assignedAt || a.requestedAt || a.lastSeenAt);
+  const bTime = timestampMs(b.updatedAt || b.assignedAt || b.requestedAt || b.lastSeenAt);
+  if (aTime !== bTime) return aTime > bTime ? a : b;
+  return String(a.id || "").localeCompare(String(b.id || "")) >= 0 ? a : b;
+}
+
+function normalizePortoUnitsForWrite(units) {
+  const uniqueUnits = [...new Map((units || []).filter((unit) => unit?.id).map((unit) => [unit.id, { ...unit }])).values()];
+  const activeByMember = new Map();
+  for (const unit of uniqueUnits) {
+    if (unit.active === false || !unit.memberId) continue;
+    const previous = activeByMember.get(unit.memberId);
+    activeByMember.set(unit.memberId, previous ? newerPortoUnit(previous, unit) : unit);
+  }
+  for (const unit of uniqueUnits) {
+    if (unit.active === false || !unit.memberId) continue;
+    const keeper = activeByMember.get(unit.memberId);
+    if (!keeper || keeper.id === unit.id) continue;
+    unit.active = false;
+    unit.status = "8";
+    unit.statusDetail = unit.statusDetail || "Dubbele Porto-aanmelding gesloten";
+    unit.vehicleNumber = "";
+    unit.vehicleCode = "";
+    unit.vehicleType = "";
+    unit.vehicleName = "";
+    unit.linkedWith = [];
+    unit.endedAt = unit.endedAt || new Date().toISOString();
+  }
+  return uniqueUnits;
+}
+
 function personFromRow(row) {
   return {
     ...parseJson(row.raw, {}),
@@ -227,7 +264,7 @@ function createPostgresPortoStore(options = {}) {
   }
 
   async function doWritePortoUnits(units) {
-    const uniqueUnits = [...new Map((units || []).filter((unit) => unit?.id).map((unit) => [unit.id, unit])).values()];
+    const uniqueUnits = normalizePortoUnitsForWrite(units);
     await withClient(async (client) => {
       await client.query("begin");
       try {

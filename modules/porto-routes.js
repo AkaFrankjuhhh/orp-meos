@@ -518,12 +518,6 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     if (url.pathname === "/api/porto/ops/close" && req.method === "POST") {
       const context = await requireActivePerson(req, res);
       if (!context) return true;
-      const { state, person } = context;
-      const currentOps = activePortoOps(state);
-      if (currentOps?.memberId === person.id) {
-        releaseCurrentOps(state, currentOps, person, new Date().toISOString(), "OPS browser gesloten");
-        await persistPortoState(state, { settings: true, units: state.portoUnits });
-      }
       sendJson(res, 200, { ok: true });
       return true;
     }

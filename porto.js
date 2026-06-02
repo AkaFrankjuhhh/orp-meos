@@ -95,18 +95,9 @@ function stopPortoLiveUpdates() {
 }
 
 function releasePortoOpsOnPageClose() {
-  if (portoCloseBeaconSent || !isCurrentOpsUser()) return;
+  // Browser pagehide/beforeunload is te onbetrouwbaar voor operationele diensten.
+  // OPS neerleggen gebeurt alleen nog via de bewuste knop.
   portoCloseBeaconSent = true;
-  if (navigator.sendBeacon) {
-    navigator.sendBeacon("/api/porto/ops/close", new Blob(["{}"], { type: "application/json" }));
-    return;
-  }
-  fetch("/api/porto/ops/close", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: "{}",
-    keepalive: true
-  }).catch(() => {});
 }
 // Porto-audio is verplaatst naar porto/audio.js.
 const PortoAudio = window.PortoAudio;
@@ -237,8 +228,6 @@ function showPortoInlineError(message) {
 // Begrens zoom en slepen zodat de kaart nooit buiten het paneel schuift.
 document.addEventListener("pointerdown", PortoAudio.unlock, { once: true });
 document.addEventListener("keydown", PortoAudio.unlock, { once: true });
-window.addEventListener("pagehide", releasePortoOpsOnPageClose);
-window.addEventListener("beforeunload", releasePortoOpsOnPageClose);
 
 $("#portoLoginBtn").addEventListener("click", () => {
   window.location.href = "/api/auth/login?returnTo=/porto.html";
