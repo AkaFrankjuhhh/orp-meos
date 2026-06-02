@@ -53,6 +53,8 @@ const {
   parseCookies,
   createSession,
   clearSession,
+  authCookie,
+  clearAuthCookie,
   getLoggedInProfile,
   avatarUrl,
   exchangeCode,
@@ -761,9 +763,9 @@ function redirectWithAuthError(req, res, code) {
   res.writeHead(302, {
     Location: appendAuthError(target, code),
     "Set-Cookie": [
-      "orp_oauth_state=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
-      "orp_oauth_redirect=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
-      "orp_login_return=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
+      clearAuthCookie("orp_oauth_state"),
+      clearAuthCookie("orp_oauth_redirect"),
+      clearAuthCookie("orp_login_return")
     ]
   });
   res.end();
@@ -889,11 +891,11 @@ async function handleApi(req, res, url) {
     const redirectUri = discordRedirectUriForRequest(req);
     const state = crypto.randomBytes(16).toString("hex");
     const loginCookies = [
-      `orp_oauth_state=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`,
-      `orp_oauth_redirect=${encodeURIComponent(redirectUri)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`
+      authCookie("orp_oauth_state", state, 600),
+      authCookie("orp_oauth_redirect", redirectUri, 600)
     ];
     if (returnTo !== "/?login=1") {
-      loginCookies.push(`orp_login_return=${encodeURIComponent(returnTo)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`);
+      loginCookies.push(authCookie("orp_login_return", returnTo, 600));
     }
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
@@ -953,9 +955,9 @@ async function handleApi(req, res, url) {
       res.writeHead(302, {
         Location: safeReturnPath(cookies.orp_login_return),
         "Set-Cookie": [
-          "orp_oauth_state=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
-          "orp_oauth_redirect=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
-          "orp_login_return=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+          clearAuthCookie("orp_oauth_state"),
+          clearAuthCookie("orp_oauth_redirect"),
+          clearAuthCookie("orp_login_return"),
           ...(Array.isArray(sessionCookie) ? sessionCookie : [sessionCookie].filter(Boolean))
         ]
       });

@@ -10,7 +10,14 @@ function parseCookies(req) {
       .filter(Boolean)
       .map((part) => {
         const index = part.indexOf("=");
-        return [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+        if (index === -1) return [part, ""];
+        const key = part.slice(0, index);
+        const value = part.slice(index + 1);
+        try {
+          return [key, decodeURIComponent(value)];
+        } catch (error) {
+          return [key, value];
+        }
       })
   );
 }
@@ -47,6 +54,14 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
     return secureCookieEnabled || configuredBaseUrls.some((baseUrl) => String(baseUrl).startsWith("https://")) ? "; Secure" : "";
   }
 
+  function authCookie(name, value, maxAgeSeconds = 600) {
+    return `${name}=${encodeURIComponent(String(value || ""))}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${sessionCookieSecureSuffix()}`;
+  }
+
+  function clearAuthCookie(name) {
+    return `${name}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${sessionCookieSecureSuffix()}`;
+  }
+
   function getSession(req) {
     const sid = parseCookies(req).orp_session;
     if (!sid) return null;
@@ -65,14 +80,13 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
       roleSyncedAt: Date.now(),
       createdAt: Date.now()
     });
-    const secure = sessionCookieSecureSuffix();
-    res.setHeader("Set-Cookie", `orp_session=${sid}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionMaxAgeSeconds()}${secure}`);
+    res.setHeader("Set-Cookie", authCookie("orp_session", sid, sessionMaxAgeSeconds()));
   }
 
   function clearSession(req, res) {
     const sid = parseCookies(req).orp_session;
     if (sid) sessions.delete(sid);
-    res.setHeader("Set-Cookie", `orp_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${sessionCookieSecureSuffix()}`);
+    res.setHeader("Set-Cookie", clearAuthCookie("orp_session"));
   }
 
   function getLoggedInProfile(req) {
@@ -131,6 +145,8 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
     getSession,
     createSession,
     clearSession,
+    authCookie,
+    clearAuthCookie,
     getLoggedInProfile,
     avatarUrl,
     discordFetch,
