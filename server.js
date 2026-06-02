@@ -8,8 +8,6 @@ const { createAuthServices } = require("./modules/auth");
 const { createPermissionServices } = require("./modules/permissions");
 const { createDiscordWebhookServices } = require("./modules/discord-webhooks");
 const { createDiscordBotServices } = require("./modules/discord-bot");
-const { createPortoRouteHandler } = require("./modules/porto-routes");
-const { createPostgresPortoStore } = require("./modules/porto-postgres-store");
 const { createPostgresFormsStore } = require("./modules/personeelsportaal-postgres-forms-store");
 const { createPostgresPeopleStore } = require("./modules/personeelsportaal-postgres-people-store");
 const { createPersoneelsportaalRouteHandler } = require("./modules/personeelsportaal-routes");
@@ -44,6 +42,7 @@ const storage = storageMode === "postgres" ? createPostgresReadStorage() : creat
 const { readState, writeState } = storage;
 const port = Number(process.env.PORT || 3000);
 const appBaseUrl = process.env.APP_BASE_URL || `http://localhost:${port}`;
+const portoBaseUrl = process.env.PORTO_APP_BASE_URL || "https://porto.orpdefensie.nl";
 const sessions = createSessionStore();
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 1024 * 1024);
 const publicFormMaxBodyBytes = Number(process.env.PUBLIC_FORM_MAX_BODY_BYTES || 9 * 1024 * 1024);
@@ -427,24 +426,12 @@ async function healthPayload() {
 }
 
 
-// Porto gebruikt in database-modus een directe PostgreSQL-store; de rest van Defensie Personeelsportaal blijft voorlopig via de centrale storage lopen.
 function afterStorageWrite(scope) {
   storage.resetStateCache?.();
   publishScopedEvent(scope);
   postgresEventBridge.notify(scope).catch((error) => logServerError(`Postgres event notify failed for ${scope}`, error));
   if (scope === "people") scheduleDiscordSyncAllJob("people_state_changed");
 }
-const portoStorage = storageMode === "postgres" ? createPostgresPortoStore({ afterWrite: () => afterStorageWrite("porto") }) : { readState, writeState };
-const handlePortoApi = createPortoRouteHandler({
-  requireAuth,
-  readState: portoStorage.readState,
-  writeState: portoStorage.writeState,
-  writePortoSettings: portoStorage.writePortoSettings,
-  writePortoPhone: portoStorage.writePortoPhone,
-  writePortoUnits: portoStorage.writePortoUnits,
-  readBody,
-  sendJson
-});
 // Formulierstromen krijgen in database-modus hun eigen PostgreSQL-pad voor betere gelijktijdigheid.
 const formsStorage = storageMode === "postgres" ? createPostgresFormsStore({ afterWrite: () => afterStorageWrite("forms") }) : { readState, writeState };
 // Personeel/profielen krijgen in database-modus ook hun eigen directe PostgreSQL-pad.
@@ -684,8 +671,21 @@ function redirectWithAuthError(req, res, code) {
   res.end();
 }
 
+function redirectToPorto(res, targetPath = "/porto.html") {
+  const safePath = String(targetPath || "/porto.html").startsWith("/") ? targetPath : "/porto.html";
+  res.writeHead(302, { Location: `${portoBaseUrl.replace(/\/$/, "")}${safePath}` });
+  res.end();
+}
+
 async function handleApi(req, res, url) {
   if (await handlePublicFormsApi(req, res, url)) return;
+  if (url.pathname.startsWith("/api/porto/")) {
+    sendJson(res, 409, {
+      error: "Porto draait als eigen service. Open porto.orpdefensie.nl.",
+      portoUrl: portoBaseUrl
+    });
+    return;
+  }
   if (url.pathname === "/api/events" && req.method === "GET") {
     const auth = requireAuth(req, res);
     if (!auth) return;
@@ -882,27 +882,28 @@ async function handleApi(req, res, url) {
     return;
   }
 
-
-  if (await handlePortoApi(req, res, url)) return;
-
   if (await handlePersoneelsportaalApi(req, res, url) !== false) return;
 
   sendJson(res, 404, { error: "API route niet gevonden" });
 }
 
 function serveStatic(req, res, url) {
+  const firstSegment = url.pathname.split("/").filter(Boolean)[0] || "";
+  if (["porto", "porto.html"].includes(firstSegment.toLowerCase())) {
+    redirectToPorto(res, url.pathname === "/porto.html" ? "/porto.html" : url.pathname);
+    return;
+  }
   const publicFormConfig = publicFormForRequest(req, url);
   const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
-  const firstSegment = url.pathname.split("/").filter(Boolean)[0] || "";
   const requested = publicFormConfig ? (["/public-forms.css", "/public-forms.js"].includes(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
-  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "porto.css", "app.js", "personeelsportaal-data.js", "porto.html", "porto.js", "shared-ui.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
+  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "shared-ui.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
   serveWhitelistedStatic({
     root,
     requested,
     res,
     writeHeadSecure,
     publicRootFiles,
-    isAllowedFeatureScript: (relativePath) => /^(personeelsportaal|porto)\/[^/]+\.js$/.test(relativePath)
+    isAllowedFeatureScript: (relativePath) => /^personeelsportaal\/[^/]+\.js$/.test(relativePath)
   });
 }
 
