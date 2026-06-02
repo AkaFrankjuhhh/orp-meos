@@ -161,8 +161,20 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
     let settingsChanged = false;
     const currentOps = activePortoOps(state);
+    if (currentOps?.recoveredFromUnit) {
+      state.portoCurrentOps = { ...currentOps };
+      delete state.portoCurrentOps.recoveredFromUnit;
+      settingsChanged = true;
+    }
     if (currentOps) {
-      const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === "30-00");
+      let opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === "30-00");
+      if (!opsUnit) {
+        const opsPerson = (state.people || []).find((entry) => entry.id === currentOps.memberId);
+        if (opsPerson) {
+          opsUnit = ensureOpsUnit(state, opsPerson);
+          settingsChanged = true;
+        }
+      }
       if (opsUnit?.autoOffline) {
         settingsChanged = releaseCurrentOps(state, currentOps, { id: "system", name: "Automatisch systeem" }, new Date().toISOString(), "OPS automatisch afgemeld");
       }

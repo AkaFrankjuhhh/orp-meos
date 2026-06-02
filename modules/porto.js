@@ -137,8 +137,18 @@ function createPortoServices() {
 
   function activePortoOps(state) {
     const ops = state.portoCurrentOps;
-    if (!ops || ops.active === false) return null;
-    return ops;
+    if (ops && ops.active !== false) return ops;
+    const opsUnit = (state.portoUnits || []).find((unit) => unit.active !== false && unit.vehicleNumber === "30-00");
+    if (!opsUnit) return null;
+    return {
+      memberId: opsUnit.memberId || "",
+      name: opsUnit.name || "Onbekend",
+      serviceNumber: opsUnit.serviceNumber || "",
+      phone: opsUnit.phone || "",
+      startedAt: opsUnit.assignedAt || opsUnit.requestedAt || opsUnit.lastSeenAt || "",
+      active: true,
+      recoveredFromUnit: true
+    };
   }
 
   function vehicleRangeForNumber(state, number) {
