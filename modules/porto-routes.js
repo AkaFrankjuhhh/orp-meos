@@ -101,6 +101,31 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return changed;
   }
 
+  function closeDuplicateActiveUnitsForMember(state, memberId, keepUnitId = "", nowIso = new Date().toISOString()) {
+    if (!memberId) return false;
+    const activeUnits = (state.portoUnits || []).filter((entry) => entry.memberId === memberId && entry.active !== false);
+    if (activeUnits.length <= 1) return false;
+    const keepUnit = activeUnits.find((entry) => entry.id === keepUnitId) || activeUnits
+      .slice()
+      .sort((a, b) => Date.parse(b.updatedAt || b.assignedAt || b.requestedAt || 0) - Date.parse(a.updatedAt || a.assignedAt || a.requestedAt || 0))[0];
+    let changed = false;
+    for (const entry of activeUnits) {
+      if (entry.id === keepUnit.id) continue;
+      entry.active = false;
+      entry.status = "8";
+      entry.statusDetail = "Dubbele Porto-aanmelding gesloten";
+      entry.vehicleNumber = "";
+      entry.vehicleCode = "";
+      entry.vehicleType = "";
+      entry.vehicleName = "";
+      entry.linkedWith = [];
+      entry.endedAt = nowIso;
+      entry.updatedAt = nowIso;
+      changed = true;
+    }
+    return changed;
+  }
+
   function appendOpsLog(state, ops, endedBy, endedAt = new Date().toISOString()) {
     if (!ops) return;
     state.portoOpsLog = Array.isArray(state.portoOpsLog) ? state.portoOpsLog : [];
@@ -329,6 +354,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         unit.active = false;
         unit.endedAt = now;
         if (releasedVehicleNumber) syncPortoLinkedNames(state, releasedVehicleNumber);
+      } else {
+        closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
       }
       await persistPortoState(state, { units: state.portoUnits });
       await sendPortoState(res, state, person, unit);
@@ -474,6 +501,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         state.portoCurrentOps = { memberId: person.id, name: person.name, serviceNumber: person.serviceNumber, phone: person.portoPhone || "", startedAt: currentOps?.startedAt || nowIso, active: true };
         const unit = ensureOpsUnit(state, person, nowIso);
         closeDuplicateOpsUnits(state, person, unit, nowIso);
+        closeDuplicateActiveUnitsForMember(state, person.id, unit.id, nowIso);
         await persistPortoState(state, { settings: true, units: state.portoUnits });
         await sendPortoState(res, state, person, unit);
         return true;
@@ -681,6 +709,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           lastSeenAt: entry.lastSeenAt || now
         });
         closePendingPortoRequestsForMember(state, entry.memberId, entry.id);
+        closeDuplicateActiveUnitsForMember(state, entry.memberId, entry.id, now);
       });
       syncPortoLinkedNames(state, oldVehicleNumber);
       syncPortoLinkedNames(state, vehicleNumber);
@@ -752,6 +781,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         statusDetail: linkToVehicleNumber ? (linkedStatusSource?.statusDetail || "Beschikbaar") : "Beschikbaar"
       });
       closePendingPortoRequestsForMember(state, unit.memberId, unit.id);
+      closeDuplicateActiveUnitsForMember(state, unit.memberId, unit.id, assignedAt);
       unit.updatedAt = unit.assignedAt;
       unit.lastSeenAt = unit.lastSeenAt || unit.assignedAt;
       syncPortoLinkedNames(state, vehicleNumber);

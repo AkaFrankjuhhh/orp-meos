@@ -308,11 +308,24 @@ function createPortoServices() {
     return Math.min(...members.map((member) => member.autoOffline ? 8 : portoStatusSortRank(member.status)));
   }
 
+  function newerPortoUnit(a, b) {
+    const aTime = timestampMs(a.updatedAt || a.assignedAt || a.requestedAt || a.lastSeenAt);
+    const bTime = timestampMs(b.updatedAt || b.assignedAt || b.requestedAt || b.lastSeenAt);
+    if (aTime !== bTime) return aTime > bTime ? a : b;
+    return String(a.id || "").localeCompare(String(b.id || "")) >= 0 ? a : b;
+  }
+
   function activePortoUnitGroups(state) {
     const groups = new Map();
     const peopleById = new Map((state.people || []).map((person) => [person.id, person]));
+    const unitsByVehicleAndMember = new Map();
     for (const unit of state.portoUnits || []) {
       if (unit.active === false || !unit.vehicleNumber) continue;
+      const dedupeKey = `${unit.vehicleNumber}::${unit.memberId || unit.id}`;
+      const previous = unitsByVehicleAndMember.get(dedupeKey);
+      unitsByVehicleAndMember.set(dedupeKey, previous ? newerPortoUnit(previous, unit) : unit);
+    }
+    for (const unit of unitsByVehicleAndMember.values()) {
       const range = vehicleRangeForNumber(state, unit.vehicleNumber);
       const current = groups.get(unit.vehicleNumber) || {
         vehicleNumber: unit.vehicleNumber,
@@ -324,10 +337,6 @@ function createPortoServices() {
       const person = peopleById.get(unit.memberId) || {};
       const completedTrainings = Array.isArray(person.completedTrainings) ? person.completedTrainings : [];
       const completedOperational = Array.isArray(person.completedOperational) ? person.completedOperational : [];
-      if (unit.memberId && current.members.some((member) => member.memberId === unit.memberId)) {
-        groups.set(unit.vehicleNumber, current);
-        continue;
-      }
       current.members.push({
         id: unit.id,
         memberId: unit.memberId,
@@ -366,9 +375,16 @@ function createPortoServices() {
     if (!unit) return null;
     const range = vehicleRangeForNumber(state, unit.vehicleNumber);
     const members = unit.vehicleNumber
-      ? [...new Map((state.portoUnits || [])
+      ? [...(state.portoUnits || [])
           .filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber)
-          .map((entry) => [entry.memberId || entry.id, {
+          .reduce((map, entry) => {
+            const key = entry.memberId || entry.id;
+            const previous = map.get(key);
+            map.set(key, previous ? newerPortoUnit(previous, entry) : entry);
+            return map;
+          }, new Map())
+          .values()]
+          .map((entry) => ({
             id: entry.id,
             memberId: entry.memberId,
             name: entry.name,
@@ -384,7 +400,7 @@ function createPortoServices() {
             autoOffline: Boolean(entry.autoOffline),
             autoOfflineAt: entry.autoOfflineAt || "",
             autoRemoveAt: entry.autoRemoveAt || ""
-          }])).values()]
+          }))
       : [{
           id: unit.id,
           memberId: unit.memberId,
