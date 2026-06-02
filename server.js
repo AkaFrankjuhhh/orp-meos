@@ -723,9 +723,15 @@ async function handlePublicFormsApi(req, res, url) {
       return true;
     }
     const submission = createPublicFormSubmission(config, cleanAnswers, req, fileValidation.cleanFiles, formAuth.profile);
-    // Klachten moeten al voor het verzenden naar Discord een zaaknummer reserveren.
-    if (config.slug === "klachten") await publicFormsStore.saveSubmission(submission, { pending: true });
-    const webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission), fileValidation.cleanFiles);
+    // Sla elke inzending eerst op. Zo verdwijnt een sollicitatie niet als Discord/webhook tijdelijk faalt.
+    await publicFormsStore.saveSubmission(submission, { pending: true });
+    let webhookResult;
+    try {
+      webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission), fileValidation.cleanFiles);
+    } catch (error) {
+      logServerError(`Public form webhook failed for ${config.slug}`, error);
+      webhookResult = { ok: false, status: "error", error: error.message || "webhook failed" };
+    }
     await publicFormsStore.saveSubmission(submission, webhookResult);
     sendJson(res, 200, { ok: true, id: submission.id, caseNumber: submission.caseNumber || null, webhook: webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : "failed" });
     return true;

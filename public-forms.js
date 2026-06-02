@@ -20,6 +20,22 @@ function showMessage(text, tone = "ok") {
   element.textContent = text;
 }
 
+function showAuthErrorFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("authError");
+  if (!code) return;
+  const messages = {
+    "rate-limited": "Discord blokkeert tijdelijk door te veel loginpogingen. Wacht 5 tot 10 minuten en probeer opnieuw.",
+    "login-failed": "Aanmelden via Discord is mislukt. Probeer opnieuw of controleer de Discord-koppeling.",
+    "no-role": "Je mist de juiste Discord rol om dit formulier te openen.",
+    "no-profile": "Je Discord account is nog niet gekoppeld aan een actief personeelsprofiel."
+  };
+  showMessage(messages[code] || "Aanmelden via Discord is mislukt.", "error");
+  params.delete("authError");
+  const nextQuery = params.toString();
+  window.history.replaceState({}, document.title, `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
+}
+
 function resizeAutoGrowingTextarea(textarea) {
   if (!textarea) return;
   textarea.style.height = "auto";
@@ -313,6 +329,7 @@ async function submitForm(event) {
 
 $("#publicForm").addEventListener("submit", submitForm);
 bindFormAdmin();
+showAuthErrorFromUrl();
 loadForm().catch((error) => {
   $("#formTitle").textContent = "Formulier niet beschikbaar";
   $("#formSubtitle").textContent = "Controleer de link of probeer het later opnieuw.";
