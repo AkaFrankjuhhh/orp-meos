@@ -203,6 +203,42 @@ CREATE INDEX IF NOT EXISTS porto_units_active_idx ON porto_units(active);
 CREATE INDEX IF NOT EXISTS porto_units_vehicle_number_idx ON porto_units(vehicle_number);
 CREATE INDEX IF NOT EXISTS porto_units_member_id_idx ON porto_units(member_id);
 
+WITH ranked_active_porto_units AS (
+  SELECT
+    id,
+    row_number() over (
+      PARTITION BY member_id
+      ORDER BY updated_at DESC NULLS LAST, assigned_at DESC NULLS LAST, requested_at DESC NULLS LAST, id DESC
+    ) AS rn
+  FROM porto_units
+  WHERE active = true
+    AND member_id IS NOT NULL
+    AND member_id <> ''
+)
+UPDATE porto_units
+SET
+  active = false,
+  status = '8',
+  status_detail = 'Dubbele Porto-aanmelding automatisch opgeschoond',
+  vehicle_number = '',
+  vehicle_code = '',
+  vehicle_type = '',
+  vehicle_name = '',
+  linked_with = '[]'::jsonb,
+  ended_at = now(),
+  updated_at = now()
+WHERE id IN (
+  SELECT id
+  FROM ranked_active_porto_units
+  WHERE rn > 1
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS porto_units_one_active_member_uidx
+  ON porto_units(member_id)
+  WHERE active = true
+    AND member_id IS NOT NULL
+    AND member_id <> '';
+
 CREATE TABLE IF NOT EXISTS activity_log (
   id bigserial PRIMARY KEY,
   position integer,

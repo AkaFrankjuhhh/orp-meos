@@ -51,6 +51,23 @@ function mask(value) {
     `);
     console.log(`Database: ${version.rows[0].version.split(' on ')[0]}`);
     console.log(`Aantallen: ${JSON.stringify(counts.rows[0])}`);
+    const duplicatePortoUnits = await client.query(`
+      select member_id, count(*)::int as active_units
+      from porto_units
+      where active = true
+        and member_id is not null
+        and member_id <> ''
+      group by member_id
+      having count(*) > 1
+      limit 5
+    `);
+    if (duplicatePortoUnits.rows.length) {
+      warnings.push(`Dubbele actieve Porto-units gevonden voor ${duplicatePortoUnits.rows.length} member(s). Draai db:init of cleanup.`);
+    }
+    const portoUniqueIndex = await client.query("select to_regclass('public.porto_units_one_active_member_uidx') as index_name");
+    if (!portoUniqueIndex.rows[0]?.index_name) {
+      warnings.push('Unieke Porto active-member index ontbreekt. Draai npm run db:init.');
+    }
   });
 
   if (warnings.length) {

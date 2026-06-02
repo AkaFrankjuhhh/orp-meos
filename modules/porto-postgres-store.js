@@ -82,6 +82,26 @@ function portoUnitFromRow(row) {
 }
 
 async function upsertPortoUnit(client, unit) {
+  if (unit.active !== false && unit.memberId) {
+    await client.query(
+      `update porto_units
+       set
+         active = false,
+         status = '8',
+         status_detail = 'Dubbele Porto-aanmelding automatisch gesloten',
+         vehicle_number = '',
+         vehicle_code = '',
+         vehicle_type = '',
+         vehicle_name = '',
+         linked_with = '[]'::jsonb,
+         ended_at = coalesce(ended_at, now()),
+         updated_at = now()
+       where member_id = $1
+         and id <> $2
+         and active = true`,
+      [unit.memberId, unit.id]
+    );
+  }
   await client.query(
     `insert into porto_units(
       id, member_id, name, rank, service_number, phone, status, status_detail,
