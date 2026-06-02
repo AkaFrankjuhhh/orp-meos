@@ -647,6 +647,24 @@ async function resolvePublicFormConfig(baseConfig) {
   const override = await publicFormsStore.readConfigOverride?.(baseConfig.slug);
   return mergePublicFormConfig(baseConfig, override || {});
 }
+
+function sendPublicFormWebhookInBackground(config, submission, files = []) {
+  Promise.resolve().then(async () => {
+    let webhookResult;
+    try {
+      webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission), files);
+    } catch (error) {
+      logServerError(`Public form webhook failed for ${config.slug}`, error);
+      webhookResult = { ok: false, status: "error", error: error.message || "webhook failed" };
+    }
+    try {
+      await publicFormsStore.saveSubmission(submission, webhookResult);
+    } catch (error) {
+      logServerError(`Public form webhook status save failed for ${config.slug}`, error);
+    }
+  });
+}
+
 function requirePublicFormAccess(req, res, config) {
   if (!config?.internalOnly) return { profile: null, session: null };
   const auth = getLoggedInProfile(req);
@@ -725,15 +743,8 @@ async function handlePublicFormsApi(req, res, url) {
     const submission = createPublicFormSubmission(config, cleanAnswers, req, fileValidation.cleanFiles, formAuth.profile);
     // Sla elke inzending eerst op. Zo verdwijnt een sollicitatie niet als Discord/webhook tijdelijk faalt.
     await publicFormsStore.saveSubmission(submission, { pending: true });
-    let webhookResult;
-    try {
-      webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission), fileValidation.cleanFiles);
-    } catch (error) {
-      logServerError(`Public form webhook failed for ${config.slug}`, error);
-      webhookResult = { ok: false, status: "error", error: error.message || "webhook failed" };
-    }
-    await publicFormsStore.saveSubmission(submission, webhookResult);
-    sendJson(res, 200, { ok: true, id: submission.id, caseNumber: submission.caseNumber || null, webhook: webhookResult.skipped ? "skipped" : webhookResult.ok ? "sent" : "failed" });
+    sendPublicFormWebhookInBackground(config, submission, fileValidation.cleanFiles);
+    sendJson(res, 200, { ok: true, id: submission.id, caseNumber: submission.caseNumber || null, webhook: "pending" });
     return true;
   }
 

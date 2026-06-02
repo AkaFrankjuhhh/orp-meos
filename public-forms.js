@@ -318,7 +318,7 @@ async function submitForm(event) {
     $("#publicForm").reset();
     updateConditionalFields();
     bindAutoGrowingTextareas($("#questions"));
-    showMessage("Formulier verzonden. Bedankt voor je inzending.", "ok");
+    showMessage("Formulier ontvangen. De melding naar Discord wordt verwerkt.", "ok");
   } catch (error) {
     showMessage(error.message || "Formulier verzenden is mislukt.", "error");
   } finally {
