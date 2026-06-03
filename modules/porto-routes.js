@@ -361,6 +361,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const { state, person } = context;
       ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      await maintainPortoPresence(state, person, { touch: false });
       const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
       await sendPortoState(res, state, person, unit);
       return true;

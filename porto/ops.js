@@ -85,7 +85,7 @@ function vehicleCategoryOptionsHtml() {
     .filter((range) => (range.numbers || []).length)
     .map((range) => `<option value="${escapeHtml(range.prefix)}">${escapeHtml(range.vehicleCode ? `${range.vehicleCode} - ` : "")}${escapeHtml(range.vehicleType)} (${escapeHtml(range.from)} t/m ${escapeHtml(range.to)})</option>`)
     .join("");
-  return options || '<option value="">Geen vrije categorieÃ«n</option>';
+  return options || '<option value="">Geen vrije categorieen</option>';
 }
 
 function linkOptionsHtml(currentVehicleNumber = "") {
@@ -148,14 +148,6 @@ async function copyTextToClipboard(text) {
   const copied = document.execCommand("copy");
   input.remove();
   return copied;
-}
-
-async function chooseOption(title, items) {
-  if (!items.length) {
-    await showPortoNotice("Geen opties beschikbaar.", title);
-    return null;
-  }
-  return showPortoChoice(title, items);
 }
 
 function openPortoOpsContextMenu(event, unitId) {
@@ -419,6 +411,7 @@ function renderOpsPanel() {
   renderOpsRequests();
   renderDiscordChannels();
   renderOpsUnits();
+  renderOpsLog();
   const mapCard = $("#portoMapCard");
   document.body.classList.toggle("porto-map-disabled", !portoMapEnabled);
   if (mapCard) mapCard.hidden = !portoMapEnabled;

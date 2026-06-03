@@ -213,7 +213,7 @@ function openHoursOverviewDialog(person = visibleProfile(), kind = "manual") {
             <article class="hours-overview-row" style="--hours-tone:${hourToneColor(hours)}">
               <div>
                 <strong>Week ${escapeHtml(entry.weekNumber)} (${escapeHtml(entry.weekYear)})</strong>
-                <span>${escapeHtml([entered, author].filter(Boolean).join(" Â· "))}</span>
+                <span>${escapeHtml([entered, author].filter(Boolean).join(" - "))}</span>
               </div>
               <b>${escapeHtml(displayHourValue(hours))} uur</b>
             </article>

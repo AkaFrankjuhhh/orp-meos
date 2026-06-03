@@ -35,7 +35,6 @@ let portoOpsRequestInteractionUntil = 0;
 let portoEventSource = null;
 let portoLiveRefreshTimer = null;
 let portoLiveRefreshDeferTimer = null;
-let portoCloseBeaconSent = false;
 let portoOpsViewMode = "duty";
 let portoInlineErrorTimer = null;
 let portoDutyLoadPromise = null;
@@ -88,20 +87,6 @@ function startPortoLiveUpdates() {
   };
 }
 
-function stopPortoLiveUpdates() {
-  portoEventSource?.close();
-  portoEventSource = null;
-  if (portoLiveRefreshTimer) window.clearTimeout(portoLiveRefreshTimer);
-  if (portoLiveRefreshDeferTimer) window.clearTimeout(portoLiveRefreshDeferTimer);
-  portoLiveRefreshTimer = null;
-  portoLiveRefreshDeferTimer = null;
-}
-
-function releasePortoOpsOnPageClose() {
-  // Browser pagehide/beforeunload is te onbetrouwbaar voor operationele diensten.
-  // OPS neerleggen gebeurt alleen nog via de bewuste knop.
-  portoCloseBeaconSent = true;
-}
 // Porto-audio is verplaatst naar porto/audio.js.
 const PortoAudio = window.PortoAudio;
 

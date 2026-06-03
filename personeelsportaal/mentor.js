@@ -318,8 +318,9 @@ function renderMentorPersonAudit() {
 
 function selectMentorAuditPerson(personId) {
   mentorAuditDetailPersonId = personId;
-  renderMentorOverview();
+  renderMentorPersonAudit();
 }
+
 function renderMentorChecklist() {
   const person = state.people.find((entry) => entry.id === selectedMentorProfileId && entry.status === "Actief");
   if (!person || !canViewMentorOverview()) {

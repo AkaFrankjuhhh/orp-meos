@@ -13,7 +13,6 @@ const {
   extraFunctions,
   disciplineTypes,
   profileDistinctions,
-  rankTrainingRequirements,
   autoFunctionByRanks,
   rankColors,
   defaultState
@@ -1661,12 +1660,14 @@ function wireEvents() {
     if (event.target.closest(".mentor-test-overview")) return;
     const row = event.target.closest("[data-open-mentor]");
     if (!row) return;
+    selectMentorAuditPerson(row.dataset.openMentor);
     openMentorChecklist(row.dataset.openMentor);
   });
   $("#mentorOverviewList").addEventListener("keydown", (event) => {
     if (!event.target.matches("[data-open-mentor]")) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
+    selectMentorAuditPerson(event.target.dataset.openMentor);
     openMentorChecklist(event.target.dataset.openMentor);
   });
   $("#mentorOverviewList").addEventListener("change", async (event) => {
@@ -1823,7 +1824,8 @@ function wireEvents() {
       weekYear: Number(button.dataset.bulkHoursWeekYear),
       weekNumber: Number(button.dataset.bulkHoursWeekNumber)
     });
-  });  $("#bulkHoursForm")?.addEventListener("submit", async (event) => {
+  });
+  $("#bulkHoursForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!canManageHours()) return;
     const weekYear = Number($("#bulkHoursWeekYear").value);
