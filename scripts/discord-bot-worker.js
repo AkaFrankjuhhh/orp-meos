@@ -13,7 +13,10 @@ const {
 loadEnv();
 
 const workerId = `discord-bot-${process.pid}`;
-const syncIntervalMs = Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 300000);
+const dailySyncTime = String(process.env.DISCORD_DAILY_SYNC_TIME || "05:00").trim();
+const dailySyncEnabled = String(process.env.DISCORD_DAILY_SYNC_ENABLED || "true").toLowerCase() !== "false";
+const legacyIntervalSyncEnabled = String(process.env.DISCORD_LEGACY_INTERVAL_SYNC_ENABLED || "false").toLowerCase() === "true";
+const syncIntervalMs = legacyIntervalSyncEnabled ? Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 0) : 0;
 const jobPollMs = Number(process.env.DISCORD_JOB_POLL_INTERVAL_MS || 5000);
 const jobBatchSize = Number(process.env.DISCORD_JOB_BATCH_SIZE || 5);
 const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toLowerCase() !== "false";
@@ -53,6 +56,16 @@ async function updatePortoChannelStatusFromDiscord(channelId, status) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function nextDailySyncDelayMs(timeText = "05:00", now = new Date()) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(timeText || "").trim());
+  const hours = match ? Math.min(23, Math.max(0, Number(match[1]))) : 5;
+  const minutes = match ? Math.min(59, Math.max(0, Number(match[2]))) : 0;
+  const next = new Date(now);
+  next.setHours(hours, minutes, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  return next.getTime() - now.getTime();
 }
 
 function activePeopleForDiscord(state) {
@@ -170,12 +183,25 @@ async function runJobLoop() {
 }
 
 async function runPeriodicSyncLoop() {
-  await enqueueAllDiscordSync("worker_startup");
+  if (dailySyncEnabled) {
+    while (!stopping) {
+      await sleep(nextDailySyncDelayMs(dailySyncTime));
+      if (stopping) break;
+      try {
+        await enqueueAllDiscordSync(`daily_${dailySyncTime}`);
+      } catch (error) {
+        console.error(`[discord-bot] dagelijkse sync enqueue mislukt: ${error.message}`);
+      }
+    }
+    return;
+  }
+
+  if (!syncIntervalMs) return;
   while (!stopping) {
     await sleep(syncIntervalMs);
     if (stopping) break;
     try {
-      await enqueueAllDiscordSync("periodic_sync");
+      await enqueueAllDiscordSync("legacy_periodic_sync");
     } catch (error) {
       console.error(`[discord-bot] periodieke sync enqueue mislukt: ${error.message}`);
     }
@@ -278,6 +304,11 @@ async function main() {
   await ensureDiscordSyncJobsTable();
   connectGateway();
   console.log(`[discord-bot] worker gestart: ${workerId}`);
+  if (dailySyncEnabled) {
+    console.log(`[discord-bot] dagelijkse Discord sync gepland om ${dailySyncTime}.`);
+  } else if (syncIntervalMs) {
+    console.log(`[discord-bot] legacy interval sync actief elke ${syncIntervalMs}ms.`);
+  }
   await Promise.all([runJobLoop(), runPeriodicSyncLoop()]);
 }
 

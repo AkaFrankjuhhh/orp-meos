@@ -17,7 +17,6 @@ const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-
 const { createEventBus } = require("./modules/event-bus");
 const { createHttpResponder, createJsonBodyReader, readRawBody, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
-const { enqueueAllDiscordSync } = require("./modules/discord-sync-jobs");
 const { createPublicFormsStore } = require("./modules/public-forms-store");
 const {
   publicFormForRequest,
@@ -201,18 +200,7 @@ const {
 } = createDiscordWebhookServices({ formatDate });
 // Discord bot-acties blijven centraal: rollen, nicknames en Porto voice verplaatsingen.
 const discordBot = createDiscordBotServices();
-let discordSyncEnqueueTimer = null;
-function scheduleDiscordSyncAllJob(reason = "people_state_changed") {
-  if (storageMode !== "postgres" || !process.env.DISCORD_BOT_TOKEN) return;
-  if (discordSyncEnqueueTimer) clearTimeout(discordSyncEnqueueTimer);
-  discordSyncEnqueueTimer = setTimeout(() => {
-    discordSyncEnqueueTimer = null;
-    enqueueAllDiscordSync(reason).catch((error) => {
-      console.error("Discord sync job kon niet worden aangemaakt:", error.message || error);
-    });
-  }, Number(process.env.DISCORD_SYNC_ENQUEUE_DEBOUNCE_MS || 2500));
-}
-const discordNicknameSyncIntervalMs = Math.max(0, Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 5 * 60 * 1000));
+const discordNicknameSyncIntervalMs = Math.max(0, Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 0));
 let discordNicknameSyncTimer = null;
 let discordNicknameSyncRunning = false;
 
@@ -434,7 +422,6 @@ function afterStorageWrite(scope) {
   storage.resetStateCache?.();
   publishScopedEvent(scope);
   postgresEventBridge.notify(scope).catch((error) => logServerError(`Postgres event notify failed for ${scope}`, error));
-  if (scope === "people") scheduleDiscordSyncAllJob("people_state_changed");
 }
 // Formulierstromen krijgen in database-modus hun eigen PostgreSQL-pad voor betere gelijktijdigheid.
 const formsStorage = storageMode === "postgres" ? createPostgresFormsStore({ afterWrite: () => afterStorageWrite("forms") }) : { readState, writeState };
