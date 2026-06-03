@@ -338,7 +338,8 @@ $("#portoDiscordChannels")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-save-discord-channel-status]");
   if (!button?.dataset.saveDiscordChannelStatus) return;
   const channelKey = button.dataset.saveDiscordChannelStatus;
-  const input = $(`[data-discord-channel-status="${CSS.escape(channelKey)}"]`);
+  const input = [...document.querySelectorAll("[data-discord-channel-status]")]
+    .find((entry) => entry.dataset.discordChannelStatus === channelKey);
   const unit = (portoDiscordChannelGroups || []).find((group) => group.key === channelKey)?.units?.[0];
   const unitId = unit ? primaryOpsMemberId(unit) : "";
   if (!unitId) {

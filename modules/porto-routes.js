@@ -1,6 +1,6 @@
 const crypto = require("node:crypto");
 const { createPortoServices } = require("./porto");
-const { enqueueDiscordSyncJob, enqueuePersonDiscordSync } = require("./discord-sync-jobs");
+const { enqueueDiscordSyncJob } = require("./discord-sync-jobs");
 
 function activePersonForAuth(state, auth) {
   return (state.people || []).find((entry) => entry.id === auth.profile.id && entry.status === "Actief");
@@ -19,9 +19,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     sweepPortoPresence,
     touchPortoPresence,
     decoratePortoUnit,
-    portoOpsPayload
+    portoOpsPayload,
+    configuredPortoDiscordChannels
   } = createPortoServices();
   let mutationQueue = Promise.resolve();
+  const status4Reasons = new Set(["Staandehouding", "Afhandeling", "In hoofd", "Overige"]);
 
   function timestampMs(value) {
     const time = Date.parse(value || "");
@@ -55,6 +57,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       .filter(Boolean))];
   }
 
+  function delayedDiscordJobRunAfter() {
+    return new Date(Date.now() + 1500);
+  }
+
+  function configuredPortoChannelKeys() {
+    return new Set(configuredPortoDiscordChannels().map((channel) => channel.key));
+  }
+
   async function enqueuePortoDiscordNicknames(state, units, reason = "Porto roepnummer aangepast") {
     for (const unit of units || []) {
       const person = peopleById(state).get(unit.memberId);
@@ -64,7 +74,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         discordId: person.discordId,
         unitId: unit.id,
         reason
-      }, { personId: person.id, discordId: person.discordId }).catch(() => {});
+      }, { personId: person.id, discordId: person.discordId, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
     }
   }
 
@@ -72,19 +82,23 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     for (const unit of units || []) {
       const person = peopleById(state).get(unit.memberId);
       if (!person?.discordId) continue;
-      await enqueuePersonDiscordSync(person, reason).catch(() => {});
+      await enqueueDiscordSyncJob("sync_person", {
+        personId: person.id,
+        discordId: person.discordId,
+        reason
+      }, { personId: person.id, discordId: person.discordId, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
     }
   }
 
   async function enqueuePortoVoiceMove(state, units, channelKey, reason = "Porto eenheid verplaatst") {
     const discordIds = discordIdsForUnits(state, units);
     if (!discordIds.length || !channelKey) return;
-    await enqueueDiscordSyncJob("porto_voice_move", { discordIds, channelKey, reason }, { maxAttempts: 3 }).catch(() => {});
+    await enqueueDiscordSyncJob("porto_voice_move", { discordIds, channelKey, reason }, { maxAttempts: 3, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
   }
 
   async function enqueuePortoChannelStatus(channelKey, status, reason = "Porto kanaalstatus aangepast") {
     if (!channelKey) return;
-    await enqueueDiscordSyncJob("porto_channel_status", { channelKey, status, reason }, { maxAttempts: 3 }).catch(() => {});
+    await enqueueDiscordSyncJob("porto_channel_status", { channelKey, status, reason }, { maxAttempts: 3, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
   }
 
   async function persistPortoState(state, options = {}) {
@@ -364,7 +378,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         return true;
       }
       const detail = status === "4" ? String(body.detail || "").trim() : "";
-      if (!new Set(["", "Staandehouding", "Afhandeling", "In hoofd", "Overige"]).has(detail)) {
+      if (detail && !status4Reasons.has(detail)) {
         sendJson(res, 400, { error: "Ongeldige Status 4 reden." });
         return true;
       }
@@ -689,6 +703,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         return true;
       }
       if (discordChannelKey || body.discordChannelStatus !== undefined) {
+        if (discordChannelKey && !configuredPortoChannelKeys().has(discordChannelKey)) {
+          sendJson(res, 400, { error: "Kies een geldig Porto Discord-kanaal." });
+          return true;
+        }
         const group = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber);
         const key = discordChannelKey || unit.discordChannelKey || "ops";
         const now = new Date().toISOString();
@@ -709,6 +727,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         const allowedStatuses = new Set(["1", "2", "3", "4", "5", "6", "7"]);
         if (!allowedStatuses.has(newStatus)) {
           sendJson(res, 400, { error: "Kies een geldige status." });
+          return true;
+        }
+        if (newStatus === "4" && newStatusDetail && !status4Reasons.has(newStatusDetail)) {
+          sendJson(res, 400, { error: "Kies een geldige Status 4 reden." });
           return true;
         }
         const statusDefinition = { "1": "Beschikbaar", "2": "Aanrijdend", "3": "Ter plaatse", "4": "Niet beschikbaar", "5": "Transport aanvraag", "6": "Spraak aanvraag", "7": "Spraak aanvraag urgent" };
