@@ -200,69 +200,6 @@ const {
 } = createDiscordWebhookServices({ formatDate });
 // Discord bot-acties blijven centraal: rollen, nicknames en Porto voice verplaatsingen.
 const discordBot = createDiscordBotServices();
-const discordNicknameSyncIntervalMs = Math.max(0, Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 0));
-let discordNicknameSyncTimer = null;
-let discordNicknameSyncRunning = false;
-
-function activePortalMembersWithDiscord(state) {
-  return (state.people || [])
-    .filter((person) => person.status === "Actief")
-    .filter((person) => person.discordId)
-    .sort((a, b) => (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true }));
-}
-
-async function runDiscordNicknameSyncSweep(reason = "periodiek") {
-  if (!discordBot.isConfigured?.() || typeof discordBot.syncNicknameForPersonIfNeeded !== "function") return;
-  if (discordNicknameSyncRunning) return;
-  discordNicknameSyncRunning = true;
-  try {
-    const state = await Promise.resolve(readState());
-    const activePortoMemberIds = new Set((state.portoUnits || [])
-      .filter((unit) => unit.active !== false && unit.memberId && unit.vehicleNumber)
-      .map((unit) => unit.memberId));
-    let changed = 0;
-    let rankRoleChanged = 0;
-    let missing = 0;
-    let failed = 0;
-    for (const person of activePortalMembersWithDiscord(state)) {
-      if (activePortoMemberIds.has(person.id)) continue;
-      try {
-        const result = await discordBot.syncNicknameForPersonIfNeeded(person);
-        if (result?.ok && !result.unchanged) changed += 1;
-        const rankRoleResult = await discordBot.syncRankRoleForPersonIfNeeded?.(person);
-        if (rankRoleResult?.ok && Array.isArray(rankRoleResult.changes) && rankRoleResult.changes.length) {
-          rankRoleChanged += 1;
-        }
-      } catch (error) {
-        if (error.status === 404) {
-          missing += 1;
-          continue;
-        }
-        failed += 1;
-        logServerError(`Discord profiel sync ${person.name || person.id}`, error);
-      }
-    }
-    if (changed || rankRoleChanged || failed) {
-      console.log(`Discord profiel sync ${reason}: ${changed} namen, ${rankRoleChanged} rangrollen, ${missing} niet in server, ${failed} mislukt.`);
-    }
-  } finally {
-    discordNicknameSyncRunning = false;
-  }
-}
-
-function startDiscordNicknameSync() {
-  if (String(process.env.DISCORD_INLINE_SYNC_ENABLED || "false").toLowerCase() !== "true") return;
-  if (!discordNicknameSyncIntervalMs || !discordBot.isConfigured?.()) return;
-  runDiscordNicknameSyncSweep("startup").catch((error) => logServerError("Discord nickname startup sync", error));
-  discordNicknameSyncTimer = setInterval(() => {
-    runDiscordNicknameSyncSweep("periodiek").catch((error) => logServerError("Discord nickname periodieke sync", error));
-  }, discordNicknameSyncIntervalMs);
-}
-
-function stopDiscordNicknameSync() {
-  if (discordNicknameSyncTimer) clearInterval(discordNicknameSyncTimer);
-  discordNicknameSyncTimer = null;
-}
 
 function sendStateAfterMutation(req, res, auth, state) {
   writeState(state);
@@ -927,7 +864,6 @@ async function startServer() {
     if (!discordConfigured()) {
       console.log("Discord is nog niet volledig ingesteld. DEV_ALLOW_UNAUTH bepaalt of lokale demo-toegang werkt.");
     }
-    startDiscordNicknameSync();
   });
 }
 
@@ -942,7 +878,6 @@ startServer().catch((error) => {
 
 async function shutdown() {
   try {
-    stopDiscordNicknameSync();
     await postgresEventBridge.stop();
     await closePool();
   } finally {
