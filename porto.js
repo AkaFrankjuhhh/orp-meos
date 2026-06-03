@@ -112,6 +112,10 @@ const showPortoConfirm = portoNotice.showConfirm;
 const showPortoChoice = portoNotice.showChoice;
 function positionContextMenu(menu, x, y) {
   menu.hidden = false;
+  menu.style.maxHeight = `${Math.max(180, window.innerHeight - 20)}px`;
+  menu.style.overflowY = "auto";
+  menu.style.left = "0px";
+  menu.style.top = "0px";
   const rect = menu.getBoundingClientRect();
   const left = Math.min(Math.max(10, x), window.innerWidth - rect.width - 10);
   const top = Math.min(Math.max(10, y), window.innerHeight - rect.height - 10);

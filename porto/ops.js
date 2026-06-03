@@ -171,11 +171,7 @@ function openPortoOpsContextMenu(event, unitId) {
   if (phoneLabel) phoneLabel.textContent = phone || "Geen telefoonnummer";
   const copyButton = menu.querySelector("[data-ops-context-action='copy-phone']");
   if (copyButton) copyButton.disabled = !phone;
-  const left = Math.min(event.clientX, window.innerWidth - 260);
-  const top = Math.min(event.clientY, window.innerHeight - 220);
-  menu.style.left = `${Math.max(10, left)}px`;
-  menu.style.top = `${Math.max(10, top)}px`;
-  menu.hidden = false;
+  positionContextMenu(menu, event.clientX, event.clientY);
 }
 
 function holdOpsRequestInteraction() {
