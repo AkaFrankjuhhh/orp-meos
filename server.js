@@ -229,11 +229,15 @@ async function runDiscordNicknameSyncSweep(reason = "periodiek") {
   discordNicknameSyncRunning = true;
   try {
     const state = await Promise.resolve(readState());
+    const activePortoMemberIds = new Set((state.portoUnits || [])
+      .filter((unit) => unit.active !== false && unit.memberId && unit.vehicleNumber)
+      .map((unit) => unit.memberId));
     let changed = 0;
     let rankRoleChanged = 0;
     let missing = 0;
     let failed = 0;
     for (const person of activePortalMembersWithDiscord(state)) {
+      if (activePortoMemberIds.has(person.id)) continue;
       try {
         const result = await discordBot.syncNicknameForPersonIfNeeded(person);
         if (result?.ok && !result.unchanged) changed += 1;

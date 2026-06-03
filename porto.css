@@ -273,6 +273,10 @@ body.porto-ops-workspace .porto-ops-grid {
   height: 100%;
 }
 
+body.porto-ops-workspace.porto-map-disabled .porto-ops-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 body.porto-ops-workspace .porto-ops-left-stack {
   max-height: 100%;
   overflow: auto;
@@ -1064,7 +1068,7 @@ body.porto-duty-workspace .porto-status-choices {
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(240px, 0.8fr) minmax(240px, 1fr) minmax(240px, 1fr) auto;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(240px, 1fr) minmax(240px, 1fr);
   gap: 12px;
   align-items: end;
   padding: 12px;
@@ -1121,6 +1125,66 @@ body.porto-ops-workspace .porto-ops-choice select {
   padding: 8px 14px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.porto-discord-channels {
+  display: grid;
+  gap: 10px;
+}
+
+.porto-discord-channel {
+  border: 1px solid rgba(59, 130, 246, 0.34);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.64);
+  padding: 12px;
+}
+
+.porto-discord-channel.drag-over {
+  border-color: rgba(245, 158, 11, 0.9);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+}
+
+.porto-discord-channel-head {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.porto-discord-channel-head strong {
+  color: #f8c471;
+  font-size: 15px;
+}
+
+.porto-discord-channel-head input {
+  min-height: 38px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 10px;
+  background: rgba(10, 17, 30, 0.86);
+  color: #e5e7eb;
+  padding: 8px 10px;
+  font-weight: 800;
+}
+
+.porto-discord-channel-units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.porto-discord-channel-unit {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(12, 20, 34, 0.82);
+  color: #e5e7eb;
+  padding: 7px 10px;
+  font-weight: 900;
+  cursor: grab;
+}
+
+.porto-discord-channel-unit:active {
+  cursor: grabbing;
 }
 
 .porto-ops-assign.danger {
@@ -1496,6 +1560,10 @@ body.porto-ops-workspace .porto-ops-grid {
   grid-template-columns: minmax(420px, 0.9fr) minmax(0, 1.4fr);
   min-width: 0;
   overflow: hidden;
+}
+
+body.porto-ops-workspace.porto-map-disabled .porto-ops-grid {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 body.porto-ops-workspace .porto-map-card {

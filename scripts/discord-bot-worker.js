@@ -1,4 +1,4 @@
-const { loadEnv, closePool } = require("../modules/db");
+const { loadEnv, closePool, withClient } = require("../modules/db");
 const { readPostgresState } = require("../modules/postgres-state");
 const { createDiscordBotServices } = require("../modules/discord-bot");
 const {
@@ -24,6 +24,33 @@ let gatewaySocket = null;
 let heartbeatTimer = null;
 let reconnectTimer = null;
 
+function portoChannelKeyForDiscordChannelId(channelId) {
+  const value = String(channelId || "");
+  const entries = Object.entries(bot.configuredVoiceChannels?.() || {});
+  return entries.find(([, id]) => String(id || "") === value)?.[0] || "";
+}
+
+async function updatePortoChannelStatusFromDiscord(channelId, status) {
+  const channelKey = portoChannelKeyForDiscordChannelId(channelId);
+  if (!channelKey) return;
+  await withClient(async (client) => {
+    await client.query(`
+      update porto_units
+      set
+        raw = raw || jsonb_build_object('discordChannelStatus', $2),
+        updated_at = now()
+      where active = true
+        and coalesce(raw->>'discordChannelKey', 'ops') = $1
+    `, [channelKey, String(status || "")]);
+    await client.query("select pg_notify($1, $2)", ["orp_app_events", JSON.stringify({
+      scope: "porto",
+      sourceId: workerId,
+      serviceName: "discord-bot",
+      at: new Date().toISOString()
+    })]);
+  });
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -40,11 +67,30 @@ function activePeopleForDiscord(state) {
     .sort((a, b) => (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true }));
 }
 
+function activePortoUnitForPerson(state, person) {
+  return (state.portoUnits || [])
+    .filter((unit) => unit.active !== false && unit.memberId === person?.id && unit.vehicleNumber)
+    .sort((a, b) => Date.parse(b.updatedAt || b.assignedAt || b.requestedAt || 0) - Date.parse(a.updatedAt || a.assignedAt || a.requestedAt || 0))[0] || null;
+}
+
 async function syncPerson(person, reason = "Discord bot worker sync") {
   if (!person?.discordId) return { skipped: true, reason: "Geen Discord ID" };
   const result = await bot.syncDiscordForPersonIfNeeded(person, reason);
   await sleep(350);
   return result;
+}
+
+async function syncPersonForState(state, person, reason = "Discord bot worker sync") {
+  if (!person?.discordId) return { skipped: true, reason: "Geen Discord ID" };
+  const portoUnit = activePortoUnitForPerson(state, person);
+  if (portoUnit) {
+    const nickname = await bot.syncPortoNicknameForPersonIfNeeded(person, portoUnit, `${reason}: Porto roepnummer`);
+    const rankRole = await bot.syncRankRoleForPersonIfNeeded(person, reason);
+    const qualificationRoles = await bot.syncQualificationRolesForPersonIfNeeded(person, reason);
+    await sleep(350);
+    return { ok: true, nickname, rankRole, qualificationRoles, porto: true };
+  }
+  return syncPerson(person, reason);
 }
 
 async function syncAllActive(reason = "Discord bot periodieke sync") {
@@ -55,7 +101,7 @@ async function syncAllActive(reason = "Discord bot periodieke sync") {
   let failed = 0;
   for (const person of people) {
     try {
-      const result = await syncPerson(person, reason);
+      const result = await syncPersonForState(state, person, reason);
       if (result?.skipped) skipped += 1;
       else ok += 1;
     } catch (error) {
@@ -72,13 +118,28 @@ async function syncByJob(job) {
     return syncAllActive(`Discord bot job ${job.id}: ${job.payload?.reason || "sync_all_active"}`);
   }
 
+  if (job.type === "porto_voice_move") {
+    const discordIds = Array.isArray(job.payload?.discordIds) ? job.payload.discordIds : [];
+    return bot.moveMembersToVoice(discordIds, job.payload?.channelKey || job.payload?.channelId, job.payload?.reason || "Porto eenheid verplaatst");
+  }
+
+  if (job.type === "porto_channel_status") {
+    return bot.setVoiceChannelStatus(job.payload?.channelKey || job.payload?.channelId, job.payload?.status || "", job.payload?.reason || "Porto kanaalstatus aangepast");
+  }
+
   const person = (state.people || []).find((entry) => {
     if (job.personId && entry.id === job.personId) return true;
     if (job.discordId && String(entry.discordId || "") === String(job.discordId)) return true;
     return false;
   });
   if (!person || person.status !== "Actief") return { skipped: true, reason: "Geen actief portaalprofiel gevonden" };
-  return syncPerson(person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
+  if (job.type === "porto_nickname") {
+    const unit = (state.portoUnits || []).find((entry) => entry.id === job.payload?.unitId)
+      || activePortoUnitForPerson(state, person);
+    if (!unit) return syncPerson(person, `Discord bot job ${job.id}: Porto dienst beeindigd`);
+    return bot.syncPortoNicknameForPersonIfNeeded(person, unit, `Discord bot job ${job.id}: Porto roepnummer`);
+  }
+  return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
 }
 
 async function processJobs() {
@@ -183,6 +244,12 @@ function connectGateway() {
     if (packet.t === "GUILD_MEMBER_ADD") {
       const discordId = packet.d?.user?.id;
       if (discordId) await enqueueDiscordSyncJob("sync_person", { discordId, reason: "guild_member_add" }, { discordId });
+    }
+    if (["CHANNEL_UPDATE", "VOICE_CHANNEL_STATUS_UPDATE"].includes(packet.t)) {
+      const channelId = packet.d?.id || packet.d?.channel_id;
+      if (channelId && Object.prototype.hasOwnProperty.call(packet.d || {}, "status")) {
+        await updatePortoChannelStatusFromDiscord(channelId, packet.d?.status || "");
+      }
     }
   });
   gatewaySocket.addEventListener("close", () => {

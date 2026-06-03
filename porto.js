@@ -24,6 +24,9 @@ let portoOpsRequests = [];
 let portoAvailableVehicleRanges = [];
 let portoLinkableUnits = [];
 let portoActiveUnits = [];
+let portoDiscordChannels = [];
+let portoDiscordChannelGroups = [];
+let portoMapEnabled = false;
 let portoOpsLog = [];
 let portoOpsContextUnitId = "";
 let portoDutyPoll = null;
@@ -306,6 +309,43 @@ $("#portoOpsRequests").addEventListener("contextmenu", async (event) => {
   const request = event.target.closest("[data-ops-request]");
   if (!request?.dataset.opsRequest) return;
   await openPortoRequestContextMenu(event, request.dataset.opsRequest);
+});
+$("#portoDiscordChannels")?.addEventListener("dragstart", (event) => {
+  const unit = event.target.closest("[data-discord-unit]");
+  if (!unit?.dataset.discordUnit) return;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", unit.dataset.discordUnit);
+});
+$("#portoDiscordChannels")?.addEventListener("dragover", (event) => {
+  const channel = event.target.closest("[data-discord-channel]");
+  if (!channel?.dataset.discordChannel) return;
+  event.preventDefault();
+  channel.classList.add("drag-over");
+});
+$("#portoDiscordChannels")?.addEventListener("dragleave", (event) => {
+  const channel = event.target.closest("[data-discord-channel]");
+  if (channel && !channel.contains(event.relatedTarget)) channel.classList.remove("drag-over");
+});
+$("#portoDiscordChannels")?.addEventListener("drop", async (event) => {
+  const channel = event.target.closest("[data-discord-channel]");
+  if (!channel?.dataset.discordChannel) return;
+  event.preventDefault();
+  channel.classList.remove("drag-over");
+  const unitId = event.dataTransfer.getData("text/plain");
+  if (unitId) await reassignPortoUnit(unitId, { discordChannelKey: channel.dataset.discordChannel });
+});
+$("#portoDiscordChannels")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-save-discord-channel-status]");
+  if (!button?.dataset.saveDiscordChannelStatus) return;
+  const channelKey = button.dataset.saveDiscordChannelStatus;
+  const input = $(`[data-discord-channel-status="${CSS.escape(channelKey)}"]`);
+  const unit = (portoDiscordChannelGroups || []).find((group) => group.key === channelKey)?.units?.[0];
+  const unitId = unit ? primaryOpsMemberId(unit) : "";
+  if (!unitId) {
+    await showPortoNotice("Dit kanaal heeft geen actieve eenheden om status aan te koppelen.", "Kanaalstatus");
+    return;
+  }
+  await reassignPortoUnit(unitId, { discordChannelKey: channelKey, discordChannelStatus: input?.value || "" });
 });
 $("#portoOpsUnits").addEventListener("click", (event) => {
   if (event.target.closest("[data-ops-status-unit]")) event.preventDefault();

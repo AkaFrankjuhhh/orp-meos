@@ -149,6 +149,15 @@ function buildServiceNicknameDefault(person) {
   return truncateDiscordNickname(`${prefix} ${name}`.trim());
 }
 
+function buildPortoNicknameDefault(person, unit = {}) {
+  const serviceNumber = unit?.vehicleNumber || person?.serviceNumber || person?.previousServiceNumber || "-";
+  const symbols = rankSymbolsFor(person?.rank || unit?.rank);
+  const name = formatNameForDiscordNickname(person?.name || unit?.name || person?.discordUsername || "");
+  const prefix = symbols ? `[${serviceNumber} ${symbols}]` : `[${serviceNumber}]`;
+  const body = `${prefix} ${name}`.trim();
+  return truncateDiscordNickname(unit?.vehicleNumber === "30-00" ? `OPS ${body}` : body);
+}
+
 function nicknameTemplateHasPlaceholders(template) {
   return /\{(?:serviceNumber|name|formattedName|rank|symbols)\}/.test(String(template || ""));
 }
@@ -215,10 +224,15 @@ function createDiscordBotServices(options = {}) {
 
   function configuredVoiceChannels() {
     return {
-      ops: process.env.DISCORD_VOICE_OPS_CHANNEL_ID || "",
-      "inrap-1": process.env.DISCORD_VOICE_INRAP_1_CHANNEL_ID || "",
-      "inrap-2": process.env.DISCORD_VOICE_INRAP_2_CHANNEL_ID || "",
-      "inrap-3": process.env.DISCORD_VOICE_INRAP_3_CHANNEL_ID || "",
+      ops: process.env.DISCORD_PORTO_CHANNEL_OPS || process.env.DISCORD_VOICE_OPS_CHANNEL_ID || "",
+      "inrap-01": process.env.DISCORD_PORTO_CHANNEL_INRAP_01 || process.env.DISCORD_VOICE_INRAP_1_CHANNEL_ID || "",
+      "inrap-02": process.env.DISCORD_PORTO_CHANNEL_INRAP_02 || process.env.DISCORD_VOICE_INRAP_2_CHANNEL_ID || "",
+      "inrap-03": process.env.DISCORD_PORTO_CHANNEL_INRAP_03 || process.env.DISCORD_VOICE_INRAP_3_CHANNEL_ID || "",
+      "inrap-04": process.env.DISCORD_PORTO_CHANNEL_INRAP_04 || "",
+      "inrap-05": process.env.DISCORD_PORTO_CHANNEL_INRAP_05 || "",
+      "inrap-06": process.env.DISCORD_PORTO_CHANNEL_INRAP_06 || "",
+      kustwacht: process.env.DISCORD_PORTO_CHANNEL_KUSTWACHT || "",
+      "stilte-porto": process.env.DISCORD_PORTO_CHANNEL_STILTE_PORTO || "",
       "koppel-prio-1": process.env.DISCORD_VOICE_KOPPEL_PRIO_1_CHANNEL_ID || "",
       "koppel-prio-2": process.env.DISCORD_VOICE_KOPPEL_PRIO_2_CHANNEL_ID || "",
       "koppel-prio-3": process.env.DISCORD_VOICE_KOPPEL_PRIO_3_CHANNEL_ID || "",
@@ -431,6 +445,19 @@ function createDiscordBotServices(options = {}) {
     return setNickname(memberId, desiredNickname, auditReason);
   }
 
+  async function syncPortoNicknameForPersonIfNeeded(person, unit, auditReason = "Porto roepnummer nickname gesynchroniseerd") {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
+    const memberId = normalizeDiscordId(person?.discordId || unit?.discordId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+    const desiredNickname = buildPortoNicknameDefault(person, unit);
+    const memberResult = await getGuildMember(memberId);
+    if (memberResult.skipped) return memberResult;
+    if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
+    const currentNickname = memberResult.data?.nick || "";
+    if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
+    return setNickname(memberId, desiredNickname, auditReason);
+  }
+
   async function moveMemberToVoice(discordId, channelKeyOrId, auditReason = "Porto voicekanaal aangepast") {
     const memberId = normalizeDiscordId(discordId);
     const channelId = resolveVoiceChannelId(channelKeyOrId);
@@ -449,6 +476,22 @@ function createDiscordBotServices(options = {}) {
       results.push(await moveMemberToVoice(discordId, channelKeyOrId, auditReason));
     }
     return { ok: results.every((result) => result.ok || result.skipped), results };
+  }
+
+  async function getVoiceChannel(channelKeyOrId) {
+    const channelId = resolveVoiceChannelId(channelKeyOrId);
+    if (!channelId) return { skipped: true, reason: "Discord voicekanaal ontbreekt." };
+    return discordBotFetch(`/channels/${channelId}`);
+  }
+
+  async function setVoiceChannelStatus(channelKeyOrId, status, auditReason = "Porto kanaalstatus aangepast") {
+    const channelId = resolveVoiceChannelId(channelKeyOrId);
+    if (!channelId) return { skipped: true, reason: "Discord voicekanaal ontbreekt." };
+    return discordBotFetch(`/channels/${channelId}/voice-status`, {
+      method: "PATCH",
+      body: { status: String(status || "").trim() || null },
+      auditReason
+    });
   }
 
   return {
@@ -474,12 +517,16 @@ function createDiscordBotServices(options = {}) {
     rankSymbolsFor,
     formatNameForDiscordNickname,
     buildServiceNicknameDefault,
+    buildPortoNicknameDefault,
     buildServiceNickname,
     setNickname,
     syncNicknameForPerson,
     syncNicknameForPersonIfNeeded,
+    syncPortoNicknameForPersonIfNeeded,
     moveMemberToVoice,
-    moveMembersToVoice
+    moveMembersToVoice,
+    getVoiceChannel,
+    setVoiceChannelStatus
   };
 }
 

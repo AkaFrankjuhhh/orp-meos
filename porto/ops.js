@@ -36,6 +36,9 @@ function applyPortoPayload(payload) {
   portoAvailableVehicleRanges = payload.availableVehicleRanges || [];
   portoLinkableUnits = payload.linkableUnits || [];
   portoActiveUnits = payload.activeUnits || [];
+  portoDiscordChannels = payload.discordChannels || [];
+  portoDiscordChannelGroups = payload.discordChannelGroups || [];
+  portoMapEnabled = Boolean(payload.mapEnabled);
   portoOpsLog = payload.opsLog || [];
   portoVehicleRanges = payload.vehicleRanges || portoVehicleRanges;
 }
@@ -296,6 +299,36 @@ function renderOpsUnits() {
   }).join("");
 }
 
+function renderDiscordChannels() {
+  const container = $("#portoDiscordChannels");
+  if (!container) return;
+  const channels = portoDiscordChannels || [];
+  const groupsByKey = new Map((portoDiscordChannelGroups || []).map((group) => [group.key, group]));
+  const visibleChannels = channels.filter((channel) => channel.key === "ops" || channel.configured || groupsByKey.has(channel.key));
+  if (!visibleChannels.length) {
+    container.innerHTML = '<div class="porto-ops-empty">Geen Discord Porto-kanalen actief.</div>';
+    return;
+  }
+  container.innerHTML = visibleChannels.map((channel) => {
+    const group = groupsByKey.get(channel.key) || { status: "", units: [] };
+    const units = group.units || [];
+    return `
+      <article class="porto-discord-channel" data-discord-channel="${escapeHtml(channel.key)}">
+        <header class="porto-discord-channel-head">
+          <strong>${escapeHtml(channel.label || channel.key)}</strong>
+          <input type="text" value="${escapeHtml(group.status || "")}" placeholder="Discord status" data-discord-channel-status="${escapeHtml(channel.key)}" />
+          <button class="porto-ops-assign secondary" type="button" data-save-discord-channel-status="${escapeHtml(channel.key)}">Opslaan</button>
+        </header>
+        <div class="porto-discord-channel-units">
+          ${units.map((unit) => {
+            const unitId = primaryOpsMemberId(unit);
+            return `<button class="porto-discord-channel-unit" draggable="true" type="button" data-discord-unit="${escapeHtml(unitId)}">${escapeHtml(unit.vehicleNumber || "-")}</button>`;
+          }).join("") || '<span class="muted">Geen eenheden</span>'}
+        </div>
+      </article>`;
+  }).join("");
+}
+
 async function chooseOpsVehicleUpdate(unitId, anchorEvent) {
   const options = portoAvailableVehicleRanges
     .filter((range) => (range.numbers || []).length)
@@ -330,6 +363,7 @@ async function chooseOpsStatusUpdate(unitId, anchorEvent) {
   let statusDetail = "";
   if (selected.value === "4") {
     const detail = await showPortoContextChoice(anchorEvent, "Status 4 reden", [
+      { value: "Staandehouding", label: "Staandehouding" },
       { value: "Afhandeling", label: "Afhandeling" },
       { value: "In hoofd", label: "In hoofd" },
       { value: "Overige", label: "Overige" }
@@ -341,7 +375,7 @@ async function chooseOpsStatusUpdate(unitId, anchorEvent) {
 }
 
 async function reassignPortoUnit(unitId, assignment) {
-  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.unlink && !assignment?.status) {
+  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.unlink && !assignment?.status && !assignment?.discordChannelKey && assignment?.discordChannelStatus === undefined) {
     await showPortoNotice("Kies eerst een voertuigcategorie, koppel-eenheid, roepnummer, status of actie.", "Geen actie gekozen");
     return;
   }
@@ -387,8 +421,12 @@ function renderOpsPanel() {
   if (dutyViewButton) dutyViewButton.hidden = !(portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser());
   renderOpsStatus();
   renderOpsRequests();
+  renderDiscordChannels();
   renderOpsUnits();
-  renderOpsMap();
+  const mapCard = $("#portoMapCard");
+  document.body.classList.toggle("porto-map-disabled", !portoMapEnabled);
+  if (mapCard) mapCard.hidden = !portoMapEnabled;
+  if (portoMapEnabled) renderOpsMap();
 }
 
 async function runPortoOpsDevTest() {
@@ -433,7 +471,7 @@ async function updatePortoOps(action) {
 }
 
 async function assignPortoUnit(unitId, assignment) {
-  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.unlink && !assignment?.status) {
+  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.unlink && !assignment?.status && !assignment?.discordChannelKey && assignment?.discordChannelStatus === undefined) {
     await showPortoNotice("Kies eerst een voertuigcategorie, koppel-eenheid, roepnummer, status of actie.", "Geen actie gekozen");
     return;
   }

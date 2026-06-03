@@ -91,6 +91,18 @@ const defaultPortoVehicleRanges = [
   numbers: numbers ? [...numbers] : Array.from({ length: 10 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, "0")}`)
 }));
 
+const defaultPortoDiscordChannels = [
+  { key: "ops", label: "OPS", envKey: "DISCORD_PORTO_CHANNEL_OPS" },
+  { key: "inrap-01", label: "INRAP-01", envKey: "DISCORD_PORTO_CHANNEL_INRAP_01" },
+  { key: "inrap-02", label: "INRAP-02", envKey: "DISCORD_PORTO_CHANNEL_INRAP_02" },
+  { key: "inrap-03", label: "INRAP-03", envKey: "DISCORD_PORTO_CHANNEL_INRAP_03" },
+  { key: "inrap-04", label: "INRAP-04", envKey: "DISCORD_PORTO_CHANNEL_INRAP_04" },
+  { key: "inrap-05", label: "INRAP-05", envKey: "DISCORD_PORTO_CHANNEL_INRAP_05" },
+  { key: "inrap-06", label: "INRAP-06", envKey: "DISCORD_PORTO_CHANNEL_INRAP_06" },
+  { key: "kustwacht", label: "Kustwacht", envKey: "DISCORD_PORTO_CHANNEL_KUSTWACHT" },
+  { key: "stilte-porto", label: "Stilte-Porto", envKey: "DISCORD_PORTO_CHANNEL_STILTE_PORTO" }
+];
+
 function createPortoServices() {
   function ensurePortoVehicleRanges(state) {
     const desired = defaultPortoVehicleRanges.map((range) => ({
@@ -102,6 +114,18 @@ function createPortoServices() {
     if (current === next) return false;
     state.portoVehicleRanges = desired;
     return true;
+  }
+
+  function configuredPortoDiscordChannels() {
+    return defaultPortoDiscordChannels.map((channel) => ({
+      ...channel,
+      channelId: process.env[channel.envKey] || "",
+      configured: Boolean(process.env[channel.envKey])
+    }));
+  }
+
+  function defaultDiscordChannelForUnit(unit) {
+    return unit?.discordChannelKey || "ops";
   }
 
   function canUsePortoDevBypass(person) {
@@ -296,6 +320,8 @@ function createPortoServices() {
         vehicleCode: unit.vehicleCode || range?.vehicleCode || "",
         vehicleType: unit.vehicleType || range?.vehicleType || "",
         vehicleName: unit.vehicleName || "",
+        discordChannelKey: defaultDiscordChannelForUnit(unit),
+        discordChannelStatus: unit.discordChannelStatus || "",
         members: []
       };
       const person = peopleById.get(unit.memberId) || {};
@@ -317,6 +343,8 @@ function createPortoServices() {
         vehicleCode: unit.vehicleCode || range?.vehicleCode || "",
         vehicleType: unit.vehicleType || range?.vehicleType || "",
         vehicleName: unit.vehicleName || "",
+        discordChannelKey: defaultDiscordChannelForUnit(unit),
+        discordChannelStatus: unit.discordChannelStatus || "",
       });
       groups.set(unit.vehicleNumber, current);
     }
@@ -358,6 +386,8 @@ function createPortoServices() {
             status: entry.status,
             statusDetail: entry.statusDetail,
             vehicleName: entry.vehicleName || "",
+            discordChannelKey: defaultDiscordChannelForUnit(entry),
+            discordChannelStatus: entry.discordChannelStatus || "",
           }))
       : [{
           id: unit.id,
@@ -372,6 +402,8 @@ function createPortoServices() {
           status: unit.status,
           statusDetail: unit.statusDetail,
           vehicleName: unit.vehicleName || "",
+          discordChannelKey: defaultDiscordChannelForUnit(unit),
+          discordChannelStatus: unit.discordChannelStatus || "",
         }];
     return {
       ...unit,
@@ -380,6 +412,18 @@ function createPortoServices() {
       vehicleChoices: range?.vehicles || [],
       unitMembers: members
     };
+  }
+
+  function portoDiscordChannelGroups(state) {
+    const groupsByKey = new Map(configuredPortoDiscordChannels().map((channel) => [channel.key, { ...channel, status: "", units: [] }]));
+    for (const unitGroup of activePortoUnitGroups(state)) {
+      const key = unitGroup.discordChannelKey || "ops";
+      if (!groupsByKey.has(key)) groupsByKey.set(key, { key, label: key, channelId: "", configured: false, status: "", units: [] });
+      const current = groupsByKey.get(key);
+      current.status = current.status || unitGroup.discordChannelStatus || "";
+      current.units.push(unitGroup);
+    }
+    return [...groupsByKey.values()].filter((group) => group.units.length);
   }
 
   function portoOpsPayload(state, person) {
@@ -429,6 +473,9 @@ function createPortoServices() {
       availableVehicleRanges: canManageOps ? availablePortoVehicleNumbers(state) : [],
       linkableUnits: canManageOps ? linkablePortoUnits(state) : [],
       activeUnits: canManageOps ? activePortoUnitGroups(state) : [],
+      discordChannels: canManageOps ? configuredPortoDiscordChannels() : [],
+      discordChannelGroups: canManageOps ? portoDiscordChannelGroups(state) : [],
+      mapEnabled: String(process.env.PORTO_MAP_ENABLED || "false").toLowerCase() === "true",
       opsLog: canViewOpsLog ? (Array.isArray(state.portoOpsLog) ? state.portoOpsLog.slice(0, 80) : []) : []
     };
   }
@@ -440,6 +487,8 @@ function createPortoServices() {
     canOperatePortoOps,
     activePortoOps,
     canViewPortoOpsLog,
+    configuredPortoDiscordChannels,
+    portoDiscordChannelGroups,
     vehicleRangeForNumber,
     availablePortoVehicleNumbers,
     linkablePortoUnits,
