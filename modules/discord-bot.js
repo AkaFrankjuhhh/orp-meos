@@ -462,11 +462,18 @@ function createDiscordBotServices(options = {}) {
   async function setVoiceChannelStatus(channelKeyOrId, status, auditReason = "Porto kanaalstatus aangepast") {
     const channelId = resolveVoiceChannelId(channelKeyOrId);
     if (!channelId) return { skipped: true, reason: "Discord voicekanaal ontbreekt." };
-    return discordBotFetch(`/channels/${channelId}/voice-status`, {
-      method: "PATCH",
-      body: { status: String(status || "").trim() || null },
-      auditReason
-    });
+    try {
+      return await discordBotFetch(`/channels/${channelId}/voice-status`, {
+        method: "PUT",
+        body: { status: String(status || "").trim() || null },
+        auditReason
+      });
+    } catch (error) {
+      if (error.status === 403) {
+        error.message = `${error.message} Controleer of de bot SET_VOICE_CHANNEL_STATUS heeft, of MANAGE_CHANNELS als de bot niet in dit voicekanaal zit.`;
+      }
+      throw error;
+    }
   }
 
   return {
