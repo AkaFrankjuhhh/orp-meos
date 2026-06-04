@@ -61,6 +61,23 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return new Date(Date.now() + 1500);
   }
 
+  function logDirectDiscordResult(action, subject, result) {
+    const label = String(subject || "onbekend");
+    if (result?.skipped) {
+      console.warn(`[porto] Directe Discord ${action} overgeslagen voor ${label}: ${result.reason || "geen reden"}`);
+      return;
+    }
+    if (result?.unchanged) {
+      console.log(`[porto] Directe Discord ${action} ongewijzigd voor ${label}: ${result.nickname || "geen wijziging"}`);
+      return;
+    }
+    if (result?.ok) {
+      console.log(`[porto] Directe Discord ${action} gelukt voor ${label}${result.nickname ? `: ${result.nickname}` : ""}`);
+      return;
+    }
+    if (result) console.warn(`[porto] Directe Discord ${action} gaf onverwacht resultaat voor ${label}: ${JSON.stringify(result).slice(0, 500)}`);
+  }
+
   function configuredPortoChannelKeys() {
     return new Set(configuredPortoDiscordChannels().map((channel) => channel.key));
   }
@@ -78,6 +95,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }, { personId: person.id, discordId: person.discordId, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
       if (discordBot?.isConfigured?.() && typeof discordBot.syncPortoNicknameForPersonIfNeeded === "function") {
         discordBot.syncPortoNicknameForPersonIfNeeded(person, unit, reason)
+          .then((result) => logDirectDiscordResult("Porto nickname", person.serviceNumber || person.name || person.id, result))
           .catch((error) => console.error(`[porto] Directe Discord Porto nickname mislukt voor ${person.serviceNumber || person.name || person.id}: ${error.message}`));
       }
     }
@@ -95,6 +113,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }, { personId: person.id, discordId: person.discordId, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
       if (discordBot?.isConfigured?.() && typeof discordBot.syncNicknameForPersonIfNeeded === "function") {
         discordBot.syncNicknameForPersonIfNeeded(person, reason)
+          .then((result) => logDirectDiscordResult("normale nickname", person.serviceNumber || person.name || person.id, result))
           .catch((error) => console.error(`[porto] Directe normale Discord nickname mislukt voor ${person.serviceNumber || person.name || person.id}: ${error.message}`));
       }
     }
@@ -106,6 +125,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     await enqueueDiscordSyncJob("porto_voice_move", { discordIds, channelKey, reason }, { maxAttempts: 3, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
     if (discordBot?.isConfigured?.() && typeof discordBot.moveMembersToVoice === "function") {
       discordBot.moveMembersToVoice(discordIds, channelKey, reason)
+        .then((result) => logDirectDiscordResult("voice move", channelKey, result))
         .catch((error) => console.error(`[porto] Directe Discord voice move mislukt voor ${channelKey}: ${error.message}`));
     }
   }
@@ -115,6 +135,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     await enqueueDiscordSyncJob("porto_channel_status", { channelKey, status, reason }, { maxAttempts: 3, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
     if (discordBot?.isConfigured?.() && typeof discordBot.setVoiceChannelStatus === "function") {
       discordBot.setVoiceChannelStatus(channelKey, status, reason)
+        .then((result) => logDirectDiscordResult("kanaalstatus", channelKey, result))
         .catch((error) => console.error(`[porto] Directe Discord kanaalstatus mislukt voor ${channelKey}: ${error.message}`));
     }
   }

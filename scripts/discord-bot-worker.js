@@ -162,7 +162,16 @@ async function processJobs() {
     try {
       const result = await syncByJob(job);
       await completeDiscordSyncJob(job.id, result);
-      console.log(`[discord-bot] job ${job.id} klaar (${job.type})`);
+      const resultText = result?.skipped
+        ? `overgeslagen: ${result.reason || "geen reden"}`
+        : result?.unchanged
+          ? `ongewijzigd${result.nickname ? `: ${result.nickname}` : ""}`
+          : result?.nickname
+            ? `nickname: ${result.nickname}`
+            : result?.ok
+              ? "gelukt"
+              : JSON.stringify(result || {}).slice(0, 500);
+      console.log(`[discord-bot] job ${job.id} klaar (${job.type}) - ${resultText}`);
     } catch (error) {
       const retryDelayMs = Math.min(300000, 30000 * Math.max(1, job.attempts));
       await failDiscordSyncJob(job.id, error, { retryDelayMs });
