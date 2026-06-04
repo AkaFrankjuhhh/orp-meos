@@ -72,10 +72,16 @@ function renderPortoWorkspaceMode() {
 
 function renderOpsStatus() {
   const text = $("#portoCurrentOpsText");
+  const durationBadge = $("#portoOpsDurationBadge");
   const claimButton = $("#portoOpsClaimBtn");
   const releaseButton = $("#portoOpsReleaseBtn");
   if (!text || !claimButton || !releaseButton) return;
-  text.textContent = portoCurrentOps ? `OPS in dienst: ${portoCurrentOps.name} - ${formatPortoDuration(opsElapsedSeconds())}` : "Huidige OPS:";
+  const duration = formatPortoDuration(opsElapsedSeconds(portoCurrentOps));
+  text.textContent = portoCurrentOps ? `OPS in dienst: ${portoCurrentOps.name} - ${duration}` : "Huidige OPS:";
+  if (durationBadge) {
+    durationBadge.hidden = !portoCurrentOps;
+    durationBadge.textContent = `${isCurrentOpsUser() ? "Jouw OPS duur" : "OPS duur"}: ${duration}`;
+  }
   claimButton.hidden = Boolean(portoCurrentOps) || !portoCanTakeOps;
   releaseButton.hidden = !portoCurrentOps || !portoCanManageOps;
 }

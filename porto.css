@@ -1040,6 +1040,25 @@ body.porto-duty-workspace .porto-status-choices {
   align-items: center;
 }
 
+.porto-ops-duration-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(245, 158, 11, 0.48);
+  border-radius: 999px;
+  background: rgba(120, 53, 15, 0.32);
+  color: #fde68a;
+  font-size: 13px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.porto-ops-duration-badge[hidden] {
+  display: none !important;
+}
+
 .porto-ops-choice {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
