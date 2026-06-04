@@ -103,6 +103,14 @@ const defaultPortoDiscordChannels = [
   { key: "stilte-porto", label: "Stilte-Porto", envKey: "DISCORD_PORTO_CHANNEL_STILTE_PORTO" }
 ];
 
+const nonRegularPortoDiscordChannel = {
+  key: "niet-reguliere-porto",
+  label: "Niet in reguliere porto",
+  channelId: "",
+  configured: false,
+  readonly: true
+};
+
 function createPortoServices() {
   function ensurePortoVehicleRanges(state) {
     const desired = defaultPortoVehicleRanges.map((range) => ({
@@ -125,7 +133,12 @@ function createPortoServices() {
   }
 
   function defaultDiscordChannelForUnit(unit) {
-    return unit?.discordChannelKey || "ops";
+    return unit?.discordChannelKey || "";
+  }
+
+  function displayDiscordChannelKeyForUnit(unitGroup, configuredKeys) {
+    const key = String(unitGroup?.discordChannelKey || "").trim();
+    return key && configuredKeys.has(key) ? key : nonRegularPortoDiscordChannel.key;
   }
 
   function canUsePortoDevBypass(person) {
@@ -415,10 +428,12 @@ function createPortoServices() {
   }
 
   function portoDiscordChannelGroups(state) {
-    const groupsByKey = new Map(configuredPortoDiscordChannels().map((channel) => [channel.key, { ...channel, status: "", units: [] }]));
+    const configuredChannels = configuredPortoDiscordChannels();
+    const configuredKeys = new Set(configuredChannels.map((channel) => channel.key));
+    const groupsByKey = new Map(configuredChannels.map((channel) => [channel.key, { ...channel, status: "", units: [] }]));
     for (const unitGroup of activePortoUnitGroups(state)) {
-      const key = unitGroup.discordChannelKey || "ops";
-      if (!groupsByKey.has(key)) groupsByKey.set(key, { key, label: key, channelId: "", configured: false, status: "", units: [] });
+      const key = displayDiscordChannelKeyForUnit(unitGroup, configuredKeys);
+      if (!groupsByKey.has(key)) groupsByKey.set(key, { ...nonRegularPortoDiscordChannel, status: "", units: [] });
       const current = groupsByKey.get(key);
       current.status = current.status || unitGroup.discordChannelStatus || "";
       current.units.push(unitGroup);

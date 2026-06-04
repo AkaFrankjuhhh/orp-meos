@@ -1163,6 +1163,10 @@ body.porto-ops-workspace .porto-ops-choice select {
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
 }
 
+.porto-discord-channel.readonly {
+  border-color: rgba(148, 163, 184, 0.26);
+}
+
 .porto-discord-channel-head {
   display: grid;
   grid-template-columns: minmax(140px, auto) minmax(180px, 1fr) auto;
@@ -1182,6 +1186,13 @@ body.porto-ops-workspace .porto-ops-choice select {
   background: rgba(10, 17, 30, 0.86);
   color: #e5e7eb;
   padding: 8px 10px;
+  font-weight: 800;
+}
+
+.porto-discord-channel-note {
+  grid-column: span 2;
+  color: #bfdbfe;
+  font-size: 13px;
   font-weight: 800;
 }
 

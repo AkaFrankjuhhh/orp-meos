@@ -23,6 +23,7 @@ const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toL
 const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true";
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
+const nonRegularPortoDiscordChannelKey = "niet-reguliere-porto";
 let stopping = false;
 let gatewaySocket = null;
 let heartbeatTimer = null;
@@ -32,6 +33,10 @@ function portoChannelKeyForDiscordChannelId(channelId) {
   const value = String(channelId || "");
   const entries = Object.entries(bot.configuredVoiceChannels?.() || {});
   return entries.find(([, id]) => String(id || "") === value)?.[0] || "";
+}
+
+function displayPortoChannelKeyForDiscordChannelId(channelId) {
+  return portoChannelKeyForDiscordChannelId(channelId) || nonRegularPortoDiscordChannelKey;
 }
 
 async function updatePortoChannelStatusFromDiscord(channelId, status) {
@@ -44,7 +49,7 @@ async function updatePortoChannelStatusFromDiscord(channelId, status) {
         raw = raw || jsonb_build_object('discordChannelStatus', $2),
         updated_at = now()
       where active = true
-        and coalesce(raw->>'discordChannelKey', 'ops') = $1
+        and raw->>'discordChannelKey' = $1
     `, [channelKey, String(status || "")]);
     await client.query("select pg_notify($1, $2)", ["orp_app_events", JSON.stringify({
       scope: "porto",
@@ -56,8 +61,8 @@ async function updatePortoChannelStatusFromDiscord(channelId, status) {
 }
 
 async function updatePortoVoiceChannelFromDiscord(discordId, channelId) {
-  const channelKey = portoChannelKeyForDiscordChannelId(channelId);
-  if (!channelKey || !discordId) return;
+  const channelKey = displayPortoChannelKeyForDiscordChannelId(channelId);
+  if (!discordId) return;
   await withClient(async (client) => {
     const unitResult = await client.query(`
       select units.vehicle_number

@@ -330,12 +330,17 @@ function renderDiscordChannels() {
   container.innerHTML = visibleGroups.map((group) => {
     const channel = channelsByKey.get(group.key) || group;
     const units = group.units || [];
+    const canManageDiscordChannel = Boolean(channel.configured && !group.readonly);
+    const channelAttribute = canManageDiscordChannel ? ` data-discord-channel="${escapeHtml(channel.key)}"` : "";
+    const statusControl = canManageDiscordChannel
+      ? `<input type="text" value="${escapeHtml(group.status || "")}" placeholder="Discord status" data-discord-channel-status="${escapeHtml(channel.key)}" />
+          <button class="porto-ops-assign secondary" type="button" data-save-discord-channel-status="${escapeHtml(channel.key)}">Opslaan</button>`
+      : '<span class="porto-discord-channel-note">Niet gekoppeld aan een regulier Porto-kanaal</span>';
     return `
-      <article class="porto-discord-channel" data-discord-channel="${escapeHtml(channel.key)}">
+      <article class="porto-discord-channel ${canManageDiscordChannel ? "" : "readonly"}"${channelAttribute}>
         <header class="porto-discord-channel-head">
           <strong>${escapeHtml(channel.label || channel.key)}</strong>
-          <input type="text" value="${escapeHtml(group.status || "")}" placeholder="Discord status" data-discord-channel-status="${escapeHtml(channel.key)}" />
-          <button class="porto-ops-assign secondary" type="button" data-save-discord-channel-status="${escapeHtml(channel.key)}">Opslaan</button>
+          ${statusControl}
         </header>
         <div class="porto-discord-channel-units">
           ${units.map((unit) => renderOpsUnitCard(unit, { channelCard: true })).join("")}

@@ -323,8 +323,7 @@ $("#portoDiscordChannels")?.addEventListener("drop", async (event) => {
   if (!channel?.dataset.discordChannel) return;
   event.preventDefault();
   channel.classList.remove("drag-over");
-  const unitId = event.dataTransfer.getData("text/plain");
-  if (unitId) await reassignPortoUnit(unitId, { discordChannelKey: channel.dataset.discordChannel });
+  await showPortoNotice("Verplaats eenheden in Discord. De Porto-site neemt de kanaalindeling daarna automatisch over.", "Discord kanaal");
 });
 $("#portoDiscordChannels")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-save-discord-channel-status]");

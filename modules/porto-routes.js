@@ -772,7 +772,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const currentVehicleGroup = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
       let vehicleNumber = "";
       let range = null;
-      let targetDiscordChannelKey = unit.discordChannelKey || "ops";
+      let targetDiscordChannelKey = unit.discordChannelKey || "";
       if (exactVehicleNumber) {
         if (exactVehicleNumber === unit.vehicleNumber) {
           sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
@@ -808,7 +808,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         vehicleNumber = linkToVehicleNumber;
         range = vehicleRangeForNumber(state, vehicleNumber);
         unit.vehicleName = linkedGroup[0]?.vehicleName || "";
-        targetDiscordChannelKey = linkedGroup[0]?.discordChannelKey || "ops";
+        targetDiscordChannelKey = linkedGroup[0]?.discordChannelKey || "";
         unit.reviewStatus = "linked";
       } else {
         vehicleNumber = firstAvailableVehicleNumber(state, vehiclePrefix);
@@ -923,7 +923,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         ? state.portoUnits.find((entry) => entry.active !== false && entry.vehicleNumber === linkToVehicleNumber)
         : null;
       const assignedAt = new Date().toISOString();
-      const targetDiscordChannelKey = linkToVehicleNumber ? (linkedStatusSource?.discordChannelKey || "ops") : "ops";
+      const targetDiscordChannelKey = linkToVehicleNumber ? (linkedStatusSource?.discordChannelKey || "") : "";
       Object.assign(unit, {
         vehicleNumber,
         vehicleCode: range.vehicleCode,
