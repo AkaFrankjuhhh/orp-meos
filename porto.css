@@ -1186,23 +1186,17 @@ body.porto-ops-workspace .porto-ops-choice select {
 }
 
 .porto-discord-channel-units {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 10px;
   margin-top: 10px;
 }
 
-.porto-discord-channel-unit {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 999px;
-  background: rgba(12, 20, 34, 0.82);
-  color: #e5e7eb;
-  padding: 7px 10px;
-  font-weight: 900;
+.porto-ops-unit-card.in-channel {
   cursor: grab;
 }
 
-.porto-discord-channel-unit:active {
+.porto-ops-unit-card.in-channel:active {
   cursor: grabbing;
 }
 

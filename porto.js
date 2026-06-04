@@ -337,10 +337,11 @@ $("#portoDiscordChannels")?.addEventListener("click", async (event) => {
   }
   await reassignPortoUnit(unitId, { discordChannelKey: channelKey, discordChannelStatus: input?.value || "" });
 });
-$("#portoOpsUnits").addEventListener("click", (event) => {
+function handleOpsUnitClick(event) {
   if (event.target.closest("[data-ops-status-unit]")) event.preventDefault();
-});
-$("#portoOpsUnits").addEventListener("contextmenu", async (event) => {
+}
+
+async function handleOpsUnitContextMenu(event) {
   const statusButton = event.target.closest("[data-ops-status-unit]");
   const numberButton = event.target.closest("[data-ops-number-unit]");
   const vehicleButton = event.target.closest("[data-ops-vehicle-unit]");
@@ -364,7 +365,12 @@ $("#portoOpsUnits").addEventListener("contextmenu", async (event) => {
   // Personen in een gegroepeerd roepnummer openen hun eigen OPS-menu: koppelen of uit dienst melden.
   event.preventDefault();
   openPortoOpsContextMenu(event, memberCard.dataset.opsUnitMember);
-});
+}
+
+$("#portoOpsUnits").addEventListener("click", handleOpsUnitClick);
+$("#portoOpsUnits").addEventListener("contextmenu", handleOpsUnitContextMenu);
+$("#portoDiscordChannels")?.addEventListener("click", handleOpsUnitClick);
+$("#portoDiscordChannels")?.addEventListener("contextmenu", handleOpsUnitContextMenu);
 
 $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-ops-context-action]");

@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
 const { createJsonStorage, createPostgresReadStorage } = require("./storage");
 const { createAuthServices } = require("./modules/auth");
+const { createDiscordBotServices } = require("./modules/discord-bot");
 const { createPermissionServices } = require("./modules/permissions");
 const { createPortoRouteHandler } = require("./modules/porto-routes");
 const { createPostgresPortoStore } = require("./modules/porto-postgres-store");
@@ -35,6 +36,7 @@ const postgresEventBridge = createPostgresEventBridge({
 });
 const { writeHeadSecure, sendJson, sendHtml } = createHttpResponder({ appBaseUrl });
 const readBody = createJsonBodyReader(maxBodyBytes);
+const discordBot = createDiscordBotServices();
 
 const {
   profileTrainings,
@@ -227,7 +229,8 @@ const handlePortoApi = createPortoRouteHandler({
   writePortoPhone: portoStorage.writePortoPhone,
   writePortoUnits: portoStorage.writePortoUnits,
   readBody,
-  sendJson
+  sendJson,
+  discordBot
 });
 
 async function healthPayload() {

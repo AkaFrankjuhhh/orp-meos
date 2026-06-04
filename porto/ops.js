@@ -248,6 +248,40 @@ function memberStatusLabel(member) {
   return member.statusDetail ? `${status.title} - ${member.statusDetail}` : `${status.title} - ${status.label}`;
 }
 
+function renderOpsUnitCard(unit, options = {}) {
+  const vehicleLine = unit.vehicleName || `${unit.vehicleCode ? `${unit.vehicleCode} - ` : ""}${unit.vehicleType || "Geen voertuig"}`;
+  const primaryMember = (unit.members || [])[0] || {};
+  const primaryActionId = primaryOpsMemberId(unit);
+  const statusButton = primaryActionId
+    ? `<button class="porto-status-pill porto-ops-status-button ${statusClassName(primaryMember)}" type="button" data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen">${escapeHtml(memberStatusLabel(primaryMember))}</button>`
+    : '<span class="porto-status-pill pending">Geen status</span>';
+  const members = (unit.members || []).map((member) => {
+    const specializations = opsMemberSpecializations(member);
+    const hasIbt = specializations.includes("IBT");
+    const specialtyPills = specializations.map((item) => `<span class="porto-specialty-pill">${escapeHtml(item)}</span>`);
+    if (!hasIbt) specialtyPills.push('<span class="porto-specialty-pill no-ibt">Geen IBT</span>');
+    const specializationsHtml = specialtyPills.length
+      ? `<div class="porto-ops-specialties">${specializations.length ? "<span>Specialisaties:</span>" : ""}<div>${specialtyPills.join("")}</div></div>`
+      : "";
+    return `
+      <article class="porto-ops-unit-member compact ${member.autoOffline ? "auto-offline" : ""}" data-ops-unit-member="${escapeHtml(member.id)}" title="Rechtermuisknop voor koppelen of uit dienst melden">
+        <div class="porto-ops-unit-left">
+          <div><span>Naam:</span><strong>${escapeHtml(member.name || "Onbekend")}</strong></div>
+          ${specializationsHtml}
+        </div>
+      </article>`;
+  }).join("");
+  return `
+    <article class="porto-ops-unit-card compact grouped ${unit.autoOffline ? "auto-offline" : ""} ${options.channelCard ? "in-channel" : ""}" ${primaryActionId ? `draggable="true" data-discord-unit="${escapeHtml(primaryActionId)}"` : ""}>
+      <header class="porto-ops-unit-group-head three-columns">
+        <div data-ops-number-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor nummer wijzigen"><span>Roepnummer:</span><button class="porto-unit-header-action" type="button" tabindex="-1">${escapeHtml(unit.vehicleNumber || "-")}</button></div>
+        <div data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen"><span>Status:</span>${statusButton}</div>
+        <div data-ops-vehicle-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor voertuig wijzigen"><span>Voertuig:</span><button class="porto-unit-header-action align-right" type="button" tabindex="-1">${escapeHtml(vehicleLine)}</button></div>
+      </header>
+      <div class="porto-ops-unit-group-members ${unit.members?.length >= 3 ? "three-members" : "two-members"}">${members}</div>
+    </article>`;
+}
+
 function renderOpsUnits() {
   const list = $("#portoOpsUnits");
   const count = $("#portoOpsUnitsCount");
@@ -258,53 +292,21 @@ function renderOpsUnits() {
     list.innerHTML = '<div class="porto-ops-empty">Geen actieve eenheden.</div>';
     return;
   }
-  list.innerHTML = portoActiveUnits.map((unit) => {
-    const vehicleLine = unit.vehicleName || `${unit.vehicleCode ? `${unit.vehicleCode} - ` : ""}${unit.vehicleType || "Geen voertuig"}`;
-    const primaryMember = (unit.members || [])[0] || {};
-    const primaryActionId = primaryOpsMemberId(unit);
-    const statusButton = primaryActionId
-      ? `<button class="porto-status-pill porto-ops-status-button ${statusClassName(primaryMember)}" type="button" data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen">${escapeHtml(memberStatusLabel(primaryMember))}</button>`
-      : '<span class="porto-status-pill pending">Geen status</span>';
-    const members = (unit.members || []).map((member) => {
-      const specializations = opsMemberSpecializations(member);
-      const hasIbt = specializations.includes("IBT");
-      const specialtyPills = specializations.map((item) => `<span class="porto-specialty-pill">${escapeHtml(item)}</span>`);
-      if (!hasIbt) specialtyPills.push('<span class="porto-specialty-pill no-ibt">Geen IBT</span>');
-      const specializationsHtml = specialtyPills.length
-        ? `<div class="porto-ops-specialties">${specializations.length ? "<span>Specialisaties:</span>" : ""}<div>${specialtyPills.join("")}</div></div>`
-        : "";
-      return `
-        <article class="porto-ops-unit-member compact ${member.autoOffline ? "auto-offline" : ""}" data-ops-unit-member="${escapeHtml(member.id)}" title="Rechtermuisknop voor koppelen of uit dienst melden">
-          <div class="porto-ops-unit-left">
-            <div><span>Naam:</span><strong>${escapeHtml(member.name || "Onbekend")}</strong></div>
-            ${specializationsHtml}
-          </div>
-        </article>`;
-    }).join("");
-    return `
-      <article class="porto-ops-unit-card compact grouped ${unit.autoOffline ? "auto-offline" : ""}">
-        <header class="porto-ops-unit-group-head three-columns">
-          <div data-ops-number-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor nummer wijzigen"><span>Roepnummer:</span><button class="porto-unit-header-action" type="button" tabindex="-1">${escapeHtml(unit.vehicleNumber || "-")}</button></div>
-          <div data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen"><span>Status:</span>${statusButton}</div>
-          <div data-ops-vehicle-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor voertuig wijzigen"><span>Voertuig:</span><button class="porto-unit-header-action align-right" type="button" tabindex="-1">${escapeHtml(vehicleLine)}</button></div>
-        </header>
-        <div class="porto-ops-unit-group-members ${unit.members?.length >= 3 ? "three-members" : "two-members"}">${members}</div>
-      </article>`;
-  }).join("");
+  list.innerHTML = portoActiveUnits.map((unit) => renderOpsUnitCard(unit)).join("");
 }
 
 function renderDiscordChannels() {
   const container = $("#portoDiscordChannels");
   if (!container) return;
   const channels = portoDiscordChannels || [];
-  const groupsByKey = new Map((portoDiscordChannelGroups || []).map((group) => [group.key, group]));
-  const visibleChannels = channels.filter((channel) => channel.key === "ops" || channel.configured || groupsByKey.has(channel.key));
-  if (!visibleChannels.length) {
+  const channelsByKey = new Map(channels.map((channel) => [channel.key, channel]));
+  const visibleGroups = (portoDiscordChannelGroups || []).filter((group) => (group.units || []).length > 0);
+  if (!visibleGroups.length) {
     container.innerHTML = '<div class="porto-ops-empty">Geen Discord Porto-kanalen actief.</div>';
     return;
   }
-  container.innerHTML = visibleChannels.map((channel) => {
-    const group = groupsByKey.get(channel.key) || { status: "", units: [] };
+  container.innerHTML = visibleGroups.map((group) => {
+    const channel = channelsByKey.get(group.key) || group;
     const units = group.units || [];
     return `
       <article class="porto-discord-channel" data-discord-channel="${escapeHtml(channel.key)}">
@@ -314,10 +316,7 @@ function renderDiscordChannels() {
           <button class="porto-ops-assign secondary" type="button" data-save-discord-channel-status="${escapeHtml(channel.key)}">Opslaan</button>
         </header>
         <div class="porto-discord-channel-units">
-          ${units.map((unit) => {
-            const unitId = primaryOpsMemberId(unit);
-            return `<button class="porto-discord-channel-unit" draggable="true" type="button" data-discord-unit="${escapeHtml(unitId)}">${escapeHtml(unit.vehicleNumber || "-")}</button>`;
-          }).join("") || '<span class="muted">Geen eenheden</span>'}
+          ${units.map((unit) => renderOpsUnitCard(unit, { channelCard: true })).join("")}
         </div>
       </article>`;
   }).join("");
