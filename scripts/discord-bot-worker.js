@@ -29,6 +29,8 @@ let stopping = false;
 let gatewaySocket = null;
 let heartbeatTimer = null;
 let reconnectTimer = null;
+let hasGatewayVoiceSnapshot = false;
+const gatewayVoiceStatesByUser = new Map();
 
 function portoChannelKeyForDiscordChannelId(channelId) {
   const value = String(channelId || "");
@@ -40,6 +42,80 @@ function displayPortoChannelKeyForDiscordChannelId(channelId) {
   return portoChannelKeyForDiscordChannelId(channelId) || nonRegularPortoDiscordChannelKey;
 }
 
+function captureGatewayVoiceState(voiceState = {}) {
+  const discordId = String(voiceState.user_id || "").trim();
+  if (!discordId) return;
+  gatewayVoiceStatesByUser.set(discordId, String(voiceState.channel_id || "").trim());
+}
+
+async function reconcilePortoVoiceChannelsFromGatewaySnapshot() {
+  if (!hasGatewayVoiceSnapshot) return;
+  await withClient(async (client) => {
+    const result = await client.query(`
+      select units.vehicle_number, people.discord_id
+      from porto_units units
+      left join people on people.id = units.member_id
+      where units.active = true
+        and coalesce(units.vehicle_number, '') <> ''
+      order by units.vehicle_number, units.updated_at desc nulls last
+    `);
+    const vehicles = new Map();
+    for (const row of result.rows) {
+      const vehicleNumber = String(row.vehicle_number || "").trim();
+      if (!vehicleNumber) continue;
+      const discordIds = vehicles.get(vehicleNumber) || [];
+      discordIds.push(String(row.discord_id || "").trim());
+      vehicles.set(vehicleNumber, discordIds);
+    }
+
+    let changed = 0;
+    for (const [vehicleNumber, discordIds] of vehicles.entries()) {
+      const memberKeys = discordIds.map((discordId) => {
+        if (!discordId) return nonRegularPortoDiscordChannelKey;
+        return displayPortoChannelKeyForDiscordChannelId(gatewayVoiceStatesByUser.get(discordId) || "");
+      });
+      const regularKeys = new Set(memberKeys.filter((key) => key !== nonRegularPortoDiscordChannelKey));
+      const hasNonRegularMember = memberKeys.some((key) => key === nonRegularPortoDiscordChannelKey);
+      const targetKey = regularKeys.size === 1 && !hasNonRegularMember
+        ? [...regularKeys][0]
+        : nonRegularPortoDiscordChannelKey;
+
+      const updateResult = await client.query(`
+        update porto_units
+        set
+          raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelKey', $2),
+          updated_at = now()
+        where active = true
+          and vehicle_number = $1
+          and coalesce(raw->>'discordChannelKey', '') <> $2
+      `, [vehicleNumber, targetKey]);
+      changed += updateResult.rowCount || 0;
+    }
+
+    if (changed > 0) {
+      await client.query("select pg_notify($1, $2)", ["orp_app_events", JSON.stringify({
+        scope: "porto",
+        sourceId: workerId,
+        serviceName: "discord-bot",
+        at: new Date().toISOString()
+      })]);
+      console.log(`[discord-bot] Porto voice snapshot verwerkt: ${changed} unit(s) bijgewerkt.`);
+    }
+  });
+}
+
+async function updatePortoVoiceSnapshotFromGuild(guild = {}) {
+  const targetGuildId = String(process.env.DISCORD_GUILD_ID || "").trim();
+  const guildId = String(guild.id || "").trim();
+  if (targetGuildId && guildId && guildId !== targetGuildId) return;
+  const voiceStates = Array.isArray(guild.voice_states) ? guild.voice_states : [];
+  if (!voiceStates.length && !Object.prototype.hasOwnProperty.call(guild, "voice_states")) return;
+  gatewayVoiceStatesByUser.clear();
+  for (const voiceState of voiceStates) captureGatewayVoiceState(voiceState);
+  hasGatewayVoiceSnapshot = true;
+  await reconcilePortoVoiceChannelsFromGatewaySnapshot();
+}
+
 async function updatePortoChannelStatusFromDiscord(channelId, status) {
   const channelKey = portoChannelKeyForDiscordChannelId(channelId);
   if (!channelKey) return;
@@ -47,7 +123,7 @@ async function updatePortoChannelStatusFromDiscord(channelId, status) {
     await client.query(`
       update porto_units
       set
-        raw = raw || jsonb_build_object('discordChannelStatus', $2),
+        raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelStatus', $2),
         updated_at = now()
       where active = true
         and raw->>'discordChannelKey' = $1
@@ -80,7 +156,7 @@ async function updatePortoVoiceChannelFromDiscord(discordId, channelId) {
     await client.query(`
       update porto_units
       set
-        raw = raw || jsonb_build_object('discordChannelKey', $2),
+        raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelKey', $2),
         updated_at = now()
       where active = true
         and vehicle_number = $1
@@ -316,6 +392,10 @@ function connectGateway() {
       console.log(`[discord-bot] online als ${packet.d?.user?.username || "bot"}.`);
       return;
     }
+    if (packet.t === "GUILD_CREATE") {
+      await updatePortoVoiceSnapshotFromGuild(packet.d || {});
+      return;
+    }
     if (packet.t === "GUILD_MEMBER_ADD") {
       const discordId = packet.d?.user?.id;
       if (discordId) await enqueueDiscordSyncJob("sync_person", { discordId, reason: "guild_member_add" }, { discordId });
@@ -327,7 +407,12 @@ function connectGateway() {
       }
     }
     if (packet.t === "VOICE_STATE_UPDATE") {
-      await updatePortoVoiceChannelFromDiscord(packet.d?.user_id || "", packet.d?.channel_id || "");
+      captureGatewayVoiceState(packet.d || {});
+      if (hasGatewayVoiceSnapshot) {
+        await reconcilePortoVoiceChannelsFromGatewaySnapshot();
+      } else {
+        await updatePortoVoiceChannelFromDiscord(packet.d?.user_id || "", packet.d?.channel_id || "");
+      }
     }
   });
   gatewaySocket.addEventListener("close", () => {
