@@ -191,6 +191,8 @@ function openPortoOpsContextMenu(event, unitId) {
   if (phoneLabel) phoneLabel.textContent = phone || "Geen telefoonnummer";
   const copyButton = menu.querySelector("[data-ops-context-action='copy-phone']");
   if (copyButton) copyButton.disabled = !phone;
+  const channelButton = menu.querySelector("[data-ops-context-action='discord-channel']");
+  if (channelButton) channelButton.disabled = !(portoDiscordChannels || []).some((channel) => channel.configured);
   positionContextMenu(menu, event.clientX, event.clientY);
 }
 
@@ -294,7 +296,7 @@ function renderOpsUnitCard(unit, options = {}) {
       </article>`;
   }).join("");
   return `
-    <article class="porto-ops-unit-card compact grouped ${unit.autoOffline ? "auto-offline" : ""} ${options.channelCard ? "in-channel" : ""}" ${primaryActionId ? `draggable="true" data-discord-unit="${escapeHtml(primaryActionId)}"` : ""}>
+    <article class="porto-ops-unit-card compact grouped ${unit.autoOffline ? "auto-offline" : ""} ${options.channelCard ? "in-channel" : ""}" ${primaryActionId ? `data-ops-unit-card="${escapeHtml(primaryActionId)}"` : ""}>
       <header class="porto-ops-unit-group-head three-columns">
         <div data-ops-number-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor nummer wijzigen"><span>Roepnummer:</span><button class="porto-unit-header-action" type="button" tabindex="-1">${escapeHtml(unit.vehicleNumber || "-")}</button></div>
         <div data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen"><span>Status:</span>${statusButton}</div>
@@ -392,6 +394,14 @@ async function chooseOpsStatusUpdate(unitId, anchorEvent) {
     statusDetail = detail.value;
   }
   await reassignPortoUnit(unitId, { status: selected.value, statusDetail });
+}
+
+async function chooseOpsDiscordChannelUpdate(unitId, anchorEvent) {
+  const options = (portoDiscordChannels || [])
+    .filter((channel) => channel.configured)
+    .map((channel) => ({ value: channel.key, label: channel.label || channel.key }));
+  const selected = await showPortoContextChoice(anchorEvent, "Porto-kanaal", options);
+  if (selected) await reassignPortoUnit(unitId, { discordChannelKey: selected.value });
 }
 
 async function reassignPortoUnit(unitId, assignment) {

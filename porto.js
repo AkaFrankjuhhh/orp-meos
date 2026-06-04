@@ -302,29 +302,6 @@ $("#portoOpsRequests").addEventListener("contextmenu", async (event) => {
   if (!request?.dataset.opsRequest) return;
   await openPortoRequestContextMenu(event, request.dataset.opsRequest);
 });
-$("#portoDiscordChannels")?.addEventListener("dragstart", (event) => {
-  const unit = event.target.closest("[data-discord-unit]");
-  if (!unit?.dataset.discordUnit) return;
-  event.dataTransfer.effectAllowed = "move";
-  event.dataTransfer.setData("text/plain", unit.dataset.discordUnit);
-});
-$("#portoDiscordChannels")?.addEventListener("dragover", (event) => {
-  const channel = event.target.closest("[data-discord-channel]");
-  if (!channel?.dataset.discordChannel) return;
-  event.preventDefault();
-  channel.classList.add("drag-over");
-});
-$("#portoDiscordChannels")?.addEventListener("dragleave", (event) => {
-  const channel = event.target.closest("[data-discord-channel]");
-  if (channel && !channel.contains(event.relatedTarget)) channel.classList.remove("drag-over");
-});
-$("#portoDiscordChannels")?.addEventListener("drop", async (event) => {
-  const channel = event.target.closest("[data-discord-channel]");
-  if (!channel?.dataset.discordChannel) return;
-  event.preventDefault();
-  channel.classList.remove("drag-over");
-  await showPortoNotice("Verplaats eenheden in Discord. De Porto-site neemt de kanaalindeling daarna automatisch over.", "Discord kanaal");
-});
 $("#portoDiscordChannels")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-save-discord-channel-status]");
   if (!button?.dataset.saveDiscordChannelStatus) return;
@@ -363,10 +340,17 @@ async function handleOpsUnitContextMenu(event) {
     return;
   }
   const memberCard = event.target.closest("[data-ops-unit-member]");
-  if (!memberCard) return;
-  // Personen in een gegroepeerd roepnummer openen hun eigen OPS-menu: koppelen of uit dienst melden.
-  event.preventDefault();
-  openPortoOpsContextMenu(event, memberCard.dataset.opsUnitMember);
+  if (memberCard?.dataset.opsUnitMember) {
+    // Personen in een gegroepeerd roepnummer openen hun eigen OPS-menu: koppelen of uit dienst melden.
+    event.preventDefault();
+    openPortoOpsContextMenu(event, memberCard.dataset.opsUnitMember);
+    return;
+  }
+  const unitCard = event.target.closest("[data-ops-unit-card]");
+  if (unitCard?.dataset.opsUnitCard) {
+    event.preventDefault();
+    openPortoOpsContextMenu(event, unitCard.dataset.opsUnitCard);
+  }
 }
 
 $("#portoOpsUnits").addEventListener("click", handleOpsUnitClick);
@@ -405,6 +389,12 @@ $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
     closePortoOpsContextMenu();
     const selected = await showPortoContextChoice(event, "Koppelen aan", options);
     if (selected) await reassignPortoUnit(unitId, { linkToVehicleNumber: selected.value });
+    return;
+  }
+
+  if (action === "discord-channel") {
+    closePortoOpsContextMenu();
+    await chooseOpsDiscordChannelUpdate(unitId, event);
     return;
   }
 
