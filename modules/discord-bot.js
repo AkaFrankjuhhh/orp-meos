@@ -1,5 +1,9 @@
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 const DISCORD_NICKNAME_LIMIT = 32;
+const {
+  configuredPortoVoiceChannels,
+  resolvePortoVoiceChannelId
+} = require("./porto-discord-channels");
 
 const rankNicknameSymbols = {
   "Marechaussee 4de Klasser": "\u276F",
@@ -223,28 +227,11 @@ function createDiscordBotServices(options = {}) {
   }
 
   function configuredVoiceChannels() {
-    return {
-      ops: process.env.DISCORD_PORTO_CHANNEL_OPS || process.env.DISCORD_VOICE_OPS_CHANNEL_ID || "",
-      "inrap-01": process.env.DISCORD_PORTO_CHANNEL_INRAP_01 || process.env.DISCORD_VOICE_INRAP_1_CHANNEL_ID || "",
-      "inrap-02": process.env.DISCORD_PORTO_CHANNEL_INRAP_02 || process.env.DISCORD_VOICE_INRAP_2_CHANNEL_ID || "",
-      "inrap-03": process.env.DISCORD_PORTO_CHANNEL_INRAP_03 || process.env.DISCORD_VOICE_INRAP_3_CHANNEL_ID || "",
-      "inrap-04": process.env.DISCORD_PORTO_CHANNEL_INRAP_04 || "",
-      "inrap-05": process.env.DISCORD_PORTO_CHANNEL_INRAP_05 || "",
-      "inrap-06": process.env.DISCORD_PORTO_CHANNEL_INRAP_06 || "",
-      kustwacht: process.env.DISCORD_PORTO_CHANNEL_KUSTWACHT || "",
-      "stilte-porto": process.env.DISCORD_PORTO_CHANNEL_STILTE_PORTO || "",
-      "koppel-prio-1": process.env.DISCORD_VOICE_KOPPEL_PRIO_1_CHANNEL_ID || "",
-      "koppel-prio-2": process.env.DISCORD_VOICE_KOPPEL_PRIO_2_CHANNEL_ID || "",
-      "koppel-prio-3": process.env.DISCORD_VOICE_KOPPEL_PRIO_3_CHANNEL_ID || "",
-      "koppel-prio-4": process.env.DISCORD_VOICE_KOPPEL_PRIO_4_CHANNEL_ID || "",
-      "koppel-prio-5": process.env.DISCORD_VOICE_KOPPEL_PRIO_5_CHANNEL_ID || ""
-    };
+    return configuredPortoVoiceChannels();
   }
 
   function resolveVoiceChannelId(channelKeyOrId) {
-    const value = String(channelKeyOrId || "").trim();
-    if (!value) return "";
-    return configuredVoiceChannels()[value.toLowerCase()] || value;
+    return resolvePortoVoiceChannelId(channelKeyOrId);
   }
 
   async function discordBotFetch(route, options = {}) {
@@ -459,23 +446,11 @@ function createDiscordBotServices(options = {}) {
   }
 
   async function moveMemberToVoice(discordId, channelKeyOrId, auditReason = "Porto voicekanaal aangepast") {
-    const memberId = normalizeDiscordId(discordId);
-    const channelId = resolveVoiceChannelId(channelKeyOrId);
-    if (!memberId || !channelId) return { skipped: true, reason: "Discord ID of voicekanaal ontbreekt." };
-    return discordBotFetch(`/guilds/${guildId()}/members/${memberId}`, {
-      method: "PATCH",
-      body: { channel_id: channelId },
-      auditReason
-    });
+    return { skipped: true, reason: "Automatische Porto voice moves zijn uitgeschakeld; verplaats leden handmatig in Discord." };
   }
 
   async function moveMembersToVoice(discordIds, channelKeyOrId, auditReason = "Porto eenheid verplaatst") {
-    const results = [];
-    // Sequentieel uitvoeren houdt Discord rate limits rustiger bij gekoppelde eenheden.
-    for (const discordId of discordIds || []) {
-      results.push(await moveMemberToVoice(discordId, channelKeyOrId, auditReason));
-    }
-    return { ok: results.every((result) => result.ok || result.skipped), results };
+    return { skipped: true, reason: "Automatische Porto voice moves zijn uitgeschakeld; verplaats leden handmatig in Discord." };
   }
 
   async function getVoiceChannel(channelKeyOrId) {

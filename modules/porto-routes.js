@@ -72,7 +72,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   }
 
   function configuredPortoChannelKeys() {
-    return new Set(configuredPortoDiscordChannels().map((channel) => channel.key));
+    return new Set(configuredPortoDiscordChannels().filter((channel) => channel.configured).map((channel) => channel.key));
   }
 
   async function enqueuePortoDiscordNicknames(state, units, reason = "Porto roepnummer aangepast") {
@@ -452,7 +452,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         if (releasedVehicleNumber) syncPortoLinkedNames(state, releasedVehicleNumber);
         await enqueueNormalDiscordNicknames(state, endedUnits);
       } else {
-        if (status === "4" && unit.vehicleNumber && detail && detail !== "Staandehouding") {
+        if (status === "4" && unit.vehicleNumber && detail && detail !== "Staandehouding" && configuredPortoChannelKeys().has("stilte-porto")) {
           const group = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber);
           group.forEach((entry) => {
             entry.discordChannelKey = "stilte-porto";
@@ -723,12 +723,17 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         return true;
       }
       if (discordChannelKey || body.discordChannelStatus !== undefined) {
-        if (discordChannelKey && !configuredPortoChannelKeys().has(discordChannelKey)) {
+        const validChannelKeys = configuredPortoChannelKeys();
+        const key = discordChannelKey || String(unit.discordChannelKey || "").trim();
+        if (!key) {
+          sendJson(res, 400, { error: "Kies eerst een Porto Discord-kanaal." });
+          return true;
+        }
+        if (!validChannelKeys.has(key)) {
           sendJson(res, 400, { error: "Kies een geldig Porto Discord-kanaal." });
           return true;
         }
         const group = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber);
-        const key = discordChannelKey || unit.discordChannelKey || "ops";
         const now = new Date().toISOString();
         for (const entry of group) {
           entry.discordChannelKey = key;
@@ -755,10 +760,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         const statusDefinition = { "1": "Beschikbaar", "2": "Aanrijdend", "3": "Ter plaatse", "4": "Niet beschikbaar", "5": "Transport aanvraag", "6": "Spraak aanvraag", "7": "Spraak aanvraag urgent" };
         const now = new Date().toISOString();
         const group = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber);
+        const canUseSilenceChannel = configuredPortoChannelKeys().has("stilte-porto");
         for (const entry of group) {
           entry.status = newStatus;
           entry.statusDetail = newStatus === "4" ? (newStatusDetail || "Niet beschikbaar") : statusDefinition[newStatus];
-          if (newStatus === "4" && newStatusDetail && newStatusDetail !== "Staandehouding") entry.discordChannelKey = "stilte-porto";
+          if (newStatus === "4" && newStatusDetail && newStatusDetail !== "Staandehouding" && canUseSilenceChannel) entry.discordChannelKey = "stilte-porto";
           entry.updatedAt = now;
           entry.statusUpdatedById = person.id;
           entry.statusUpdatedByName = person.name;

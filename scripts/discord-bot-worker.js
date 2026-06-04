@@ -1,6 +1,7 @@
 const { loadEnv, closePool, withClient } = require("../modules/db");
 const { readPostgresState } = require("../modules/postgres-state");
 const { createDiscordBotServices } = require("../modules/discord-bot");
+const { nonRegularPortoDiscordChannel } = require("../modules/porto-discord-channels");
 const {
   ensureDiscordSyncJobsTable,
   enqueueAllDiscordSync,
@@ -23,7 +24,7 @@ const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toL
 const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true";
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
-const nonRegularPortoDiscordChannelKey = "niet-reguliere-porto";
+const nonRegularPortoDiscordChannelKey = nonRegularPortoDiscordChannel.key;
 let stopping = false;
 let gatewaySocket = null;
 let heartbeatTimer = null;

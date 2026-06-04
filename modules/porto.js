@@ -1,3 +1,8 @@
+const {
+  nonRegularPortoDiscordChannel,
+  configuredPortoDiscordChannels
+} = require("./porto-discord-channels");
+
 const PORTO_HEARTBEAT_WRITE_MS = 60 * 1000;
 
 function normalizeDiscordId(value) {
@@ -91,26 +96,6 @@ const defaultPortoVehicleRanges = [
   numbers: numbers ? [...numbers] : Array.from({ length: 10 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, "0")}`)
 }));
 
-const defaultPortoDiscordChannels = [
-  { key: "ops", label: "OPS", envKey: "DISCORD_PORTO_CHANNEL_OPS" },
-  { key: "inrap-01", label: "INRAP-01", envKey: "DISCORD_PORTO_CHANNEL_INRAP_01" },
-  { key: "inrap-02", label: "INRAP-02", envKey: "DISCORD_PORTO_CHANNEL_INRAP_02" },
-  { key: "inrap-03", label: "INRAP-03", envKey: "DISCORD_PORTO_CHANNEL_INRAP_03" },
-  { key: "inrap-04", label: "INRAP-04", envKey: "DISCORD_PORTO_CHANNEL_INRAP_04" },
-  { key: "inrap-05", label: "INRAP-05", envKey: "DISCORD_PORTO_CHANNEL_INRAP_05" },
-  { key: "inrap-06", label: "INRAP-06", envKey: "DISCORD_PORTO_CHANNEL_INRAP_06" },
-  { key: "kustwacht", label: "Kustwacht", envKey: "DISCORD_PORTO_CHANNEL_KUSTWACHT" },
-  { key: "stilte-porto", label: "Stilte-Porto", envKey: "DISCORD_PORTO_CHANNEL_STILTE_PORTO" }
-];
-
-const nonRegularPortoDiscordChannel = {
-  key: "niet-reguliere-porto",
-  label: "Niet in reguliere porto",
-  channelId: "",
-  configured: false,
-  readonly: true
-};
-
 function createPortoServices() {
   function ensurePortoVehicleRanges(state) {
     const desired = defaultPortoVehicleRanges.map((range) => ({
@@ -122,14 +107,6 @@ function createPortoServices() {
     if (current === next) return false;
     state.portoVehicleRanges = desired;
     return true;
-  }
-
-  function configuredPortoDiscordChannels() {
-    return defaultPortoDiscordChannels.map((channel) => ({
-      ...channel,
-      channelId: process.env[channel.envKey] || "",
-      configured: Boolean(process.env[channel.envKey])
-    }));
   }
 
   function defaultDiscordChannelForUnit(unit) {
@@ -429,7 +406,7 @@ function createPortoServices() {
 
   function portoDiscordChannelGroups(state) {
     const configuredChannels = configuredPortoDiscordChannels();
-    const configuredKeys = new Set(configuredChannels.map((channel) => channel.key));
+    const configuredKeys = new Set(configuredChannels.filter((channel) => channel.configured).map((channel) => channel.key));
     const groupsByKey = new Map(configuredChannels.map((channel) => [channel.key, { ...channel, status: "", units: [] }]));
     for (const unitGroup of activePortoUnitGroups(state)) {
       const key = displayDiscordChannelKeyForUnit(unitGroup, configuredKeys);
