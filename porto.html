@@ -61,7 +61,9 @@
             <span id="portoCurrentOpsText">Huidige OPS:</span>
             <button id="portoOpsClaimBtn" class="porto-ops-action" type="button" hidden>OPS oppakken</button>
             <button id="portoOpsReleaseBtn" class="porto-ops-action ghost" type="button" hidden>OPS afsluiten</button>
-            <button id="portoOpenOpsLogBtn" class="porto-ops-action ghost" type="button" hidden>OPS logs</button>
+          </div>
+          <div id="portoOpsLogEntry" class="porto-ops-log-entry" hidden>
+            <button id="portoOpenOpsLogBtn" class="porto-ops-action ghost" type="button">Logs</button>
           </div>
         </div>
 
@@ -243,9 +245,9 @@
     <script src="porto/module-registry.js?v=20260518-module-split"></script>
     <script src="porto/audio.js?v=20260602-assignment-alert"></script>
     <script src="porto/map.js?v=20260518-module-split"></script>
-    <script src="porto/ops.js?v=20260604-channel-context"></script>
-    <script src="porto/duty.js?v=20260602-throttled-status"></script>
+    <script src="porto/ops.js?v=20260604-logs-status-entry"></script>
+    <script src="porto/duty.js?v=20260604-logs-status-entry"></script>
     <script src="porto/profile.js?v=20260602-throttled-status"></script>
-    <script src="porto.js?v=20260604-channel-context"></script>
+    <script src="porto.js?v=20260604-logs-status-entry"></script>
   </body>
 </html>

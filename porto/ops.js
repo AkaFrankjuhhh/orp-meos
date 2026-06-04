@@ -75,13 +75,17 @@ function opsLogPersonKey(entry) {
 }
 
 function renderOpsLogAccess() {
+  const entry = $("#portoOpsLogEntry");
   const button = $("#portoOpenOpsLogBtn");
-  if (button) button.hidden = !portoCanViewOpsLog;
+  const visible = Boolean(portoCanViewOpsLog && !portoViewingOpsLog && !canUseOpsWorkspace());
+  if (entry) entry.hidden = !visible;
+  if (button) button.hidden = !visible;
 }
 
 function openPortoOpsLogPage() {
-  if (!portoCanViewOpsLog) return;
+  if (!portoCanViewOpsLog || canUseOpsWorkspace()) return;
   portoViewingOpsLog = true;
+  renderOpsLog();
   renderDutyPanel();
   renderOpsPanel();
 }
@@ -467,10 +471,9 @@ function renderOpsLog() {
 }
 
 function renderOpsPanel() {
-  renderOpsLogAccess();
-  renderOpsLog();
+  const opsPanel = $("#portoOpsPanel");
   if (portoViewingOpsLog) {
-    $("#portoOpsPanel").hidden = true;
+    if (opsPanel) opsPanel.hidden = true;
     return;
   }
   const devTestButton = $("#portoOpsDevTestBtn");
@@ -478,6 +481,7 @@ function renderOpsPanel() {
   const dutyViewButton = $("#portoShowDutyViewBtn");
   if (dutyViewButton) dutyViewButton.hidden = !(portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser());
   renderOpsStatus();
+  renderOpsLogAccess();
   renderOpsRequests();
   renderDiscordChannels();
   renderOpsUnits();

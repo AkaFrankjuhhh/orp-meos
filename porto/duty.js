@@ -141,6 +141,8 @@ function renderDutyPanel() {
     pendingPanel.hidden = true;
     panel.hidden = true;
     if (opsLogPage) opsLogPage.hidden = false;
+    renderOpsLog();
+    renderOpsLogAccess();
     setPortoDutyPolling(false);
     renderPortoWorkspaceMode();
     return;
@@ -156,6 +158,7 @@ function renderDutyPanel() {
   pendingPanel.hidden = !waitingForOps;
   if (devBypassButton) devBypassButton.hidden = !(waitingForOps && isDevBypassProfile());
   panel.hidden = !assignedDuty || opsWorkspace;
+  renderOpsLogAccess();
   setPortoDutyPolling(waitingForOps || assignedDuty);
   renderPortoWorkspaceMode();
   if (!assignedDuty || opsWorkspace || !portoProfile) return;

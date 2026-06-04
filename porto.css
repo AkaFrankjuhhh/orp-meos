@@ -993,6 +993,12 @@ body.porto-duty-workspace .porto-status-choices {
   gap: 10px;
 }
 
+.porto-ops-log-entry {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
 .porto-ops-action {
   border: 0;
   border-radius: 999px;
@@ -1880,6 +1886,8 @@ body.porto-ops-workspace .porto-ops-empty {
 #portoDutyPanel[hidden],
 #portoOpsPanel[hidden],
 #portoOpsLogPage[hidden],
+#portoOpsLogEntry[hidden],
+#portoOpenOpsLogBtn[hidden],
 #portoOpsClaimBtn[hidden],
 #portoOpsReleaseBtn[hidden],
 #portoDevBypassBtn[hidden] {
