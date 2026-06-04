@@ -21,6 +21,7 @@ const jobPollMs = Number(process.env.DISCORD_JOB_POLL_INTERVAL_MS || 5000);
 const jobBatchSize = Number(process.env.DISCORD_JOB_BATCH_SIZE || 5);
 const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toLowerCase() !== "false";
 const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true";
+const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
 let stopping = false;
 let gatewaySocket = null;
@@ -51,6 +52,40 @@ async function updatePortoChannelStatusFromDiscord(channelId, status) {
       serviceName: "discord-bot",
       at: new Date().toISOString()
     })]);
+  });
+}
+
+async function updatePortoVoiceChannelFromDiscord(discordId, channelId) {
+  const channelKey = portoChannelKeyForDiscordChannelId(channelId);
+  if (!channelKey || !discordId) return;
+  await withClient(async (client) => {
+    const unitResult = await client.query(`
+      select units.vehicle_number
+      from porto_units units
+      join people on people.id = units.member_id
+      where units.active = true
+        and coalesce(units.vehicle_number, '') <> ''
+        and people.discord_id = $1
+      order by units.updated_at desc nulls last, units.assigned_at desc nulls last
+      limit 1
+    `, [String(discordId)]);
+    const vehicleNumber = unitResult.rows[0]?.vehicle_number || "";
+    if (!vehicleNumber) return;
+    await client.query(`
+      update porto_units
+      set
+        raw = raw || jsonb_build_object('discordChannelKey', $2),
+        updated_at = now()
+      where active = true
+        and vehicle_number = $1
+    `, [vehicleNumber, channelKey]);
+    await client.query("select pg_notify($1, $2)", ["orp_app_events", JSON.stringify({
+      scope: "porto",
+      sourceId: workerId,
+      serviceName: "discord-bot",
+      at: new Date().toISOString()
+    })]);
+    console.log(`[discord-bot] Porto kanaal bijgewerkt vanuit Discord voice: ${vehicleNumber} -> ${channelKey}`);
   });
 }
 
@@ -132,8 +167,7 @@ async function syncByJob(job) {
   }
 
   if (job.type === "porto_voice_move") {
-    const discordIds = Array.isArray(job.payload?.discordIds) ? job.payload.discordIds : [];
-    return bot.moveMembersToVoice(discordIds, job.payload?.channelKey || job.payload?.channelId, job.payload?.reason || "Porto eenheid verplaatst");
+    return { skipped: true, reason: "Automatische Porto voice moves zijn uitgeschakeld." };
   }
 
   if (job.type === "porto_channel_status") {
@@ -218,7 +252,7 @@ async function runPeriodicSyncLoop() {
 }
 
 function identifyPayload() {
-  const intents = guildMembersIntent ? 1 | 2 : 1;
+  const intents = 1 | (guildMembersIntent ? 2 : 0) | (voiceStatesIntent ? 128 : 0);
   return {
     op: 2,
     d: {
@@ -285,6 +319,9 @@ function connectGateway() {
       if (channelId && Object.prototype.hasOwnProperty.call(packet.d || {}, "status")) {
         await updatePortoChannelStatusFromDiscord(channelId, packet.d?.status || "");
       }
+    }
+    if (packet.t === "VOICE_STATE_UPDATE") {
+      await updatePortoVoiceChannelFromDiscord(packet.d?.user_id || "", packet.d?.channel_id || "");
     }
   });
   gatewaySocket.addEventListener("close", () => {
