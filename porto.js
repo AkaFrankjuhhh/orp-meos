@@ -36,6 +36,7 @@ let portoEventSource = null;
 let portoLiveRefreshTimer = null;
 let portoLiveRefreshDeferTimer = null;
 let portoOpsViewMode = "duty";
+let portoViewingOpsLog = false;
 let portoInlineErrorTimer = null;
 let portoDutyLoadPromise = null;
 let portoStatusWritePromise = null;
@@ -253,6 +254,8 @@ $("#portoLogoutBtn").addEventListener("click", async () => {
   setPortoLocked(true);
 });
 $("#portoStatus0Btn").addEventListener("click", () => updatePortoStatus("0"));
+$("#portoOpenOpsLogBtn")?.addEventListener("click", openPortoOpsLogPage);
+$("#portoCloseOpsLogBtn")?.addEventListener("click", closePortoOpsLogPage);
 $("#portoCancelPendingBtn").addEventListener("click", () => updatePortoStatus("8"));
 $("#portoDevBypassBtn").addEventListener("click", runPortoDevBypass);
 $("#portoDutyVehicleSelect").addEventListener("change", (event) => updatePortoVehicle(event.target.value));

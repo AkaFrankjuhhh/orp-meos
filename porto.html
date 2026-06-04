@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Porto-Systeem | Defensie Oranjestad</title>
     <link rel="stylesheet" href="shared.css?v=20260519-notice-polish" />
-    <link rel="stylesheet" href="porto.css?v=20260604-ops-duration" />
+    <link rel="stylesheet" href="porto.css?v=20260604-ops-log-page" />
   </head>
   <body class="porto-blank porto-locked">
     <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
@@ -61,8 +61,31 @@
             <span id="portoCurrentOpsText">Huidige OPS:</span>
             <button id="portoOpsClaimBtn" class="porto-ops-action" type="button" hidden>OPS oppakken</button>
             <button id="portoOpsReleaseBtn" class="porto-ops-action ghost" type="button" hidden>OPS afsluiten</button>
+            <button id="portoOpenOpsLogBtn" class="porto-ops-action ghost" type="button" hidden>OPS logs</button>
           </div>
         </div>
+
+        <section id="portoOpsLogPage" class="porto-duty-panel porto-ops-log-page" aria-label="OPS logs" hidden>
+          <div class="porto-duty-card">
+            <div class="panel-head compact-head">
+              <div>
+                <h2>OPS Logs</h2>
+                <p class="muted">Overzicht van OPS diensten en top 5 OPS uren.</p>
+              </div>
+              <button id="portoCloseOpsLogBtn" class="porto-ops-action ghost" type="button">Terug</button>
+            </div>
+            <div class="porto-ops-log-overview">
+              <section>
+                <h3>Top 5 OPS uren</h3>
+                <div id="portoOpsLogTopRows" class="porto-ops-log-top"></div>
+              </section>
+              <section>
+                <h3>Logboek</h3>
+                <div id="portoOpsLogRows" class="porto-ops-log-rows"></div>
+              </section>
+            </div>
+          </div>
+        </section>
 
         <section id="portoPendingPanel" class="porto-pending-panel" aria-label="Aanmelding wordt verwerkt" hidden>
           <div class="porto-pending-card">
@@ -157,16 +180,6 @@
                 </div>
                 <div id="portoOpsUnits" class="porto-ops-units"></div>
               </div>
-              <div id="portoOpsLogCard" class="porto-duty-card porto-ops-log-card" hidden>
-                <div class="panel-head compact-head">
-                  <div>
-                    <h2>OPS Logboek</h2>
-                    <p class="muted">Wie, wanneer en hoelang OPS is geweest.</p>
-                  </div>
-                </div>
-                <div id="portoOpsLogRows" class="porto-ops-log-rows"></div>
-              </div>
-
             </div>
 
             <aside id="portoMapCard" class="porto-duty-card porto-map-card" aria-label="GTA V kaart">
@@ -229,9 +242,9 @@
     <script src="porto/module-registry.js?v=20260518-module-split"></script>
     <script src="porto/audio.js?v=20260602-assignment-alert"></script>
     <script src="porto/map.js?v=20260518-module-split"></script>
-    <script src="porto/ops.js?v=20260603-discord-channels"></script>
+    <script src="porto/ops.js?v=20260604-ops-log-page"></script>
     <script src="porto/duty.js?v=20260602-throttled-status"></script>
     <script src="porto/profile.js?v=20260602-throttled-status"></script>
-    <script src="porto.js?v=20260603-discord-channels"></script>
+    <script src="porto.js?v=20260604-ops-log-page"></script>
   </body>
 </html>

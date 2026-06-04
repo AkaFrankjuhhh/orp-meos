@@ -133,8 +133,19 @@ function renderDutyPanel() {
   const intro = $("#portoStatusIntro");
   const panel = $("#portoDutyPanel");
   const pendingPanel = $("#portoPendingPanel");
+  const opsLogPage = $("#portoOpsLogPage");
   const devBypassButton = $("#portoDevBypassBtn");
   if (!intro || !panel || !pendingPanel) return;
+  if (portoViewingOpsLog) {
+    intro.hidden = true;
+    pendingPanel.hidden = true;
+    panel.hidden = true;
+    if (opsLogPage) opsLogPage.hidden = false;
+    setPortoDutyPolling(false);
+    renderPortoWorkspaceMode();
+    return;
+  }
+  if (opsLogPage) opsLogPage.hidden = true;
   const hasDuty = Boolean(portoDuty && String(portoDuty.status) !== "8");
   const waitingForOps = Boolean(hasDuty && String(portoDuty.status) === "0" && !portoDuty.vehicleNumber);
   const opsWorkspace = canUseOpsWorkspace();

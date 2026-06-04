@@ -70,6 +70,28 @@ function renderPortoWorkspaceMode() {
   setPortoOpsPolling(opsWorkspace);
 }
 
+function opsLogPersonKey(entry) {
+  return String(entry.memberId || entry.serviceNumber || entry.name || "onbekend");
+}
+
+function renderOpsLogAccess() {
+  const button = $("#portoOpenOpsLogBtn");
+  if (button) button.hidden = !portoCanViewOpsLog;
+}
+
+function openPortoOpsLogPage() {
+  if (!portoCanViewOpsLog) return;
+  portoViewingOpsLog = true;
+  renderDutyPanel();
+  renderOpsPanel();
+}
+
+function closePortoOpsLogPage() {
+  portoViewingOpsLog = false;
+  renderDutyPanel();
+  renderOpsPanel();
+}
+
 function renderOpsStatus() {
   const text = $("#portoCurrentOpsText");
   const durationBadge = $("#portoOpsDurationBadge");
@@ -193,7 +215,7 @@ function renderOpsRequests() {
   const list = $("#portoOpsRequests");
   const count = $("#portoOpsCount");
   if (!panel || !list || !count) return;
-  const showPanel = Boolean((canUseOpsWorkspace() && portoCanManageOps) || (portoCanViewOpsLog && portoOpsLog.length));
+  const showPanel = Boolean(canUseOpsWorkspace() && portoCanManageOps);
   panel.hidden = !showPanel;
   if (!showPanel) return;
   count.textContent = `${portoOpsRequests.length} verzoek${portoOpsRequests.length === 1 ? "" : "en"}`;
@@ -392,10 +414,32 @@ async function reassignPortoUnit(unitId, assignment) {
 }
 
 function renderOpsLog() {
-  const card = $("#portoOpsLogCard");
   const rows = $("#portoOpsLogRows");
-  if (!card || !rows) return;
-  card.hidden = !portoOpsLog.length;
+  const topRows = $("#portoOpsLogTopRows");
+  if (!rows || !topRows) return;
+  const totals = new Map();
+  for (const entry of portoOpsLog || []) {
+    const key = opsLogPersonKey(entry);
+    const current = totals.get(key) || {
+      serviceNumber: entry.serviceNumber || "-",
+      name: entry.name || "Onbekend",
+      durationSeconds: 0
+    };
+    current.durationSeconds += Number(entry.durationSeconds || 0);
+    totals.set(key, current);
+  }
+  const top = [...totals.values()]
+    .sort((a, b) => b.durationSeconds - a.durationSeconds)
+    .slice(0, 5);
+  topRows.innerHTML = top.length
+    ? top.map((entry, index) => `
+      <article class="porto-ops-log-top-row">
+        <span>${index + 1}</span>
+        <strong>${escapeHtml(entry.serviceNumber || "-")} - ${escapeHtml(entry.name || "Onbekend")}</strong>
+        <b>${escapeHtml(formatPortoDuration(entry.durationSeconds))}</b>
+      </article>
+    `).join("")
+    : '<div class="porto-ops-empty">Nog geen OPS uren geregistreerd.</div>';
   rows.innerHTML = portoOpsLog.length
     ? portoOpsLog.map((entry) => `
       <article class="porto-ops-log-row">
@@ -408,6 +452,12 @@ function renderOpsLog() {
 }
 
 function renderOpsPanel() {
+  renderOpsLogAccess();
+  renderOpsLog();
+  if (portoViewingOpsLog) {
+    $("#portoOpsPanel").hidden = true;
+    return;
+  }
   const devTestButton = $("#portoOpsDevTestBtn");
   if (devTestButton) devTestButton.hidden = !portoCanUseDevTools;
   const dutyViewButton = $("#portoShowDutyViewBtn");
@@ -416,7 +466,6 @@ function renderOpsPanel() {
   renderOpsRequests();
   renderDiscordChannels();
   renderOpsUnits();
-  renderOpsLog();
   const mapCard = $("#portoMapCard");
   document.body.classList.toggle("porto-map-disabled", !portoMapEnabled);
   if (mapCard) mapCard.hidden = !portoMapEnabled;

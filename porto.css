@@ -1868,6 +1868,7 @@ body.porto-ops-workspace .porto-ops-empty {
 #portoPendingPanel[hidden],
 #portoDutyPanel[hidden],
 #portoOpsPanel[hidden],
+#portoOpsLogPage[hidden],
 #portoOpsClaimBtn[hidden],
 #portoOpsReleaseBtn[hidden],
 #portoDevBypassBtn[hidden] {
@@ -2222,14 +2223,67 @@ body.porto-duty-workspace .porto-status-grid {
   padding: 8px 12px;
 }
 
-.porto-ops-log-card {
-  margin-top: 12px;
+.porto-ops-log-page {
+  width: min(100% - 44px, 1180px);
+  margin-top: clamp(110px, 15vh, 160px);
+}
+
+.porto-ops-log-overview {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  gap: 14px;
+}
+
+.porto-ops-log-overview section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.porto-ops-log-overview h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 15px;
+}
+
+.porto-ops-log-top {
+  display: grid;
+  gap: 8px;
+}
+
+.porto-ops-log-top-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.porto-ops-log-top-row span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.22);
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.porto-ops-log-top-row strong,
+.porto-ops-log-top-row b {
+  overflow-wrap: anywhere;
 }
 
 .porto-ops-log-rows {
   display: grid;
   gap: 8px;
-  max-height: 260px;
+  max-height: min(56vh, 620px);
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -2249,6 +2303,12 @@ body.porto-duty-workspace .porto-status-grid {
   grid-column: 1 / -1;
   color: #93a4bf;
   font-weight: 700;
+}
+
+@media (max-width: 860px) {
+  .porto-ops-log-overview {
+    grid-template-columns: 1fr;
+  }
 }
 /* Porto duty responsive fix: statusknoppen blijven onder de eenhedenbalk op kleinere schermen. */
 body.porto-duty-workspace .porto-duty-panel {
