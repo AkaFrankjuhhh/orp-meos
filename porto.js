@@ -44,6 +44,32 @@ let portoOpsWritePromise = null;
 let portoLastDutyLoadAt = 0;
 let portoDeferredDutyLoadTimer = null;
 const PORTO_AUTO_REFRESH_MS = 8000;
+const PORTO_OPS_UI_MODE_KEY = "orp-porto-ops-ui-mode";
+const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
+const PORTO_OPS_SORT_KEY = "orp-porto-ops-sort";
+
+function portoStorageGet(key, fallback) {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function portoStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Opslaan van voorkeuren is handig, maar mag de Porto nooit blokkeren.
+  }
+}
+
+const storedOpsUiMode = portoStorageGet(PORTO_OPS_UI_MODE_KEY, "classic");
+const storedOpsLayout = portoStorageGet(PORTO_OPS_LAYOUT_KEY, "grid");
+const storedOpsSort = portoStorageGet(PORTO_OPS_SORT_KEY, "status");
+let portoOpsUiMode = ["classic", "modern"].includes(storedOpsUiMode) ? storedOpsUiMode : "classic";
+let portoOpsUnitLayout = ["grid", "list"].includes(storedOpsLayout) ? storedOpsLayout : "grid";
+let portoOpsUnitSort = ["status", "number", "channel"].includes(storedOpsSort) ? storedOpsSort : "status";
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
@@ -273,6 +299,31 @@ $("#portoShowDutyViewBtn")?.addEventListener("click", () => {
   renderDutyPanel();
   renderOpsPanel();
 });
+$("#portoOpsClassicUiBtn")?.addEventListener("click", () => {
+  portoOpsUiMode = "classic";
+  portoStorageSet(PORTO_OPS_UI_MODE_KEY, portoOpsUiMode);
+  renderOpsPanel();
+});
+$("#portoOpsModernUiBtn")?.addEventListener("click", () => {
+  portoOpsUiMode = "modern";
+  portoStorageSet(PORTO_OPS_UI_MODE_KEY, portoOpsUiMode);
+  renderOpsPanel();
+});
+$("#portoOpsGridLayoutBtn")?.addEventListener("click", () => {
+  portoOpsUnitLayout = "grid";
+  portoStorageSet(PORTO_OPS_LAYOUT_KEY, portoOpsUnitLayout);
+  renderOpsPanel();
+});
+$("#portoOpsListLayoutBtn")?.addEventListener("click", () => {
+  portoOpsUnitLayout = "list";
+  portoStorageSet(PORTO_OPS_LAYOUT_KEY, portoOpsUnitLayout);
+  renderOpsPanel();
+});
+$("#portoOpsUnitSort")?.addEventListener("change", (event) => {
+  portoOpsUnitSort = ["status", "number", "channel"].includes(event.target.value) ? event.target.value : "status";
+  portoStorageSet(PORTO_OPS_SORT_KEY, portoOpsUnitSort);
+  renderOpsPanel();
+});
 $("#portoOpsRequests").addEventListener("pointerdown", holdOpsRequestInteraction);
 $("#portoOpsRequests").addEventListener("focusin", holdOpsRequestInteraction);
 $("#portoOpsRequests").addEventListener("change", holdOpsRequestInteraction);
@@ -317,6 +368,13 @@ $("#portoDiscordChannels")?.addEventListener("click", async (event) => {
   await reassignPortoUnit(unitId, { discordChannelKey: channelKey, discordChannelStatus: input?.value || "" });
 });
 function handleOpsUnitClick(event) {
+  const menuButton = event.target.closest("[data-ops-open-menu]");
+  if (menuButton?.dataset.opsOpenMenu) {
+    event.preventDefault();
+    event.stopPropagation();
+    openPortoOpsContextMenu(event, menuButton.dataset.opsOpenMenu);
+    return;
+  }
   if (event.target.closest("[data-ops-status-unit]")) event.preventDefault();
 }
 

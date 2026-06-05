@@ -1210,11 +1210,7 @@ body.porto-ops-workspace .porto-ops-choice select {
 }
 
 .porto-ops-unit-card.in-channel {
-  cursor: grab;
-}
-
-.porto-ops-unit-card.in-channel:active {
-  cursor: grabbing;
+  cursor: context-menu;
 }
 
 .porto-ops-assign.danger {
@@ -1682,6 +1678,359 @@ body.porto-ops-workspace .porto-ops-empty {
 .porto-ops-action.dev-test {
   border-color: rgba(245, 158, 11, 0.42);
   color: #f8c471;
+}
+
+.porto-ops-units-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.porto-ops-segmented,
+.porto-ops-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  background: rgba(8, 13, 22, 0.48);
+}
+
+.porto-ops-layout-toggle[hidden] {
+  display: none !important;
+}
+
+.porto-ops-segmented button,
+.porto-ops-layout-toggle button {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #bfdbfe;
+  padding: 7px 10px;
+  font-family: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.porto-ops-layout-toggle button {
+  width: 38px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.porto-ops-segmented button.active,
+.porto-ops-layout-toggle button.active {
+  border-color: rgba(245, 158, 11, 0.62);
+  background: rgba(245, 158, 11, 0.15);
+  color: #fff7ed;
+}
+
+.porto-ops-sort-control {
+  display: grid;
+  gap: 4px;
+  min-width: 170px;
+}
+
+.porto-ops-sort-control span {
+  color: #9fb8d6;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-ops-sort-control select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 10px;
+  background: rgba(10, 17, 30, 0.86);
+  color: #e5e7eb;
+  padding: 8px 10px;
+  font-weight: 900;
+}
+
+.porto-ops-units-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.porto-ops-units-summary[hidden] {
+  display: none !important;
+}
+
+.porto-ops-summary-item {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(8, 13, 22, 0.4);
+}
+
+.porto-ops-summary-item > span:first-child {
+  grid-row: span 2;
+  color: #9fb8d6;
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.porto-ops-summary-item strong {
+  color: #f8fafc;
+  font-size: 25px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.porto-ops-summary-item small {
+  color: rgba(229, 231, 235, 0.8);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.porto-ops-summary-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 5px rgba(148, 163, 184, 0.12);
+}
+
+.porto-ops-summary-dot.available { background: #7bbf5b; }
+.porto-ops-summary-dot.driving { background: #48c9d9; }
+.porto-ops-summary-dot.onscene { background: #5a99ed; }
+.porto-ops-summary-dot.unavailable { background: #b8c0ca; }
+.porto-ops-summary-dot.transport { background: #91b7f1; }
+.porto-ops-summary-dot.speech { background: #e17000; }
+.porto-ops-summary-dot.urgent { background: #ff3030; }
+
+.porto-ops-units.modern {
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 12px;
+}
+
+.porto-ops-units.modern.list {
+  grid-template-columns: 1fr;
+}
+
+.porto-modern-unit-card {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(8, 112, 154, 0.13), rgba(15, 23, 42, 0.68)),
+    rgba(15, 23, 42, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.porto-modern-unit-card:hover {
+  border-color: rgba(245, 158, 11, 0.42);
+}
+
+.porto-modern-unit-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.porto-modern-callsign {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: context-menu;
+}
+
+.porto-modern-callsign strong {
+  color: #f8fafc;
+  font-size: clamp(24px, 3.2vw, 34px);
+  font-weight: 1000;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.porto-modern-status-light {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #94a3b8;
+  box-shadow: 0 0 0 6px rgba(148, 163, 184, 0.14);
+}
+
+.porto-modern-status-light.available { background: #7bbf5b; box-shadow: 0 0 0 6px rgba(123, 191, 91, 0.16); }
+.porto-modern-status-light.driving { background: #48c9d9; box-shadow: 0 0 0 6px rgba(72, 201, 217, 0.16); }
+.porto-modern-status-light.onscene { background: #5a99ed; box-shadow: 0 0 0 6px rgba(90, 153, 237, 0.16); }
+.porto-modern-status-light.unavailable { background: #b8c0ca; box-shadow: 0 0 0 6px rgba(184, 192, 202, 0.16); }
+.porto-modern-status-light.transport { background: #91b7f1; box-shadow: 0 0 0 6px rgba(145, 183, 241, 0.16); }
+.porto-modern-status-light.speech { background: #e17000; box-shadow: 0 0 0 6px rgba(225, 112, 0, 0.18); }
+.porto-modern-status-light.urgent { background: #ff3030; box-shadow: 0 0 0 6px rgba(255, 48, 48, 0.16); }
+
+.porto-modern-vehicle {
+  min-width: 0;
+  border: 0;
+  border-left: 1px solid rgba(148, 163, 184, 0.24);
+  background: transparent;
+  color: #e5e7eb;
+  padding: 4px 0 4px 14px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 850;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: context-menu;
+}
+
+.porto-modern-vehicle:hover {
+  color: #f8c471;
+}
+
+.porto-modern-status {
+  justify-self: end;
+  cursor: context-menu;
+}
+
+.porto-modern-status .porto-status-pill {
+  min-height: 32px;
+  padding: 7px 13px;
+  font-size: 12px;
+}
+
+.porto-modern-unit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.porto-modern-channel {
+  color: #f8c471;
+}
+
+.porto-modern-members {
+  display: grid;
+  gap: 8px;
+}
+
+.porto-modern-member {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  cursor: context-menu;
+}
+
+.porto-modern-member-initial {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(8, 112, 154, 0.75), rgba(4, 42, 74, 0.92));
+  color: #d8f1ff;
+  font-weight: 1000;
+}
+
+.porto-modern-member strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 950;
+  overflow-wrap: anywhere;
+}
+
+.porto-modern-member.no-ibt strong {
+  color: #ff3b3b;
+}
+
+.porto-modern-member-specs {
+  display: block;
+  margin-top: 2px;
+  color: #9fb8d6;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-modern-member-action {
+  width: 32px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.porto-modern-member-action:hover {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f8c471;
+}
+
+.porto-discord-channels.modern {
+  gap: 12px;
+}
+
+.porto-discord-channel.modern {
+  border-color: rgba(8, 112, 154, 0.42);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.porto-discord-channel.modern .porto-discord-channel-units {
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+}
+
+.porto-discord-channel.modern .porto-modern-unit-card {
+  background:
+    linear-gradient(135deg, rgba(8, 112, 154, 0.1), rgba(15, 23, 42, 0.58)),
+    rgba(8, 13, 22, 0.42);
+}
+
+@media (max-width: 920px) {
+  .porto-ops-units-toolbar {
+    justify-content: flex-start;
+  }
+
+  .porto-ops-sort-control {
+    min-width: min(100%, 220px);
+  }
+
+  .porto-modern-unit-head {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .porto-modern-vehicle {
+    border-left: 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 9px 0 0;
+  }
+
+  .porto-modern-status {
+    justify-self: start;
+  }
 }
 /* Porto OPS grouped unit cards: gekoppelde leden blijven binnen hetzelfde roepnummerblok. */
 .porto-ops-unit-card.grouped {

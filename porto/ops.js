@@ -276,8 +276,129 @@ function memberStatusLabel(member) {
   return member.statusDetail ? `${status.title} - ${member.statusDetail}` : `${status.title} - ${status.label}`;
 }
 
+function opsStatusSortRank(status) {
+  const ranks = { "7": 0, "6": 1, "5": 2, "1": 3, "2": 4, "3": 5, "4": 6 };
+  return Object.prototype.hasOwnProperty.call(ranks, String(status)) ? ranks[String(status)] : 7;
+}
+
+function opsUnitSortRank(unit) {
+  const members = Array.isArray(unit?.members) ? unit.members : [];
+  if (!members.length) return 7;
+  return Math.min(...members.map((member) => opsStatusSortRank(member.status)));
+}
+
+function opsUnitVehicleLine(unit) {
+  return unit?.vehicleName || `${unit?.vehicleCode ? `${unit.vehicleCode} - ` : ""}${unit?.vehicleType || "Geen voertuig"}`;
+}
+
+function opsUnitChannelLabel(unit) {
+  const channelKey = String(unit?.discordChannelKey || "").trim();
+  if (!channelKey) return "Niet in reguliere porto";
+  const channel = (portoDiscordChannels || []).find((entry) => entry.key === channelKey);
+  return channel?.label || channelKey;
+}
+
+function sortedOpsUnitGroups(units) {
+  const list = [...(units || [])];
+  return list.sort((a, b) => {
+    if (portoOpsUnitSort === "number") {
+      return (a.vehicleNumber || "").localeCompare(b.vehicleNumber || "", "nl", { numeric: true });
+    }
+    if (portoOpsUnitSort === "channel") {
+      const channelDelta = opsUnitChannelLabel(a).localeCompare(opsUnitChannelLabel(b), "nl", { numeric: true });
+      if (channelDelta) return channelDelta;
+      return (a.vehicleNumber || "").localeCompare(b.vehicleNumber || "", "nl", { numeric: true });
+    }
+    const statusDelta = opsUnitSortRank(a) - opsUnitSortRank(b);
+    if (statusDelta) return statusDelta;
+    return (a.vehicleNumber || "").localeCompare(b.vehicleNumber || "", "nl", { numeric: true });
+  });
+}
+
+function memberHasIbt(member) {
+  return opsMemberSpecializations(member).includes("IBT");
+}
+
+function visibleModernSpecializations(member) {
+  return opsMemberSpecializations(member).filter((item) => item !== "IBT");
+}
+
+function memberInitial(name) {
+  return String(name || "?").trim().charAt(0).toUpperCase() || "?";
+}
+
+function setButtonPressed(button, active) {
+  if (!button) return;
+  button.classList.toggle("active", active);
+  button.setAttribute("aria-pressed", active ? "true" : "false");
+}
+
+function renderOpsViewControls() {
+  setButtonPressed($("#portoOpsClassicUiBtn"), portoOpsUiMode === "classic");
+  setButtonPressed($("#portoOpsModernUiBtn"), portoOpsUiMode === "modern");
+  setButtonPressed($("#portoOpsGridLayoutBtn"), portoOpsUnitLayout === "grid");
+  setButtonPressed($("#portoOpsListLayoutBtn"), portoOpsUnitLayout === "list");
+  const sortSelect = $("#portoOpsUnitSort");
+  if (sortSelect && sortSelect.value !== portoOpsUnitSort) sortSelect.value = portoOpsUnitSort;
+  const layoutToggle = $("#portoOpsGridLayoutBtn")?.closest(".porto-ops-layout-toggle");
+  if (layoutToggle) layoutToggle.hidden = portoOpsUiMode !== "modern";
+}
+
+function vehicleSummaryKey(unit) {
+  const text = `${unit?.vehicleCode || ""} ${unit?.vehicleType || ""} ${unit?.vehicleName || ""}`.toUpperCase();
+  if (text.includes("SIV")) return "SIV";
+  if (text.includes("OGM") || text.includes("ONGEMARKEERD")) return "OGM";
+  if (text.includes("OFR") || text.includes("OFF-ROAD") || text.includes("OFF ROAD")) return "Off-Road";
+  if (text.includes("NH") || text.includes("NOODHULP")) return "NH";
+  return "";
+}
+
+function renderOpsUnitsSummary(units) {
+  const summary = $("#portoOpsUnitsSummary");
+  if (!summary) return;
+  const activeUnits = units || [];
+  summary.hidden = portoOpsUiMode !== "modern";
+  if (summary.hidden) return;
+  const members = activeUnits.flatMap((unit) => unit.members || []);
+  const statusCounts = new Map();
+  for (const member of members) {
+    const code = String(member.status || "");
+    statusCounts.set(code, (statusCounts.get(code) || 0) + 1);
+  }
+  const vehicleCounts = new Map([["NH", 0], ["Off-Road", 0], ["SIV", 0], ["OGM", 0]]);
+  for (const unit of activeUnits) {
+    const key = vehicleSummaryKey(unit);
+    if (key) vehicleCounts.set(key, (vehicleCounts.get(key) || 0) + 1);
+  }
+  const statusItems = ["1", "4", "2", "3"].map((code) => {
+    const status = portoStatuses.find((entry) => entry.code === code);
+    const summaryLabels = { "2": "Onderweg", "3": "Op locatie", "4": "Afwezig" };
+    const fake = { status: code };
+    return `
+      <article class="porto-ops-summary-item status-${escapeHtml(status?.className || code)}">
+        <span class="porto-ops-summary-dot ${escapeHtml(statusClassName(fake))}"></span>
+        <strong>${statusCounts.get(code) || 0}</strong>
+        <small>${escapeHtml(summaryLabels[code] || status?.label || `Status ${code}`)}</small>
+      </article>`;
+  }).join("");
+  const vehicleItems = [...vehicleCounts.entries()].map(([label, count]) => `
+    <article class="porto-ops-summary-item vehicle">
+      <span>${escapeHtml(label)}</span>
+      <strong>${count}</strong>
+      <small>voertuigen</small>
+    </article>`).join("");
+  summary.innerHTML = `
+    <article class="porto-ops-summary-item total">
+      <span>Mensen</span>
+      <strong>${members.length}</strong>
+      <small>${activeUnits.length} eenheden</small>
+    </article>
+    ${statusItems}
+    ${vehicleItems}`;
+}
+
 function renderOpsUnitCard(unit, options = {}) {
-  const vehicleLine = unit.vehicleName || `${unit.vehicleCode ? `${unit.vehicleCode} - ` : ""}${unit.vehicleType || "Geen voertuig"}`;
+  const vehicleLine = opsUnitVehicleLine(unit);
   const primaryMember = (unit.members || [])[0] || {};
   const primaryActionId = primaryOpsMemberId(unit);
   const statusButton = primaryActionId
@@ -310,17 +431,66 @@ function renderOpsUnitCard(unit, options = {}) {
     </article>`;
 }
 
+function renderModernOpsUnitCard(unit, options = {}) {
+  const vehicleLine = opsUnitVehicleLine(unit);
+  const primaryMember = (unit.members || [])[0] || {};
+  const primaryActionId = primaryOpsMemberId(unit);
+  const memberCount = (unit.members || []).length;
+  const members = (unit.members || []).slice(0, 3).map((member) => {
+    const hasIbt = memberHasIbt(member);
+    const specializations = visibleModernSpecializations(member);
+    const specsHtml = specializations.length
+      ? `<span class="porto-modern-member-specs">${specializations.map((item) => escapeHtml(item)).join(" / ")}</span>`
+      : "";
+    return `
+      <article class="porto-modern-member ${hasIbt ? "" : "no-ibt"}" data-ops-unit-member="${escapeHtml(member.id)}" title="Rechtermuisknop voor acties">
+        <span class="porto-modern-member-initial">${escapeHtml(memberInitial(member.name))}</span>
+        <div>
+          <strong>${escapeHtml(member.name || "Onbekend")}</strong>
+          ${specsHtml}
+        </div>
+        <button class="porto-modern-member-action" type="button" data-ops-open-menu="${escapeHtml(member.id)}" aria-label="Acties voor ${escapeHtml(member.name || "persoon")}">&rsaquo;</button>
+      </article>`;
+  }).join("");
+  const statusButton = primaryActionId
+    ? `<button class="porto-status-pill porto-ops-status-button ${statusClassName(primaryMember)}" type="button" data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen">${escapeHtml(memberStatusLabel(primaryMember))}</button>`
+    : '<span class="porto-status-pill pending">Geen status</span>';
+  const channelLabel = options.channelCard ? "" : `<span class="porto-modern-channel">${escapeHtml(opsUnitChannelLabel(unit))}</span>`;
+  return `
+    <article class="porto-modern-unit-card ${unit.autoOffline ? "auto-offline" : ""} ${options.channelCard ? "in-channel" : ""}" ${primaryActionId ? `data-ops-unit-card="${escapeHtml(primaryActionId)}"` : ""}>
+      <header class="porto-modern-unit-head">
+        <div class="porto-modern-callsign" data-ops-number-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor nummer wijzigen">
+          <span class="porto-modern-status-light ${statusClassName(primaryMember)}"></span>
+          <strong>${escapeHtml(unit.vehicleNumber || "-")}</strong>
+        </div>
+        <button class="porto-modern-vehicle" type="button" data-ops-vehicle-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor voertuig wijzigen">${escapeHtml(vehicleLine)}</button>
+        <div class="porto-modern-status" data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen">${statusButton}</div>
+      </header>
+      <div class="porto-modern-unit-meta">
+        <span>${memberCount}/3 personen</span>
+        ${channelLabel}
+      </div>
+      <div class="porto-modern-members">${members}</div>
+    </article>`;
+}
+
 function renderOpsUnits() {
   const list = $("#portoOpsUnits");
   const count = $("#portoOpsUnitsCount");
   if (!list || !count) return;
-  const memberCount = portoActiveUnits.reduce((total, unit) => total + (unit.members || []).length, 0);
+  renderOpsViewControls();
+  const units = sortedOpsUnitGroups(portoActiveUnits);
+  const memberCount = units.reduce((total, unit) => total + (unit.members || []).length, 0);
   count.textContent = `${memberCount} actief`;
-  if (!portoActiveUnits.length) {
+  renderOpsUnitsSummary(units);
+  list.className = `porto-ops-units ${portoOpsUiMode === "modern" ? "modern" : "classic"} ${portoOpsUnitLayout === "list" ? "list" : "grid"}`;
+  if (!units.length) {
     list.innerHTML = '<div class="porto-ops-empty">Geen actieve eenheden.</div>';
     return;
   }
-  list.innerHTML = portoActiveUnits.map((unit) => renderOpsUnitCard(unit)).join("");
+  list.innerHTML = units
+    .map((unit) => portoOpsUiMode === "modern" ? renderModernOpsUnitCard(unit) : renderOpsUnitCard(unit))
+    .join("");
 }
 
 function renderDiscordChannels() {
@@ -329,13 +499,14 @@ function renderDiscordChannels() {
   const channels = portoDiscordChannels || [];
   const channelsByKey = new Map(channels.map((channel) => [channel.key, channel]));
   const visibleGroups = (portoDiscordChannelGroups || []).filter((group) => (group.units || []).length > 0);
+  container.className = `porto-discord-channels ${portoOpsUiMode === "modern" ? "modern" : "classic"}`;
   if (!visibleGroups.length) {
     container.innerHTML = '<div class="porto-ops-empty">Geen Discord Porto-kanalen actief.</div>';
     return;
   }
   container.innerHTML = visibleGroups.map((group) => {
     const channel = channelsByKey.get(group.key) || group;
-    const units = group.units || [];
+    const units = sortedOpsUnitGroups(group.units || []);
     const canManageDiscordChannel = Boolean(channel.configured && !group.readonly);
     const channelAttribute = canManageDiscordChannel ? ` data-discord-channel="${escapeHtml(channel.key)}"` : "";
     const statusControl = canManageDiscordChannel
@@ -343,13 +514,13 @@ function renderDiscordChannels() {
           <button class="porto-ops-assign secondary" type="button" data-save-discord-channel-status="${escapeHtml(channel.key)}">Opslaan</button>`
       : '<span class="porto-discord-channel-note">Niet gekoppeld aan een regulier Porto-kanaal</span>';
     return `
-      <article class="porto-discord-channel ${canManageDiscordChannel ? "" : "readonly"}"${channelAttribute}>
+      <article class="porto-discord-channel ${portoOpsUiMode === "modern" ? "modern" : ""} ${canManageDiscordChannel ? "" : "readonly"}"${channelAttribute}>
         <header class="porto-discord-channel-head">
           <strong>${escapeHtml(channel.label || channel.key)}</strong>
           ${statusControl}
         </header>
         <div class="porto-discord-channel-units">
-          ${units.map((unit) => renderOpsUnitCard(unit, { channelCard: true })).join("")}
+          ${units.map((unit) => portoOpsUiMode === "modern" ? renderModernOpsUnitCard(unit, { channelCard: true }) : renderOpsUnitCard(unit, { channelCard: true })).join("")}
         </div>
       </article>`;
   }).join("");
