@@ -1160,7 +1160,7 @@ body.porto-ops-workspace .porto-ops-choice select {
 .porto-discord-channel {
   border: 1px solid rgba(59, 130, 246, 0.34);
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.64);
+  background: rgba(15, 23, 42, 0.6);
   padding: 12px;
 }
 
@@ -1204,13 +1204,13 @@ body.porto-ops-workspace .porto-ops-choice select {
 
 .porto-discord-channel-units {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 10px;
   margin-top: 10px;
 }
 
-.porto-ops-unit-card.in-channel {
-  cursor: context-menu;
+.porto-discord-channels.list .porto-discord-channel-units {
+  grid-template-columns: 1fr;
 }
 
 .porto-ops-assign.danger {
@@ -1337,87 +1337,11 @@ body.porto-ops-workspace .porto-ops-choice select {
     font-size: clamp(15px, 4.8vw, 25px);
   }
 }
-/* Compact OPS unit overview */
-.porto-ops-units {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  align-items: start;
-}
-
-.porto-ops-unit-card.compact {
-  display: grid;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
- .porto-ops-unit-member.compact {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  align-items: stretch;
-  padding: 10px 12px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.58);
-  cursor: context-menu;
-}
-
-.porto-ops-unit-member.compact:hover {
-  border-color: rgba(245, 158, 11, 0.42);
-  background: rgba(30, 41, 59, 0.62);
-}
-
-.porto-ops-unit-left,
-.porto-ops-unit-right {
-  display: grid;
-  gap: 7px;
-}
-
-.porto-ops-unit-left > div,
-.porto-ops-unit-right > div {
-  display: grid;
-  gap: 3px;
-}
-
-.porto-ops-unit-left span,
-.porto-ops-unit-right span,
 .porto-ops-context-menu label > span {
   color: #9fb8d6;
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
-}
-
-.porto-ops-unit-left strong,
-.porto-ops-unit-right strong {
-  color: #f8fafc;
-  font-size: 13px;
-  font-weight: 900;
-  overflow-wrap: anywhere;
-}
-
-.porto-ops-unit-right {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  justify-items: start;
-  text-align: left;
-}
-
-.porto-ops-unit-right .porto-status-pill {
-  min-height: 26px;
-  padding: 5px 9px;
-  font-size: 11px;
-  white-space: normal;
-  justify-content: center;
-  text-align: center;
-}
-
-.porto-ops-specialties > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
 }
 
 .porto-specialty-pill {
@@ -1480,16 +1404,6 @@ body.porto-ops-workspace .porto-ops-choice select {
   color: #f8c471;
 }
 
-@media (max-width: 760px) {
-  .porto-ops-unit-member.compact {
-    grid-template-columns: 1fr;
-  }
-
-  .porto-ops-unit-right {
-    justify-items: start;
-    text-align: left;
-  }
-}
 .porto-ops-request-specialties {
   display: grid;
   gap: 5px;
@@ -1518,12 +1432,6 @@ body.porto-ops-workspace .porto-ops-choice select {
 .porto-map-controls [data-map-reset] {
   min-width: 68px;
 }
-@media (max-width: 1040px) {
-  .porto-ops-units {
-    grid-template-columns: 1fr;
-  }
-}
-
 .porto-ops-context-menu {
   min-width: 220px;
 }
@@ -1666,11 +1574,6 @@ body.porto-ops-workspace .porto-map-surface {
   }
 }
 /* Porto OPS test en eenheden-grid: kaarten vullen links/rechts per rij. */
-body.porto-ops-workspace .porto-ops-units {
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
-  grid-auto-flow: row;
-}
-
 body.porto-ops-workspace .porto-ops-empty {
   grid-column: 1 / -1;
 }
@@ -1688,7 +1591,6 @@ body.porto-ops-workspace .porto-ops-empty {
   gap: 10px;
 }
 
-.porto-ops-segmented,
 .porto-ops-layout-toggle {
   display: inline-flex;
   align-items: center;
@@ -1703,7 +1605,6 @@ body.porto-ops-workspace .porto-ops-empty {
   display: none !important;
 }
 
-.porto-ops-segmented button,
 .porto-ops-layout-toggle button {
   min-height: 34px;
   border: 1px solid transparent;
@@ -1723,35 +1624,10 @@ body.porto-ops-workspace .porto-ops-empty {
   line-height: 1;
 }
 
-.porto-ops-segmented button.active,
 .porto-ops-layout-toggle button.active {
   border-color: rgba(245, 158, 11, 0.62);
   background: rgba(245, 158, 11, 0.15);
   color: #fff7ed;
-}
-
-.porto-ops-sort-control {
-  display: grid;
-  gap: 4px;
-  min-width: 170px;
-}
-
-.porto-ops-sort-control span {
-  color: #9fb8d6;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.porto-ops-sort-control select {
-  width: 100%;
-  min-height: 38px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  border-radius: 10px;
-  background: rgba(10, 17, 30, 0.86);
-  color: #e5e7eb;
-  padding: 8px 10px;
-  font-weight: 900;
 }
 
 .porto-ops-units-summary {
@@ -1814,26 +1690,13 @@ body.porto-ops-workspace .porto-ops-empty {
 .porto-ops-summary-dot.speech { background: #e17000; }
 .porto-ops-summary-dot.urgent { background: #ff3030; }
 
-.porto-ops-units.modern {
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-  gap: 12px;
-}
-
-.porto-ops-units.modern.list {
-  grid-template-columns: 1fr;
-}
-
-.porto-ops-units[hidden] {
-  display: none !important;
-}
-
 .porto-modern-unit-card {
   min-width: 0;
   display: grid;
   gap: 10px;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 14px;
+  border-radius: 12px;
   background:
     linear-gradient(135deg, rgba(8, 112, 154, 0.13), rgba(15, 23, 42, 0.68)),
     rgba(15, 23, 42, 0.76);
@@ -1861,7 +1724,7 @@ body.porto-ops-workspace .porto-ops-empty {
 
 .porto-modern-callsign strong {
   color: #f8fafc;
-  font-size: clamp(24px, 3.2vw, 34px);
+  font-size: 31px;
   font-weight: 1000;
   line-height: 1;
   letter-spacing: 0;
@@ -1923,10 +1786,6 @@ body.porto-ops-workspace .porto-ops-empty {
   color: #bfdbfe;
   font-size: 12px;
   font-weight: 900;
-}
-
-.porto-modern-channel {
-  color: #f8c471;
 }
 
 .porto-modern-members {
@@ -2005,20 +1864,7 @@ body.porto-ops-workspace .porto-ops-empty {
   color: #f8c471;
 }
 
-.porto-discord-channels.modern {
-  gap: 12px;
-}
-
-.porto-discord-channel.modern {
-  border-color: rgba(8, 112, 154, 0.42);
-  background: rgba(15, 23, 42, 0.6);
-}
-
-.porto-discord-channel.modern .porto-discord-channel-units {
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-}
-
-.porto-discord-channel.modern .porto-modern-unit-card {
+.porto-discord-channel .porto-modern-unit-card {
   background:
     linear-gradient(135deg, rgba(8, 112, 154, 0.1), rgba(15, 23, 42, 0.58)),
     rgba(8, 13, 22, 0.42);
@@ -2027,10 +1873,6 @@ body.porto-ops-workspace .porto-ops-empty {
 @media (max-width: 920px) {
   .porto-ops-units-toolbar {
     justify-content: flex-start;
-  }
-
-  .porto-ops-sort-control {
-    min-width: min(100%, 220px);
   }
 
   .porto-modern-unit-head {
@@ -2047,169 +1889,10 @@ body.porto-ops-workspace .porto-ops-empty {
   .porto-modern-status {
     justify-self: start;
   }
-}
-/* Porto OPS grouped unit cards: gekoppelde leden blijven binnen hetzelfde roepnummerblok. */
-.porto-ops-unit-card.grouped {
-  display: grid;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid rgba(245, 158, 11, 0.42);
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.52);
-}
 
-.porto-ops-unit-group-head {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 4px 2px 8px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-}
-
-.porto-ops-unit-group-head div {
-  display: grid;
-  gap: 3px;
-}
-
-.porto-ops-unit-group-head span {
-  color: #9fb8d6;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.porto-ops-unit-group-head strong {
-  color: #f8fafc;
-  font-size: 14px;
-  font-weight: 1000;
-}
-
-.porto-ops-unit-group-members {
-  display: grid;
-  gap: 8px;
-}
-
-.porto-ops-unit-card.grouped .porto-ops-unit-member.compact {
-  border-color: rgba(148, 163, 184, 0.14);
-  background: rgba(8, 13, 22, 0.38);
-}
-@media (min-width: 1180px) {
-  .porto-ops-unit-group-members {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .porto-modern-callsign strong {
+    font-size: 28px;
   }
-}
-
-@media (min-width: 760px) and (max-width: 1179px) {
-  .porto-ops-unit-group-members {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 760px) {
-  .porto-ops-unit-group-members.two-members {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .porto-ops-unit-group-members.three-members {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 759px) {
-  .porto-ops-unit-group-members,
-  .porto-ops-unit-group-members.two-members,
-  .porto-ops-unit-group-members.three-members {
-    grid-template-columns: 1fr;
-  }
-}
-/* Porto OPS unit header: roepnummer links, status midden, voertuig rechts. */
-.porto-ops-unit-group-head.three-columns {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-}
-
-.porto-ops-unit-group-head.three-columns > div:nth-child(2) {
-  justify-items: center;
-  text-align: center;
-}
-
-.porto-ops-unit-group-head.three-columns > div:nth-child(3) {
-  justify-items: end;
-  text-align: right;
-}
-
-.porto-ops-unit-group-head .porto-status-pill {
-  width: max-content;
-  max-width: 100%;
-}
-
-.porto-ops-unit-card.grouped .porto-ops-unit-group-members {
-  padding-top: 2px;
-}
-
-.porto-ops-unit-card.grouped .porto-ops-unit-member.compact {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  padding: 8px 10px;
-}
-
-.porto-ops-unit-card.grouped .porto-ops-unit-member.compact + .porto-ops-unit-member.compact {
-  border-left: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-@media (max-width: 759px) {
-  .porto-ops-unit-group-head.three-columns {
-    grid-template-columns: 1fr;
-  }
-
-  .porto-ops-unit-group-head.three-columns > div:nth-child(2),
-  .porto-ops-unit-group-head.three-columns > div:nth-child(3) {
-    justify-items: start;
-    text-align: left;
-  }
-
-  .porto-ops-unit-card.grouped .porto-ops-unit-member.compact + .porto-ops-unit-member.compact {
-    border-left: 0;
-    border-top: 1px solid rgba(148, 163, 184, 0.14);
-  }
-}
-/* Porto OPS unit header typography: zelfde balk, grotere inhoud. */
-.porto-ops-unit-group-head.three-columns span {
-  font-size: 12px;
-}
-
-.porto-ops-unit-group-head.three-columns strong {
-  font-size: 16px;
-}
-
-.porto-ops-unit-group-head.three-columns .porto-status-pill {
-  min-height: 34px;
-  padding: 8px 16px;
-  font-size: 13px;
-}
-/* Porto OPS header actions: nummer en voertuig zijn klikbaar zonder als grote knoppen te ogen. */
-.porto-unit-header-action {
-  width: fit-content;
-  max-width: 100%;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: #f8fafc;
-  padding: 2px 0;
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: 1000;
-  text-align: left;
-  cursor: pointer;
-}
-
-.porto-unit-header-action.align-right {
-  justify-self: end;
-  text-align: right;
-}
-
-.porto-unit-header-action:hover {
-  color: #f8c471;
 }
 /* Porto OPS IBT signalering */
 .porto-specialty-pill.no-ibt {
@@ -2277,11 +1960,7 @@ body.porto-duty-workspace .porto-status-grid {
 }
 
 /* OPS context targets: deze velden werken via rechtermuisknop, dus cursor en hint horen daarbij. */
-.porto-ops-unit-group-head [data-ops-number-unit],
-.porto-ops-unit-group-head [data-ops-status-unit],
-.porto-ops-unit-group-head [data-ops-vehicle-unit],
-.porto-ops-status-button,
-.porto-unit-header-action {
+.porto-ops-status-button {
   cursor: context-menu;
 }
 
@@ -2292,19 +1971,19 @@ body.porto-duty-workspace .porto-status-grid {
   color: #fecaca;
 }
 
-.porto-ops-unit-card.grouped.auto-offline,
-.porto-ops-unit-member.auto-offline {
+.porto-modern-unit-card.auto-offline,
+.porto-modern-member.auto-offline {
   position: relative;
   overflow: hidden;
   border-color: rgba(239, 68, 68, 0.55);
 }
 
-.porto-ops-unit-member.auto-offline .porto-ops-unit-left {
+.porto-modern-member.auto-offline > div {
   opacity: 0.48;
 }
 
-.porto-ops-unit-member.auto-offline::before,
-.porto-ops-unit-member.auto-offline::after {
+.porto-modern-member.auto-offline::before,
+.porto-modern-member.auto-offline::after {
   content: "";
   position: absolute;
   left: 8px;
@@ -2317,11 +1996,11 @@ body.porto-duty-workspace .porto-status-grid {
   z-index: 3;
 }
 
-.porto-ops-unit-member.auto-offline::before {
+.porto-modern-member.auto-offline::before {
   transform: rotate(15deg);
 }
 
-.porto-ops-unit-member.auto-offline::after {
+.porto-modern-member.auto-offline::after {
   transform: rotate(-15deg);
 }
 

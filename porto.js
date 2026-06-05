@@ -44,9 +44,7 @@ let portoOpsWritePromise = null;
 let portoLastDutyLoadAt = 0;
 let portoDeferredDutyLoadTimer = null;
 const PORTO_AUTO_REFRESH_MS = 8000;
-const PORTO_OPS_UI_MODE_KEY = "orp-porto-ops-ui-mode";
 const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
-const PORTO_OPS_SORT_KEY = "orp-porto-ops-sort";
 
 function portoStorageGet(key, fallback) {
   try {
@@ -64,12 +62,8 @@ function portoStorageSet(key, value) {
   }
 }
 
-const storedOpsUiMode = portoStorageGet(PORTO_OPS_UI_MODE_KEY, "classic");
 const storedOpsLayout = portoStorageGet(PORTO_OPS_LAYOUT_KEY, "grid");
-const storedOpsSort = portoStorageGet(PORTO_OPS_SORT_KEY, "status");
-let portoOpsUiMode = ["classic", "modern"].includes(storedOpsUiMode) ? storedOpsUiMode : "classic";
 let portoOpsUnitLayout = ["grid", "list"].includes(storedOpsLayout) ? storedOpsLayout : "grid";
-let portoOpsUnitSort = ["status", "number", "channel"].includes(storedOpsSort) ? storedOpsSort : "status";
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
@@ -299,16 +293,6 @@ $("#portoShowDutyViewBtn")?.addEventListener("click", () => {
   renderDutyPanel();
   renderOpsPanel();
 });
-$("#portoOpsClassicUiBtn")?.addEventListener("click", () => {
-  portoOpsUiMode = "classic";
-  portoStorageSet(PORTO_OPS_UI_MODE_KEY, portoOpsUiMode);
-  renderOpsPanel();
-});
-$("#portoOpsModernUiBtn")?.addEventListener("click", () => {
-  portoOpsUiMode = "modern";
-  portoStorageSet(PORTO_OPS_UI_MODE_KEY, portoOpsUiMode);
-  renderOpsPanel();
-});
 $("#portoOpsGridLayoutBtn")?.addEventListener("click", () => {
   portoOpsUnitLayout = "grid";
   portoStorageSet(PORTO_OPS_LAYOUT_KEY, portoOpsUnitLayout);
@@ -317,11 +301,6 @@ $("#portoOpsGridLayoutBtn")?.addEventListener("click", () => {
 $("#portoOpsListLayoutBtn")?.addEventListener("click", () => {
   portoOpsUnitLayout = "list";
   portoStorageSet(PORTO_OPS_LAYOUT_KEY, portoOpsUnitLayout);
-  renderOpsPanel();
-});
-$("#portoOpsUnitSort")?.addEventListener("change", (event) => {
-  portoOpsUnitSort = ["status", "number", "channel"].includes(event.target.value) ? event.target.value : "status";
-  portoStorageSet(PORTO_OPS_SORT_KEY, portoOpsUnitSort);
   renderOpsPanel();
 });
 $("#portoOpsRequests").addEventListener("pointerdown", holdOpsRequestInteraction);
@@ -411,8 +390,6 @@ async function handleOpsUnitContextMenu(event) {
   }
 }
 
-$("#portoOpsUnits").addEventListener("click", handleOpsUnitClick);
-$("#portoOpsUnits").addEventListener("contextmenu", handleOpsUnitContextMenu);
 $("#portoDiscordChannels")?.addEventListener("click", handleOpsUnitClick);
 $("#portoDiscordChannels")?.addEventListener("contextmenu", handleOpsUnitContextMenu);
 

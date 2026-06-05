@@ -291,24 +291,9 @@ function opsUnitVehicleLine(unit) {
   return unit?.vehicleName || `${unit?.vehicleCode ? `${unit.vehicleCode} - ` : ""}${unit?.vehicleType || "Geen voertuig"}`;
 }
 
-function opsUnitChannelLabel(unit) {
-  const channelKey = String(unit?.discordChannelKey || "").trim();
-  if (!channelKey) return "Niet in reguliere porto";
-  const channel = (portoDiscordChannels || []).find((entry) => entry.key === channelKey);
-  return channel?.label || channelKey;
-}
-
 function sortedOpsUnitGroups(units) {
   const list = [...(units || [])];
   return list.sort((a, b) => {
-    if (portoOpsUnitSort === "number") {
-      return (a.vehicleNumber || "").localeCompare(b.vehicleNumber || "", "nl", { numeric: true });
-    }
-    if (portoOpsUnitSort === "channel") {
-      const channelDelta = opsUnitChannelLabel(a).localeCompare(opsUnitChannelLabel(b), "nl", { numeric: true });
-      if (channelDelta) return channelDelta;
-      return (a.vehicleNumber || "").localeCompare(b.vehicleNumber || "", "nl", { numeric: true });
-    }
     const statusDelta = opsUnitSortRank(a) - opsUnitSortRank(b);
     if (statusDelta) return statusDelta;
     return (a.vehicleNumber || "").localeCompare(b.vehicleNumber || "", "nl", { numeric: true });
@@ -340,14 +325,8 @@ function setButtonPressed(button, active) {
 }
 
 function renderOpsViewControls() {
-  setButtonPressed($("#portoOpsClassicUiBtn"), portoOpsUiMode === "classic");
-  setButtonPressed($("#portoOpsModernUiBtn"), portoOpsUiMode === "modern");
   setButtonPressed($("#portoOpsGridLayoutBtn"), portoOpsUnitLayout === "grid");
   setButtonPressed($("#portoOpsListLayoutBtn"), portoOpsUnitLayout === "list");
-  const sortSelect = $("#portoOpsUnitSort");
-  if (sortSelect && sortSelect.value !== portoOpsUnitSort) sortSelect.value = portoOpsUnitSort;
-  const layoutToggle = $("#portoOpsGridLayoutBtn")?.closest(".porto-ops-layout-toggle");
-  if (layoutToggle) layoutToggle.hidden = portoOpsUiMode !== "modern";
 }
 
 function vehicleSummaryKey(unit) {
@@ -363,8 +342,7 @@ function renderOpsUnitsSummary(units) {
   const summary = $("#portoOpsUnitsSummary");
   if (!summary) return;
   const activeUnits = units || [];
-  summary.hidden = portoOpsUiMode !== "modern";
-  if (summary.hidden) return;
+  summary.hidden = false;
   const members = activeUnits.flatMap((unit) => unit.members || []);
   const statusCounts = new Map();
   for (const member of members) {
@@ -403,40 +381,6 @@ function renderOpsUnitsSummary(units) {
     ${vehicleItems}`;
 }
 
-function renderOpsUnitCard(unit, options = {}) {
-  const vehicleLine = opsUnitVehicleLine(unit);
-  const primaryMember = (unit.members || [])[0] || {};
-  const primaryActionId = primaryOpsMemberId(unit);
-  const statusButton = primaryActionId
-    ? `<button class="porto-status-pill porto-ops-status-button ${statusClassName(primaryMember)}" type="button" data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen">${escapeHtml(memberStatusLabel(primaryMember))}</button>`
-    : '<span class="porto-status-pill pending">Geen status</span>';
-  const members = (unit.members || []).map((member) => {
-    const specializations = opsMemberSpecializations(member);
-    const hasIbt = specializations.includes("IBT");
-    const specialtyPills = specializations.map((item) => `<span class="porto-specialty-pill">${escapeHtml(item)}</span>`);
-    if (!hasIbt) specialtyPills.push('<span class="porto-specialty-pill no-ibt">Geen IBT</span>');
-    const specializationsHtml = specialtyPills.length
-      ? `<div class="porto-ops-specialties">${specializations.length ? "<span>Specialisaties:</span>" : ""}<div>${specialtyPills.join("")}</div></div>`
-      : "";
-    return `
-      <article class="porto-ops-unit-member compact ${member.autoOffline ? "auto-offline" : ""}" data-ops-unit-member="${escapeHtml(member.id)}" title="Rechtermuisknop voor koppelen of uit dienst melden">
-        <div class="porto-ops-unit-left">
-          <div><span>Naam:</span><strong>${escapeHtml(member.name || "Onbekend")}</strong></div>
-          ${specializationsHtml}
-        </div>
-      </article>`;
-  }).join("");
-  return `
-    <article class="porto-ops-unit-card compact grouped ${unit.autoOffline ? "auto-offline" : ""} ${options.channelCard ? "in-channel" : ""}" ${primaryActionId ? `data-ops-unit-card="${escapeHtml(primaryActionId)}"` : ""}>
-      <header class="porto-ops-unit-group-head three-columns">
-        <div data-ops-number-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor nummer wijzigen"><span>Roepnummer:</span><button class="porto-unit-header-action" type="button" tabindex="-1">${escapeHtml(unit.vehicleNumber || "-")}</button></div>
-        <div data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen"><span>Status:</span>${statusButton}</div>
-        <div data-ops-vehicle-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor voertuig wijzigen"><span>Voertuig:</span><button class="porto-unit-header-action align-right" type="button" tabindex="-1">${escapeHtml(vehicleLine)}</button></div>
-      </header>
-      <div class="porto-ops-unit-group-members ${unit.members?.length >= 3 ? "three-members" : "two-members"}">${members}</div>
-    </article>`;
-}
-
 function renderModernOpsUnitCard(unit, options = {}) {
   const vehicleLine = opsUnitVehicleLine(unit);
   const primaryMember = (unit.members || [])[0] || {};
@@ -449,7 +393,7 @@ function renderModernOpsUnitCard(unit, options = {}) {
       ? `<span class="porto-modern-member-specs">${specializations.map((item) => escapeHtml(item)).join(" / ")}</span>`
       : "";
     return `
-      <article class="porto-modern-member ${hasIbt ? "" : "no-ibt"}" data-ops-unit-member="${escapeHtml(member.id)}" title="Rechtermuisknop voor acties">
+      <article class="porto-modern-member ${hasIbt ? "" : "no-ibt"} ${member.autoOffline ? "auto-offline" : ""}" data-ops-unit-member="${escapeHtml(member.id)}" title="Rechtermuisknop voor acties">
         ${memberAvatarHtml(member)}
         <div>
           <strong>${escapeHtml(member.name || "Onbekend")}</strong>
@@ -461,7 +405,6 @@ function renderModernOpsUnitCard(unit, options = {}) {
   const statusButton = primaryActionId
     ? `<button class="porto-status-pill porto-ops-status-button ${statusClassName(primaryMember)}" type="button" data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen">${escapeHtml(memberStatusLabel(primaryMember))}</button>`
     : '<span class="porto-status-pill pending">Geen status</span>';
-  const channelLabel = options.channelCard ? "" : `<span class="porto-modern-channel">${escapeHtml(opsUnitChannelLabel(unit))}</span>`;
   return `
     <article class="porto-modern-unit-card ${unit.autoOffline ? "auto-offline" : ""} ${options.channelCard ? "in-channel" : ""}" ${primaryActionId ? `data-ops-unit-card="${escapeHtml(primaryActionId)}"` : ""}>
       <header class="porto-modern-unit-head">
@@ -474,35 +417,19 @@ function renderModernOpsUnitCard(unit, options = {}) {
       </header>
       <div class="porto-modern-unit-meta">
         <span>${memberCount}/3 personen</span>
-        ${channelLabel}
       </div>
       <div class="porto-modern-members">${members}</div>
     </article>`;
 }
 
 function renderOpsUnits() {
-  const list = $("#portoOpsUnits");
   const count = $("#portoOpsUnitsCount");
-  if (!list || !count) return;
+  if (!count) return;
   renderOpsViewControls();
   const units = sortedOpsUnitGroups(portoActiveUnits);
   const memberCount = units.reduce((total, unit) => total + (unit.members || []).length, 0);
   count.textContent = `${memberCount} actief`;
   renderOpsUnitsSummary(units);
-  list.className = `porto-ops-units ${portoOpsUiMode === "modern" ? "modern" : "classic"} ${portoOpsUnitLayout === "list" ? "list" : "grid"}`;
-  if (portoOpsUiMode === "modern") {
-    list.hidden = true;
-    list.innerHTML = "";
-    return;
-  }
-  list.hidden = false;
-  if (!units.length) {
-    list.innerHTML = '<div class="porto-ops-empty">Geen actieve eenheden.</div>';
-    return;
-  }
-  list.innerHTML = units
-    .map((unit) => portoOpsUiMode === "modern" ? renderModernOpsUnitCard(unit) : renderOpsUnitCard(unit))
-    .join("");
 }
 
 function renderDiscordChannels() {
@@ -511,7 +438,7 @@ function renderDiscordChannels() {
   const channels = portoDiscordChannels || [];
   const channelsByKey = new Map(channels.map((channel) => [channel.key, channel]));
   const visibleGroups = (portoDiscordChannelGroups || []).filter((group) => (group.units || []).length > 0);
-  container.className = `porto-discord-channels ${portoOpsUiMode === "modern" ? "modern" : "classic"}`;
+  container.className = `porto-discord-channels ${portoOpsUnitLayout === "list" ? "list" : "grid"}`;
   if (!visibleGroups.length) {
     container.innerHTML = '<div class="porto-ops-empty">Geen Discord Porto-kanalen actief.</div>';
     return;
@@ -526,13 +453,13 @@ function renderDiscordChannels() {
           <button class="porto-ops-assign secondary" type="button" data-save-discord-channel-status="${escapeHtml(channel.key)}">Opslaan</button>`
       : '<span class="porto-discord-channel-note">Niet gekoppeld aan een regulier Porto-kanaal</span>';
     return `
-      <article class="porto-discord-channel ${portoOpsUiMode === "modern" ? "modern" : ""} ${canManageDiscordChannel ? "" : "readonly"}"${channelAttribute}>
+      <article class="porto-discord-channel ${canManageDiscordChannel ? "" : "readonly"}"${channelAttribute}>
         <header class="porto-discord-channel-head">
           <strong>${escapeHtml(channel.label || channel.key)}</strong>
           ${statusControl}
         </header>
         <div class="porto-discord-channel-units">
-          ${units.map((unit) => portoOpsUiMode === "modern" ? renderModernOpsUnitCard(unit, { channelCard: true }) : renderOpsUnitCard(unit, { channelCard: true })).join("")}
+          ${units.map((unit) => renderModernOpsUnitCard(unit, { channelCard: true })).join("")}
         </div>
       </article>`;
   }).join("");

@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Porto-Systeem | Defensie Oranjestad</title>
     <link rel="stylesheet" href="shared.css?v=20260519-notice-polish" />
-    <link rel="stylesheet" href="porto.css?v=20260605-modern-avatar-summary" />
+    <link rel="stylesheet" href="porto.css?v=20260605-primary-modern-ui" />
   </head>
   <body class="porto-blank porto-locked">
     <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
@@ -170,18 +170,6 @@
                   </div>
                   <div class="porto-ops-units-toolbar">
                     <span id="portoOpsUnitsCount" class="porto-status-pill pending">0 actief</span>
-                    <div class="porto-ops-segmented" aria-label="OPS UI kiezen">
-                      <button id="portoOpsClassicUiBtn" type="button" data-ops-ui-mode="classic">Oude UI</button>
-                      <button id="portoOpsModernUiBtn" type="button" data-ops-ui-mode="modern">Nieuwe UI</button>
-                    </div>
-                    <label class="porto-ops-sort-control">
-                      <span>Sorteren</span>
-                      <select id="portoOpsUnitSort">
-                        <option value="status">Status</option>
-                        <option value="number">Roepnummer</option>
-                        <option value="channel">Kanaal</option>
-                      </select>
-                    </label>
                     <div class="porto-ops-layout-toggle" aria-label="Kaartweergave">
                       <button id="portoOpsGridLayoutBtn" type="button" data-ops-layout="grid" title="Blokken">&#9638;</button>
                       <button id="portoOpsListLayoutBtn" type="button" data-ops-layout="list" title="Lijst">&#9776;</button>
@@ -189,7 +177,6 @@
                   </div>
                 </div>
                 <div id="portoOpsUnitsSummary" class="porto-ops-units-summary" hidden></div>
-                <div id="portoOpsUnits" class="porto-ops-units"></div>
               </div>
 
               <div class="porto-duty-card porto-discord-channels-card">
@@ -264,9 +251,9 @@
     <script src="porto/module-registry.js?v=20260518-module-split"></script>
     <script src="porto/audio.js?v=20260602-assignment-alert"></script>
     <script src="porto/map.js?v=20260518-module-split"></script>
-    <script src="porto/ops.js?v=20260605-modern-avatar-summary"></script>
+    <script src="porto/ops.js?v=20260605-primary-modern-ui"></script>
     <script src="porto/duty.js?v=20260604-logs-status-entry"></script>
     <script src="porto/profile.js?v=20260602-throttled-status"></script>
-    <script src="porto.js?v=20260605-modern-units-ui"></script>
+    <script src="porto.js?v=20260605-primary-modern-ui"></script>
   </body>
 </html>
