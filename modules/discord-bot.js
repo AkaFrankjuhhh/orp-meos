@@ -159,7 +159,8 @@ function buildPortoNicknameDefault(person, unit = {}) {
   const name = formatNameForDiscordNickname(person?.name || unit?.name || person?.discordUsername || "");
   const prefix = symbols ? `[${serviceNumber} ${symbols}]` : `[${serviceNumber}]`;
   const body = `${prefix} ${name}`.trim();
-  return truncateDiscordNickname(unit?.vehicleNumber === "30-00" ? `OPS ${body}` : body);
+  const isOpsLead = unit?.vehicleNumber === "30-00" && unit?.isPortoOpsLead === true;
+  return truncateDiscordNickname(isOpsLead ? `OPS ${body}` : body);
 }
 
 function nicknameTemplateHasPlaceholders(template) {
@@ -446,11 +447,33 @@ function createDiscordBotServices(options = {}) {
   }
 
   async function moveMemberToVoice(discordId, channelKeyOrId, auditReason = "Porto voicekanaal aangepast") {
-    return { skipped: true, reason: "Automatische Porto voice moves zijn uitgeschakeld; verplaats leden handmatig in Discord." };
+    const memberId = normalizeDiscordId(discordId);
+    const channelId = resolveVoiceChannelId(channelKeyOrId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+    if (!channelId) return { skipped: true, reason: "Discord voicekanaal ontbreekt." };
+    return discordBotFetch(`/guilds/${guildId()}/members/${memberId}`, {
+      method: "PATCH",
+      body: { channel_id: channelId },
+      auditReason
+    });
   }
 
   async function moveMembersToVoice(discordIds, channelKeyOrId, auditReason = "Porto eenheid verplaatst") {
-    return { skipped: true, reason: "Automatische Porto voice moves zijn uitgeschakeld; verplaats leden handmatig in Discord." };
+    const uniqueDiscordIds = [...new Set((discordIds || []).map(normalizeDiscordId).filter(Boolean))];
+    if (!uniqueDiscordIds.length) return { skipped: true, reason: "Geen Discord ID's om te verplaatsen." };
+    const moved = [];
+    const failed = [];
+    for (const discordId of uniqueDiscordIds) {
+      try {
+        const result = await moveMemberToVoice(discordId, channelKeyOrId, auditReason);
+        if (result?.skipped) failed.push({ discordId, reason: result.reason || "overgeslagen" });
+        else moved.push(discordId);
+      } catch (error) {
+        failed.push({ discordId, reason: error.message || "Discord move mislukt" });
+      }
+      await sleep(250);
+    }
+    return { ok: failed.length === 0, moved, failed, total: uniqueDiscordIds.length };
   }
 
   async function getVoiceChannel(channelKeyOrId) {

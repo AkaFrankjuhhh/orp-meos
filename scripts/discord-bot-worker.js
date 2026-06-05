@@ -203,6 +203,15 @@ function activePortoUnitForPerson(state, person) {
     .sort((a, b) => Date.parse(b.updatedAt || b.assignedAt || b.requestedAt || 0) - Date.parse(a.updatedAt || a.assignedAt || a.requestedAt || 0))[0] || null;
 }
 
+function unitWithPortoNicknameContext(state, unit) {
+  if (!unit) return unit;
+  const currentOpsMemberId = state.portoCurrentOps?.active === false ? "" : state.portoCurrentOps?.memberId;
+  return {
+    ...unit,
+    isPortoOpsLead: Boolean(unit.vehicleNumber === "30-00" && currentOpsMemberId && currentOpsMemberId === unit.memberId)
+  };
+}
+
 async function syncPerson(person, reason = "Discord bot worker sync") {
   if (!person?.discordId) return { skipped: true, reason: "Geen Discord ID" };
   const result = await bot.syncDiscordForPersonIfNeeded(person, reason);
@@ -214,7 +223,7 @@ async function syncPersonForState(state, person, reason = "Discord bot worker sy
   if (!person?.discordId) return { skipped: true, reason: "Geen Discord ID" };
   const portoUnit = activePortoUnitForPerson(state, person);
   if (portoUnit) {
-    const nickname = await bot.syncPortoNicknameForPersonIfNeeded(person, portoUnit, `${reason}: Porto roepnummer`);
+    const nickname = await bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, portoUnit), `${reason}: Porto roepnummer`);
     const rankRole = await bot.syncRankRoleForPersonIfNeeded(person, reason);
     const qualificationRoles = await bot.syncQualificationRolesForPersonIfNeeded(person, reason);
     await sleep(350);
@@ -249,7 +258,7 @@ async function syncByJob(job) {
   }
 
   if (job.type === "porto_voice_move") {
-    return { skipped: true, reason: "Automatische Porto voice moves zijn uitgeschakeld." };
+    return bot.moveMembersToVoice(job.payload?.discordIds || [job.discordId].filter(Boolean), job.payload?.channelKey || job.payload?.channelId, job.payload?.reason || "Porto voicekanaal aangepast");
   }
 
   if (job.type === "porto_channel_status") {
@@ -266,7 +275,7 @@ async function syncByJob(job) {
     const unit = (state.portoUnits || []).find((entry) => entry.id === job.payload?.unitId)
       || activePortoUnitForPerson(state, person);
     if (!unit) return syncPerson(person, `Discord bot job ${job.id}: Porto dienst beeindigd`);
-    return bot.syncPortoNicknameForPersonIfNeeded(person, unit, `Discord bot job ${job.id}: Porto roepnummer`);
+    return bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, unit), `Discord bot job ${job.id}: Porto roepnummer`);
   }
   return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
 }

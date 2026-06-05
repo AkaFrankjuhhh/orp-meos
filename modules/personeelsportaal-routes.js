@@ -225,13 +225,19 @@ function createPersoneelsportaalRouteHandler(deps) {
         const activePortoUnit = (state.portoUnits || [])
           .filter((unit) => unit.active !== false && unit.memberId === person.id && unit.vehicleNumber)
           .sort((a, b) => Date.parse(b.updatedAt || b.assignedAt || b.requestedAt || 0) - Date.parse(a.updatedAt || a.assignedAt || a.requestedAt || 0))[0] || null;
+        const activePortoUnitWithContext = activePortoUnit
+          ? {
+              ...activePortoUnit,
+              isPortoOpsLead: Boolean(activePortoUnit.vehicleNumber === "30-00" && state.portoCurrentOps?.active !== false && state.portoCurrentOps?.memberId === person.id)
+            }
+          : null;
         const result = activePortoUnit && typeof discordBot.syncPortoNicknameForPersonIfNeeded === "function"
-          ? await discordBot.syncPortoNicknameForPersonIfNeeded(person, activePortoUnit, "Defensie Personeelsportaal rangsymbool bijgewerkt tijdens Porto-dienst")
+          ? await discordBot.syncPortoNicknameForPersonIfNeeded(person, activePortoUnitWithContext, "Defensie Personeelsportaal rangsymbool bijgewerkt tijdens Porto-dienst")
           : await discordBot.syncNicknameForPerson(person);
         if (result?.ok) {
           state.activity = state.activity || [];
           const nickname = activePortoUnit && typeof discordBot.buildPortoNicknameDefault === "function"
-            ? discordBot.buildPortoNicknameDefault(person, activePortoUnit)
+            ? discordBot.buildPortoNicknameDefault(person, activePortoUnitWithContext)
             : discordBot.buildServiceNickname(person);
           state.activity.push(`Discord naam gesynchroniseerd voor ${person.name}: ${nickname}.`);
         }
