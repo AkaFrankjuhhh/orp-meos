@@ -1823,6 +1823,10 @@ body.porto-ops-workspace .porto-ops-empty {
   grid-template-columns: 1fr;
 }
 
+.porto-ops-units[hidden] {
+  display: none !important;
+}
+
 .porto-modern-unit-card {
   min-width: 0;
   display: grid;
@@ -1940,12 +1944,24 @@ body.porto-ops-workspace .porto-ops-empty {
   cursor: context-menu;
 }
 
+.porto-modern-member-avatar,
 .porto-modern-member-initial {
   width: 34px;
   height: 34px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.porto-modern-member-avatar {
+  display: block;
+  object-fit: cover;
+  border: 1px solid rgba(147, 197, 253, 0.24);
+  background: rgba(8, 13, 22, 0.68);
+}
+
+.porto-modern-member-initial {
   display: inline-grid;
   place-items: center;
-  border-radius: 999px;
   background: linear-gradient(135deg, rgba(8, 112, 154, 0.75), rgba(4, 42, 74, 0.92));
   color: #d8f1ff;
   font-weight: 1000;

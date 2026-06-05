@@ -327,6 +327,12 @@ function memberInitial(name) {
   return String(name || "?").trim().charAt(0).toUpperCase() || "?";
 }
 
+function memberAvatarHtml(member) {
+  const avatar = String(member?.avatar || "").trim();
+  if (!avatar) return `<span class="porto-modern-member-initial">${escapeHtml(memberInitial(member?.name))}</span>`;
+  return `<img class="porto-modern-member-avatar" src="${escapeHtml(avatar)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
+}
+
 function setButtonPressed(button, active) {
   if (!button) return;
   button.classList.toggle("active", active);
@@ -444,7 +450,7 @@ function renderModernOpsUnitCard(unit, options = {}) {
       : "";
     return `
       <article class="porto-modern-member ${hasIbt ? "" : "no-ibt"}" data-ops-unit-member="${escapeHtml(member.id)}" title="Rechtermuisknop voor acties">
-        <span class="porto-modern-member-initial">${escapeHtml(memberInitial(member.name))}</span>
+        ${memberAvatarHtml(member)}
         <div>
           <strong>${escapeHtml(member.name || "Onbekend")}</strong>
           ${specsHtml}
@@ -484,6 +490,12 @@ function renderOpsUnits() {
   count.textContent = `${memberCount} actief`;
   renderOpsUnitsSummary(units);
   list.className = `porto-ops-units ${portoOpsUiMode === "modern" ? "modern" : "classic"} ${portoOpsUnitLayout === "list" ? "list" : "grid"}`;
+  if (portoOpsUiMode === "modern") {
+    list.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  list.hidden = false;
   if (!units.length) {
     list.innerHTML = '<div class="porto-ops-empty">Geen actieve eenheden.</div>';
     return;

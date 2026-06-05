@@ -323,6 +323,7 @@ function createPortoServices() {
         name: unit.name,
         rank: unit.rank,
         serviceNumber: unit.serviceNumber,
+        avatar: person.avatar || unit.avatar || "",
         phone: unit.phone,
         completedTrainings,
         completedOperational,
@@ -353,6 +354,7 @@ function createPortoServices() {
   function decoratePortoUnit(state, unit) {
     if (!unit) return null;
     const range = vehicleRangeForNumber(state, unit.vehicleNumber);
+    const peopleById = new Map((state.people || []).map((person) => [person.id, person]));
     const members = unit.vehicleNumber
       ? [...(state.portoUnits || [])
           .filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber)
@@ -369,6 +371,7 @@ function createPortoServices() {
             name: entry.name,
             rank: entry.rank,
             serviceNumber: entry.serviceNumber,
+            avatar: peopleById.get(entry.memberId)?.avatar || entry.avatar || "",
             phone: entry.phone,
             vehicleNumber: entry.vehicleNumber,
             vehicleCode: entry.vehicleCode || range?.vehicleCode || "",
@@ -385,6 +388,7 @@ function createPortoServices() {
           name: unit.name,
           rank: unit.rank,
           serviceNumber: unit.serviceNumber,
+          avatar: peopleById.get(unit.memberId)?.avatar || unit.avatar || "",
           phone: unit.phone,
           vehicleNumber: unit.vehicleNumber,
           vehicleCode: unit.vehicleCode || range?.vehicleCode || "",
@@ -445,6 +449,7 @@ function createPortoServices() {
             name: unit.name,
             rank: unit.rank,
             serviceNumber: unit.serviceNumber,
+            avatar: peopleById.get(unit.memberId)?.avatar || unit.avatar || "",
             phone: unit.phone,
             requestNote: unit.requestNote || "",
             completedTrainings: Array.isArray(peopleById.get(unit.memberId)?.completedTrainings) ? peopleById.get(unit.memberId).completedTrainings : [],
