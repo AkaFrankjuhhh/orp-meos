@@ -766,15 +766,20 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           return true;
         }
         const group = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber);
+        const statusTargets = body.discordChannelStatus !== undefined
+          ? state.portoUnits.filter((entry) => entry.active !== false && String(entry.discordChannelKey || "").trim() === key)
+          : group;
+        const entriesToUpdate = statusTargets.length ? statusTargets : group;
         const now = new Date().toISOString();
-        for (const entry of group) {
-          entry.discordChannelKey = key;
+        for (const entry of entriesToUpdate) {
+          if (body.discordChannelStatus === undefined) entry.discordChannelKey = key;
+          else if (!entry.discordChannelKey) entry.discordChannelKey = key;
           if (body.discordChannelStatus !== undefined) entry.discordChannelStatus = discordChannelStatus;
           entry.updatedAt = now;
           entry.discordChannelUpdatedById = person.id;
           entry.discordChannelUpdatedByName = person.name;
         }
-        await persistPortoState(state, { units: state.portoUnits });
+        await persistPortoState(state, { units: entriesToUpdate });
         if (body.discordChannelStatus !== undefined) await enqueuePortoChannelStatus(key, discordChannelStatus);
         if (discordChannelKey && body.discordChannelStatus === undefined) {
           await enqueuePortoVoiceMove(state, group, key, `Porto kanaal handmatig gezet door ${person.name || "OPS"}`);
