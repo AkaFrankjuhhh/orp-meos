@@ -134,12 +134,16 @@
     ].join("|");
   }
 
-  function trackOwnAssignmentSound(payload, profile) {
+  function trackOwnAssignmentSound(payload, profile, options = {}) {
     if (!profile) return;
     const signature = ownAssignmentSignature(payload.unit || null);
     if (!ownAssignmentPrimed) {
       previousOwnAssignmentSignature = signature;
       ownAssignmentPrimed = true;
+      return;
+    }
+    if (options.suppressOwnAssignmentSound) {
+      previousOwnAssignmentSignature = signature;
       return;
     }
     if (signature && signature !== previousOwnAssignmentSignature) {
@@ -148,8 +152,8 @@
     previousOwnAssignmentSignature = signature;
   }
 
-  function trackOpsSounds(payload, profile) {
-    trackOwnAssignmentSound(payload, profile);
+  function trackOpsSounds(payload, profile, options = {}) {
+    trackOwnAssignmentSound(payload, profile, options);
     const currentOps = payload.currentOps || null;
     const isAssignedOps = Boolean(currentOps && profile && currentOps.memberId === profile.id && payload.canManageOps);
     if (!isAssignedOps) {

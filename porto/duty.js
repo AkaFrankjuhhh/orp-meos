@@ -76,7 +76,7 @@ async function updatePortoVehicle(vehicleName) {
   }
   portoDuty = payload.unit || portoDuty;
   if (payload.profile) portoProfile = payload.profile;
-  applyPortoPayload(payload);
+  applyPortoPayload(payload, { suppressOwnAssignmentSound: true });
   renderDutyPanel();
   renderOpsPanel();
 }

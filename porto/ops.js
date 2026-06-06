@@ -25,8 +25,8 @@ function renderVehicleRanges() {
   table.innerHTML = `<div>Nummer</div><div>Voertuig</div>${rows}`;
 }
 
-function applyPortoPayload(payload) {
-  PortoAudio.trackOpsSounds(payload, portoProfile);
+function applyPortoPayload(payload, options = {}) {
+  PortoAudio.trackOpsSounds(payload, portoProfile, options);
   portoCurrentOps = payload.currentOps || null;
   portoCanTakeOps = Boolean(payload.canTakeOps);
   portoCanManageOps = Boolean(payload.canManageOps);
