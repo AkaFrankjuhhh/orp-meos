@@ -472,7 +472,8 @@ function createPortoServices() {
       activeUnits: canManageOps ? activePortoUnitGroups(state) : [],
       discordChannels: canManageOps ? configuredPortoDiscordChannels() : [],
       discordChannelGroups: canManageOps ? portoDiscordChannelGroups(state) : [],
-      mapEnabled: String(process.env.PORTO_MAP_ENABLED || "false").toLowerCase() === "true",
+      mapEnabled: String(process.env.PORTO_MAP_ENABLED || "false").toLowerCase() === "true"
+        && String(process.env.PORTO_MAP_VISIBLE || "false").toLowerCase() === "true",
       opsLog: canViewOpsLog ? (Array.isArray(state.portoOpsLog) ? state.portoOpsLog.slice(0, 80) : []) : []
     };
   }
