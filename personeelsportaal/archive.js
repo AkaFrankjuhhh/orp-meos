@@ -115,29 +115,43 @@ function renderResignationOverview() {
     container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
     return;
   }
-  const forms = (state.resignationForms || [])
-    .filter((form) => !["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend"))
+  const allForms = (state.resignationForms || [])
     .sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
-  container.innerHTML = forms.length
-    ? forms.map((form) => `
+  const openForms = allForms.filter((form) => !["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend"));
+  const handledForms = allForms.filter((form) => ["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend"));
+  const renderFormCard = (form, handled = false) => `
       <article class="resignation-overview-card">
         <div class="resignation-overview-head">
           <strong>${escapeHtml(form.name || memberName(form.memberId))}</strong>
           <span>${escapeHtml(form.rank || "-")}</span>
           <span>${escapeHtml(formatDate(form.requestedAt))}</span>
-          ${hasKaderAccess() ? `<div class="resignation-overview-actions">
+          <span class="resignation-overview-status">${escapeHtml(form.status || "Ingediend")}</span>
+          ${!handled && hasKaderAccess() ? `<div class="resignation-overview-actions">
             <button class="primary small" type="button" data-resignation-process="${escapeHtml(form.id)}">Verwerkt</button>
             <button class="ghost small" type="button" data-resignation-cancel="${escapeHtml(form.id)}">Annuleren</button>
             <button class="danger small" type="button" data-resignation-delete="${escapeHtml(form.id)}">Verwijderen</button>
           </div>` : ""}
         </div>
+        ${handled ? `<div class="resignation-overview-meta">
+          <span>Afgehandeld: ${escapeHtml(formatDate(form.processedAt || form.cancelledAt))}</span>
+          <span>Door: ${escapeHtml(form.processedByName || form.cancelledByName || "-")}</span>
+        </div>` : ""}
         <div class="resignation-overview-reason">
           <span>Reden</span>
           <p>${escapeHtml(form.reason || "-")}</p>
         </div>
       </article>
-    `).join("")
-    : '<div class="feed-item">Geen openstaande ontslagformulieren.</div>';
+    `;
+  container.innerHTML = `
+    <section class="resignation-overview-section">
+      <h3>Openstaand</h3>
+      ${openForms.length ? openForms.map((form) => renderFormCard(form)).join("") : '<div class="feed-item">Geen openstaande ontslagformulieren.</div>'}
+    </section>
+    <section class="resignation-overview-section">
+      <h3>Afgehandeld</h3>
+      ${handledForms.length ? handledForms.map((form) => renderFormCard(form, true)).join("") : '<div class="feed-item">Geen afgehandelde ontslagformulieren.</div>'}
+    </section>
+  `;
 }
 
 window.DefensiePortalModules.registerFeature("archive", { ready: true });

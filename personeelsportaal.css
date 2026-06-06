@@ -3671,6 +3671,21 @@ body[data-device="mobile"] #archief .sticky-toolbar {
   gap: 12px;
 }
 
+.resignation-overview-section {
+  display: grid;
+  gap: 12px;
+}
+
+.resignation-overview-section + .resignation-overview-section {
+  margin-top: 10px;
+}
+
+.resignation-overview-section h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 15px;
+}
+
 .resignation-overview-card {
   display: grid;
   gap: 12px;
@@ -3682,7 +3697,7 @@ body[data-device="mobile"] #archief .sticky-toolbar {
 
 .resignation-overview-head {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 0.9fr) minmax(120px, 0.5fr) auto;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 0.9fr) minmax(120px, 0.5fr) auto auto;
   gap: 12px;
   align-items: center;
 }
@@ -3701,6 +3716,25 @@ body[data-device="mobile"] #archief .sticky-toolbar {
 
 .resignation-overview-head span {
   color: var(--muted);
+  font-weight: 800;
+}
+
+.resignation-overview-head .resignation-overview-status {
+  justify-self: start;
+  padding: 6px 10px;
+  border: 1px solid rgba(56, 189, 248, 0.34);
+  border-radius: 999px;
+  background: rgba(14, 116, 144, 0.20);
+  color: #bae6fd;
+  font-size: 11px;
+}
+
+.resignation-overview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--muted);
+  font-size: 12px;
   font-weight: 800;
 }
 

@@ -281,7 +281,9 @@ function createPostgresPeopleStore(options = {}) {
       await client.query("begin");
       try {
         await writePeople(client, Array.isArray(state.people) ? state.people : []);
-        await writeResignationForms(client, Array.isArray(state.resignationForms) ? state.resignationForms : []);
+        if (Array.isArray(state.resignationForms)) {
+          await writeResignationForms(client, state.resignationForms);
+        }
         await writeBlacklist(client, Array.isArray(state.blacklist) ? state.blacklist : []);
         await writeHours(client, Array.isArray(state.hours) ? state.hours : []);
         await writeActivity(client, Array.isArray(state.activity) ? state.activity : []);
