@@ -451,16 +451,24 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         unit = { id: crypto.randomUUID(), memberId: person.id, linkedWith: [], reviewStatus: "pending", requestedAt: now, active: true };
         state.portoUnits.push(unit);
       }
+      const assignedGroupStatus = Boolean(unit.vehicleNumber && !["0", "8"].includes(status));
+      const group = assignedGroupStatus
+        ? state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber)
+        : [unit];
+      const statusDetail = status === "0" ? "Aangemeld bij OPS" : detail;
       Object.assign(unit, {
         name: person.name,
         rank: person.rank,
         serviceNumber: person.serviceNumber,
         phone: person.portoPhone || "",
-        status,
-        statusDetail: status === "0" ? "Aangemeld bij OPS" : detail,
         lastSeenAt: now,
         updatedAt: now
       });
+      for (const entry of group) {
+        entry.status = status;
+        entry.statusDetail = statusDetail;
+        entry.updatedAt = now;
+      }
       delete unit.autoOffline;
       delete unit.autoOfflineAt;
       delete unit.autoRemoveAt;
@@ -478,7 +486,6 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         await enqueueNormalDiscordNicknames(state, endedUnits);
       } else {
         if (status === "4" && unit.vehicleNumber && detail && detail !== "Staandehouding" && configuredPortoChannelKeys().has("stilte-porto")) {
-          const group = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber);
           group.forEach((entry) => {
             entry.discordChannelKey = "stilte-porto";
           });

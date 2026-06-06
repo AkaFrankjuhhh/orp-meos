@@ -489,6 +489,7 @@ $("#portoStatusGrid").addEventListener("click", (event) => {
   if (!button || button.disabled) return;
   if (button.dataset.status === "4") {
     $("#portoStatus4Choices").hidden = false;
+    updatePortoStatus("4");
     return;
   }
   $("#portoStatus4Choices").hidden = true;

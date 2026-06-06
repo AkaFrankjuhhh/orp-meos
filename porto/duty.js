@@ -215,7 +215,7 @@ async function loadPortoDuty(options = {}) {
 }
 
 async function updatePortoStatus(status, detail = "") {
-  if (portoStatusWritePromise) return portoStatusWritePromise;
+  if (portoStatusWritePromise) await portoStatusWritePromise.catch(() => {});
   portoStatusWritePromise = (async () => {
     const requestNoteInput = $("#portoStatusRequestInput");
     const requestNote = status === "0" ? String(requestNoteInput?.value || "").trim() : "";
