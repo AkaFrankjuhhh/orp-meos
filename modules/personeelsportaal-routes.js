@@ -935,7 +935,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!auth) return;
     const state = await readFormsState();
     const permissions = permissionsForAuth(auth, state);
-    if (!permissions.canViewOvJChannels) {
+    if (!permissions.canReviewI8Forms) {
       sendJson(res, 403, { error: "Alleen (h)OvJ of Kader mag I8 formulieren beoordelen." });
       return;
     }

@@ -75,6 +75,7 @@ function i8DateTime(form) {
 
 function canChangeI8Status(form) {
   if (!form || !canViewOvJChannels()) return false;
+  if (!canReviewI8Forms()) return false;
   if (hasKaderAccess() || canLeadOvJ()) return true;
   const current = currentProfile();
   const status = form.status || "pending";

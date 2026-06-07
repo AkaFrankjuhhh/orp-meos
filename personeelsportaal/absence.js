@@ -31,10 +31,11 @@ function statusInfoFor(person) {
 function renderAbsenceOverview() {
   const container = $("#absenceOverview");
   if (!container) return;
-  if (!canReviewAbsences()) {
+  if (!canViewAbsenceOverview()) {
     container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
     return;
   }
+  const canReview = canReviewAbsences();
   const absences = (state.absences || [])
     .map((entry, originalIndex) => ({ ...entry, originalIndex }))
     .sort((a, b) => new Date(a.from) - new Date(b.from));
@@ -56,10 +57,10 @@ function renderAbsenceOverview() {
             <span>${escapeHtml(formatDate(entry.to))}</span>
             <span>${escapeHtml(absenceStatus(entry))}</span>
             <span>${escapeHtml(entry.reason || "-")}</span>
-            <span class="person-actions absence-actions">
+            ${canReview ? `<span class="person-actions absence-actions">
               ${absenceStatus(entry) !== "Goedgekeurd" ? `<button class="ghost small approve" type="button" data-absence-approve="${escapeHtml(absenceKey)}">Goedkeuren</button>` : ""}
               ${absenceStatus(entry) !== "Afgekeurd" ? `<button class="ghost small danger" type="button" data-absence-reject="${escapeHtml(absenceKey)}">Afkeuren</button>` : ""}
-            </span>
+            </span>` : ""}
           </div>
         `;
       }).join("")}

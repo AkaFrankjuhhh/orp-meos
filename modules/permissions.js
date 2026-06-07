@@ -19,11 +19,27 @@ function automaticFunctionBadges(profile) {
 }
 
 function createPermissionServices({ extraFunctions, extraTasks, readState }) {
+  function normalizeFunctionBadge(value) {
+    return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function hasFunctionBadge(functionBadges, badge) {
+    const normalized = normalizeFunctionBadge(badge);
+    return functionBadges.some((item) => normalizeFunctionBadge(item) === normalized);
+  }
+
+  function canonicalFunctionBadge(value) {
+    const normalized = normalizeFunctionBadge(value);
+    return extraFunctions.find((badge) => normalizeFunctionBadge(badge) === normalized) || "";
+  }
+
   function effectiveFunctionBadges(profile) {
     const badges = new Set(automaticFunctionBadges(profile));
-    if (extraFunctions.includes(profile?.permRole)) badges.add(profile.permRole);
+    const permRole = canonicalFunctionBadge(profile?.permRole);
+    if (permRole) badges.add(permRole);
     (profile?.extraFunctions || []).forEach((badge) => {
-      if (extraFunctions.includes(badge)) badges.add(badge);
+      const canonical = canonicalFunctionBadge(badge);
+      if (canonical) badges.add(canonical);
     });
     return [...badges];
   }
@@ -40,9 +56,11 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const functionBadges = effectiveFunctionBadges(profile);
     const taskBadges = effectiveTaskBadges(profile);
     const isDevOverride = isDevOverrideProfile(profile);
-    const isKader = functionBadges.includes("Kader") || isDevOverride;
-    const isHoofdofficier = functionBadges.includes("Hoofdofficier");
-    const isOfficiersraad = functionBadges.includes("Officiersraad");
+    const isKader = hasFunctionBadge(functionBadges, "Kader") || isDevOverride;
+    const isOverheidsCoordinator = hasFunctionBadge(functionBadges, "Overheidscoördinator");
+    const canViewAsKader = isKader || isOverheidsCoordinator;
+    const isHoofdofficier = hasFunctionBadge(functionBadges, "Hoofdofficier");
+    const isOfficiersraad = hasFunctionBadge(functionBadges, "Officiersraad");
     const isInterneZaken = taskBadges.includes("Interne-Zaken");
     const isOvJ = taskBadges.includes("OvJ") || taskBadges.includes("hOvJ");
     const isTrainer = taskBadges.includes("Trainer");
@@ -54,35 +72,38 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
 
     return {
-      canViewLogbook: isKader,
+      canViewLogbook: canViewAsKader,
       canManagePeople: isKader,
-      canViewPersonnel: isKader || isHoofdofficier || isOfficiersraad,
+      canViewPersonnel: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canManagePersonnelRanks: isKader || isHoofdofficier || isOfficiersraad,
+      canViewAbsenceOverview: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canReviewAbsences: isKader || isHoofdofficier || isOfficiersraad,
-      canViewResignationOverview: isKader || isHoofdofficier,
-      canViewPersonnelArchive: isKader || isHoofdofficier,
-      canViewKaderPages: isKader,
+      canViewResignationOverview: canViewAsKader || isHoofdofficier,
+      canViewPersonnelArchive: canViewAsKader || isHoofdofficier,
+      canViewKaderPages: canViewAsKader,
       canManageProfileBadges: isKader || isHoofdofficier || isOfficiersraad,
       canManageQualifications: isKader || isTrainer || isTrainerLeadership,
       canRevokeIbt: isKader || isOvJ,
-      canViewAllDiscipline: isKader || isInterneZaken || isIzLeadership,
-      canViewI8Discipline: isKader || isInterneZaken || isOvJ,
+      canViewAllDiscipline: canViewAsKader || isInterneZaken || isIzLeadership,
+      canViewI8Discipline: canViewAsKader || isInterneZaken || isOvJ,
       canManageDiscipline: isKader || isInterneZaken,
       canManageI8Discipline: isKader || isInterneZaken || isOvJ,
-      canViewAllHours: isKader || isHoofdofficier || isOfficiersraad,
+      canViewAllHours: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canManageHours: isKader || isHoofdofficier || isOfficiersraad,
-      canViewOvJChannels: isKader || isOvJ,
+      canViewOvJChannels: canViewAsKader || isOvJ,
+      canReviewI8Forms: isKader || isOvJ,
       canLeadOvJ: isKader || taskBadges.includes("OvJ"),
-      canViewMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
+      canViewMentorOverview: canViewAsKader || isMentor || isMentorLeadership || isOtcLeadership,
       canManageMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
       canManageMentorChecklistTemplate: isKader || isMentorLeadership || isOtcLeadership,
+      canViewRecruitment: canViewAsKader || isWs,
       canRecruitPeople: isKader || isWs,
-      canViewBlacklist: isKader || isWs,
+      canViewBlacklist: canViewAsKader || isWs,
       canManageBlacklist: isKader,
-      canViewOvJLeadershipLog: isKader || taskBadges.includes("OvJ"),
-      canViewMentorLeadershipLog: isKader || isMentorLeadership || isOtcLeadership,
-      canViewProfileAuditLog: isKader || isHoofdofficier,
-      canViewRestrictedTaskBadges: isKader || isHoofdofficier || isOfficiersraad,
+      canViewOvJLeadershipLog: canViewAsKader || taskBadges.includes("OvJ"),
+      canViewMentorLeadershipLog: canViewAsKader || isMentorLeadership || isOtcLeadership,
+      canViewProfileAuditLog: canViewAsKader || isHoofdofficier,
+      canViewRestrictedTaskBadges: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canUseDevTools: isDevOverride
     };
   }
@@ -108,6 +129,10 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       {
         permRole: "Kader",
         roleId: process.env.DISCORD_KADER_ROLE_ID || state.discord?.kaderRoleId || ""
+      },
+      {
+        permRole: "Overheidscoördinator",
+        roleId: process.env.DISCORD_OVERHEIDSCOORDINATOR_ROLE_ID || state.discord?.overheidsCoordinatorRoleId || ""
       },
       {
         permRole: "Hoofdofficier",

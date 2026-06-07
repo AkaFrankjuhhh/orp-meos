@@ -26,7 +26,7 @@ const rankWeight = new Map(ranks.map((rank, index) => [rank, ranks.length - inde
 const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
 const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "OTC-Leiding", "W&S-Leiding", "IZ-Leiding", "Trainer-Leiding", "DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
-const extraFunctions = ["Kader", "Hoofdofficier", "Officiersraad"];
+const extraFunctions = ["Kader", "Overheidscoördinator", "Hoofdofficier", "Officiersraad"];
 const restrictedTaskBadges = new Set(["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"]);
 const mentorRanks = ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"];
 const mentorTrainingName = "Mentor-Traject";

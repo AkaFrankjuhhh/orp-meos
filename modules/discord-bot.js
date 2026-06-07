@@ -186,6 +186,7 @@ function createDiscordBotServices(options = {}) {
   function configuredRoleMappings() {
     return [
       { key: "kader", label: "Kader", roleId: process.env.DISCORD_KADER_ROLE_ID },
+      { key: "overheidscoordinator", label: "Overheidscoördinator", roleId: process.env.DISCORD_OVERHEIDSCOORDINATOR_ROLE_ID },
       { key: "hoofdofficier", label: "Hoofdofficier", roleId: process.env.DISCORD_HOOFDOFFICIER_ROLE_ID },
       { key: "officiersraad", label: "Officiersraad", roleId: process.env.DISCORD_OFFICIERSRAAD_ROLE_ID },
       { key: "interne-zaken", label: "Interne-Zaken", roleId: process.env.DISCORD_INTERNE_ZAKEN_ROLE_ID },

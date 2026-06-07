@@ -71,12 +71,28 @@ function renderRecruitment() {
   const officer = $("#recruitmentOfficer");
   const hiredDate = $("#recruitmentHiredDate");
   const message = $("#recruitmentMessage");
+  const form = $("#recruitmentForm");
   if (!officer || !hiredDate) return;
   officer.value = current ? `${current.serviceNumber || "-"} - ${current.name}` : "";
   if (!hiredDate.value) hiredDate.value = today;
-  if (message && !canRecruitPeople()) {
-    message.textContent = "Geen toegang.";
-    message.hidden = false;
+  const canView = canViewRecruitment();
+  const canRecruit = canRecruitPeople();
+  if (form) {
+    form.querySelectorAll("input, button").forEach((element) => {
+      if (element.id === "recruitmentOfficer") return;
+      element.disabled = !canRecruit;
+    });
+  }
+  if (message) {
+    if (!canView) {
+      message.textContent = "Geen toegang.";
+      message.hidden = false;
+    } else if (!canRecruit) {
+      message.textContent = "Alleen bekijken: deze rol kan geen personeel aannemen.";
+      message.hidden = false;
+    } else {
+      message.hidden = true;
+    }
   }
 }
 

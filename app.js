@@ -108,11 +108,15 @@ function visibleProfile() {
 }
 
 function hasKaderAccess() {
-  return Boolean(permissions.canManagePeople || canViewLogbook);
+  return Boolean(permissions.canManagePeople);
+}
+
+function canViewKaderPages() {
+  return Boolean(permissions.canViewKaderPages || permissions.canViewLogbook || canViewLogbook || hasKaderAccess());
 }
 
 function canViewPersonnel() {
-  return Boolean(permissions.canViewPersonnel || hasKaderAccess());
+  return Boolean(permissions.canViewPersonnel || canViewKaderPages());
 }
 
 function canManagePersonnelRanks() {
@@ -121,6 +125,10 @@ function canManagePersonnelRanks() {
 
 function canReviewAbsences() {
   return Boolean(permissions.canReviewAbsences || hasKaderAccess());
+}
+
+function canViewAbsenceOverview() {
+  return Boolean(permissions.canViewAbsenceOverview || canReviewAbsences() || canViewKaderPages());
 }
 
 function canViewResignationOverview() {
@@ -204,15 +212,19 @@ function canManageHours() {
 }
 
 function canViewOpsTimes() {
-  return Boolean(permissions.canViewAllHours || hasKaderAccess());
+  return Boolean(permissions.canViewAllHours || canViewKaderPages());
 }
 
 function canViewOvJChannels() {
-  return Boolean(permissions.canViewOvJChannels || hasKaderAccess());
+  return Boolean(permissions.canViewOvJChannels || canViewKaderPages());
 }
 
 function canLeadOvJ() {
   return Boolean(permissions.canLeadOvJ || hasKaderAccess());
+}
+
+function canReviewI8Forms() {
+  return Boolean(permissions.canReviewI8Forms || hasKaderAccess());
 }
 
 function canViewMentorOverview() {
@@ -236,8 +248,12 @@ function canRecruitPeople() {
   return Boolean(permissions.canRecruitPeople || hasKaderAccess());
 }
 
+function canViewRecruitment() {
+  return Boolean(permissions.canViewRecruitment || canRecruitPeople() || canViewKaderPages());
+}
+
 function canViewBlacklist() {
-  return Boolean(permissions.canViewBlacklist || canRecruitPeople());
+  return Boolean(permissions.canViewBlacklist || canRecruitPeople() || canViewKaderPages());
 }
 
 function resetPermissions() {
@@ -743,13 +759,13 @@ function cleanLoginRedirect() {
 
 function setPage(page) {
   page = validPage(page);
-  if (page === "logboek" && !hasKaderAccess()) {
+  if (page === "logboek" && !canViewKaderPages()) {
     page = "dashboard";
   }
   if (page === "ops-tijden" && !canViewOpsTimes()) {
     page = "dashboard";
   }
-  if (page === "afwezigheid-overzicht" && !canReviewAbsences()) page = "dashboard";
+  if (page === "afwezigheid-overzicht" && !canViewAbsenceOverview()) page = "dashboard";
   if (page === "ontslag-overzicht" && !canViewResignationOverview()) page = "dashboard";
   if (page === "archief" && !canViewPersonnelArchive()) page = "dashboard";
   if (page === "personeel" && !canViewPersonnel()) {
@@ -764,7 +780,7 @@ function setPage(page) {
   if (["mentor-overzicht", "mentor-checklist"].includes(page) && !canViewMentorOverview()) {
     page = "dashboard";
   }
-  if (page === "personeel-aannemen" && !canRecruitPeople()) {
+  if (page === "personeel-aannemen" && !canViewRecruitment()) {
     page = "dashboard";
   }
   if (page === "blacklist" && !canViewBlacklist()) {
@@ -906,9 +922,9 @@ function hideRankPieTooltip() {
   if (tooltip) tooltip.hidden = true;
 }
 function renderKaderNavigation() {
-  const isKader = hasKaderAccess();
+  const showKaderPages = canViewKaderPages();
   const showPersonnel = canViewPersonnel();
-  const showAbsenceOverview = canReviewAbsences();
+  const showAbsenceOverview = canViewAbsenceOverview();
   const showResignationOverview = canViewResignationOverview();
   const showPersonnelArchive = canViewPersonnelArchive();
   const showOpsTimes = canViewOpsTimes();
@@ -916,11 +932,13 @@ function renderKaderNavigation() {
   const showMentorOverview = canViewMentorOverview();
   const showMentorTrajectory = canViewOwnMentorTrajectory();
   const showMentorSection = canViewMentorSection();
-  const showWs = canRecruitPeople();
+  const showRecruitment = canViewRecruitment();
+  const showBlacklist = canViewBlacklist();
+  const showWs = showRecruitment || showBlacklist;
   const showOvJLeadership = canViewOvJLeadershipLog();
   const showMentorLeadership = canViewMentorLeadershipLog();
   $$('[data-kader-only="true"]').forEach((element) => {
-    element.hidden = !isKader;
+    element.hidden = !showKaderPages;
   });
   $$('[data-personnel-only="true"]').forEach((element) => {
     element.hidden = !showPersonnel;
@@ -959,10 +977,10 @@ function renderKaderNavigation() {
     element.hidden = !showMentorLeadership;
   });
   $$('[data-restricted-divider="true"]').forEach((element) => {
-    element.hidden = !(isKader || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOpsTimes || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
+    element.hidden = !(showKaderPages || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOpsTimes || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
   });
   renderNavigationCounters();
-  if (!isKader && $("#logboek").classList.contains("active")) {
+  if (!showKaderPages && $("#logboek").classList.contains("active")) {
     setPage("dashboard");
   }
   if (!showOpsTimes && $("#ops-tijden").classList.contains("active")) {
@@ -989,7 +1007,10 @@ function renderKaderNavigation() {
   if (!showMentorLeadership && $("#mentor-logboek")?.classList.contains("active")) {
     setPage(showMentorOverview ? "mentor-overzicht" : "dashboard");
   }
-  if (!showWs && ($("#personeel-aannemen")?.classList.contains("active") || $("#blacklist")?.classList.contains("active"))) {
+  if (!showRecruitment && $("#personeel-aannemen")?.classList.contains("active")) {
+    setPage("dashboard");
+  }
+  if (!showBlacklist && $("#blacklist")?.classList.contains("active")) {
     setPage("dashboard");
   }
 }
@@ -1011,7 +1032,7 @@ function setNavCounter(selector, count, visible) {
 
 function renderNavigationCounters() {
   // Sidebar-tellers volgen dezelfde openstaande items als de achterliggende overzichtspagina's.
-  setNavCounter("#absenceOverviewCounter", openAbsenceRequestCount(), canReviewAbsences());
+  setNavCounter("#absenceOverviewCounter", openAbsenceRequestCount(), canViewAbsenceOverview());
   setNavCounter("#resignationOverviewCounter", openResignationFormCount(), canViewResignationOverview());
   setNavCounter("#i8ReviewCounter", openI8ReviewCount(), canViewOvJChannels());
 }
@@ -1164,8 +1185,8 @@ function stopLiveUpdates() {
   pendingLiveScopes.clear();
 }
 function renderLogbook() {
-  const isKader = hasKaderAccess();
-  $("#activityFeed").innerHTML = isKader
+  const canView = canViewKaderPages();
+  $("#activityFeed").innerHTML = canView
     ? (state.activity || [])
         .slice(-25)
         .reverse()
@@ -1522,7 +1543,7 @@ function wireEvents() {
   $("#i8DetailBody").addEventListener("click", (event) => {
     const status = event.target.dataset.i8DetailStatus;
     const formId = event.target.closest("[data-i8-detail-form]")?.dataset.i8DetailForm;
-    if (!formId || !status || !canViewOvJChannels()) return;
+    if (!formId || !status || !canReviewI8Forms()) return;
     $("#i8DetailDialog").close();
     openI8ReviewDialog(formId, status);
   });
@@ -1990,6 +2011,13 @@ function wireEvents() {
     if (message) {
       message.hidden = true;
       message.textContent = "";
+    }
+    if (!canRecruitPeople()) {
+      if (message) {
+        message.textContent = "Alleen bekijken: deze rol kan geen personeel aannemen.";
+        message.hidden = false;
+      }
+      return;
     }
     const saved = await runAction("/api/recruitment/hire", {
       name: $("#recruitmentName").value.trim(),
