@@ -140,11 +140,13 @@ function renderProfileDistinctions(person) {
 function renderProfileAuditLog(person) {
   const panel = $("#profileAuditPanel");
   const list = $("#profileAuditLog");
-  if (!panel || !list) return;
+  const absenceList = $("#profileAbsenceLog");
+  if (!panel || !list || !absenceList) return;
   const canView = canViewProfileAuditLog();
   panel.hidden = !canView;
   if (!canView) return;
-  const entries = Array.isArray(person.profileLog) ? [...person.profileLog] : [];
+  const entries = (Array.isArray(person.profileLog) ? [...person.profileLog] : [])
+    .filter((entry) => ["qualification", "badges", "profile"].includes(entry.type || "profile"));
   entries.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   list.innerHTML = entries.length
     ? entries.slice(0, 40).map((entry) => `
@@ -157,7 +159,29 @@ function renderProfileAuditLog(person) {
         <small>Door: ${escapeHtml(entry.actorName || "Onbekend")}</small>
       </article>
     `).join("")
-    : '<div class="feed-item">Geen profielacties gevonden.</div>';
+    : '<div class="feed-item">Geen trainer- of badgeacties gevonden.</div>';
+
+  const absenceEntries = (state.absences || [])
+    .filter((entry) => entry.memberId === person.id)
+    .sort((a, b) => Date.parse(b.reviewedAt || b.requestedAt || b.to || b.from || 0) - Date.parse(a.reviewedAt || a.requestedAt || a.to || a.from || 0));
+  absenceList.innerHTML = absenceEntries.length
+    ? absenceEntries.slice(0, 80).map((entry) => {
+      const status = typeof absenceStatus === "function" ? absenceStatus(entry) : (entry.status || "In afwachting");
+      const reviewedText = entry.reviewedAt
+        ? `Beoordeeld door: ${entry.reviewedByName || "Onbekend"} op ${formatDateTime(entry.reviewedAt)}`
+        : `Aangevraagd op: ${formatDateTime(entry.requestedAt)}`;
+      return `
+        <article class="profile-audit-item profile-absence-item">
+          <div>
+            <strong>${escapeHtml(status)}</strong>
+            <span>${escapeHtml(formatDate(entry.from))} t/m ${escapeHtml(formatDate(entry.to))}</span>
+          </div>
+          <p>${escapeHtml(entry.reason || "Geen reden opgegeven")}</p>
+          <small>${escapeHtml(reviewedText)}</small>
+        </article>
+      `;
+    }).join("")
+    : '<div class="feed-item">Geen afwezigheden gevonden.</div>';
 }
 
 function activeDisciplineEntries(person) {
@@ -406,6 +430,13 @@ function renderProfile() {
   $("#profilePageAvatar").src = avatarFor(viewed);
   $("#profilePageRankNumber").textContent = `${profileRankLabel(viewed.rank)} - ${viewed.serviceNumber || "-"}`;
   $("#profilePageDisplayName").textContent = viewed.name || "-";
+  const profileStatus = statusInfoFor(viewed);
+  const profileStatusDot = $("#profilePageStatusDot");
+  if (profileStatusDot) {
+    profileStatusDot.className = `status-dot ${profileStatus.className}`;
+    profileStatusDot.title = profileStatus.label;
+    profileStatusDot.setAttribute("aria-label", profileStatus.label);
+  }
   updateProfileNavigationButtons(viewed);
   renderProfileBadges(viewed);
   renderProfileDistinctions(viewed);

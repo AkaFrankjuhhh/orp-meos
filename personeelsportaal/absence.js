@@ -16,6 +16,14 @@ function absenceIsActive(entry) {
   return absenceIsApproved(entry) && new Date(entry.to) >= new Date(today);
 }
 
+function absenceVisibleInOverview(entry) {
+  if (absenceStatus(entry) === "In afwachting") return true;
+  const end = new Date(`${entry.to || ""}T23:59:59`);
+  if (Number.isNaN(end.getTime())) return true;
+  end.setDate(end.getDate() + 7);
+  return end >= new Date();
+}
+
 function personHasActiveAbsence(person) {
   return (state.absences || []).some((entry) => entry.memberId === person.id && absenceIsActive(entry));
 }
@@ -38,6 +46,7 @@ function renderAbsenceOverview() {
   const canReview = canReviewAbsences();
   const absences = (state.absences || [])
     .map((entry, originalIndex) => ({ ...entry, originalIndex }))
+    .filter(absenceVisibleInOverview)
     .sort((a, b) => new Date(a.from) - new Date(b.from));
   container.innerHTML = absences.length
     ? `
@@ -65,7 +74,7 @@ function renderAbsenceOverview() {
         `;
       }).join("")}
     `
-    : '<div class="feed-item">Geen afwezigheden geregistreerd.</div>';
+    : '<div class="feed-item">Geen openstaande of recente afwezigheden.</div>';
 }
 
 function hideAbsenceContextMenu() {

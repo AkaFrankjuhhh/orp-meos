@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260524-sidebar-scroll" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260606-resignation-overview" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260607-profile-absence-log" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -169,7 +169,10 @@
             <section class="panel profile-hero-panel">
               <div class="profile-hero">
                 <div class="profile-identity" data-profile-manage="true">
-                  <img id="profilePageAvatar" class="profile-page-avatar" data-profile-manage="true" alt="" />
+                  <div class="profile-avatar-status-wrap" data-profile-manage="true">
+                    <img id="profilePageAvatar" class="profile-page-avatar" data-profile-manage="true" alt="" />
+                    <span id="profilePageStatusDot" class="status-dot active" title="Actief" aria-label="Actief"></span>
+                  </div>
                   <div>
                     <div id="profilePageNameService" class="profile-rank-stack" data-profile-manage="true">
                       <strong id="profilePageRankNumber" class="profile-rank-number">-</strong>
@@ -280,7 +283,16 @@
               <div class="panel-head">
                 <h2>Profiel-logboek</h2>
               </div>
-              <div id="profileAuditLog" class="profile-audit-log"></div>
+              <div class="profile-log-sections">
+                <section class="profile-log-section">
+                  <h3>Trainer/Badge Logboek</h3>
+                  <div id="profileAuditLog" class="profile-audit-log"></div>
+                </section>
+                <section class="profile-log-section">
+                  <h3>Afwezigheid logboek</h3>
+                  <div id="profileAbsenceLog" class="profile-audit-log"></div>
+                </section>
+              </div>
             </section>
           </div>
         </div>
@@ -887,12 +899,12 @@
       });
     </script>    <script src="shared-ui.js?v=20260602-autogrow-textareas"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/profile.js?v=20260531-profile-nav-title"></script>
+    <script src="personeelsportaal/profile.js?v=20260607-profile-absence-log"></script>
     <script src="personeelsportaal/hours.js?v=20260607-ops-training-filter"></script>
     <script src="personeelsportaal/people.js?v=20260607-hoofdofficier-dismiss"></script>
     <script src="personeelsportaal/i8.js?v=20260607-overheids-viewonly"></script>
     <script src="personeelsportaal/mentor.js?v=20260522-mentor-autosave"></script>
-    <script src="personeelsportaal/absence.js?v=20260607-overheids-viewonly"></script>
+    <script src="personeelsportaal/absence.js?v=20260607-profile-absence-log"></script>
     <script src="personeelsportaal/archive.js?v=20260606-resignation-overview"></script>
     <script src="personeelsportaal-data.js?v=20260607-overheids-viewonly"></script>
     <script src="app.js?v=20260607-hoofdofficier-dismiss"></script>

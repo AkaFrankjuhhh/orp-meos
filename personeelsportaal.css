@@ -611,6 +611,13 @@ dialog::backdrop {
   gap: 20px;
 }
 
+.profile-avatar-status-wrap {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  flex: 0 0 auto;
+}
+
 .profile-page-avatar {
   width: 112px;
   height: 112px;
@@ -619,6 +626,18 @@ dialog::backdrop {
   object-fit: cover;
   background: var(--green);
   border: 2px solid rgba(225, 112, 0, 0.55);
+}
+
+.profile-avatar-status-wrap .profile-page-avatar {
+  display: block;
+}
+
+.profile-avatar-status-wrap .status-dot {
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
 }
 
 [data-profile-manage] {
@@ -1444,6 +1463,17 @@ body[data-device="mobile"] .profile-identity {
 body[data-device="mobile"] .profile-page-avatar {
   width: 72px;
   height: 72px;
+}
+
+body[data-device="mobile"] .profile-avatar-status-wrap {
+  width: 72px;
+  height: 72px;
+}
+
+body[data-device="mobile"] .profile-avatar-status-wrap .status-dot {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
 }
 
 body[data-device="mobile"] .profile-hero h2 {
@@ -4643,6 +4673,22 @@ body[data-device="mobile"] .notification-panel {
   left: 0;
 }
 /* Profiel-logboek: zichtbaar voor Kader/Hoofdofficier met acties op het profiel. */
+.profile-log-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.profile-log-section {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-log-section h3 {
+  margin: 0;
+  color: #dbeafe;
+  font-size: 14px;
+}
+
 .profile-audit-log {
   display: grid;
   gap: 10px;
