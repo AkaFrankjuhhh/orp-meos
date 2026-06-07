@@ -231,6 +231,10 @@ function canLeadOvJ() {
   return Boolean(permissions.canLeadOvJ || hasKaderAccess());
 }
 
+function canOverrideI8Forms() {
+  return Boolean(permissions.canOverrideI8Forms || canLeadOvJ() || hasKaderAccess());
+}
+
 function canReviewI8Forms() {
   return Boolean(permissions.canReviewI8Forms || hasKaderAccess());
 }

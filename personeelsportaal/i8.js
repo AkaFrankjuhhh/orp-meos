@@ -76,7 +76,7 @@ function i8DateTime(form) {
 function canChangeI8Status(form) {
   if (!form || !canViewOvJChannels()) return false;
   if (!canReviewI8Forms()) return false;
-  if (hasKaderAccess() || canLeadOvJ()) return true;
+  if (canOverrideI8Forms()) return true;
   const current = currentProfile();
   const status = form.status || "pending";
   if (status === "pending") return true;
@@ -87,7 +87,7 @@ function canChangeI8Status(form) {
 function allowedI8StatusActions(form) {
   if (!canChangeI8Status(form)) return [];
   const currentStatus = form.status || "pending";
-  const isLead = hasKaderAccess() || canLeadOvJ();
+  const isLead = canOverrideI8Forms();
   const actions = [
     { status: "in_review", label: "In behandeling plaatsen", className: "ghost small in-review" },
     { status: "approved", label: "Goedkeuren", className: "ghost small approve" },
@@ -104,7 +104,7 @@ function renderI8StatusActions(form) {
   const actions = allowedI8StatusActions(form);
   if (!actions.length) {
     if (currentStatus === "in_review" && form.reviewedByName) {
-      return `<div class="i8-lock-note">In behandeling door ${escapeHtml(form.reviewedByName)}. Alleen OVJ of Kader kan dit overrulen.</div>`;
+      return `<div class="i8-lock-note">In behandeling door ${escapeHtml(form.reviewedByName)}. Alleen OVJ, Interne-Zaken of Kader kan dit overrulen.</div>`;
     }
     return "";
   }

@@ -944,7 +944,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const state = await readFormsState();
     const permissions = permissionsForAuth(auth, state);
     if (!permissions.canReviewI8Forms) {
-      sendJson(res, 403, { error: "Alleen (h)OvJ of Kader mag I8 formulieren beoordelen." });
+      sendJson(res, 403, { error: "Alleen (h)OvJ, Interne-Zaken of Kader mag I8 formulieren beoordelen." });
       return;
     }
     const body = await readBody(req);
@@ -966,7 +966,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const reviewer = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     const currentStatus = form.status || "pending";
-    const isLeadReviewer = Boolean(permissions.canLeadOvJ || permissions.canManagePeople);
+    const isLeadReviewer = Boolean(permissions.canOverrideI8Forms || permissions.canLeadOvJ || permissions.canManagePeople);
     if (!isLeadReviewer) {
       if (currentStatus === "pending" && status !== "in_review") {
         sendJson(res, 403, { error: "hOvJ moet een I8 eerst in behandeling zetten voordat deze goedgekeurd of afgekeurd wordt." });
@@ -974,7 +974,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       }
       if (currentStatus === "in_review") {
         if (!form.reviewedById || form.reviewedById !== reviewer.id) {
-          sendJson(res, 403, { error: `Dit I8 formulier is in behandeling door ${form.reviewedByName || "een andere beoordelaar"}. Alleen OVJ of Kader kan dit overrulen.` });
+          sendJson(res, 403, { error: `Dit I8 formulier is in behandeling door ${form.reviewedByName || "een andere beoordelaar"}. Alleen OVJ, Interne-Zaken of Kader kan dit overrulen.` });
           return;
         }
         if (!['approved', 'rejected'].includes(status)) {
@@ -983,7 +983,7 @@ function createPersoneelsportaalRouteHandler(deps) {
         }
       }
       if (["approved", "rejected"].includes(currentStatus)) {
-        sendJson(res, 403, { error: "hOvJ kan een afgerond I8 formulier niet heropenen of aanpassen. Alleen OVJ of Kader kan dit." });
+        sendJson(res, 403, { error: "hOvJ kan een afgerond I8 formulier niet heropenen of aanpassen. Alleen OVJ, Interne-Zaken of Kader kan dit." });
         return;
       }
     }

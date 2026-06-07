@@ -70,6 +70,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isOtcLeadership = taskBadges.includes("OTC-Leiding");
     const isIzLeadership = taskBadges.includes("IZ-Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
+    const canHandleI8Forms = canViewAsKader || isOvJ || isInterneZaken || isIzLeadership;
+    const canOverrideI8Forms = isKader || taskBadges.includes("OvJ") || isInterneZaken || isIzLeadership;
 
     return {
       canViewLogbook: canViewAsKader,
@@ -91,8 +93,9 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageI8Discipline: isKader || isInterneZaken || isOvJ,
       canViewAllHours: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canManageHours: isKader || isHoofdofficier || isOfficiersraad,
-      canViewOvJChannels: canViewAsKader || isOvJ,
-      canReviewI8Forms: isKader || isOvJ,
+      canViewOvJChannels: canHandleI8Forms,
+      canReviewI8Forms: isKader || isOvJ || isInterneZaken || isIzLeadership,
+      canOverrideI8Forms,
       canLeadOvJ: isKader || taskBadges.includes("OvJ"),
       canViewMentorOverview: canViewAsKader || isMentor || isMentorLeadership || isOtcLeadership,
       canManageMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
