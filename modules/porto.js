@@ -148,9 +148,11 @@ function createPortoServices() {
   }
 
   function activePortoOps(state) {
+    const peopleById = new Map((state.people || []).map((person) => [person.id, person]));
+    const canUnitOperateOps = (unit) => canOperatePortoOps(peopleById.get(unit?.memberId));
     const ops = state.portoCurrentOps;
-    if (ops && ops.active !== false) return ops;
-    const opsUnit = (state.portoUnits || []).find((unit) => unit.active !== false && unit.vehicleNumber === "30-00");
+    if (ops && ops.active !== false && canOperatePortoOps(peopleById.get(ops.memberId))) return ops;
+    const opsUnit = (state.portoUnits || []).find((unit) => unit.active !== false && unit.vehicleNumber === "30-00" && canUnitOperateOps(unit));
     if (!opsUnit) return null;
     return {
       memberId: opsUnit.memberId || "",

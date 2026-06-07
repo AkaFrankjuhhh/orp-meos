@@ -44,7 +44,7 @@ function applyPortoPayload(payload, options = {}) {
 }
 
 function isCurrentOpsUser() {
-  return Boolean(portoCurrentOps && portoProfile && portoCurrentOps.memberId === portoProfile.id);
+  return Boolean(portoCanManageOps && portoCurrentOps && portoProfile && portoCurrentOps.memberId === portoProfile.id);
 }
 
 function canUseOpsWorkspace() {
