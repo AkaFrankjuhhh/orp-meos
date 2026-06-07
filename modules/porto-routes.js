@@ -290,6 +290,17 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return true;
   }
 
+  function releaseOpsIfEnded(state, units, endedBy, endedAt = new Date().toISOString(), statusDetail = "Uit dienst") {
+    const currentOps = activePortoOps(state);
+    if (!currentOps) return false;
+    const endedCurrentOps = (units || []).some((entry) =>
+      entry.active !== false &&
+      entry.vehicleNumber === "30-00" &&
+      entry.memberId === currentOps.memberId
+    );
+    return endedCurrentOps ? releaseCurrentOps(state, currentOps, endedBy, endedAt, statusDetail) : false;
+  }
+
   function closePendingPortoRequestsForMember(state, memberId, keepUnitId = "") {
     const now = new Date().toISOString();
     for (const entry of state.portoUnits || []) {
@@ -472,6 +483,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       delete unit.autoOffline;
       delete unit.autoOfflineAt;
       delete unit.autoRemoveAt;
+      let settingsChanged = false;
       if (status === "0") {
         unit.reviewStatus = "pending";
         unit.requestedAt = unit.requestedAt || now;
@@ -480,8 +492,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (status === "8") {
         const releasedVehicleNumber = unit.vehicleNumber;
         const endedUnits = [unit];
-        unit.active = false;
-        unit.endedAt = now;
+        settingsChanged = releaseOpsIfEnded(state, endedUnits, person, now, "Uit dienst");
+        if (!settingsChanged) {
+          unit.active = false;
+          unit.endedAt = now;
+        }
         if (releasedVehicleNumber) syncPortoLinkedNames(state, releasedVehicleNumber);
         await enqueueNormalDiscordNicknames(state, endedUnits);
       } else {
@@ -493,7 +508,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
         await enqueuePortoDiscordNicknames(state, [unit], "Porto status aangepast");
       }
-      await persistPortoState(state, { units: state.portoUnits });
+      await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -734,6 +749,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         const unitsToEnd = offDutyScope === "member"
           ? [unit]
           : state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
+        const settingsChanged = releaseOpsIfEnded(state, unitsToEnd, person, endedAt, "Uit dienst");
         unitsToEnd.forEach((entry) => Object.assign(entry, {
           status: "8",
           statusDetail: "Uit dienst",
@@ -749,7 +765,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           updatedAt: endedAt
         }));
         syncPortoLinkedNames(state, oldVehicleNumber);
-        await persistPortoState(state, { units: state.portoUnits });
+        await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
         await enqueueNormalDiscordNicknames(state, unitsToEnd);
         sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
         return true;
