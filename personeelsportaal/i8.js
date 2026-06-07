@@ -135,7 +135,7 @@ function renderI8OwnRow(form, forms) {
         <span class="i8-number">${escapeHtml(i8NumberFor(form, forms))}</span>
         <div>
           <strong>${escapeHtml(form.rank || "-")} - ${escapeHtml(form.personName || memberName(form.personId))}</strong>
-          <span>${escapeHtml(i8DateTime(form))}</span>
+          <span>${escapeHtml(form.location || "-")} - ${escapeHtml(i8DateTime(form))}</span>
         </div>
         <span class="i8-status ${i8StatusClass(form.status)}">${escapeHtml(i8StatusLabel(form.status))}</span>
       </div>
@@ -170,7 +170,7 @@ function renderI8ArchiveRow(form, forms) {
         <span class="i8-number">${escapeHtml(i8NumberFor(form, forms))}</span>
         <div>
           <strong>${escapeHtml(form.rank || "-")} - ${escapeHtml(form.personName || memberName(form.personId))}</strong>
-          <span>${escapeHtml(i8DateTime(form))}</span>
+          <span>${escapeHtml(form.location || "-")} - ${escapeHtml(i8DateTime(form))}</span>
         </div>
         <span class="i8-status ${i8StatusClass(form.status)}">${escapeHtml(i8StatusLabel(form.status))}</span>
       </div>
