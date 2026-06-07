@@ -92,7 +92,12 @@ function opsEntrySeconds(entry) {
   return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.round((end - start) / 1000)) : 0;
 }
 
+function personHasOpsTraining(person) {
+  return Array.isArray(person?.completedOperational) && person.completedOperational.includes("OPS");
+}
+
 function opsEntriesForPerson(person) {
+  if (!personHasOpsTraining(person)) return [];
   return (state.portoOpsLog || []).filter((entry) => entry.memberId === person.id);
 }
 

@@ -337,16 +337,10 @@ function renderOpsTimes() {
     });
   for (const row of weekRows) {
     const key = row.memberId || row.name || "onbekend";
-    const current = totals.get(key) || {
-      memberId: row.memberId || "",
-      name: row.name || "Onbekend",
-      serviceNumber: row.serviceNumber || "",
-      seconds: 0,
-      count: 0
-    };
+    const current = totals.get(key);
+    if (!current) continue;
     current.seconds += row.durationSeconds;
     current.count += 1;
-    totals.set(key, current);
   }
   const people = [...totals.values()].sort((a, b) => (
     compareServiceNumber(a.serviceNumber, b.serviceNumber) || a.name.localeCompare(b.name, "nl")
@@ -380,6 +374,7 @@ function openOpsTimesDialog(selected) {
   const rows = opsTimesRowsSince(fourWeeksStart).filter((entry) => (entry.memberId || entry.name || "onbekend") === selected);
   const totalSeconds = rows.reduce((sum, row) => sum + row.durationSeconds, 0);
   const person = state.people.find((entry) => opsTimesPersonKey(entry) === selected);
+  if (!person || !hasOpsTraining(person)) return;
   const name = rows[0]?.name || person?.name || selected;
   if (title) title.textContent = name;
   if (subtitle) subtitle.textContent = `Laatste 4 weken totaal: ${formatMinutes(totalSeconds / 60)}`;

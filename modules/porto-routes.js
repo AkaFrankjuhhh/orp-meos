@@ -267,9 +267,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     state.portoOpsLog = state.portoOpsLog.slice(0, 250);
   }
 
+  function memberHasOpsTraining(state, memberId) {
+    const person = (state.people || []).find((entry) => entry.id === memberId);
+    return Array.isArray(person?.completedOperational) && person.completedOperational.includes("OPS");
+  }
+
   function releaseCurrentOps(state, currentOps, endedBy, endedAt = new Date().toISOString(), statusDetail = "OPS neergelegd") {
     if (!currentOps) return false;
-    appendOpsLog(state, currentOps, endedBy, endedAt);
+    if (memberHasOpsTraining(state, currentOps.memberId)) appendOpsLog(state, currentOps, endedBy, endedAt);
     state.portoCurrentOps = { ...currentOps, active: false, endedAt };
     const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === "30-00");
     if (opsUnit) {
