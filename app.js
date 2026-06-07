@@ -153,6 +153,14 @@ function canManagePersonnelRanksFor(person, action = "") {
   return currentIndex >= adjudantIndex;
 }
 
+function canDismissPerson(person) {
+  if (hasKaderAccess()) return true;
+  if (!permissions.canDismissPersonnelToAdjudant || !person) return false;
+  const adjudantIndex = ranks.indexOf("Adjudant");
+  const currentIndex = ranks.indexOf(person.rank);
+  return adjudantIndex >= 0 && currentIndex >= adjudantIndex;
+}
+
 function canManageProfileBadges() {
   return Boolean(permissions.canManageProfileBadges || hasKaderAccess());
 }

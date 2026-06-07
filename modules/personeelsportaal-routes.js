@@ -184,6 +184,14 @@ function createPersoneelsportaalRouteHandler(deps) {
     return false;
   }
 
+  function canDismissPerson(permissions, person) {
+    if (permissions.canManagePeople) return true;
+    if (!permissions.canDismissPersonnelToAdjudant || !person) return false;
+    const adjudantIndex = ranks.indexOf("Adjudant");
+    const currentIndex = ranks.indexOf(person.rank);
+    return adjudantIndex >= 0 && currentIndex >= adjudantIndex;
+  }
+
   function blacklistErrorMessage() {
     return "PERSOON IS GEBLACKLIST\nKan niet worden aangenomen";
   }
@@ -1758,7 +1766,11 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 403, { error: "Alleen Kader mag boven Adjudant aanpassen." });
       return;
     }
-    if (!["promote", "demote"].includes(action) && !permissions.canManagePeople) {
+    if (action === "dismiss" && !canDismissPerson(permissions, person)) {
+      sendJson(res, 403, { error: "Alleen Kader of Hoofdofficier mag tot en met Adjudant ontslaan." });
+      return;
+    }
+    if (!["promote", "demote", "dismiss"].includes(action) && !permissions.canManagePeople) {
       sendJson(res, 403, { error: "Alleen Kader mag deze actie uitvoeren." });
       return;
     }

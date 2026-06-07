@@ -217,7 +217,7 @@ function renderPersonnelCard(person) {
         <div class="person-actions">
           ${canManagePersonnelRanksFor(person, "promote") && ranks.indexOf(person.rank) > 0 ? `<button class="primary" type="button" data-promote="${person.id}">Promotie</button>` : ""}
           ${canManagePersonnelRanksFor(person, "demote") && ranks.indexOf(person.rank) < ranks.length - 1 ? `<button class="ghost secondary" type="button" data-demote="${person.id}">Degraderen</button>` : ""}
-          ${hasKaderAccess() ? `<button class="ghost danger" type="button" data-dismiss="${person.id}">Ontslag</button>` : ""}
+          ${canDismissPerson(person) ? `<button class="ghost danger" type="button" data-dismiss="${person.id}">Ontslag</button>` : ""}
         </div>
       </article>
   `;
