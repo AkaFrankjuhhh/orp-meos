@@ -10,12 +10,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const {
     ensurePortoVehicleRanges,
     canUsePortoDevBypass,
+    canServePortoOps,
     canOperatePortoOps,
     activePortoOps,
     vehicleRangeForNumber,
     availablePortoVehicleNumbers,
     firstAvailableVehicleNumber,
     syncPortoLinkedNames,
+    closeIneligiblePortoOpsUnits,
     sweepPortoPresence,
     touchPortoPresence,
     decoratePortoUnit,
@@ -269,7 +271,29 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   function memberHasOpsTraining(state, memberId) {
     const person = (state.people || []).find((entry) => entry.id === memberId);
-    return Array.isArray(person?.completedOperational) && person.completedOperational.includes("OPS");
+    return canServePortoOps(person);
+  }
+
+  function canReleasePortoOps(person, currentOps) {
+    return Boolean(
+      currentOps &&
+        person &&
+        (currentOps.memberId === person.id || canOperatePortoOps(person))
+    );
+  }
+
+  function unitMemberCanServeOps(state, unit) {
+    const person = (state.people || []).find((entry) => entry.id === unit?.memberId);
+    return canServePortoOps(person);
+  }
+
+  function assertCanAssignOpsNumber(state, units, res) {
+    const invalid = (units || []).find((unit) => !unitMemberCanServeOps(state, unit));
+    if (!invalid) return true;
+    sendJson(res, 403, {
+      error: `${invalid.name || "Deze medewerker"} heeft geen OPS-training en mag niet op 30-00 worden gezet.`
+    });
+    return false;
   }
 
   function releaseCurrentOps(state, currentOps, endedBy, endedAt = new Date().toISOString(), statusDetail = "OPS neergelegd") {
@@ -345,9 +369,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   async function maintainPortoPresence(state, person, { touch = true } = {}) {
     const changedBySweep = sweepPortoPresence(state);
+    const changedByOpsEligibility = closeIneligiblePortoOpsUnits(state);
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
-    let unitsChanged = changedBySweep || changedByTouch;
-    let settingsChanged = false;
+    let unitsChanged = changedBySweep || changedByTouch || changedByOpsEligibility;
+    let settingsChanged = changedByOpsEligibility;
     const currentOps = activePortoOps(state);
     if (currentOps?.recoveredFromUnit) {
       state.portoCurrentOps = { ...currentOps };
@@ -450,8 +475,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
       const now = new Date().toISOString();
       sweepPortoPresence(state);
+      const changedByOpsEligibility = closeIneligiblePortoOpsUnits(state, now);
       let unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
       if (!unit && status !== "0") {
+        if (changedByOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 409, { error: "Je moet eerst Status 0 doen voordat OPS je kan indelen." });
         return true;
       }
@@ -488,7 +515,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       delete unit.autoOffline;
       delete unit.autoOfflineAt;
       delete unit.autoRemoveAt;
-      let settingsChanged = false;
+      let settingsChanged = changedByOpsEligibility;
       if (status === "0") {
         unit.reviewStatus = "pending";
         unit.requestedAt = unit.requestedAt || now;
@@ -641,15 +668,18 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const context = await requireActivePerson(req, res);
       if (!context) return true;
       const { state, person } = context;
-      if (!canOperatePortoOps(person)) {
-        sendJson(res, 403, { error: "Alleen medewerkers met OPS-bevoegdheid mogen OPS oppakken." });
-        return true;
-      }
       const body = await readBody(req);
       const action = String(body.action || "claim").trim();
+      const cleanedOpsEligibility = closeIneligiblePortoOpsUnits(state);
       const currentOps = activePortoOps(state);
       if (action === "claim") {
+        if (!canServePortoOps(person)) {
+          if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
+          sendJson(res, 403, { error: "Alleen medewerkers met OPS-training mogen OPS oppakken." });
+          return true;
+        }
         if (currentOps && currentOps.memberId !== person.id) {
+          if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
           sendJson(res, 409, { error: `OPS is al in dienst: ${currentOps.name}.` });
           return true;
         }
@@ -664,8 +694,13 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         return true;
       }
       if (action === "release") {
-        if (!currentOps || (currentOps.memberId !== person.id && !(person.extraFunctions || []).includes("Kader"))) {
-          sendJson(res, 403, { error: "Alleen de huidige OPS of Kader kan OPS afsluiten." });
+        if (!currentOps && cleanedOpsEligibility) {
+          await persistPortoState(state, { settings: true, units: state.portoUnits });
+          sendJson(res, 200, portoOpsPayload(state, person));
+          return true;
+        }
+        if (!canReleasePortoOps(person, currentOps)) {
+          sendJson(res, 403, { error: "Alleen de huidige OPS, OPS-beheer, OPCO, OVD of Kader kan OPS afsluiten." });
           return true;
         }
         const endedAt = new Date().toISOString();
@@ -698,6 +733,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }
       ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      const cleanedOpsEligibility = closeIneligiblePortoOpsUnits(state);
       const body = await readBody(req);
       const unitId = String(body.unitId || "").trim();
       const vehiclePrefix = String(body.vehiclePrefix || "").trim();
@@ -713,6 +749,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const unit = state.portoUnits.find((entry) => entry.id === unitId && entry.active !== false && entry.vehicleNumber)
         || (offDuty && exactVehicleNumber ? state.portoUnits.find((entry) => entry.active !== false && entry.vehicleNumber === exactVehicleNumber) : null);
       if (!unit) {
+        if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 404, { error: "Actieve eenheid niet gevonden." });
         return true;
       }
@@ -893,6 +930,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }
       const now = new Date().toISOString();
       const unitsToMove = linkToVehicleNumber ? [unit] : (currentVehicleGroup.length ? currentVehicleGroup : [unit]);
+      if (vehicleNumber === "30-00" && !assertCanAssignOpsNumber(state, unitsToMove, res)) return true;
       unitsToMove.forEach((entry) => {
         Object.assign(entry, {
           vehicleNumber,
@@ -929,6 +967,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }
       ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      const cleanedOpsEligibility = closeIneligiblePortoOpsUnits(state);
       const body = await readBody(req);
       const unitId = String(body.unitId || "").trim();
       const vehiclePrefix = String(body.vehiclePrefix || "").trim();
@@ -936,6 +975,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const reject = Boolean(body.reject);
       const unit = state.portoUnits.find((entry) => entry.id === unitId && entry.active !== false);
       if (!unit) {
+        if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 404, { error: "Aanmelding niet gevonden." });
         return true;
       }
@@ -986,6 +1026,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 400, { error: "Kies een geldige voertuigcategorie of koppeling." });
         return true;
       }
+      if (vehicleNumber === "30-00" && !assertCanAssignOpsNumber(state, [unit], res)) return true;
       const linkedStatusSource = linkToVehicleNumber
         ? state.portoUnits.find((entry) => entry.active !== false && entry.vehicleNumber === linkToVehicleNumber)
         : null;

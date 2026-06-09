@@ -126,6 +126,18 @@ function createPortoServices() {
     );
   }
 
+  function hasCompletedOperational(person, value) {
+    return Array.isArray(person?.completedOperational) && person.completedOperational.includes(value);
+  }
+
+  function canServePortoOps(person) {
+    return Boolean(
+      person &&
+        person.status === "Actief" &&
+        (hasCompletedOperational(person, "OPS") || isDevOverrideProfile(person))
+    );
+  }
+
   function canOperatePortoOps(person) {
     const operational = Array.isArray(person?.completedOperational) ? person.completedOperational : [];
     const badges = Array.isArray(person?.badges) ? person.badges : [];
@@ -149,10 +161,10 @@ function createPortoServices() {
 
   function activePortoOps(state) {
     const peopleById = new Map((state.people || []).map((person) => [person.id, person]));
-    const canUnitOperateOps = (unit) => canOperatePortoOps(peopleById.get(unit?.memberId));
+    const canUnitServeOps = (unit) => canServePortoOps(peopleById.get(unit?.memberId));
     const ops = state.portoCurrentOps;
-    if (ops && ops.active !== false && canOperatePortoOps(peopleById.get(ops.memberId))) return ops;
-    const opsUnit = (state.portoUnits || []).find((unit) => unit.active !== false && unit.vehicleNumber === "30-00" && canUnitOperateOps(unit));
+    if (ops && ops.active !== false && canServePortoOps(peopleById.get(ops.memberId))) return ops;
+    const opsUnit = (state.portoUnits || []).find((unit) => unit.active !== false && unit.vehicleNumber === "30-00" && canUnitServeOps(unit));
     if (!opsUnit) return null;
     return {
       memberId: opsUnit.memberId || "",
@@ -230,6 +242,44 @@ function createPortoServices() {
     for (const unit of group) {
       unit.linkedWith = group.filter((entry) => entry.id !== unit.id).map((entry) => entry.name);
     }
+  }
+
+  function closeIneligiblePortoOpsUnits(state, nowIso = new Date().toISOString()) {
+    state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+    const peopleById = new Map((state.people || []).map((person) => [person.id, person]));
+    let changed = false;
+
+    const currentOps = state.portoCurrentOps;
+    if (currentOps && currentOps.active !== false && !canServePortoOps(peopleById.get(currentOps.memberId))) {
+      state.portoCurrentOps = {
+        ...currentOps,
+        active: false,
+        endedAt: nowIso,
+        endedReason: "OPS training ontbreekt"
+      };
+      changed = true;
+    }
+
+    for (const unit of state.portoUnits) {
+      if (unit.active === false || unit.vehicleNumber !== "30-00") continue;
+      if (canServePortoOps(peopleById.get(unit.memberId))) continue;
+      Object.assign(unit, {
+        status: "8",
+        statusDetail: "OPS training ontbreekt",
+        active: false,
+        vehicleNumber: "",
+        vehicleCode: "",
+        vehicleType: "",
+        vehicleName: "",
+        linkedWith: [],
+        endedAt: nowIso,
+        updatedAt: nowIso
+      });
+      changed = true;
+    }
+
+    if (changed) syncPortoLinkedNames(state, "30-00");
+    return changed;
   }
 
   function sweepPortoPresence(state, now = new Date()) {
@@ -439,9 +489,9 @@ function createPortoServices() {
         .map((unit) => unit.memberId)
         .filter(Boolean)
     );
-    const canTakeOps = canOperatePortoOps(person);
+    const canTakeOps = canServePortoOps(person);
     const canViewOpsLog = canViewPortoOpsLog(person);
-    const canManageOps = canTakeOps;
+    const canManageOps = canOperatePortoOps(person);
     const opsRequests = canManageOps
       ? state.portoUnits
           .filter((unit) => unit.active !== false && String(unit.status) === "0" && !unit.vehicleNumber && !assignedMemberIds.has(unit.memberId))
@@ -484,6 +534,7 @@ function createPortoServices() {
     defaultPortoVehicleRanges,
     ensurePortoVehicleRanges,
     canUsePortoDevBypass,
+    canServePortoOps,
     canOperatePortoOps,
     activePortoOps,
     canViewPortoOpsLog,
@@ -494,6 +545,7 @@ function createPortoServices() {
     linkablePortoUnits,
     firstAvailableVehicleNumber,
     syncPortoLinkedNames,
+    closeIneligiblePortoOpsUnits,
     sweepPortoPresence,
     touchPortoPresence,
     activePortoUnitGroups,
