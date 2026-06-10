@@ -15,10 +15,16 @@ const { createEventBus } = require("./modules/event-bus");
 const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
 const { closePool, withClient } = require("./modules/db");
+const {
+  currentOrganization,
+  organizationMainRoleId,
+  serviceNumberGroupForRank
+} = require("./modules/organizations");
 
 loadEnv();
 
 const root = __dirname;
+const organization = currentOrganization();
 const dataPath = path.join(root, "data.json");
 const storageMode = String(process.env.STORAGE_MODE || "json").toLowerCase();
 const storage = storageMode === "postgres" ? createPostgresReadStorage() : createJsonStorage(dataPath);
@@ -53,8 +59,7 @@ const {
 const requiredDiscordEnv = [
   "DISCORD_CLIENT_ID",
   "DISCORD_CLIENT_SECRET",
-  "DISCORD_GUILD_ID",
-  "DISCORD_DEFENSIE_ROLE_ID"
+  "DISCORD_GUILD_ID"
 ];
 
 const {
@@ -85,11 +90,44 @@ function loadEnv() {
 }
 
 function discordConfigured() {
-  return requiredDiscordEnv.every((key) => process.env[key]);
+  return requiredDiscordEnv.every((key) => process.env[key]) && Boolean(organizationMainRoleId(organization));
 }
 
 function allowDevUnauth() {
   return process.env.DEV_ALLOW_UNAUTH !== "false";
+}
+
+function normalizeDiscordId(value) {
+  return String(value || "").replace(/^discord:/i, "").trim();
+}
+
+function configuredDevDiscordIds() {
+  return new Set(String(process.env.DEV_OVERRIDE_DISCORD_IDS || "").split(/[,\s]+/).map(normalizeDiscordId).filter(Boolean));
+}
+
+function isDevOverrideDiscordId(discordId) {
+  return configuredDevDiscordIds().has(normalizeDiscordId(discordId));
+}
+
+function syntheticDevProfile(user) {
+  const rank = organization.ranks[0];
+  const group = serviceNumberGroupForRank(organization, rank);
+  return {
+    id: `dev-${normalizeDiscordId(user.id)}`,
+    name: user.global_name || user.username || "Dev beheerder",
+    discordId: normalizeDiscordId(user.id),
+    discordUsername: user.global_name || user.username || "",
+    avatar: avatarUrl(user),
+    rank,
+    serviceNumber: `${group.prefix}-00`,
+    permRole: organization.permissionAliases?.kader?.[0] || "Kader",
+    extraFunctions: [],
+    badges: [],
+    completedTrainings: [],
+    completedOperational: [],
+    status: "Actief",
+    rankHistory: [{ rank, date: new Date().toISOString().slice(0, 10), serviceNumber: `${group.prefix}-00` }]
+  };
 }
 
 function logServerError(label, error) {
@@ -126,7 +164,8 @@ function syncProfileFromDiscord(state, profile, user, member) {
   profile.avatar = avatarUrl(user);
   profile.discordRoles = roles;
   profile.lastDiscordSync = new Date().toISOString();
-  profile.hasDefensieRole = roles.includes(process.env.DISCORD_DEFENSIE_ROLE_ID);
+  profile.hasOrganizationRole = roles.includes(organizationMainRoleId(organization));
+  profile.hasDefensieRole = profile.hasOrganizationRole;
   profile.permRole = resolveSyncedPermRole(profile, roles, state);
 }
 
@@ -310,7 +349,13 @@ async function handleApi(req, res, url) {
       return;
     }
     const state = await Promise.resolve(readState());
-    const profile = (state.people || []).find((person) => person.id === auth.profile.id && person.status === "Actief") || auth.profile;
+    let profile = (state.people || []).find((person) => person.id === auth.profile.id && person.status === "Actief") || null;
+    if (!profile && isDevOverrideDiscordId(auth.profile.discordId)) profile = auth.profile;
+    if (!profile) {
+      clearSession(req, res);
+      sendJson(res, 401, { authenticated: false, loginUrl: "/api/auth/login" });
+      return;
+    }
     auth.profile = profile;
     auth.session.profile = { ...profile };
     if (!auth.session.dev && typeof sessions.save === "function") sessions.save(auth.session.id, auth.session);
@@ -336,18 +381,20 @@ async function handleApi(req, res, url) {
       const token = await exchangeCode(url.searchParams.get("code"), redirectUri);
       const user = await getDiscordUser(token.access_token);
       const member = await getCurrentUserGuildMember(token.access_token);
-      if (!member.roles.includes(process.env.DISCORD_DEFENSIE_ROLE_ID)) {
+      if (!member.roles.includes(organizationMainRoleId(organization)) && !isDevOverrideDiscordId(user.id)) {
         redirectWithAuthError(req, res, "no-role");
         return;
       }
       const state = await Promise.resolve(readState());
-      const profile = (state.people || []).find((person) => person.discordId === user.id && person.status === "Actief");
+      const profile = (state.people || []).find((person) => person.discordId === user.id && person.status === "Actief") || (isDevOverrideDiscordId(user.id) ? syntheticDevProfile(user) : null);
       if (!profile) {
         redirectWithAuthError(req, res, "no-profile");
         return;
       }
-      syncProfileFromDiscord(state, profile, user, member);
-      await persistDiscordProfileSync(state, profile);
+      if (!String(profile.id || "").startsWith("dev-")) {
+        syncProfileFromDiscord(state, profile, user, member);
+        await persistDiscordProfileSync(state, profile);
+      }
       createSession(res, user, profile, { accessToken: token.access_token, roles: member.roles || [] });
       const sessionCookie = res.getHeader("Set-Cookie");
       res.writeHead(302, {
@@ -407,7 +454,8 @@ async function startServer() {
   await sessions.cleanup?.();
   await postgresEventBridge.start();
   server.listen(port, () => {
-    console.log(`Porto-Systeem draait op ${appBaseUrl}`);
+    console.log(`${organization.label} Porto-Systeem draait op ${appBaseUrl}`);
+    console.log(`Organisatie: ${organization.key}`);
     console.log(`Storage mode: ${storageMode}`);
     console.log(`Actieve sessies geladen: ${typeof sessions.size === "function" ? sessions.size() : "onbekend"}`);
   });

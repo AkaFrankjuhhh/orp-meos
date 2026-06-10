@@ -33,6 +33,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     mentorRanks,
     mentorChecklistCount,
     mentorTrainingName,
+    defaultRecruitRank,
     sendDiscordWebhook,
     absenceWebhookUrl,
     personnelWebhookUrl,
@@ -1182,10 +1183,10 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
 
-    const rank = "Marechaussee 4de Klasser";
+    const rank = defaultRecruitRank || ranks[ranks.length - 1];
     const serviceNumber = getAvailableServiceNumbers(state, rank)[0];
     if (!serviceNumber) {
-      sendJson(res, 409, { error: "Geen vrij dienstnummer beschikbaar in de 74-reeks." });
+      sendJson(res, 409, { error: "Geen vrij dienstnummer beschikbaar voor de standaard aanname-rang." });
       return;
     }
 

@@ -1,36 +1,23 @@
 const crypto = require("node:crypto");
+const {
+  currentOrganization,
+  serviceNumberGroupForRank
+} = require("./organizations");
 
-// Centrale Defensie Personeelsportaal domeinregels: rangen, dienstnummers, profieldata en mutaties.
-const ranks = [
-  "Luitenant-Generaal",
-  "Generaal-Majoor",
-  "Brigade-Generaal",
-  "Kolonel",
-  "Luitenant-Kolonel",
-  "Majoor",
-  "Kapitein",
-  "Eerste-Luitenant",
-  "Tweede-Luitenant",
-  "Kornet",
-  "Adjudant",
-  "Opperwachtmeester",
-  "Wachtmeester 1ste Klasser",
-  "Wachtmeester",
-  "Marechaussee 1ste Klasser",
-  "Marechaussee 2de Klasser",
-  "Marechaussee 3de Klasser",
-  "Marechaussee 4de Klasser"
-];
+// Centrale Personeelsportaal domeinregels: rangen, dienstnummers, profieldata en mutaties.
+const organization = currentOrganization();
+const ranks = organization.ranks;
 
 const rankWeight = new Map(ranks.map((rank, index) => [rank, ranks.length - index]));
-const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
-const profileOperational = ["OPS", "OPCO", "OVD"];
-const extraTasks = ["Interne-Zaken", "OvJ", "hOvJ", "Trainer", "Mentor", "W&S", "Mentor-Leiding", "OTC-Leiding", "W&S-Leiding", "IZ-Leiding", "Trainer-Leiding", "DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
-const extraFunctions = ["Kader", "Overheidscoördinator", "Hoofdofficier", "Officiersraad"];
-const restrictedTaskBadges = new Set(["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"]);
-const mentorRanks = ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"];
-const mentorTrainingName = "Mentor-Traject";
-const mentorChecklistCount = 13;
+const profileTrainings = organization.profileTrainings;
+const profileOperational = organization.profileOperational;
+const extraTasks = organization.extraTasks;
+const extraFunctions = organization.extraFunctions;
+const restrictedTaskBadges = new Set(organization.restrictedTaskBadges || []);
+const mentorRanks = organization.mentorRanks;
+const mentorTrainingName = organization.mentorTrainingName;
+const mentorChecklistCount = organization.mentorChecklistCount || 13;
+const defaultRecruitRank = organization.defaultRecruitRank;
 const disciplineTypes = new Set(["regular-warning", "regular-strike", "i8-warning", "i8-strike"]);
 const disciplineLabels = {
   "regular-warning": "Offici\u00eble Waarschuwing",
@@ -61,19 +48,7 @@ function addMonths(date, months) {
 }
 
 function getGroupForRank(rank) {
-  if (["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"].includes(rank)) {
-    return { prefix: "70", min: 1, max: 5 };
-  }
-  if (["Kolonel", "Luitenant-Kolonel", "Majoor"].includes(rank)) {
-    return { prefix: "71", min: 1, max: 15 };
-  }
-  if (["Kapitein", "Eerste-Luitenant", "Tweede-Luitenant", "Kornet"].includes(rank)) {
-    return { prefix: "72", min: 1, max: 50 };
-  }
-  if (["Adjudant", "Opperwachtmeester", "Wachtmeester 1ste Klasser", "Wachtmeester"].includes(rank)) {
-    return { prefix: "73", min: 1, max: 75 };
-  }
-  return { prefix: "74", min: 1, max: 100 };
+  return serviceNumberGroupForRank(organization, rank);
 }
 
 function formatService(prefix, number) {
@@ -103,11 +78,13 @@ function assignFirstAvailableServiceNumber(state, person) {
 }
 
 function autoSortServiceNumbers(state) {
-  const sortablePrefixes = ["70", "71", "72"];
+  const sortableGroups = (organization.serviceNumberGroups || []).filter((group) => group.autoSort);
+  const sortableRanks = new Set(organization.autoSortRanks || []);
   const todayValue = today();
-  sortablePrefixes.forEach((prefix) => {
+  sortableGroups.forEach((group) => {
     const members = (state.people || [])
-      .filter((person) => (person.serviceNumber || "").startsWith(`${prefix}-`) && person.status === "Actief")
+      .filter((person) => (person.serviceNumber || "").startsWith(`${group.prefix}-`) && person.status === "Actief")
+      .filter((person) => !sortableRanks.size || sortableRanks.has(person.rank))
       .sort((a, b) => {
         const rankDelta = rankWeight.get(b.rank) - rankWeight.get(a.rank);
         if (rankDelta !== 0) return rankDelta;
@@ -115,7 +92,9 @@ function autoSortServiceNumbers(state) {
       });
 
     members.forEach((person, index) => {
-      const nextNumber = formatService(prefix, index + 1);
+      const nextSequence = group.min + index;
+      if (group.max && nextSequence > group.max) return;
+      const nextNumber = formatService(group.prefix, nextSequence);
       if (person.serviceNumber !== nextNumber) {
         person.serviceNumber = nextNumber;
         person.rankHistory = person.rankHistory || [];
@@ -353,6 +332,7 @@ function stateForProfile(state, permissions, profileId = "") {
 
 function createPersoneelsportaalDomain() {
   return {
+    organization,
     ranks,
     profileTrainings,
     profileOperational,
@@ -361,6 +341,7 @@ function createPersoneelsportaalDomain() {
     mentorRanks,
     mentorTrainingName,
     mentorChecklistCount,
+    defaultRecruitRank,
     disciplineTypes,
     disciplineLabels,
     stateForProfile,

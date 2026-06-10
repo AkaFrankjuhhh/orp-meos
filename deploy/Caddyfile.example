@@ -21,3 +21,33 @@ porto.orpdefensie.nl {
     X-Frame-Options DENY
   }
 }
+
+# Politie Personeelsportaal + publieke formulieren.
+orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, klachten.orppolitie.nl, otc.orppolitie.nl, hrb.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl, hovj.orppolitie.nl {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3010
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
+}
+
+# Politie Porto draait als eigen service.
+porto.orppolitie.nl {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3012
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
+}
+
+# Centrale overheid-login komt later als aparte router/landing.
+orpoverheid.nl, www.orpoverheid.nl {
+  encode zstd gzip
+  respond "ORP Overheid router moet nog als aparte service worden ingericht." 200
+}

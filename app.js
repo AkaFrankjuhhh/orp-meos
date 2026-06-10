@@ -1,6 +1,8 @@
 // Statische Defensie Personeelsportaal configuratie komt uit personeelsportaal-data.js.
 const {
+  organization,
   ranks,
+  defaultRecruitRank,
   rankCategories,
   rankWeight,
   today,
@@ -17,6 +19,14 @@ const {
   rankColors,
   defaultState
 } = window.DefensiePortalData;
+const organizationConfig = organization || {
+  key: "defensie",
+  label: "Defensie",
+  portalTitle: "Defensie Personeelsportaal",
+  portalSubtitle: "Defensie Oranjestad",
+  requiredRoleLabel: "Defensie"
+};
+const organizationKey = organizationConfig.key || "defensie";
 let state = structuredClone(defaultState);
 let authProfile = null;
 let serverBacked = false;
@@ -31,10 +41,10 @@ let pendingI8ArchiveDeleteId = "";
 let pendingAbsenceId = "";
 let selectedMentorProfileId = "";
 let activeI8Tab = "list";
-const pageStorageKey = "orp-defensie-current-page";
-const profileStorageKey = "orp-defensie-current-profile";
-const mentorStorageKey = "orp-defensie-current-mentor";
-const openProfileFlagKey = "orp-defensie-open-own-profile";
+const pageStorageKey = `orp-${organizationKey}-current-page`;
+const profileStorageKey = `orp-${organizationKey}-current-profile`;
+const mentorStorageKey = `orp-${organizationKey}-current-mentor`;
+const openProfileFlagKey = `orp-${organizationKey}-open-own-profile`;
 const pageRouteMap = {
   dashboard: "/",
   medewerkers: "/medewerkers",
@@ -60,8 +70,8 @@ const pageRouteMap = {
 };
 const routePageMap = Object.fromEntries(Object.entries(pageRouteMap).map(([page, route]) => [route, page]));
 let suppressRouteSync = false;
-const portalWindowName = "defensie-personeelsportaal-main";
-const portalChannelName = "orp-defensie-portaal-window";
+const portalWindowName = `${organizationKey}-personeelsportaal-main`;
+const portalChannelName = `orp-${organizationKey}-portaal-window`;
 let reviewCounterPoll = null;
 let liveEventSource = null;
 let liveRefreshTimer = null;
@@ -71,28 +81,56 @@ let mentorChecklistEditingUntil = 0;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
+function applyOrganizationBranding() {
+  const label = organizationConfig.label || "Defensie";
+  const title = organizationConfig.portalTitle || `${label} Personeelsportaal`;
+  const subtitle = organizationConfig.portalSubtitle || `${label} Oranjestad`;
+  const roleLabel = organizationConfig.requiredRoleLabel || label;
+
+  document.title = `Oranjestad RP ${label} | Personeelsbeheer`;
+  const lockBrandTitle = document.querySelector(".lock-brand strong");
+  const lockBrandSubtitle = document.querySelector(".lock-brand span");
+  const lockTitle = document.querySelector("#lockscreen h1");
+  const lockText = document.querySelector("#lockscreen p");
+  const sidebarTitle = document.querySelector(".sidebar .brand strong");
+  const sidebarSubtitle = document.querySelector(".sidebar .brand span");
+  const eyebrow = document.querySelector(".topbar .eyebrow");
+  const authNoticeText = document.querySelector("#authNotice p");
+  const recruitmentHint = document.querySelector(".recruitment-panel .muted");
+
+  if (lockBrandTitle) lockBrandTitle.textContent = title;
+  if (lockBrandSubtitle) lockBrandSubtitle.textContent = subtitle;
+  if (lockTitle) lockTitle.textContent = `${title} Oranjestad`;
+  if (lockText) lockText.textContent = `Alleen personeel met een gekoppeld ${title}-profiel en de juiste Discord ${roleLabel} rol kan aanmelden.`;
+  if (sidebarTitle) sidebarTitle.textContent = label;
+  if (sidebarSubtitle) sidebarSubtitle.textContent = "Oranjestad RP";
+  if (eyebrow) eyebrow.textContent = organizationKey === "politie" ? "Politie Oranjestad" : "Koninklijke Marechaussee";
+  if (authNoticeText) authNoticeText.textContent = `Je kunt aanmelden als je Discord ID in een actief profiel staat en je de ${roleLabel} rol hebt.`;
+  if (recruitmentHint) recruitmentHint.textContent = `Nieuwe medewerkers worden automatisch aangemaakt als ${defaultRecruitRank || ranks[ranks.length - 1]}.`;
+}
+
 
 function registerPersoneelsportaalTab() {
   window.name = portalWindowName;
-  const markOpen = () => localStorage.setItem("orp-defensie-portaal-window-seen", String(Date.now()));
+  const markOpen = () => localStorage.setItem(`orp-${organizationKey}-portaal-window-seen`, String(Date.now()));
   const focusSelf = (requestId = Date.now()) => {
     markOpen();
-    localStorage.setItem("orp-defensie-personeelsportaal-focus-ack", String(requestId));
+    localStorage.setItem(`orp-${organizationKey}-personeelsportaal-focus-ack`, String(requestId));
     window.focus();
   };
   markOpen();
   window.addEventListener("focus", markOpen);
   document.addEventListener("visibilitychange", markOpen);
   window.addEventListener("storage", (event) => {
-    if (event.key === "orp-defensie-personeelsportaal-focus-request") focusSelf(Number(event.newValue) || Date.now());
+    if (event.key === `orp-${organizationKey}-personeelsportaal-focus-request`) focusSelf(Number(event.newValue) || Date.now());
   });
   try {
     const channel = new BroadcastChannel(portalChannelName);
     channel.addEventListener("message", (event) => {
-      if (event.data?.type === "focus-defensie-portaal") focusSelf(Number(event.data.requestId) || Date.now());
+      if (event.data?.type === `focus-${organizationKey}-portaal`) focusSelf(Number(event.data.requestId) || Date.now());
     });
   } catch (error) {
-    // BroadcastChannel is optional; the named tab fallback still opens Defensie Personeelsportaal correctly.
+    // BroadcastChannel is optional; the named tab fallback still opens het Personeelsportaal correct.
   }
 }
 function currentProfile() {
@@ -461,7 +499,7 @@ function applyServerState(payload) {
   if (payload.permissions) {
     permissions = payload.permissions;
   }
-  localStorage.removeItem("orp-defensie-state");
+  localStorage.removeItem(`orp-${organizationKey}-state`);
 }
 
 async function runAction(path, body = {}) {
@@ -570,8 +608,8 @@ function setLocked(locked) {
 function showLockError() {
   const errorCode = new URLSearchParams(window.location.search).get("authError");
   const messages = {
-    "no-profile": "Geen profiel gevonden in Defensie Personeelsportaal.",
-    "no-role": "Geen Discord gekoppeld: je mist de Defensie rol.",
+    "no-profile": `Geen profiel gevonden in ${organizationConfig.portalTitle}.`,
+    "no-role": `Geen Discord gekoppeld: je mist de ${organizationConfig.requiredRoleLabel || organizationConfig.label} rol.`,
     "login-failed": "Aanmelden via Discord is mislukt. Controleer Client Secret, callback URL en probeer opnieuw.",
     "rate-limited": "Discord blokkeert tijdelijk door te veel pogingen. Wacht 5 tot 10 minuten en probeer opnieuw."
   };
@@ -758,6 +796,7 @@ function authLoginUrl() {
 function portoAppUrl() {
   if (window.PORTO_APP_URL) return window.PORTO_APP_URL;
   if (["localhost", "127.0.0.1"].includes(window.location.hostname)) return "http://localhost:3002";
+  if (organizationKey === "politie") return "https://porto.orppolitie.nl";
   return "https://porto.orpdefensie.nl";
 }
 
@@ -2079,6 +2118,7 @@ function wireEvents() {
 }
 
 async function init() {
+  applyOrganizationBranding();
   registerPersoneelsportaalTab();
   updateDeviceMode();
   showLockError();

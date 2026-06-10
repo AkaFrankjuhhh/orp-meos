@@ -1,10 +1,18 @@
 const crypto = require("node:crypto");
 const { URL } = require("node:url");
+const { currentOrganization } = require("./organizations");
+
+const organization = currentOrganization();
+const publicFormDomain = organization.key === "politie" ? "orppolitie.nl" : "orpdefensie.nl";
+
+function formHosts(...subdomains) {
+  return subdomains.map((subdomain) => `${subdomain}.${publicFormDomain}`);
+}
 
 const publicFormConfigs = {
   herintrede: {
     slug: "herintrede",
-    hostnames: ["herintrede.orpdefensie.nl"],
+    hostnames: formHosts("herintrede"),
     title: "ORP - Herintredingsformulier Defensie",
     subtitle: "Ben jij in het verleden Defensie geweest? Dan kan je via deze weg aangeven dat je terug wil komen. We streven ernaar om binnen een week te reageren.",
     notice: "Houd er rekening mee dat jij niet terug komt op je oude rang. Ook dien je minimaal de rang Wachtmeester te zijn geweest en moet dit formulier binnen 6 maanden na ontslag ingediend zijn.",
@@ -20,7 +28,7 @@ const publicFormConfigs = {
   },
   overstap: {
     slug: "overstap",
-    hostnames: ["overstap.orpdefensie.nl"],
+    hostnames: formHosts("overstap"),
     title: "ORP - Overstapformulier Defensie",
     subtitle: "Ben jij momenteel politie? Dan kan je via deze weg aangeven dat je wil overstappen. Let op dat je maximaal kan intreden op Mar. 1ste klasse.",
     accent: "#f59e0b",
@@ -36,7 +44,7 @@ const publicFormConfigs = {
   },
   klachten: {
     slug: "klachten",
-    hostnames: ["klachten.orpdefensie.nl"],
+    hostnames: formHosts("klachten"),
     title: "ORP - Defensie Klachtenformulier",
     subtitle: "Gebruik dit formulier om een klacht of melding richting Defensie Oranjestad door te geven.",
     accent: "#ef4444",
@@ -54,7 +62,7 @@ const publicFormConfigs = {
   },
   otc: {
     slug: "otc",
-    hostnames: ["otc.orpdefensie.nl"],
+    hostnames: formHosts("otc"),
     title: "ORP - OTC Aanmeldformulier",
     subtitle: "Aanmelding voor het opleidings- en trainingscentrum van Defensie Oranjestad.",
     accent: "#38bdf8",
@@ -75,7 +83,7 @@ const publicFormConfigs = {
   },
   hrb: {
     slug: "hrb",
-    hostnames: ["hrb.orpdefensie.nl"],
+    hostnames: formHosts("hrb"),
     title: "Eskadron Hoog Risico Beveiliging",
     subtitle: "Sollicitatieproces voor de functie operator binnen de HRB. Zorg dat je motivatie duidelijk op papier staat.",
     notice: "Eisen: minimale rang Wachtmeester, consequente inzet en motivatie, betrouwbaarheid, goede samenwerking en stressbestendigheid.",
@@ -99,7 +107,7 @@ const publicFormConfigs = {
   "w-s": {
     slug: "w-s",
     aliases: ["w&s", "ws"],
-    hostnames: ["w-s.orpdefensie.nl", "ws.orpdefensie.nl"],
+    hostnames: formHosts("w-s", "ws"),
     title: "ORP - Werving & Selectie",
     subtitle: "Aanmelding voor werkzaamheden binnen Werving & Selectie.",
     accent: "#f59e0b",
@@ -115,7 +123,7 @@ const publicFormConfigs = {
   },
   hovj: {
     slug: "hovj",
-    hostnames: ["hovj.orpdefensie.nl"],
+    hostnames: formHosts("hovj"),
     title: "Sollicitatie hulpofficier van justitie (hOvJ)",
     subtitle: "Dit formulier dient voor het verzamelen van gegevens ten behoeve van de beoordeling van uw sollicitatie voor de functie van hulp Officier van Justitie.\n\nU wordt verzocht uw persoonlijke gegevens, ervaring en relevante competenties volledig en naar waarheid in te vullen. Tevens dient u uw motivatie toe te lichten.\n\nDe verstrekte informatie wordt uitsluitend gebruikt voor de selectieprocedure en vertrouwelijk behandeld.\n\nHet gebruik van AI wordt gecontroleerd. Let op uw taalgebruik en geef authentieke, eigen antwoorden.",
     notice: "Indien tijdens de selectie of proefperiode blijkt dat u niet over de vereiste competenties beschikt, kan dit alsnog leiden tot beëindiging van uw aanstelling.",
@@ -167,6 +175,33 @@ const publicFormManagerBadges = {
   hovj: ["OvJ"]
 };
 
+function replaceOrganizationText(value) {
+  if (organization.key !== "politie" || typeof value !== "string") return value;
+  return value
+    .replaceAll("Defensie Oranjestad", "Politie Oranjestad")
+    .replaceAll("Defensie", "Politie")
+    .replaceAll("Marechaussee", "Politie")
+    .replaceAll("Mar. 1ste klasse", "Agent");
+}
+
+function applyOrganizationTextToForm(config) {
+  for (const key of ["title", "subtitle", "notice"]) {
+    if (config[key]) config[key] = replaceOrganizationText(config[key]);
+  }
+  for (const question of config.questions || []) {
+    for (const key of ["label", "placeholder", "help"]) {
+      if (question[key]) question[key] = replaceOrganizationText(question[key]);
+    }
+    if (Array.isArray(question.options)) {
+      question.options = question.options.map((option) => typeof option === "string"
+        ? replaceOrganizationText(option)
+        : { ...option, label: replaceOrganizationText(option.label), value: replaceOrganizationText(option.value) });
+    }
+  }
+}
+
+Object.values(publicFormConfigs).forEach(applyOrganizationTextToForm);
+
 function clonePublicFormConfig(config) {
   return JSON.parse(JSON.stringify(config || {}));
 }
@@ -179,8 +214,10 @@ function canManagePublicForm(profile, config) {
   if (!profile || !config) return false;
   const rank = profile.rank || "";
   const functionBadges = new Set([profile.permRole, ...(profile.extraFunctions || [])].filter(Boolean));
-  if (["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"].includes(rank)) functionBadges.add("Kader");
-  if (functionBadges.has("Kader")) return true;
+  for (const mapping of organization.autoFunctionByRanks || []) {
+    if ((mapping.ranks || []).includes(rank)) functionBadges.add(mapping.label);
+  }
+  if ((organization.permissionAliases?.kader || ["Kader"]).some((badge) => functionBadges.has(badge))) return true;
   const taskBadges = new Set(profile.badges || []);
   return managerBadgesForConfig(config).some((badge) => functionBadges.has(badge) || taskBadges.has(badge));
 }

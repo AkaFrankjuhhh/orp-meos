@@ -4,8 +4,14 @@ const {
   configuredPortoVoiceChannels,
   resolvePortoVoiceChannelId
 } = require("./porto-discord-channels");
+const {
+  currentOrganization,
+  organizationMainRoleId,
+  envOrDefault
+} = require("./organizations");
 
-const rankNicknameSymbols = {
+const organization = currentOrganization();
+const defaultDefensieRankNicknameSymbols = {
   "Marechaussee 4de Klasser": "\u276F",
   "Marechaussee 3de Klasser": "\u276F\u276F",
   "Marechaussee 2de Klasser": "\u276F\u276F\u276F",
@@ -30,7 +36,7 @@ const rankNicknameSymbols = {
 };
 
 
-const rankRoleEnvKeys = {
+const defaultDefensieRankRoleEnvKeys = {
   "Luitenant-Generaal": "DISCORD_RANK_LUITENANT_GENERAAL_ROLE_ID",
   "Generaal-Majoor": "DISCORD_RANK_GENERAAL_MAJOOR_ROLE_ID",
   "Brigade-Generaal": "DISCORD_RANK_BRIGADE_GENERAAL_ROLE_ID",
@@ -51,7 +57,7 @@ const rankRoleEnvKeys = {
   "Marechaussee 4de Klasser": "DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID"
 };
 
-const qualificationRoleDefaults = {
+const defaultDefensieQualificationRoleDefaults = {
   BKV: {
     envKey: "DISCORD_MEOS_ROLE_ID",
     roleId: "1425931664877551708",
@@ -102,7 +108,7 @@ function discordSyncExcludedResult() {
 
 
 function requiredDefensieRoleId() {
-  return String(process.env.DISCORD_DEFENSIE_ROLE_ID || "").trim();
+  return organizationMainRoleId(organization);
 }
 
 function memberHasRequiredDefensieRole(memberResult) {
@@ -112,7 +118,7 @@ function memberHasRequiredDefensieRole(memberResult) {
 }
 
 function missingDefensieRoleResult() {
-  return { skipped: true, reason: "Defensie rol ontbreekt; Discord naam en rangrollen worden niet aangepast." };
+  return { skipped: true, reason: `${organization.requiredRoleLabel || organization.label} rol ontbreekt; Discord naam en rangrollen worden niet aangepast.` };
 }
 
 function compactRoleIds(roleIds) {
@@ -126,7 +132,8 @@ function truncateDiscordNickname(value) {
 }
 
 function rankSymbolsFor(rank) {
-  return rankNicknameSymbols[String(rank || "").trim()] || "";
+  const symbols = organization.discord?.nicknameSymbols || defaultDefensieRankNicknameSymbols;
+  return symbols[String(rank || "").trim()] || "";
 }
 
 function formatNameForDiscordNickname(name) {
@@ -160,7 +167,8 @@ function buildPortoNicknameDefault(person, unit = {}) {
   const prefix = symbols ? `[${serviceNumber} ${symbols}]` : `[${serviceNumber}]`;
   const body = `${prefix} ${name}`.trim();
   const isOpsLead = unit?.vehicleNumber === "30-00" && unit?.isPortoOpsLead === true;
-  return truncateDiscordNickname(isOpsLead ? `OPS ${body}` : body);
+  const operatorLabel = organization.discord?.portoOperatorLabel || "OPS";
+  return truncateDiscordNickname(isOpsLead ? `${operatorLabel} ${body}` : body);
 }
 
 function nicknameTemplateHasPlaceholders(template) {
@@ -185,32 +193,32 @@ function createDiscordBotServices(options = {}) {
 
   function configuredRoleMappings() {
     return [
-      { key: "kader", label: "Kader", roleId: process.env.DISCORD_KADER_ROLE_ID },
-      { key: "overheidscoordinator", label: "Overheidscoördinator", roleId: process.env.DISCORD_OVERHEIDSCOORDINATOR_ROLE_ID },
-      { key: "hoofdofficier", label: "Hoofdofficier", roleId: process.env.DISCORD_HOOFDOFFICIER_ROLE_ID },
-      { key: "officiersraad", label: "Officiersraad", roleId: process.env.DISCORD_OFFICIERSRAAD_ROLE_ID },
-      { key: "interne-zaken", label: "Interne-Zaken", roleId: process.env.DISCORD_INTERNE_ZAKEN_ROLE_ID },
-      { key: "ovj", label: "OvJ", roleId: process.env.DISCORD_OVJ_ROLE_ID },
-      { key: "hovj", label: "hOvJ", roleId: process.env.DISCORD_HOVJ_ROLE_ID },
-      { key: "trainer", label: "Trainer", roleId: process.env.DISCORD_TRAINER_ROLE_ID },
-      { key: "mentor", label: "Mentor", roleId: process.env.DISCORD_MENTOR_ROLE_ID },
-      { key: "w-s", label: "W&S", roleId: process.env.DISCORD_WS_ROLE_ID }
-    ].filter((mapping) => String(mapping.roleId || "").trim());
+      ...(organization.discord?.functionRoleMappings || []),
+      ...(organization.discord?.taskRoleMappings || [])
+    ]
+      .map((mapping) => ({
+        key: mapping.key,
+        label: mapping.label,
+        roleId: envOrDefault(mapping.envKey, mapping.defaultRoleId)
+      }))
+      .filter((mapping) => String(mapping.roleId || "").trim());
   }
 
   function configuredRankRoleMappings() {
+    const rankRoleEnvKeys = organization.discord?.rankRoleEnvKeys || defaultDefensieRankRoleEnvKeys;
     return Object.entries(rankRoleEnvKeys)
       .map(([rank, envKey]) => ({ rank, envKey, roleId: process.env[envKey] }))
       .filter((mapping) => String(mapping.roleId || "").trim());
   }
 
   function configuredQualificationRoleMappings() {
+    const qualificationRoleDefaults = organization.discord?.qualificationRoleMappings || defaultDefensieQualificationRoleDefaults;
     return Object.entries(qualificationRoleDefaults)
       .map(([qualification, config]) => ({
         qualification,
         label: config.label,
         envKey: config.envKey,
-        roleId: process.env[config.envKey] || config.roleId
+        roleId: envOrDefault(config.envKey, config.defaultRoleId || config.roleId)
       }))
       .filter((mapping) => String(mapping.roleId || "").trim());
   }
@@ -513,7 +521,7 @@ function createDiscordBotServices(options = {}) {
     syncRoleSet,
     isDiscordSyncExcludedPerson,
     isDiscordSyncExcludedDiscordId,
-    rankRoleEnvKeys,
+    rankRoleEnvKeys: organization.discord?.rankRoleEnvKeys || defaultDefensieRankRoleEnvKeys,
     rankRoleIdForPerson,
     syncRankRoleForPerson,
     syncRankRoleForPersonIfNeeded,
