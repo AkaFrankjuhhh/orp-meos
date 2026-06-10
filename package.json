@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "start:porto": "node porto-server.js",
+    "start:overheid": "node overheid-server.js",
     "db:check": "node scripts/db-check.js",
     "db:init": "node scripts/db-init.js",
     "db:import-json": "node scripts/import-data-json.js --replace",

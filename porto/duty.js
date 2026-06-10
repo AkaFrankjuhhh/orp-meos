@@ -159,7 +159,7 @@ function renderDutyPanel() {
   if (devBypassButton) devBypassButton.hidden = !(waitingForOps && isDevBypassProfile());
   panel.hidden = !assignedDuty || opsWorkspace;
   renderOpsLogAccess();
-  setPortoDutyPolling(waitingForOps || assignedDuty);
+  setPortoDutyPolling((waitingForOps || assignedDuty) && !opsWorkspace);
   renderPortoWorkspaceMode();
   if (!assignedDuty || opsWorkspace || !portoProfile) return;
   renderDutyAssignment();

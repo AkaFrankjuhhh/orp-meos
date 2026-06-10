@@ -33,6 +33,18 @@ function createPostgresEventBridge({ enabled, serviceName, publishLocal, logErro
     }, 5000);
   }
 
+  function dropClient(error = null) {
+    if (!client) return;
+    const currentClient = client;
+    client = null;
+    currentClient.removeListener("notification", handleNotification);
+    try {
+      currentClient.release(error || undefined);
+    } catch {
+      // De verbinding kan al door pg gesloten zijn; reconnect pakt een nieuwe client.
+    }
+  }
+
   async function start() {
     if (!enabled || client || stopped) return;
     const pool = createPool();
@@ -40,7 +52,11 @@ function createPostgresEventBridge({ enabled, serviceName, publishLocal, logErro
     client.on("notification", handleNotification);
     client.on("error", (error) => {
       report("Postgres event bridge fout", error);
-      client = null;
+      dropClient(error);
+      scheduleReconnect();
+    });
+    client.on("end", () => {
+      dropClient();
       scheduleReconnect();
     });
     await client.query(`listen ${channelName}`);

@@ -77,10 +77,12 @@ let suppressRouteSync = false;
 const portalWindowName = `${organizationKey}-personeelsportaal-main`;
 const portalChannelName = `orp-${organizationKey}-portaal-window`;
 let reviewCounterPoll = null;
+let reviewCounterLoadPromise = null;
 let liveEventSource = null;
 let liveRefreshTimer = null;
 let rankPieSegments = [];
 let mentorChecklistEditingUntil = 0;
+const REVIEW_COUNTER_FALLBACK_MS = 30000;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1164,21 +1166,28 @@ function renderLiveScope(scope = "state") {
 }
 async function refreshReviewCounters() {
   if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
+  if (document.visibilityState === "hidden") return;
+  if (reviewCounterLoadPromise) return reviewCounterLoadPromise;
   if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction() || hasActiveLiveEditInteraction()) return;
-  const loaded = await loadState();
-  if (!loaded) return;
-  renderNavigationCounters();
-  const page = activePageId();
-  if (page === "i8-controleren") renderI8Forms();
-  if (page === "afwezigheid-overzicht") renderAbsenceOverview();
-  if (page === "ontslag-overzicht") renderResignationOverview();
-  if (page === "blacklist") renderBlacklist();
-  if (page === "dashboard") renderDashboard();
+  reviewCounterLoadPromise = (async () => {
+    const loaded = await loadState();
+    if (!loaded) return;
+    renderNavigationCounters();
+    const page = activePageId();
+    if (page === "i8-controleren") renderI8Forms();
+    if (page === "afwezigheid-overzicht") renderAbsenceOverview();
+    if (page === "ontslag-overzicht") renderResignationOverview();
+    if (page === "blacklist") renderBlacklist();
+    if (page === "dashboard") renderDashboard();
+  })().finally(() => {
+    reviewCounterLoadPromise = null;
+  });
+  return reviewCounterLoadPromise;
 }
 
 function startReviewCounterPolling() {
   if (reviewCounterPoll) return;
-  reviewCounterPoll = window.setInterval(refreshReviewCounters, 4000);
+  reviewCounterPoll = window.setInterval(refreshReviewCounters, REVIEW_COUNTER_FALLBACK_MS);
 }
 
 // Houdt het ontslagformulier gekoppeld aan het eigen actieve profiel.

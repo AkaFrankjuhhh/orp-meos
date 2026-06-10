@@ -46,8 +46,14 @@ porto.orppolitie.nl {
   }
 }
 
-# Centrale overheid-login komt later als aparte router/landing.
+# Centrale overheid-login: kiest op basis van Discord rol het juiste portaal.
 orpoverheid.nl, www.orpoverheid.nl {
   encode zstd gzip
-  respond "ORP Overheid router moet nog als aparte service worden ingericht." 200
+  reverse_proxy 127.0.0.1:3020
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
 }

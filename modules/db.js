@@ -2,6 +2,7 @@
 const path = require("node:path");
 
 let sharedPool = null;
+const configuredClients = new WeakSet();
 
 function loadEnv() {
   const envPath = path.join(__dirname, "..", ".env");
@@ -63,10 +64,13 @@ async function withClient(callback) {
   const pool = createPool();
   const client = await pool.connect();
   try {
-    const timeouts = databaseRuntimeTimeouts();
-    await client.query("select set_config('statement_timeout', $1, false)", [`${Math.max(0, timeouts.statementTimeoutMs || 0)}ms`]);
-    await client.query("select set_config('lock_timeout', $1, false)", [`${Math.max(0, timeouts.lockTimeoutMs || 0)}ms`]);
-    await client.query("select set_config('idle_in_transaction_session_timeout', $1, false)", [`${Math.max(0, timeouts.idleTransactionTimeoutMs || 0)}ms`]);
+    if (!configuredClients.has(client)) {
+      const timeouts = databaseRuntimeTimeouts();
+      await client.query("select set_config('statement_timeout', $1, false)", [`${Math.max(0, timeouts.statementTimeoutMs || 0)}ms`]);
+      await client.query("select set_config('lock_timeout', $1, false)", [`${Math.max(0, timeouts.lockTimeoutMs || 0)}ms`]);
+      await client.query("select set_config('idle_in_transaction_session_timeout', $1, false)", [`${Math.max(0, timeouts.idleTransactionTimeoutMs || 0)}ms`]);
+      configuredClients.add(client);
+    }
     return await callback(client);
   } finally {
     client.release();

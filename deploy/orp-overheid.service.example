@@ -1,0 +1,20 @@
+[Unit]
+Description=ORP Overheid Router
+After=network.target
+
+[Service]
+Type=simple
+User=defensie
+WorkingDirectory=/home/defensie/defensie-personeelsportaal
+Environment=NODE_ENV=production
+EnvironmentFile=-/home/defensie/defensie-personeelsportaal/.env
+Environment=OVERHEID_PORT=3020
+Environment=OVERHEID_APP_BASE_URL=https://orpoverheid.nl
+Environment=OVERHEID_DEFENSIE_URL=https://orpdefensie.nl
+Environment=OVERHEID_POLITIE_URL=https://orppolitie.nl
+ExecStart=/usr/bin/node /home/defensie/defensie-personeelsportaal/overheid-server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -202,6 +202,8 @@ CREATE TABLE IF NOT EXISTS porto_units (
 CREATE INDEX IF NOT EXISTS porto_units_active_idx ON porto_units(active);
 CREATE INDEX IF NOT EXISTS porto_units_vehicle_number_idx ON porto_units(vehicle_number);
 CREATE INDEX IF NOT EXISTS porto_units_member_id_idx ON porto_units(member_id);
+CREATE INDEX IF NOT EXISTS porto_units_active_requested_idx ON porto_units(active, requested_at, id);
+CREATE INDEX IF NOT EXISTS porto_units_active_vehicle_idx ON porto_units(vehicle_number, active, updated_at DESC);
 
 WITH ranked_active_porto_units AS (
   SELECT
