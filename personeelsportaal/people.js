@@ -1,6 +1,8 @@
 /* Defensie Personeelsportaal personeelmodule: personeel, medewerkers, W&S en personeelsdialogen. */
 
 function getGroupForRank(rank) {
+  const configuredGroup = (serviceNumberGroups || []).find((group) => (group.ranks || []).includes(rank));
+  if (configuredGroup) return configuredGroup;
   if (["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"].includes(rank)) {
     return { prefix: "70", min: 1, max: 5, sortable: true };
   }
@@ -369,11 +371,12 @@ function renderEmployeeDirectory() {
 }
 
 function openMemberDialog(person = null) {
+  const fallbackRank = defaultRecruitRank || ranks[ranks.length - 1] || "";
   $("#memberId").value = person?.id || "";
   $("#memberName").value = person?.name || "";
   $("#memberDiscord").value = person?.discordId || "";
   $("#memberAvatar").value = person?.avatar || "";
-  $("#memberRank").value = person?.rank || "Marechaussee 4de Klasser";
+  $("#memberRank").value = person?.rank || fallbackRank;
   $("#memberHiredDate").value = person?.hiredDate || person?.rankHistory?.[0]?.date || person?.rankDate || today;
   $("#memberRankDate").value = person?.rankDate || today;
   $("#memberPromotionDate").value = person?.promotionDate || today;
@@ -393,7 +396,7 @@ function openRestoreDialog(person) {
   pendingRestoreId = person.id;
   $("#restorePersonId").value = person.id;
   $("#restoreTitle").textContent = `${person.name} Herintrede`;
-  fillRestoreRankSelect(person.rank || "Marechaussee 4de Klasser");
+  fillRestoreRankSelect(person.rank || defaultRecruitRank || ranks[ranks.length - 1] || "");
   $("#restoreDialog").showModal();
 }
 

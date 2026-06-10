@@ -287,15 +287,18 @@ const organizationConfigs = {
     ranks: politieRanks,
     defaultRecruitRank: "Aspirant",
     rankCategories: [
-      { title: "Korpsleiding", serviceRange: "21-01 t/m 21-20", ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"] },
-      { title: "Bestuur", serviceRange: "21-01 t/m 21-20", ranks: ["Hoofdinspecteur", "Inspecteur"] },
-      { title: "Uitvoerend personeel", serviceRange: "21-21 t/m 21-200", ranks: ["Brigadier", "Hoofdagent", "Agent", "Surveillant", "Aspirant"] }
+      { title: "Korpsleiding", serviceRange: "21-01 t/m 21-05", ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"] },
+      { title: "Bestuur", serviceRange: "21-06 t/m 21-15", ranks: ["Hoofdinspecteur", "Inspecteur"] },
+      { title: "Uitvoerend personeel", serviceRange: "21-16 t/m 21-75", ranks: ["Brigadier", "Hoofdagent", "Agent"] },
+      { title: "Opleiding", serviceRange: "21-76 t/m 21-200", ranks: ["Surveillant", "Aspirant"] }
     ],
     serviceNumberGroups: [
-      { prefix: "21", min: 1, max: 20, ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris", "Hoofdinspecteur", "Inspecteur"], autoSort: true },
-      { prefix: "21", min: 21, max: 200, ranks: ["Brigadier", "Hoofdagent", "Agent", "Surveillant", "Aspirant"] }
+      { prefix: "21", min: 1, max: 5, ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"], autoSort: true },
+      { prefix: "21", min: 6, max: 15, ranks: ["Hoofdinspecteur", "Inspecteur"], autoSort: true },
+      { prefix: "21", min: 16, max: 75, ranks: ["Brigadier", "Hoofdagent", "Agent"], autoSort: true },
+      { prefix: "21", min: 76, max: 200, ranks: ["Surveillant", "Aspirant"] }
     ],
-    autoSortRanks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris", "Hoofdinspecteur", "Inspecteur"],
+    autoSortRanks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris", "Hoofdinspecteur", "Inspecteur", "Brigadier", "Hoofdagent", "Agent"],
     profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "WaterPolitie", "SIV", "TMO", "ZULU", "OGM"],
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
@@ -502,6 +505,7 @@ function publicClientData(config = currentOrganization()) {
     ranks: config.ranks,
     defaultRecruitRank: config.defaultRecruitRank,
     rankCategories: config.rankCategories,
+    serviceNumberGroups: config.serviceNumberGroups,
     today: new Date().toISOString().slice(0, 10),
     profileTrainings: config.profileTrainings,
     profileOperational: config.profileOperational,

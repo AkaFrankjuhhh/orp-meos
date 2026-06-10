@@ -38,7 +38,7 @@ async function discordFetch(url, options = {}) {
     body = { message: text || `Discord API fout ${response.status}` };
   }
   if (!response.ok) {
-    const message = body?.message || body?.error_description || `Discord API fout ${response.status}`;
+    const message = body?.message || body?.error_description || body?.error || `Discord API fout ${response.status}`;
     const apiError = new Error(message);
     apiError.status = response.status;
     apiError.retryAfter = Number(body?.retry_after || response.headers.get("retry-after") || 0);

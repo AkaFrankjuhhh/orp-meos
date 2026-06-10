@@ -51,6 +51,11 @@ function getGroupForRank(rank) {
   return serviceNumberGroupForRank(organization, rank);
 }
 
+function sameServiceNumberGroup(first, second) {
+  if (!first || !second) return false;
+  return first.prefix === second.prefix && Number(first.min) === Number(second.min) && Number(first.max) === Number(second.max);
+}
+
 function formatService(prefix, number) {
   return `${prefix}-${String(number).padStart(2, "0")}`;
 }
@@ -82,8 +87,10 @@ function autoSortServiceNumbers(state) {
   const sortableRanks = new Set(organization.autoSortRanks || []);
   const todayValue = today();
   sortableGroups.forEach((group) => {
+    const groupRanks = new Set(group.ranks || []);
     const members = (state.people || [])
       .filter((person) => (person.serviceNumber || "").startsWith(`${group.prefix}-`) && person.status === "Actief")
+      .filter((person) => !groupRanks.size || groupRanks.has(person.rank))
       .filter((person) => !sortableRanks.size || sortableRanks.has(person.rank))
       .sort((a, b) => {
         const rankDelta = rankWeight.get(b.rank) - rankWeight.get(a.rank);
@@ -188,7 +195,7 @@ function promotePerson(state, person) {
   person.rankDate = todayValue;
   person.promotionDate = todayValue;
 
-  if (previousGroup.prefix !== nextGroup.prefix || !person.serviceNumber) {
+  if (!sameServiceNumberGroup(previousGroup, nextGroup) || !person.serviceNumber) {
     assignFirstAvailableServiceNumber(state, person);
   }
 
@@ -215,7 +222,7 @@ function demotePerson(state, person) {
   person.rankDate = todayValue;
   person.promotionDate = todayValue;
 
-  if (previousGroup.prefix !== nextGroup.prefix || !person.serviceNumber) {
+  if (!sameServiceNumberGroup(previousGroup, nextGroup) || !person.serviceNumber) {
     assignFirstAvailableServiceNumber(state, person);
   }
 

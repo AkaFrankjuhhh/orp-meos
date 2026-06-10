@@ -14,7 +14,7 @@ const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-
 const { createEventBus } = require("./modules/event-bus");
 const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
-const { closePool, withClient } = require("./modules/db");
+const { closePool, withClient, databaseNameFromConnectionString } = require("./modules/db");
 const {
   currentOrganization,
   organizationMainRoleId,
@@ -346,6 +346,7 @@ async function handleApi(req, res, url) {
   if (url.pathname === "/api/auth/me" && req.method === "GET") {
     const auth = getLoggedInProfile(req);
     if (!auth) {
+      if (parseCookies(req).orp_session) clearSession(req, res);
       sendJson(res, 401, { authenticated: false, loginUrl: "/api/auth/login" });
       return;
     }
@@ -466,6 +467,7 @@ async function startServer() {
     console.log(`${organization.label} Porto-Systeem draait op ${appBaseUrl}`);
     console.log(`Organisatie: ${organization.key}`);
     console.log(`Storage mode: ${storageMode}`);
+    if (storageMode === "postgres") console.log(`Database: ${databaseNameFromConnectionString(process.env.DATABASE_URL) || "onbekend"}`);
     console.log(`Actieve sessies geladen: ${typeof sessions.size === "function" ? sessions.size() : "onbekend"}`);
   });
 }

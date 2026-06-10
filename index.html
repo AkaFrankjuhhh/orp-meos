@@ -60,7 +60,7 @@
         <button class="nav-item" data-page="personeel" data-personnel-only="true" type="button">Personeel</button>
         <button class="nav-item" data-page="afwezigheid-overzicht" data-absence-review-only="true" type="button"><span>Afwezigheid overzicht</span><span id="absenceOverviewCounter" class="nav-counter" hidden>0</span></button>
         <button class="nav-item" data-page="ontslag-overzicht" data-resignation-overview-only="true" type="button"><span>Ontslag-Overzicht</span><span id="resignationOverviewCounter" class="nav-counter" hidden>0</span></button>
-        <button class="nav-item" data-page="ops-tijden" data-ops-times-only="true" type="button">OPS tijden</button>
+        <button class="nav-item" data-page="ops-tijden" data-ops-times-only="true" data-operator-times-label type="button">OPS tijden</button>
         <button class="nav-item" data-page="archief" data-personnel-archive-only="true" type="button">Personeels-Archief</button>
         <button class="nav-item" data-page="logboek" data-kader-only="true" type="button">Logboek</button>
       </nav>
@@ -548,8 +548,8 @@
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h2>OPS tijden</h2>
-              <p class="muted">Overzicht van OPS uren deze week per persoon</p>
+              <h2 data-operator-times-label>OPS tijden</h2>
+              <p class="muted" id="opsTimesPageSubtitle">Overzicht van OPS uren deze week per persoon</p>
             </div>
           </div>
           <div id="opsTimesOverview" class="leadership-list"></div>
@@ -901,12 +901,12 @@
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/profile.js?v=20260607-profile-absence-log"></script>
     <script src="personeelsportaal/hours.js?v=20260607-ops-training-filter"></script>
-    <script src="personeelsportaal/people.js?v=20260607-hoofdofficier-dismiss"></script>
+    <script src="personeelsportaal/people.js?v=20260610-politie-numbering"></script>
     <script src="personeelsportaal/i8.js?v=20260607-interne-zaken-i8"></script>
     <script src="personeelsportaal/mentor.js?v=20260522-mentor-autosave"></script>
     <script src="personeelsportaal/absence.js?v=20260607-profile-absence-log"></script>
     <script src="personeelsportaal/archive.js?v=20260606-resignation-overview"></script>
     <script src="personeelsportaal-data.js?v=20260607-overheids-viewonly"></script>
-    <script src="app.js?v=20260607-interne-zaken-i8"></script>
+    <script src="app.js?v=20260610-politie-numbering"></script>
   </body>
 </html>

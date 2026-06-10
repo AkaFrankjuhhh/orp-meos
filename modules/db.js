@@ -4,6 +4,39 @@ const path = require("node:path");
 let sharedPool = null;
 const configuredClients = new WeakSet();
 
+function normalizeOrganizationKey(value) {
+  const key = String(value || "").trim().toLowerCase();
+  if (["politie", "police"].includes(key)) return "politie";
+  return "defensie";
+}
+
+function currentOrganizationKey() {
+  return normalizeOrganizationKey(process.env.ORP_ORGANIZATION || process.env.PORTAL_ORGANIZATION || process.env.ORGANIZATION || "defensie");
+}
+
+function databaseNameFromConnectionString(connectionString) {
+  try {
+    const url = new URL(connectionString);
+    return decodeURIComponent(String(url.pathname || "").replace(/^\/+/, ""));
+  } catch {
+    return "";
+  }
+}
+
+function validateDatabaseOrganizationMatch(connectionString) {
+  if (String(process.env.ORP_ALLOW_CROSS_ORG_DATABASE || "false").toLowerCase() === "true") return;
+  const organizationKey = currentOrganizationKey();
+  const databaseName = databaseNameFromConnectionString(connectionString).toLowerCase();
+  if (!databaseName) return;
+
+  if (organizationKey === "politie" && databaseName.includes("defensie")) {
+    throw new Error("DATABASE_URL wijst naar een defensie database terwijl ORP_ORGANIZATION=politie. Gebruik bijvoorbeeld database 'politie_portaal' in .env.politie.");
+  }
+  if (organizationKey === "defensie" && databaseName.includes("politie")) {
+    throw new Error("DATABASE_URL wijst naar een politie database terwijl ORP_ORGANIZATION=defensie. Gebruik bijvoorbeeld database 'defensie_portal' in .env.");
+  }
+}
+
 function loadEnv() {
   const envPath = path.join(__dirname, "..", ".env");
   if (!fs.existsSync(envPath)) return;
@@ -32,6 +65,7 @@ function databaseConfig() {
   if (!connectionString) {
     throw new Error("DATABASE_URL ontbreekt in .env. Voor lokaal: postgres://postgres:WACHTWOORD@localhost:5432/personeelsportaal");
   }
+  validateDatabaseOrganizationMatch(connectionString);
   const sslEnabled = String(process.env.DATABASE_SSL || "false").toLowerCase() === "true";
   return {
     connectionString,
@@ -102,4 +136,12 @@ async function closePool() {
   await pool.end();
 }
 
-module.exports = { loadEnv, createPool, withClient, withTransaction, closePool };
+module.exports = {
+  loadEnv,
+  createPool,
+  withClient,
+  withTransaction,
+  closePool,
+  databaseNameFromConnectionString,
+  validateDatabaseOrganizationMatch
+};

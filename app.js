@@ -4,6 +4,7 @@ const {
   ranks,
   defaultRecruitRank,
   rankCategories,
+  serviceNumberGroups,
   rankWeight,
   today,
   profileTrainings,
@@ -103,6 +104,7 @@ function applyOrganizationBranding() {
   const eyebrow = document.querySelector(".topbar .eyebrow");
   const authNoticeText = document.querySelector("#authNotice p");
   const recruitmentHint = document.querySelector(".recruitment-panel .muted");
+  const operatorTimesLabel = `${portalOperatorLabel} tijden`;
 
   if (lockBrandTitle) lockBrandTitle.textContent = title;
   if (lockBrandSubtitle) lockBrandSubtitle.textContent = subtitle;
@@ -113,6 +115,11 @@ function applyOrganizationBranding() {
   if (eyebrow) eyebrow.textContent = organizationKey === "politie" ? "Politie Oranjestad" : "Koninklijke Marechaussee";
   if (authNoticeText) authNoticeText.textContent = `Je kunt aanmelden als je Discord ID in een actief profiel staat en je de ${roleLabel} rol hebt.`;
   if (recruitmentHint) recruitmentHint.textContent = `Nieuwe medewerkers worden automatisch aangemaakt als ${defaultRecruitRank || ranks[ranks.length - 1]}.`;
+  $$("[data-operator-times-label]").forEach((element) => {
+    element.textContent = operatorTimesLabel;
+  });
+  const operatorTimesSubtitle = $("#opsTimesPageSubtitle");
+  if (operatorTimesSubtitle) operatorTimesSubtitle.textContent = `Overzicht van ${portalOperatorLabel} uren deze week per persoon`;
 }
 
 
@@ -580,7 +587,7 @@ async function loadAuth() {
       resetPermissions();
       setLocked(true);
       const errorElement = $("#lockError");
-      const shouldShowAuthError = payload.error && payload.error !== "Niet ingelogd";
+      const shouldShowAuthError = payload.error && !["Niet ingelogd", "Sessie niet gevonden op de server. Log opnieuw in."].includes(payload.error);
       if (errorElement && shouldShowAuthError) {
         errorElement.textContent = payload.error;
         errorElement.hidden = false;
@@ -2068,7 +2075,7 @@ function wireEvents() {
     render();
   });
 
-  // W&S maakt een basisprofiel aan; de server kiest rang en eerste vrije 74-dienstnummer.
+  // W&S maakt een basisprofiel aan; de server kiest de standaardrang en het eerste vrije dienstnummer.
   $("#recruitmentForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const message = $("#recruitmentMessage");

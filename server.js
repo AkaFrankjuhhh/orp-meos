@@ -12,7 +12,7 @@ const { createPostgresFormsStore } = require("./modules/personeelsportaal-postgr
 const { createPostgresPeopleStore } = require("./modules/personeelsportaal-postgres-people-store");
 const { createPersoneelsportaalRouteHandler } = require("./modules/personeelsportaal-routes");
 const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-domain");
-const { withClient, closePool } = require("./modules/db");
+const { withClient, closePool, databaseNameFromConnectionString } = require("./modules/db");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 const { createEventBus } = require("./modules/event-bus");
 const { createHttpResponder, createJsonBodyReader, readRawBody, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
@@ -646,7 +646,7 @@ async function handleApi(req, res, url) {
   if (await handlePublicFormsApi(req, res, url)) return;
   if (url.pathname.startsWith("/api/porto/")) {
     sendJson(res, 409, {
-      error: "Porto draait als eigen service. Open porto.orpdefensie.nl.",
+      error: `Porto draait als eigen service. Open ${portoBaseUrl}.`,
       portoUrl: portoBaseUrl
     });
     return;
@@ -687,6 +687,7 @@ async function handleApi(req, res, url) {
     if (!auth) {
       const hasSessionCookie = Boolean(parseCookies(req).orp_session);
       logAuthDebug("auth-me-denied", { hasSessionCookie });
+      if (hasSessionCookie) clearSession(req, res);
       sendJson(res, 401, {
         authenticated: false,
         loginUrl: "/api/auth/login",
@@ -917,6 +918,7 @@ async function startServer() {
     console.log(`${organization.portalTitle} draait op ${appBaseUrl}`);
     console.log(`Organisatie: ${organization.key}`);
     console.log(`Storage mode: ${storageMode}`);
+    if (storageMode === "postgres") console.log(`Database: ${databaseNameFromConnectionString(process.env.DATABASE_URL) || "onbekend"}`);
     console.log(`Actieve sessies geladen: ${typeof sessions.size === "function" ? sessions.size() : "onbekend"}`);
     if (!discordConfigured()) {
       console.log("Discord is nog niet volledig ingesteld. DEV_ALLOW_UNAUTH bepaalt of lokale demo-toegang werkt.");

@@ -7,7 +7,7 @@ Type=simple
 User=defensie
 WorkingDirectory=/home/defensie/defensie-personeelsportaal
 Environment=NODE_ENV=production
-EnvironmentFile=-/home/defensie/defensie-personeelsportaal/.env.politie
+EnvironmentFile=/home/defensie/defensie-personeelsportaal/.env.politie
 Environment=ORP_ORGANIZATION=politie
 Environment=PORT=3010
 Environment=APP_BASE_URL=https://orppolitie.nl
