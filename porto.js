@@ -1,7 +1,25 @@
 const $ = (selector) => document.querySelector(selector);
 
-const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
-const profileOperational = ["OPS", "OPCO", "OVD"];
+const portoRuntimeConfig = window.ORPPortoData || {
+  organization: {
+    key: "defensie",
+    label: "Defensie",
+    portalTitle: "Defensie Personeelsportaal",
+    portalSubtitle: "Defensie Oranjestad",
+    requiredRoleLabel: "Defensie"
+  },
+  operatorLabel: "OPS",
+  operatorTraining: "OPS",
+  lockTitle: "Defensie Porto-Systeem",
+  lockSubtitle: "Defensie Oranjestad",
+  lockText: "Alleen aangemelde Defensie leden met een gekoppeld Defensie Personeelsportaal-profiel kunnen het Porto-Systeem openen."
+};
+const portoOrganization = portoRuntimeConfig.organization || {};
+const portoOperatorLabel = portoRuntimeConfig.operatorLabel || "OPS";
+const portoOperatorTraining = portoRuntimeConfig.operatorTraining || portoOperatorLabel;
+
+const profileTrainings = portoRuntimeConfig.profileTrainings || ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
+const profileOperational = portoRuntimeConfig.profileOperational || ["OPS", "OPCO", "OVD"];
 const portoStatuses = [
   { code: "1", title: "Status 1", label: "Beschikbaar", className: "available" },
   { code: "2", title: "Status 2", label: "Aanrijdend", className: "driving" },
@@ -45,6 +63,36 @@ let portoLastDutyLoadAt = 0;
 let portoDeferredDutyLoadTimer = null;
 const PORTO_AUTO_REFRESH_MS = 8000;
 const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
+
+function applyPortoBranding() {
+  document.title = `Porto-Systeem | ${portoRuntimeConfig.lockSubtitle || portoOrganization.portalSubtitle || "Defensie Oranjestad"}`;
+  const lockBrand = document.querySelector(".lock-brand span");
+  if (lockBrand) lockBrand.textContent = portoRuntimeConfig.lockSubtitle || portoOrganization.portalSubtitle || "Defensie Oranjestad";
+  const lockTitle = $("#portoStatusIntro h1");
+  if (lockTitle) lockTitle.textContent = portoRuntimeConfig.lockTitle || `${portoOrganization.label || "Defensie"} Porto-Systeem`;
+  const lockscreenTitle = document.querySelector("#portoLockscreen h1");
+  if (lockscreenTitle) lockscreenTitle.textContent = "Porto-Systeem";
+  const lockText = document.querySelector("#portoLockscreen p");
+  if (lockText) lockText.textContent = portoRuntimeConfig.lockText || `Alleen aangemelde ${portoOrganization.requiredRoleLabel || "Defensie"} leden kunnen het Porto-Systeem openen.`;
+  const currentOpsText = $("#portoCurrentOpsText");
+  if (currentOpsText) currentOpsText.textContent = `Huidige ${portoOperatorLabel}:`;
+  const claimButton = $("#portoOpsClaimBtn");
+  if (claimButton) claimButton.textContent = `${portoOperatorLabel} oppakken`;
+  const releaseButton = $("#portoOpsReleaseBtn");
+  if (releaseButton) releaseButton.textContent = `${portoOperatorLabel} afsluiten`;
+  const releaseWorkspaceButton = $("#portoOpsReleaseWorkspaceBtn");
+  if (releaseWorkspaceButton) releaseWorkspaceButton.textContent = `${portoOperatorLabel} neerleggen`;
+  const showOpsViewButton = $("#portoShowOpsViewBtn");
+  if (showOpsViewButton) showOpsViewButton.textContent = portoOrganization.key === "politie" ? "OVD/OPCO/OC overzicht" : "OVD/OPCO overzicht";
+  const opsPanelTitle = document.querySelector("#portoOpsPanel h2");
+  if (opsPanelTitle) opsPanelTitle.textContent = `${portoOperatorLabel} Bediening`;
+  const opsLogTitle = document.querySelector("#portoOpsLogPage h2");
+  if (opsLogTitle) opsLogTitle.textContent = `${portoOperatorLabel} Logs`;
+  const opsLogSubtitle = document.querySelector("#portoOpsLogPage .muted");
+  if (opsLogSubtitle) opsLogSubtitle.textContent = `Overzicht van ${portoOperatorLabel} diensten en top 5 ${portoOperatorLabel} uren.`;
+  const opsTopTitle = document.querySelector("#portoOpsLogTopRows")?.closest("section")?.querySelector("h3");
+  if (opsTopTitle) opsTopTitle.textContent = `Top 5 ${portoOperatorLabel} uren`;
+}
 
 function portoStorageGet(key, fallback) {
   try {
@@ -215,8 +263,8 @@ function setPortoLocked(locked) {
 function showPortoLockError() {
   const errorCode = new URLSearchParams(window.location.search).get("authError");
   const messages = {
-    "no-profile": "Geen profiel gevonden in Defensie Personeelsportaal.",
-    "no-role": "Geen Discord gekoppeld: je mist de Defensie rol.",
+    "no-profile": `Geen profiel gevonden in ${portoOrganization.portalTitle || "het personeelsportaal"}.`,
+    "no-role": `Geen Discord gekoppeld: je mist de ${portoOrganization.requiredRoleLabel || portoOrganization.label || "organisatie"} rol.`,
     "login-failed": "Aanmelden via Discord is mislukt. Probeer opnieuw."
   };
   const errorElement = $("#portoLockError");
@@ -502,6 +550,7 @@ $("#portoStatus4Choices").addEventListener("click", (event) => {
   updatePortoStatus("4", button.dataset.status4);
 });
 
+applyPortoBranding();
 showPortoLockError();
 renderStatusButtons();
 renderVehicleRanges();

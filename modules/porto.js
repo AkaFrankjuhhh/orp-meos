@@ -2,6 +2,7 @@ const {
   nonRegularPortoDiscordChannel,
   configuredPortoDiscordChannels
 } = require("./porto-discord-channels");
+const { currentOrganization } = require("./organizations");
 
 const PORTO_HEARTBEAT_WRITE_MS = 60 * 1000;
 
@@ -28,7 +29,7 @@ function clearPortoAutoOffline(unit) {
   delete unit.autoRemoveAt;
 }
 
-const defaultPortoVehicleRanges = [
+const defensiePortoVehicleRangeDefinitions = [
   {
     prefix: "OPS",
     from: "30-00",
@@ -86,19 +87,102 @@ const defaultPortoVehicleRanges = [
     vehicleType: "Kustwacht",
     vehicles: ["KW - Dinghy"]
   }
-].map(({ prefix, from, to, vehicleCode, vehicleType, vehicles, numbers }) => ({
-  prefix,
-  from: from || `${prefix}-01`,
-  to: to || `${prefix}-10`,
-  vehicleCode,
-  vehicleType,
-  vehicles: [...vehicles],
-  numbers: numbers ? [...numbers] : Array.from({ length: 10 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, "0")}`)
-}));
+];
+
+const politiePortoVehicleRangeDefinitions = [
+  {
+    prefix: "OC",
+    from: "30-00",
+    to: "30-00",
+    vehicleCode: "OC",
+    vehicleType: "OC",
+    vehicles: ["OC"],
+    numbers: ["30-00"]
+  },
+  {
+    prefix: "31",
+    vehicleCode: "OFR",
+    vehicleType: "Off-Road",
+    vehicles: ["OFR - Karin Everon", "OFR - Karin Everon Strand", "OFR - Rebla"]
+  },
+  {
+    prefix: "32",
+    vehicleCode: "SIV",
+    vehicleType: "SIV",
+    vehicles: ["SIV - Obey Argento"]
+  },
+  {
+    prefix: "33",
+    vehicleCode: "ZULU",
+    vehicleType: "Zulu",
+    vehicles: ["ZULU"]
+  },
+  {
+    prefix: "34",
+    vehicleCode: "TMO",
+    vehicleType: "Motoren",
+    vehicles: ["TMO-L - Ubermacht", "TMO-Z - Guardian"]
+  },
+  {
+    prefix: "35",
+    vehicleCode: "OGM",
+    vehicleType: "Ongemarkeerd",
+    vehicles: ["OGM - Wolf", "OGM - Wolf R", "OGM - BF Kanzler", "OGM - BF Kanzler SRT", "OGM - Schlagen SB", "OGM - Zware Motor", "OGM - Offroad Motor"]
+  }
+];
+
+function expandPortoVehicleRanges(definitions) {
+  return definitions.map(({ prefix, from, to, vehicleCode, vehicleType, vehicles, numbers }) => ({
+    prefix,
+    from: from || `${prefix}-01`,
+    to: to || `${prefix}-10`,
+    vehicleCode,
+    vehicleType,
+    vehicles: [...vehicles],
+    numbers: numbers ? [...numbers] : Array.from({ length: 10 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, "0")}`)
+  }));
+}
+
+function defaultPortoVehicleRangesForOrganization(organization = currentOrganization()) {
+  return expandPortoVehicleRanges(organization.key === "politie" ? politiePortoVehicleRangeDefinitions : defensiePortoVehicleRangeDefinitions);
+}
+
+const defaultPortoVehicleRanges = defaultPortoVehicleRangesForOrganization();
 
 function createPortoServices() {
+  const organization = currentOrganization();
+  const operatorLabel = organization.porto?.operatorLabel || organization.discord?.portoOperatorLabel || "OPS";
+  const operatorTraining = organization.porto?.operatorTraining || operatorLabel;
+  const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
+
+  function functionBadgesForPerson(person) {
+    const badges = new Set([...(Array.isArray(person?.extraFunctions) ? person.extraFunctions : [])]);
+    const rank = person?.rank || "";
+    for (const mapping of organization.autoFunctionByRanks || []) {
+      if ((mapping.ranks || []).includes(rank)) badges.add(mapping.label);
+    }
+    return badges;
+  }
+
+  function hasAnyFunctionBadge(person, aliases = []) {
+    const badges = functionBadgesForPerson(person);
+    return aliases.some((badge) => badges.has(badge));
+  }
+
+  function canManagePortoByFunction(person) {
+    return hasAnyFunctionBadge(person, organization.permissionAliases?.kader || ["Kader"]);
+  }
+
+  function canViewPortoLogsByFunction(person) {
+    return hasAnyFunctionBadge(person, [
+      ...(organization.permissionAliases?.viewAsKader || ["Kader"]),
+      ...(organization.permissionAliases?.hoofdofficier || ["Hoofdofficier"]),
+      ...(organization.permissionAliases?.officiersraad || ["Officiersraad"])
+    ]);
+  }
+
   function ensurePortoVehicleRanges(state) {
-    const desired = defaultPortoVehicleRanges.map((range) => ({
+    const desired = defaultPortoVehicleRangesForOrganization(organization).map((range) => ({
       ...range,
       numbers: [...range.numbers]
     }));
@@ -134,29 +218,29 @@ function createPortoServices() {
     return Boolean(
       person &&
         person.status === "Actief" &&
-        (hasCompletedOperational(person, "OPS") || isDevOverrideProfile(person))
+        (hasCompletedOperational(person, operatorTraining) || isDevOverrideProfile(person))
     );
   }
 
   function canOperatePortoOps(person) {
     const operational = Array.isArray(person?.completedOperational) ? person.completedOperational : [];
     const badges = Array.isArray(person?.badges) ? person.badges : [];
-    const functions = Array.isArray(person?.extraFunctions) ? person.extraFunctions : [];
+    const functions = [...functionBadgesForPerson(person)];
     const opsValues = [...operational, ...badges, ...functions];
+    const allowedOpsValues = new Set([
+      ...(organization.profileOperational || ["OPS", "OPCO", "OVD"]),
+      ...(organization.permissionAliases?.kader || ["Kader"])
+    ]);
     return Boolean(
       person &&
         person.status === "Actief" &&
-        (opsValues.some((item) => ["OPS", "OPCO", "OVD", "Kader"].includes(item)) || isDevOverrideProfile(person))
+        (opsValues.some((item) => allowedOpsValues.has(item)) || canManagePortoByFunction(person) || isDevOverrideProfile(person))
     );
   }
 
 
   function canViewPortoOpsLog(person) {
-    const functions = new Set([...(person?.extraFunctions || [])]);
-    const rank = person?.rank || "";
-    if (["Luitenant-Generaal", "Generaal-Majoor", "Brigade-Generaal"].includes(rank)) functions.add("Kader");
-    if (["Kolonel", "Luitenant-Kolonel", "Majoor"].includes(rank)) functions.add("Hoofdofficier");
-    return isDevOverrideProfile(person) || functions.has("Kader") || functions.has("Hoofdofficier") || functions.has("Officiersraad");
+    return isDevOverrideProfile(person) || canViewPortoLogsByFunction(person);
   }
 
   function activePortoOps(state) {
@@ -164,7 +248,7 @@ function createPortoServices() {
     const canUnitServeOps = (unit) => canServePortoOps(peopleById.get(unit?.memberId));
     const ops = state.portoCurrentOps;
     if (ops && ops.active !== false && canServePortoOps(peopleById.get(ops.memberId))) return ops;
-    const opsUnit = (state.portoUnits || []).find((unit) => unit.active !== false && unit.vehicleNumber === "30-00" && canUnitServeOps(unit));
+    const opsUnit = (state.portoUnits || []).find((unit) => unit.active !== false && unit.vehicleNumber === operatorVehicleNumber && canUnitServeOps(unit));
     if (!opsUnit) return null;
     return {
       memberId: opsUnit.memberId || "",
@@ -255,17 +339,17 @@ function createPortoServices() {
         ...currentOps,
         active: false,
         endedAt: nowIso,
-        endedReason: "OPS training ontbreekt"
+        endedReason: `${operatorTraining} training ontbreekt`
       };
       changed = true;
     }
 
     for (const unit of state.portoUnits) {
-      if (unit.active === false || unit.vehicleNumber !== "30-00") continue;
+      if (unit.active === false || unit.vehicleNumber !== operatorVehicleNumber) continue;
       if (canServePortoOps(peopleById.get(unit.memberId))) continue;
       Object.assign(unit, {
         status: "8",
-        statusDetail: "OPS training ontbreekt",
+        statusDetail: `${operatorTraining} training ontbreekt`,
         active: false,
         vehicleNumber: "",
         vehicleCode: "",
@@ -278,7 +362,7 @@ function createPortoServices() {
       changed = true;
     }
 
-    if (changed) syncPortoLinkedNames(state, "30-00");
+    if (changed) syncPortoLinkedNames(state, operatorVehicleNumber);
     return changed;
   }
 
@@ -515,6 +599,8 @@ function createPortoServices() {
       : [];
     return {
       currentOps,
+      operatorLabel,
+      operatorTraining,
       canTakeOps,
       canManageOps,
       canUseDevTools: canUsePortoDevBypass(person),

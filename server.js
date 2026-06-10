@@ -22,6 +22,7 @@ const {
   currentOrganization,
   organizationMainRoleId,
   clientDataScript,
+  portoClientDataScript,
   serviceNumberGroupForRank
 } = require("./modules/organizations");
 const {
@@ -871,7 +872,15 @@ function serveStatic(req, res, url) {
     res.end(clientDataScript(organization));
     return;
   }
-  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "shared-ui.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
+  if (requested === "/porto-config.js") {
+    writeHeadSecure(res, 200, {
+      "Content-Type": "text/javascript; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    res.end(portoClientDataScript(organization));
+    return;
+  }
+  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
   serveWhitelistedStatic({
     root,
     requested,

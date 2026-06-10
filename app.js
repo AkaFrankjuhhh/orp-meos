@@ -8,6 +8,7 @@ const {
   today,
   profileTrainings,
   profileOperational,
+  porto,
   mentorRanks,
   mentorChecklistGroups,
   mentorChecklistLabels,
@@ -27,6 +28,9 @@ const organizationConfig = organization || {
   requiredRoleLabel: "Defensie"
 };
 const organizationKey = organizationConfig.key || "defensie";
+const portalPortoConfig = porto || {};
+const portalOperatorLabel = portalPortoConfig.operatorLabel || "OPS";
+const portalOperatorTraining = portalPortoConfig.operatorTraining || portalOperatorLabel;
 let state = structuredClone(defaultState);
 let authProfile = null;
 let serverBacked = false;
@@ -362,7 +366,7 @@ function opsTimesPersonKey(person) {
 }
 
 function hasOpsTraining(person) {
-  return Array.isArray(person?.completedOperational) && person.completedOperational.includes("OPS");
+  return Array.isArray(person?.completedOperational) && person.completedOperational.includes(portalOperatorTraining);
 }
 
 function compareServiceNumber(a = "", b = "") {
@@ -426,7 +430,7 @@ function renderOpsTimes() {
         </button>
       `).join("")}
     `
-    : '<div class="feed-item">Nog geen OPS uren gelogd voor deze week.</div>';
+    : `<div class="feed-item">Nog geen ${escapeHtml(portalOperatorLabel)} uren gelogd voor deze week.</div>`;
 }
 
 function openOpsTimesDialog(selected) {
@@ -457,7 +461,7 @@ function openOpsTimesDialog(selected) {
           <p>Afgesloten door ${escapeHtml(row.endedByName || "Onbekend")}</p>
         </article>
       `).join("")
-      : '<div class="feed-item">Geen OPS diensten gevonden in de laatste 4 weken.</div>'}
+      : `<div class="feed-item">Geen ${escapeHtml(portalOperatorLabel)} diensten gevonden in de laatste 4 weken.</div>`}
   `;
   dialog.showModal();
 }
@@ -725,7 +729,7 @@ function pageTitle(page) {
     "ovj-logboek": "hOvJ-Logboek",
     "afwezigheid-overzicht": "Afwezigheid overzicht",
     "ontslag-overzicht": "Ontslag-Overzicht",
-    "ops-tijden": "OPS tijden",
+    "ops-tijden": `${portalOperatorLabel} tijden`,
     "personeel-aannemen": "Personeel Aannemen",
     blacklist: "Blacklist",
     archief: "Personeels-Archief",

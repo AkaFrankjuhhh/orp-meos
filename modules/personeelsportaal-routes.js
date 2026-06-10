@@ -1,7 +1,12 @@
 // Defensie Personeelsportaal API-routes staan los van Porto, zodat beide websites apart kunnen groeien.
 const crypto = require("node:crypto");
+const { currentOrganization } = require("./organizations");
 
 function createPersoneelsportaalRouteHandler(deps) {
+  const organization = currentOrganization();
+  const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
+  const portalTitle = organization.portalTitle || "Personeelsportaal";
+  const qualificationRoleLabels = Object.keys(organization.discord?.qualificationRoleMappings || {});
   const {
     requireAuth,
     readState,
@@ -237,11 +242,11 @@ function createPersoneelsportaalRouteHandler(deps) {
         const activePortoUnitWithContext = activePortoUnit
           ? {
               ...activePortoUnit,
-              isPortoOpsLead: Boolean(activePortoUnit.vehicleNumber === "30-00" && state.portoCurrentOps?.active !== false && state.portoCurrentOps?.memberId === person.id)
+              isPortoOpsLead: Boolean(activePortoUnit.vehicleNumber === operatorVehicleNumber && state.portoCurrentOps?.active !== false && state.portoCurrentOps?.memberId === person.id)
             }
           : null;
         const result = activePortoUnit && typeof discordBot.syncPortoNicknameForPersonIfNeeded === "function"
-          ? await discordBot.syncPortoNicknameForPersonIfNeeded(person, activePortoUnitWithContext, "Defensie Personeelsportaal rangsymbool bijgewerkt tijdens Porto-dienst")
+          ? await discordBot.syncPortoNicknameForPersonIfNeeded(person, activePortoUnitWithContext, `${portalTitle} rangsymbool bijgewerkt tijdens Porto-dienst`)
           : await discordBot.syncNicknameForPerson(person);
         if (result?.ok) {
           state.activity = state.activity || [];
@@ -289,11 +294,11 @@ function createPersoneelsportaalRouteHandler(deps) {
 
   async function syncQualificationDiscordRoles(state, person, changedLabels) {
     if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncQualificationRolesForPerson !== "function") return;
-    if (!person?.discordId || !changedLabels.some((label) => ["BKV", "OPS", "OPCO"].includes(label))) return;
+    if (!person?.discordId || !changedLabels.some((label) => qualificationRoleLabels.includes(label))) return;
     try {
       const result = await discordBot.syncQualificationRolesForPerson(
         person,
-        "Defensie Personeelsportaal kwalificatie aangepast"
+        `${portalTitle} kwalificatie aangepast`
       );
       if (result?.ok && Array.isArray(result.changes) && result.changes.length) {
         state.activity = state.activity || [];

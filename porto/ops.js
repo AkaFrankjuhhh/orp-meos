@@ -103,10 +103,10 @@ function renderOpsStatus() {
   const releaseButton = $("#portoOpsReleaseBtn");
   if (!text || !claimButton || !releaseButton) return;
   const duration = formatPortoDuration(opsElapsedSeconds(portoCurrentOps));
-  text.textContent = portoCurrentOps ? `OPS in dienst: ${portoCurrentOps.name} - ${duration}` : "Huidige OPS:";
+  text.textContent = portoCurrentOps ? `${portoOperatorLabel} in dienst: ${portoCurrentOps.name} - ${duration}` : `Huidige ${portoOperatorLabel}:`;
   if (durationBadge) {
     durationBadge.hidden = !portoCurrentOps;
-    durationBadge.textContent = `${isCurrentOpsUser() ? "Jouw OPS duur" : "OPS duur"}: ${duration}`;
+    durationBadge.textContent = `${isCurrentOpsUser() ? `Jouw ${portoOperatorLabel} duur` : `${portoOperatorLabel} duur`}: ${duration}`;
   }
   claimButton.hidden = Boolean(portoCurrentOps) || !portoCanTakeOps;
   releaseButton.hidden = !portoCurrentOps || !portoCanManageOps;
@@ -568,7 +568,7 @@ function renderOpsLog() {
         <b>${escapeHtml(formatPortoDuration(entry.durationSeconds))}</b>
       </article>
     `).join("")
-    : '<div class="porto-ops-empty">Nog geen OPS uren geregistreerd.</div>';
+    : `<div class="porto-ops-empty">Nog geen ${escapeHtml(portoOperatorLabel)} uren geregistreerd.</div>`;
   rows.innerHTML = portoOpsLog.length
     ? portoOpsLog.map((entry) => `
       <article class="porto-ops-log-row">
@@ -577,7 +577,7 @@ function renderOpsLog() {
         <small>${escapeHtml(entry.startedAt ? new Date(entry.startedAt).toLocaleString("nl-NL") : "-")} t/m ${escapeHtml(entry.endedAt ? new Date(entry.endedAt).toLocaleString("nl-NL") : "-")}</small>
       </article>
     `).join("")
-    : '<div class="porto-ops-empty">Nog geen OPS diensten gelogd.</div>';
+    : `<div class="porto-ops-empty">Nog geen ${escapeHtml(portoOperatorLabel)} diensten gelogd.</div>`;
 }
 
 function renderOpsPanel() {
@@ -624,8 +624,8 @@ async function updatePortoOps(action) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      showPortoInlineError(payload.error || "OPS kon niet worden bijgewerkt.");
-      await showPortoNotice(payload.error || "OPS kon niet worden bijgewerkt.", "OPS mislukt");
+      showPortoInlineError(payload.error || `${portoOperatorLabel} kon niet worden bijgewerkt.`);
+      await showPortoNotice(payload.error || `${portoOperatorLabel} kon niet worden bijgewerkt.`, `${portoOperatorLabel} mislukt`);
       return;
     }
     portoLastDutyLoadAt = Date.now();

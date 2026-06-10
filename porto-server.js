@@ -18,6 +18,7 @@ const { closePool, withClient } = require("./modules/db");
 const {
   currentOrganization,
   organizationMainRoleId,
+  portoClientDataScript,
   serviceNumberGroupForRank
 } = require("./modules/organizations");
 
@@ -420,7 +421,15 @@ async function handleApi(req, res, url) {
 
 function serveStatic(req, res, url) {
   const requested = url.pathname === "/" ? "/porto.html" : url.pathname;
-  const publicRootFiles = new Set(["porto.html", "porto.css", "porto.js", "shared.css", "shared-ui.js"]);
+  if (requested === "/porto-config.js") {
+    writeHeadSecure(res, 200, {
+      "Content-Type": "text/javascript; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    res.end(portoClientDataScript(organization));
+    return;
+  }
+  const publicRootFiles = new Set(["porto.html", "porto.css", "porto.js", "porto-config.js", "shared.css", "shared-ui.js"]);
   serveWhitelistedStatic({
     root,
     requested,

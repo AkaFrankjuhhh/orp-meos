@@ -265,6 +265,17 @@ const organizationConfigs = {
       },
       nicknameSymbols: defensieNicknameSymbols,
       portoOperatorLabel: "OPS"
+    },
+    porto: {
+      operatorLabel: "OPS",
+      operatorTraining: "OPS",
+      operatorVehicleNumber: "30-00",
+      operatorVehicleCode: "OPS",
+      operatorVehicleType: "OPS",
+      operatorVehicleName: "OPS",
+      lockTitle: "Defensie Porto-Systeem",
+      lockSubtitle: "Defensie Oranjestad",
+      lockText: "Alleen aangemelde Defensie leden met een gekoppeld Defensie Personeelsportaal-profiel kunnen het Porto-Systeem openen."
     }
   },
   politie: {
@@ -306,7 +317,7 @@ const organizationConfigs = {
     ],
     permissionAliases: {
       kader: ["Korpsleiding"],
-      viewAsKader: ["Korpsleiding"],
+      viewAsKader: ["Korpsleiding", "Bestuur"],
       hoofdofficier: ["Bestuur"],
       officiersraad: []
     },
@@ -355,6 +366,17 @@ const organizationConfigs = {
       },
       nicknameSymbols: politieNicknameSymbols,
       portoOperatorLabel: "OC"
+    },
+    porto: {
+      operatorLabel: "OC",
+      operatorTraining: "OC",
+      operatorVehicleNumber: "30-00",
+      operatorVehicleCode: "OC",
+      operatorVehicleType: "OC",
+      operatorVehicleName: "OC",
+      lockTitle: "Politie Porto-Systeem",
+      lockSubtitle: "Politie Oranjestad",
+      lockText: "Alleen aangemelde Politie leden met een gekoppeld Politie Personeelsportaal-profiel kunnen het Porto-Systeem openen."
     }
   }
 };
@@ -468,6 +490,7 @@ function defaultStateForOrganization(config = currentOrganization()) {
 }
 
 function publicClientData(config = currentOrganization()) {
+  const operatorLabel = config.porto?.operatorLabel || config.discord?.portoOperatorLabel || "OPS";
   return {
     organization: {
       key: config.key,
@@ -482,6 +505,10 @@ function publicClientData(config = currentOrganization()) {
     today: new Date().toISOString().slice(0, 10),
     profileTrainings: config.profileTrainings,
     profileOperational: config.profileOperational,
+    porto: {
+      operatorLabel,
+      operatorTraining: config.porto?.operatorTraining || operatorLabel
+    },
     mentorRanks: config.mentorRanks,
     mentorChecklistGroups: config.mentorChecklistGroups,
     mentorChecklistLabels: config.mentorChecklistGroups.flatMap((group) => group.items),
@@ -501,6 +528,30 @@ function clientDataScript(config = currentOrganization()) {
   return `(function(){\nwindow.DefensiePortalData = ${JSON.stringify(data)};\nwindow.DefensiePortalData.rankWeight = new Map(${JSON.stringify(rankWeightEntries(config))});\n}());`;
 }
 
+function portoClientData(config = currentOrganization()) {
+  const operatorLabel = config.porto?.operatorLabel || config.discord?.portoOperatorLabel || "OPS";
+  return {
+    organization: {
+      key: config.key,
+      label: config.label,
+      portalTitle: config.portalTitle,
+      portalSubtitle: config.portalSubtitle,
+      requiredRoleLabel: config.requiredRoleLabel
+    },
+    operatorLabel,
+    operatorTraining: config.porto?.operatorTraining || operatorLabel,
+    profileTrainings: config.profileTrainings || [],
+    profileOperational: config.profileOperational || [],
+    lockTitle: config.porto?.lockTitle || `${config.label} Porto-Systeem`,
+    lockSubtitle: config.porto?.lockSubtitle || config.portalSubtitle,
+    lockText: config.porto?.lockText || `Alleen aangemelde ${config.requiredRoleLabel} leden met een gekoppeld ${config.portalTitle}-profiel kunnen het Porto-Systeem openen.`
+  };
+}
+
+function portoClientDataScript(config = currentOrganization()) {
+  return `(function(){\nwindow.ORPPortoData = ${JSON.stringify(portoClientData(config))};\n}());`;
+}
+
 module.exports = {
   organizationConfigs,
   normalizeOrganizationKey,
@@ -511,5 +562,7 @@ module.exports = {
   rankWeightEntries,
   publicClientData,
   clientDataScript,
+  portoClientData,
+  portoClientDataScript,
   envOrDefault
 };

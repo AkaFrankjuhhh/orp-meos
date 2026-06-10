@@ -412,7 +412,7 @@ function truncateDiscordText(value, maxLength) {
 }
 
 function buildPublicFormWebhookPayload(config, submission) {
-  const embedTitle = config.slug === "klachten" ? "ORP - Defensie Klachtenformulier" : `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`;
+  const embedTitle = config.slug === "klachten" ? config.title : `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`;
   const footerText = `Formulier: ${config.slug}`;
   const fields = [];
   const maxFields = 25;
