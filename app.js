@@ -105,6 +105,8 @@ function applyOrganizationBranding() {
   const authNoticeText = document.querySelector("#authNotice p");
   const recruitmentHint = document.querySelector(".recruitment-panel .muted");
   const operatorTimesLabel = `${portalOperatorLabel} tijden`;
+  const operatorHoursTotalLabel = `${portalOperatorLabel} uren totaal deze maand`;
+  const operatorHoursWeeksLabel = `${portalOperatorLabel} uren afgelopen weken`;
 
   if (lockBrandTitle) lockBrandTitle.textContent = title;
   if (lockBrandSubtitle) lockBrandSubtitle.textContent = subtitle;
@@ -120,6 +122,10 @@ function applyOrganizationBranding() {
   });
   const operatorTimesSubtitle = $("#opsTimesPageSubtitle");
   if (operatorTimesSubtitle) operatorTimesSubtitle.textContent = `Overzicht van ${portalOperatorLabel} uren deze week per persoon`;
+  const profileOpsTotalLabel = $("#profileOpsTotalLabel");
+  if (profileOpsTotalLabel) profileOpsTotalLabel.textContent = operatorHoursTotalLabel;
+  const profileOpsWeeksLabel = $("#profileOpsWeeksLabel");
+  if (profileOpsWeeksLabel) profileOpsWeeksLabel.textContent = operatorHoursWeeksLabel;
 }
 
 

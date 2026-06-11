@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Porto-Systeem | Defensie Oranjestad</title>
     <link rel="stylesheet" href="shared.css?v=20260519-notice-polish" />
-    <link rel="stylesheet" href="porto.css?v=20260605-primary-modern-ui" />
+    <link rel="stylesheet" href="porto.css?v=20260610-police-wall-brand" />
   </head>
   <body class="porto-blank porto-locked">
     <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
@@ -39,11 +39,20 @@
     </header>
 
     <main class="porto-empty" aria-label="Porto-Systeem">
-      <div class="porto-wall-brand" aria-hidden="true">
+      <div class="porto-wall-brand porto-wall-brand-defensie" aria-hidden="true">
         <img class="porto-wall-logo" src="assets/defensielogo-wall-clean.png" alt="" />
         <div class="porto-wall-text">
           <span class="porto-wall-title">DEFENSIE</span>
           <span class="porto-wall-subtitle">ORANJESTAD</span>
+        </div>
+      </div>
+      <div class="porto-wall-brand porto-wall-brand-politie" aria-hidden="true">
+        <div class="porto-police-wall-mark">
+          <span class="porto-police-motto">&laquo; waakzaam en dienstbaar &raquo;</span>
+          <span class="porto-police-main">
+            <span class="porto-police-emblem"></span>
+            <span class="porto-police-word">POLITIE</span>
+          </span>
         </div>
       </div>
       <section class="porto-status-center" aria-label="Porto status">
@@ -255,6 +264,6 @@
     <script src="porto/ops.js?v=20260610-org-porto"></script>
     <script src="porto/duty.js?v=20260610-org-porto"></script>
     <script src="porto/profile.js?v=20260602-throttled-status"></script>
-    <script src="porto.js?v=20260610-org-porto"></script>
+    <script src="porto.js?v=20260610-police-wall-brand"></script>
   </body>
 </html>

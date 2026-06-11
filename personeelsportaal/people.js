@@ -130,14 +130,19 @@ function personnelOpsHoursLastWeeks(person, count = 2) {
   return recentHourWeeks(count).reduce((sum, week) => sum + opsHoursForWeek(person, week), 0);
 }
 
+function personnelOperatorLabel() {
+  return typeof portalOperatorLabel !== "undefined" && portalOperatorLabel ? portalOperatorLabel : "OPS";
+}
+
 function renderPersonnelHourBadges(person) {
   const serviceHours = personnelCurrentWeekHours(person);
   const opsHours = personnelOpsHoursLastWeeks(person, 2);
+  const operatorLabel = personnelOperatorLabel();
   const serviceText = typeof displayHourValue === "function" ? displayHourValue(serviceHours) : String(serviceHours);
   const opsText = typeof displayHourValue === "function" ? displayHourValue(opsHours) : String(opsHours);
   return `
     <span class="person-hours-badge service-hours" title="Diensturen huidige week">${escapeHtml(serviceText)}u dienst</span>
-    <span class="person-hours-badge ops-hours" title="OPS uren laatste 2 weken">${escapeHtml(opsText)}u OPS</span>
+    <span class="person-hours-badge ops-hours" title="${escapeHtml(operatorLabel)} uren laatste 2 weken">${escapeHtml(opsText)}u ${escapeHtml(operatorLabel)}</span>
   `;
 }
 
@@ -225,16 +230,17 @@ function renderPersonnelCard(person) {
   `;
 }
 
-function renderLeadershipOverview(people, allActivePeople) {
-  const commander = people.find((person) => person.rank === "Luitenant-Generaal");
+function renderLeadershipOverview(people, allActivePeople, leaderRank = "Luitenant-Generaal") {
+  const commander = people.find((person) => person.rank === leaderRank);
   const serviceTopWeek = personnelServiceTopWeek();
+  const operatorLabel = personnelOperatorLabel();
   const commanderCard = commander
     ? renderPersonnelCard(commander)
-    : '<div class="personnel-commander-empty">Geen Luitenant-Generaal ingesteld.</div>';
+    : `<div class="personnel-commander-empty">Geen ${escapeHtml(leaderRank)} ingesteld.</div>`;
   return `
     <div class="leadership-overview">
       <section class="personnel-commander-field">
-        <div class="personnel-section-kicker">Luitenant-Generaal</div>
+        <div class="personnel-section-kicker">${escapeHtml(leaderRank)}</div>
         ${commanderCard}
       </section>
       <aside class="personnel-hours-top5" aria-label="Top 5 uren">
@@ -245,7 +251,7 @@ function renderLeadershipOverview(people, allActivePeople) {
           (person) => personnelServiceHoursForWeek(person, serviceTopWeek),
           "service-hours"
         )}
-        ${renderPersonnelTopHoursList("Top 5 OPS uren", "Laatste 2 weken", allActivePeople, personnelOpsHoursForTop, "ops-hours")}
+        ${renderPersonnelTopHoursList(`Top 5 ${operatorLabel} uren`, "Laatste 2 weken", allActivePeople, personnelOpsHoursForTop, "ops-hours")}
       </aside>
     </div>
   `;
@@ -271,27 +277,30 @@ function renderPeople() {
     });
   const allActivePeople = state.people.filter((person) => person.status === "Actief");
 
+  const leadershipCategory = rankCategories[0] || {};
+  const leadershipRank = leadershipCategory.ranks?.[0] || "";
+  const hasLeadershipOverview = Boolean(leadershipCategory.title && leadershipRank);
   const groups = rankCategories
     .map((category) => ({
       ...category,
       rankGroups: category.ranks
-        .filter((rank) => !(category.title === "Kader" && rank === "Luitenant-Generaal"))
+        .filter((rank) => !(hasLeadershipOverview && category.title === leadershipCategory.title && rank === leadershipRank))
         .map((rank) => ({
           rank,
           people: people.filter((person) => person.rank === rank)
         }))
         .filter((group) => group.people.length > 0)
     }))
-    .filter((category) => category.rankGroups.length > 0 || (category.title === "Kader" && people.some((person) => person.rank === "Luitenant-Generaal")));
+    .filter((category) => category.rankGroups.length > 0 || (hasLeadershipOverview && category.title === leadershipCategory.title && people.some((person) => person.rank === leadershipRank)));
 
   $("#peopleList").innerHTML = groups
     .map((category) => `
       <section class="rank-category">
         <div class="rank-category-title">
           <h2>${escapeHtml(category.title)}</h2>
-          <span>${category.rankGroups.reduce((sum, group) => sum + group.people.length, 0) + (category.title === "Kader" && people.some((person) => person.rank === "Luitenant-Generaal") ? 1 : 0)}</span>
+          <span>${category.rankGroups.reduce((sum, group) => sum + group.people.length, 0) + (hasLeadershipOverview && category.title === leadershipCategory.title && people.some((person) => person.rank === leadershipRank) ? 1 : 0)}</span>
         </div>
-        ${category.title === "Kader" ? renderLeadershipOverview(people, allActivePeople) : ""}
+        ${hasLeadershipOverview && category.title === leadershipCategory.title ? renderLeadershipOverview(people, allActivePeople, leadershipRank) : ""}
         ${category.rankGroups
           .map((group) => `
             <section class="rank-group">

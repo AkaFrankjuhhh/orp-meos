@@ -1254,6 +1254,22 @@ body.porto-ops-workspace .porto-ops-choice select {
   user-select: none;
 }
 
+.porto-wall-brand-politie {
+  display: none;
+}
+
+body.porto-org-politie .porto-wall-brand-defensie {
+  display: none;
+}
+
+body.porto-org-politie .porto-wall-brand-politie {
+  display: grid;
+  width: min(980px, 86vw);
+  place-items: center;
+  gap: clamp(12px, 2vh, 22px);
+  opacity: 0.76;
+}
+
 .porto-wall-logo {
   width: clamp(122px, 13vw, 210px);
   filter: saturate(0.96) contrast(0.98);
@@ -1279,6 +1295,83 @@ body.porto-ops-workspace .porto-ops-choice select {
   font-size: clamp(24px, 3.7vw, 56px);
   font-weight: 500;
   letter-spacing: 0.08em;
+}
+
+.porto-police-wall-mark {
+  display: grid;
+  place-items: center;
+  gap: clamp(18px, 3vh, 34px);
+  width: 100%;
+  color: rgba(232, 239, 244, 0.82);
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.42));
+}
+
+.porto-police-motto {
+  color: rgba(5, 87, 145, 0.88);
+  font-size: clamp(32px, 5.6vw, 86px);
+  font-weight: 900;
+  line-height: 0.95;
+  text-align: center;
+  text-shadow:
+    0 1px 0 rgba(171, 215, 247, 0.48),
+    0 -1px 0 rgba(0, 10, 22, 0.68),
+    0 12px 32px rgba(0, 0, 0, 0.54);
+}
+
+.porto-police-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(22px, 3vw, 46px);
+}
+
+.porto-police-emblem {
+  position: relative;
+  width: clamp(98px, 11vw, 176px);
+  aspect-ratio: 0.82;
+}
+
+.porto-police-emblem::before,
+.porto-police-emblem::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.porto-police-emblem::before {
+  top: 0;
+  width: 72%;
+  height: 68%;
+  border-radius: 58% 42% 52% 48% / 64% 44% 56% 36%;
+  background:
+    radial-gradient(circle at 42% 70%, rgba(12, 17, 18, 0.96) 0 11%, transparent 12%),
+    linear-gradient(140deg, rgba(245, 247, 245, 0.88), rgba(179, 185, 184, 0.82));
+  clip-path: polygon(48% 0, 79% 17%, 63% 38%, 72% 58%, 53% 100%, 25% 86%, 39% 60%, 18% 45%, 34% 27%);
+}
+
+.porto-police-emblem::after {
+  bottom: 0;
+  width: 82%;
+  height: 62%;
+  border-radius: 50%;
+  border: clamp(13px, 1.6vw, 24px) solid rgba(222, 226, 224, 0.86);
+  border-top-color: transparent;
+  border-right-color: transparent;
+  rotate: -18deg;
+}
+
+.porto-police-word {
+  color: rgba(232, 236, 235, 0.86);
+  font-size: clamp(54px, 9vw, 154px);
+  font-weight: 950;
+  letter-spacing: 0.24em;
+  line-height: 0.8;
+  text-transform: uppercase;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.38),
+    0 -1px 0 rgba(0, 0, 0, 0.74),
+    0 18px 38px rgba(0, 0, 0, 0.44);
 }
 
 
@@ -1335,6 +1428,23 @@ body.porto-ops-workspace .porto-ops-choice select {
 
   .porto-wall-subtitle {
     font-size: clamp(15px, 4.8vw, 25px);
+  }
+
+  .porto-police-motto {
+    font-size: clamp(24px, 8vw, 44px);
+  }
+
+  .porto-police-main {
+    gap: 14px;
+  }
+
+  .porto-police-emblem {
+    width: clamp(54px, 16vw, 92px);
+  }
+
+  .porto-police-word {
+    font-size: clamp(34px, 12vw, 66px);
+    letter-spacing: 0.14em;
   }
 }
 .porto-ops-context-menu label > span {

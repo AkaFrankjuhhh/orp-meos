@@ -92,8 +92,16 @@ function opsEntrySeconds(entry) {
   return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.round((end - start) / 1000)) : 0;
 }
 
+function hoursOperatorLabel() {
+  return typeof portalOperatorLabel !== "undefined" && portalOperatorLabel ? portalOperatorLabel : "OPS";
+}
+
+function hoursOperatorTraining() {
+  return typeof portalOperatorTraining !== "undefined" && portalOperatorTraining ? portalOperatorTraining : hoursOperatorLabel();
+}
+
 function personHasOpsTraining(person) {
-  return Array.isArray(person?.completedOperational) && person.completedOperational.includes("OPS");
+  return Array.isArray(person?.completedOperational) && person.completedOperational.includes(hoursOperatorTraining());
 }
 
 function opsEntriesForPerson(person) {
@@ -126,6 +134,7 @@ function opsHoursForWeek(person, week) {
 function renderProfileHours(person) {
   const panel = $(".profile-hours-panel");
   if (!panel) return;
+  const operatorLabel = hoursOperatorLabel();
   const canEdit = canManageHours();
   const total = manualHoursForMonth(person);
   const currentWeek = currentHourWeek();
@@ -150,6 +159,10 @@ function renderProfileHours(person) {
     })
     .join("");
   $("#profileOpsMonthHours").textContent = `${displayHourValue(opsHoursForMonth(person))} uur`;
+  const profileOpsTotalLabel = $("#profileOpsTotalLabel");
+  if (profileOpsTotalLabel) profileOpsTotalLabel.textContent = `${operatorLabel} uren totaal deze maand`;
+  const profileOpsWeeksLabel = $("#profileOpsWeeksLabel");
+  if (profileOpsWeeksLabel) profileOpsWeeksLabel.textContent = `${operatorLabel} uren afgelopen weken`;
   $("#profileOpsHoursWeeks").innerHTML = recentHourWeeks(4)
     .map((week) => {
       const hours = opsHoursForWeek(person, week);
@@ -184,12 +197,13 @@ function allOpsEntriesForPerson(person) {
 function openHoursOverviewDialog(person = visibleProfile(), kind = "manual") {
   if (!person || !canViewHours(person)) return;
   const isOps = kind === "ops";
+  const operatorLabel = hoursOperatorLabel();
   const entries = isOps ? allOpsEntriesForPerson(person) : allHourEntriesForPerson(person);
   const title = $("#hoursOverviewTitle");
   const subtitle = $("#hoursOverviewSubtitle");
   const list = $("#hoursOverviewRows");
   if (!title || !subtitle || !list) return;
-  title.textContent = `${isOps ? "OPS uren" : "Diensturen"} ${person.name || "Onbekend"}`;
+  title.textContent = `${isOps ? `${operatorLabel} uren` : "Diensturen"} ${person.name || "Onbekend"}`;
   subtitle.textContent = `${person.rank || "-"} - ${person.serviceNumber || "-"}`;
   list.innerHTML = isOps
     ? (entries.length
@@ -207,7 +221,7 @@ function openHoursOverviewDialog(person = visibleProfile(), kind = "manual") {
               `;
             })
             .join("")
-        : '<div class="feed-item">Nog geen OPS uren geregistreerd.</div>')
+        : `<div class="feed-item">Nog geen ${escapeHtml(operatorLabel)} uren geregistreerd.</div>`)
     : entries.length
     ? entries
         .map((entry) => {

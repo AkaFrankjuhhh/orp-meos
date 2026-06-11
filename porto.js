@@ -65,6 +65,9 @@ const PORTO_AUTO_REFRESH_MS = 8000;
 const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
 
 function applyPortoBranding() {
+  const organizationKey = portoOrganization.key || "defensie";
+  document.body.classList.toggle("porto-org-politie", organizationKey === "politie");
+  document.body.classList.toggle("porto-org-defensie", organizationKey !== "politie");
   document.title = `Porto-Systeem | ${portoRuntimeConfig.lockSubtitle || portoOrganization.portalSubtitle || "Defensie Oranjestad"}`;
   const lockBrand = document.querySelector(".lock-brand span");
   if (lockBrand) lockBrand.textContent = portoRuntimeConfig.lockSubtitle || portoOrganization.portalSubtitle || "Defensie Oranjestad";
