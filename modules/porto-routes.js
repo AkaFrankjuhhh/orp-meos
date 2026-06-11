@@ -32,7 +32,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     touchPortoPresence,
     decoratePortoUnit,
     portoOpsPayload,
-    configuredPortoDiscordChannels
+    configuredPortoDiscordChannels,
+    isPortoOperatorLeadUnit
   } = createPortoServices();
   let mutationQueue = Promise.resolve();
   const status4Reasons = new Set(["Staandehouding", "Afhandeling", "In hoofd", "Overige"]);
@@ -89,11 +90,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   function unitWithPortoNicknameContext(state, unit) {
     if (!unit) return unit;
-    const currentOps = activePortoOps(state);
     return {
       ...unit,
-      isPortoOpsLead: Boolean(unit.vehicleNumber === operatorVehicleNumber && currentOps?.memberId && currentOps.memberId === unit.memberId)
+      isPortoOpsLead: isPortoOperatorLeadUnit(state, unit)
     };
+  }
+
+  function operatorSlotForTarget(entry, targetVehicleNumber, leadUnitId = "") {
+    if (targetVehicleNumber !== operatorVehicleNumber) return "";
+    return entry?.id && entry.id === leadUnitId ? "lead" : "support";
   }
 
   async function enqueuePortoVoiceMove(state, units, channelKey, reason = "Porto eenheid handmatig naar voicekanaal verplaatst") {
@@ -198,6 +203,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       discordChannelKey: operatorChannelKey,
       discordChannelStatus: unit.discordChannelStatus || "",
       reviewStatus: operatorLabel.toLowerCase(),
+      operatorSlot: "lead",
       assignedById: person.id,
       assignedByName: person.name,
       assignedAt: unit.assignedAt || nowIso,
@@ -225,6 +231,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         entry.vehicleCode = "";
         entry.vehicleType = "";
         entry.vehicleName = "";
+        entry.operatorSlot = "";
         entry.linkedWith = [];
         entry.endedAt = nowIso;
         entry.updatedAt = nowIso;
@@ -251,6 +258,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       entry.vehicleCode = "";
       entry.vehicleType = "";
       entry.vehicleName = "";
+      entry.operatorSlot = "";
       entry.linkedWith = [];
       entry.endedAt = nowIso;
       entry.updatedAt = nowIso;
@@ -320,11 +328,18 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         vehicleCode: "",
         vehicleType: "",
         vehicleName: "",
+        operatorSlot: "",
         endedById: endedBy.id || "",
         endedByName: endedBy.name || "Onbekend",
         endedAt,
         updatedAt: endedAt
       });
+    }
+    for (const entry of state.portoUnits || []) {
+      if (entry.active === false || entry.vehicleNumber !== operatorVehicleNumber || entry.memberId === currentOps.memberId) continue;
+      if (entry.operatorSlot !== "lead") entry.operatorSlot = "support";
+      if (entry.statusDetail === `${operatorLabel} in dienst`) entry.statusDetail = "Beschikbaar";
+      entry.updatedAt = endedAt;
     }
     return true;
   }
@@ -780,6 +795,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           vehicleCode: currentRange.vehicleCode,
           vehicleType: currentRange.vehicleType,
           vehicleName: "",
+          operatorSlot: "",
           linkedWith: [],
           reviewStatus: "unlinked",
           assignedById: person.id,
@@ -797,7 +813,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (offDuty) {
         const oldVehicleNumber = exactVehicleNumber || unit.vehicleNumber;
         const endedAt = new Date().toISOString();
-        const unitsToEnd = offDutyScope === "member"
+        const unitsToEnd = offDutyScope === "member" || oldVehicleNumber === operatorVehicleNumber
           ? [unit]
           : state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
         const settingsChanged = releaseOpsIfEnded(state, unitsToEnd, person, endedAt, "Uit dienst");
@@ -809,6 +825,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           vehicleCode: "",
           vehicleType: "",
           vehicleName: "",
+          operatorSlot: "",
           linkedWith: [],
           endedById: person.id,
           endedByName: person.name,
@@ -939,13 +956,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }
       const now = new Date().toISOString();
       const unitsToMove = linkToVehicleNumber ? [unit] : (currentVehicleGroup.length ? currentVehicleGroup : [unit]);
-      if (vehicleNumber === operatorVehicleNumber && !assertCanAssignOpsNumber(state, unitsToMove, res)) return true;
+      const operatorLeadUnitId = vehicleNumber === operatorVehicleNumber && !linkToVehicleNumber ? unit.id : "";
+      if (operatorLeadUnitId && !assertCanAssignOpsNumber(state, [unit], res)) return true;
       unitsToMove.forEach((entry) => {
         Object.assign(entry, {
           vehicleNumber,
           vehicleCode: range.vehicleCode,
           vehicleType: range.vehicleType,
           vehicleName: linkToVehicleNumber ? entry.vehicleName : "",
+          operatorSlot: operatorSlotForTarget(entry, vehicleNumber, operatorLeadUnitId),
           discordChannelKey: targetDiscordChannelKey,
           reviewStatus: unit.reviewStatus,
           assignedById: person.id,
@@ -1034,7 +1053,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 400, { error: "Kies een geldige voertuigcategorie of koppeling." });
         return true;
       }
-      if (vehicleNumber === operatorVehicleNumber && !assertCanAssignOpsNumber(state, [unit], res)) return true;
+      const operatorLeadUnitId = vehicleNumber === operatorVehicleNumber && !linkToVehicleNumber ? unit.id : "";
+      if (operatorLeadUnitId && !assertCanAssignOpsNumber(state, [unit], res)) return true;
       const linkedStatusSource = linkToVehicleNumber
         ? state.portoUnits.find((entry) => entry.active !== false && entry.vehicleNumber === linkToVehicleNumber)
         : null;
@@ -1044,6 +1064,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         vehicleNumber,
         vehicleCode: range.vehicleCode,
         vehicleType: range.vehicleType,
+        operatorSlot: operatorSlotForTarget(unit, vehicleNumber, operatorLeadUnitId),
         discordChannelKey: targetDiscordChannelKey,
         discordChannelStatus: linkedStatusSource?.discordChannelStatus || "",
         reviewStatus: linkToVehicleNumber ? "linked" : "assigned",

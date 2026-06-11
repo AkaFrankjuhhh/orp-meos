@@ -58,6 +58,7 @@ function normalizePortoUnitsForWrite(units) {
     unit.vehicleCode = "";
     unit.vehicleType = "";
     unit.vehicleName = "";
+    unit.operatorSlot = "";
     unit.linkedWith = [];
     unit.endedAt = unit.endedAt || new Date().toISOString();
   }
@@ -98,8 +99,12 @@ function personFromRow(row) {
 }
 
 function portoUnitFromRow(row) {
+  const raw = parseJson(row.raw, {});
+  const active = row.active !== false;
+  const vehicleNumber = row.vehicle_number || "";
+  const operatorSlot = active && vehicleNumber ? String(raw.operatorSlot || "").trim() : "";
   return {
-    ...parseJson(row.raw, {}),
+    ...raw,
     id: row.id,
     memberId: row.member_id || "",
     name: row.name || "",
@@ -108,12 +113,13 @@ function portoUnitFromRow(row) {
     phone: row.phone || "",
     status: row.status || "",
     statusDetail: row.status_detail || "",
-    vehicleNumber: row.vehicle_number || "",
+    vehicleNumber,
     vehicleCode: row.vehicle_code || "",
     vehicleType: row.vehicle_type || "",
     vehicleName: row.vehicle_name || "",
+    operatorSlot,
     linkedWith: parseJson(row.linked_with, []),
-    active: row.active !== false,
+    active,
     requestedAt: iso(row.requested_at),
     assignedAt: iso(row.assigned_at),
     endedAt: iso(row.ended_at),
@@ -134,6 +140,7 @@ async function upsertPortoUnit(client, unit) {
            vehicle_code = '',
            vehicle_type = '',
            vehicle_name = '',
+           raw = raw - 'operatorSlot',
            linked_with = '[]'::jsonb,
            ended_at = coalesce(ended_at, now()),
            updated_at = now()

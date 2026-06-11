@@ -1944,6 +1944,21 @@ body.porto-ops-workspace .porto-ops-empty {
   overflow-wrap: anywhere;
 }
 
+.porto-modern-member-slot {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border: 1px solid rgba(245, 158, 11, 0.42);
+  border-radius: 999px;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  font-size: 10px;
+  font-weight: 1000;
+  line-height: 1.1;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 .porto-modern-member.no-ibt strong {
   color: #ff3b3b;
 }

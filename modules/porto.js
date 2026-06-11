@@ -245,10 +245,11 @@ function createPortoServices() {
 
   function activePortoOps(state) {
     const peopleById = new Map((state.people || []).map((person) => [person.id, person]));
-    const canUnitServeOps = (unit) => canServePortoOps(peopleById.get(unit?.memberId));
     const ops = state.portoCurrentOps;
     if (ops && ops.active !== false && canServePortoOps(peopleById.get(ops.memberId))) return ops;
-    const opsUnit = (state.portoUnits || []).find((unit) => unit.active !== false && unit.vehicleNumber === operatorVehicleNumber && canUnitServeOps(unit));
+    const opsUnit = (state.portoUnits || []).find((unit) =>
+      isPortoOperatorLeadUnit(state, unit, peopleById) && canServePortoOps(peopleById.get(unit?.memberId))
+    );
     if (!opsUnit) return null;
     return {
       memberId: opsUnit.memberId || "",
@@ -259,6 +260,53 @@ function createPortoServices() {
       active: true,
       recoveredFromUnit: true
     };
+  }
+
+  function explicitOperatorSlot(unit) {
+    const slot = String(unit?.operatorSlot || "").trim().toLowerCase();
+    return slot === "lead" || slot === "support" ? slot : "";
+  }
+
+  function hasExplicitOperatorLead(state) {
+    return (state.portoUnits || []).some((unit) =>
+      unit.active !== false &&
+      unit.vehicleNumber === operatorVehicleNumber &&
+      explicitOperatorSlot(unit) === "lead"
+    );
+  }
+
+  function legacyOperatorLeadUnit(state, peopleById = null) {
+    const byId = peopleById || new Map((state.people || []).map((person) => [person.id, person]));
+    const currentOps = state.portoCurrentOps;
+    if (currentOps && currentOps.active !== false && canServePortoOps(byId.get(currentOps.memberId))) {
+      return (state.portoUnits || []).find((unit) =>
+        unit.active !== false &&
+        unit.vehicleNumber === operatorVehicleNumber &&
+        unit.memberId === currentOps.memberId
+      ) || null;
+    }
+    if (hasExplicitOperatorLead(state)) return null;
+    return (state.portoUnits || []).find((unit) =>
+      unit.active !== false &&
+      unit.vehicleNumber === operatorVehicleNumber &&
+      explicitOperatorSlot(unit) !== "support" &&
+      canServePortoOps(byId.get(unit.memberId))
+    ) || null;
+  }
+
+  function isPortoOperatorLeadUnit(state, unit, peopleById = null) {
+    if (!unit || unit.active === false || unit.vehicleNumber !== operatorVehicleNumber) return false;
+    const slot = explicitOperatorSlot(unit);
+    if (slot) return slot === "lead";
+    const legacyLead = legacyOperatorLeadUnit(state, peopleById);
+    return Boolean(legacyLead && legacyLead.id === unit.id);
+  }
+
+  function operatorSlotForDisplay(state, unit, peopleById = null) {
+    if (!unit || unit.active === false || unit.vehicleNumber !== operatorVehicleNumber) return "";
+    const slot = explicitOperatorSlot(unit);
+    if (slot) return slot;
+    return isPortoOperatorLeadUnit(state, unit, peopleById) ? "lead" : "support";
   }
 
   function vehicleRangeForNumber(state, number) {
@@ -346,7 +394,14 @@ function createPortoServices() {
 
     for (const unit of state.portoUnits) {
       if (unit.active === false || unit.vehicleNumber !== operatorVehicleNumber) continue;
-      if (canServePortoOps(peopleById.get(unit.memberId))) continue;
+      if (!isPortoOperatorLeadUnit(state, unit, peopleById)) continue;
+      if (canServePortoOps(peopleById.get(unit.memberId))) {
+        if (unit.operatorSlot !== "lead") {
+          unit.operatorSlot = "lead";
+          changed = true;
+        }
+        continue;
+      }
       Object.assign(unit, {
         status: "8",
         statusDetail: `${operatorTraining} training ontbreekt`,
@@ -355,6 +410,7 @@ function createPortoServices() {
         vehicleCode: "",
         vehicleType: "",
         vehicleName: "",
+        operatorSlot: "",
         linkedWith: [],
         endedAt: nowIso,
         updatedAt: nowIso
@@ -411,6 +467,9 @@ function createPortoServices() {
   }
 
   function comparePortoMembersByPriority(a, b) {
+    const slotRank = (member) => member.operatorSlot === "lead" ? 0 : member.operatorSlot === "support" ? 1 : 2;
+    const slotDelta = slotRank(a) - slotRank(b);
+    if (slotDelta) return slotDelta;
     const statusDelta = portoStatusSortRank(a.status) - portoStatusSortRank(b.status);
     if (statusDelta) return statusDelta;
     return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
@@ -470,6 +529,7 @@ function createPortoServices() {
         vehicleCode: unit.vehicleCode || range?.vehicleCode || "",
         vehicleType: unit.vehicleType || range?.vehicleType || "",
         vehicleName: unit.vehicleName || "",
+        operatorSlot: operatorSlotForDisplay(state, unit, peopleById),
         discordChannelKey: defaultDiscordChannelForUnit(unit),
         discordChannelStatus: unit.discordChannelStatus || "",
       });
@@ -515,6 +575,7 @@ function createPortoServices() {
             status: entry.status,
             statusDetail: entry.statusDetail,
             vehicleName: entry.vehicleName || "",
+            operatorSlot: operatorSlotForDisplay(state, entry, peopleById),
             discordChannelKey: defaultDiscordChannelForUnit(entry),
             discordChannelStatus: entry.discordChannelStatus || "",
           }))
@@ -532,6 +593,7 @@ function createPortoServices() {
           status: unit.status,
           statusDetail: unit.statusDetail,
           vehicleName: unit.vehicleName || "",
+          operatorSlot: operatorSlotForDisplay(state, unit, peopleById),
           discordChannelKey: defaultDiscordChannelForUnit(unit),
           discordChannelStatus: unit.discordChannelStatus || "",
         }];
@@ -623,6 +685,7 @@ function createPortoServices() {
     canServePortoOps,
     canOperatePortoOps,
     activePortoOps,
+    isPortoOperatorLeadUnit,
     canViewPortoOpsLog,
     configuredPortoDiscordChannels,
     portoDiscordChannelGroups,
