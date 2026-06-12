@@ -4,9 +4,14 @@ const { currentOrganization } = require("./organizations");
 
 const organization = currentOrganization();
 const publicFormDomain = organization.key === "politie" ? "orppolitie.nl" : "orpdefensie.nl";
+const overheidPublicFormDomain = process.env.OVERHEID_PUBLIC_FORM_DOMAIN || "orpoverheid.nl";
 
 function formHosts(...subdomains) {
   return subdomains.map((subdomain) => `${subdomain}.${publicFormDomain}`);
+}
+
+function overheidFormHosts(...subdomains) {
+  return subdomains.map((subdomain) => `${subdomain}.${overheidPublicFormDomain}`);
 }
 
 const publicFormConfigs = {
@@ -44,14 +49,15 @@ const publicFormConfigs = {
   },
   klachten: {
     slug: "klachten",
-    hostnames: formHosts("klachten"),
-    title: "ORP - Defensie Klachtenformulier",
-    subtitle: "Gebruik dit formulier om een klacht of melding richting Defensie Oranjestad door te geven.",
+    hostnames: overheidFormHosts("klachten"),
+    title: "ORP - Klachtenformulier",
+    subtitle: "Gebruik dit formulier om een klacht of melding richting Politie of Defensie Oranjestad door te geven.",
     accent: "#ef4444",
     webhookEnv: "DISCORD_FORM_KLACHTEN_WEBHOOK_URL",
     questions: [
       { id: "fullName", label: "Volledige naam", type: "text", required: true },
       { id: "discord", label: "Discord naam + ID", type: "text", required: true },
+      { id: "organization", label: "Waar gaat de klacht over?", type: "select", required: true, options: ["Defensie", "Politie", "Beide / overheid", "Onbekend"] },
       { id: "category", label: "Categorie", type: "select", required: true, options: ["Klacht over medewerker", "Klacht over procedure", "Ongepast gedrag", "Overig"] },
       { id: "involved", label: "Betrokken persoon/personen", type: "text", required: false },
       { id: "description", label: "Beschrijf de klacht zo duidelijk mogelijk", type: "textarea", required: true },
@@ -396,8 +402,34 @@ function createPublicFormSubmission(config, answers, req, files = [], submittedB
   };
 }
 
+function firstConfiguredEnv(...keys) {
+  for (const key of keys) {
+    const value = String(process.env[key] || "").trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function organizationWebhookEnvKey(envKey) {
+  const orgPrefix = String(organization.key || "defensie").trim().toUpperCase();
+  const suffix = String(envKey || "").replace(/^DISCORD_/, "");
+  return `DISCORD_${orgPrefix}_${suffix}`;
+}
+
 function publicFormWebhookUrl(config) {
-  return process.env[config.webhookEnv] || process.env.DISCORD_PUBLIC_FORMS_WEBHOOK_URL || "";
+  if (config?.slug === "klachten") {
+    return firstConfiguredEnv(
+      "DISCORD_OVERHEID_FORM_KLACHTEN_WEBHOOK_URL",
+      config.webhookEnv,
+      "DISCORD_PUBLIC_FORMS_WEBHOOK_URL"
+    );
+  }
+  return firstConfiguredEnv(
+    organizationWebhookEnvKey(config.webhookEnv),
+    `DISCORD_${String(organization.key || "defensie").trim().toUpperCase()}_PUBLIC_FORMS_WEBHOOK_URL`,
+    config.webhookEnv,
+    "DISCORD_PUBLIC_FORMS_WEBHOOK_URL"
+  );
 }
 
 function formatCaseNumber(value) {

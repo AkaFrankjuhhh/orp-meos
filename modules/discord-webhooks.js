@@ -1,3 +1,5 @@
+const { currentOrganization } = require("./organizations");
+
 async function sendDiscordWebhook(webhookUrl, payload, files = []) {
   if (!webhookUrl) return { skipped: true };
   async function webhookResult(response) {
@@ -29,20 +31,49 @@ async function sendDiscordWebhook(webhookUrl, payload, files = []) {
 }
 
 function createDiscordWebhookServices({ formatDate }) {
+  const organization = currentOrganization();
+  const orgEnvPrefix = String(organization.key || "defensie").trim().toUpperCase();
+
+  function firstConfiguredEnv(...keys) {
+    for (const key of keys) {
+      const value = String(process.env[key] || "").trim();
+      if (value) return value;
+    }
+    return "";
+  }
+
   function personnelWebhookUrl(type) {
     if (type === "blacklist") {
-      return process.env.DISCORD_BLACKLIST_WEBHOOK_URL || "";
+      return firstConfiguredEnv(
+        `DISCORD_${orgEnvPrefix}_BLACKLIST_WEBHOOK_URL`,
+        "DISCORD_BLACKLIST_WEBHOOK_URL"
+      );
     }
     const map = {
-      hire: process.env.DISCORD_HIRE_WEBHOOK_URL,
-      dismissal: process.env.DISCORD_DISMISSAL_WEBHOOK_URL,
-      resignation: process.env.DISCORD_RESIGNATION_WEBHOOK_URL
+      hire: "HIRE",
+      dismissal: "DISMISSAL",
+      resignation: "RESIGNATION"
     };
-    return map[type] || process.env.DISCORD_PERSONNEL_WEBHOOK_URL || "";
+    const typeKey = map[type];
+    if (!typeKey) {
+      return firstConfiguredEnv(
+        `DISCORD_${orgEnvPrefix}_PERSONNEL_WEBHOOK_URL`,
+        "DISCORD_PERSONNEL_WEBHOOK_URL"
+      );
+    }
+    return firstConfiguredEnv(
+      `DISCORD_${orgEnvPrefix}_${typeKey}_WEBHOOK_URL`,
+      `DISCORD_${orgEnvPrefix}_PERSONNEL_WEBHOOK_URL`,
+      `DISCORD_${typeKey}_WEBHOOK_URL`,
+      "DISCORD_PERSONNEL_WEBHOOK_URL"
+    );
   }
 
   function absenceWebhookUrl() {
-    return process.env.DISCORD_ABSENCE_WEBHOOK_URL || "";
+    return firstConfiguredEnv(
+      `DISCORD_${orgEnvPrefix}_ABSENCE_WEBHOOK_URL`,
+      "DISCORD_ABSENCE_WEBHOOK_URL"
+    );
   }
 
   function buildAbsenceWebhookPayload(member, absence, submittedBy) {

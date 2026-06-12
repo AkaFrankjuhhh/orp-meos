@@ -1,5 +1,5 @@
 # Defensie Personeelsportaal + publieke formulieren.
-orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, klachten.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl, hovj.orpdefensie.nl {
+orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl, hovj.orpdefensie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000
 
@@ -8,6 +8,26 @@ orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefen
     Referrer-Policy no-referrer-when-downgrade
     X-Frame-Options DENY
   }
+}
+
+# Centrale klachtenplek voor Politie en Defensie.
+klachten.orpoverheid.nl {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3000 {
+    header_up Host {host}
+    header_up X-Forwarded-Host {host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
+}
+
+klachten.orpdefensie.nl, klachten.orppolitie.nl {
+  redir https://klachten.orpoverheid.nl{uri} permanent
 }
 
 # Porto draait als eigen service, zodat personeelsportaal deploys OPS niet onderbreken.
@@ -23,7 +43,7 @@ porto.orpdefensie.nl {
 }
 
 # Politie Personeelsportaal + publieke formulieren.
-orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, klachten.orppolitie.nl, otc.orppolitie.nl, hrb.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl, hovj.orppolitie.nl {
+orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, otc.orppolitie.nl, hrb.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl, hovj.orppolitie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3010
 
