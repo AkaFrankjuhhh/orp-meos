@@ -126,16 +126,16 @@ const defensieNicknameSymbols = {
 };
 
 const politieNicknameSymbols = {
-  "Eerste hoofdcommissaris": "- \u2759\u2737\u2737\u2737",
-  Hoofdcommissaris: "- \u2759\u2737\u2737",
-  Commissaris: "- \u2759\u2737",
-  Hoofdinspecteur: "- I\u2655",
-  Inspecteur: "- \u2655",
-  Brigadier: "- \u2725",
-  Hoofdagent: "- IIII",
-  Agent: "- III",
-  Surveillant: "- II",
-  Aspirant: "- I"
+  "Eerste hoofdcommissaris": "\u2759\u2737\u2737\u2737",
+  Hoofdcommissaris: "\u2759\u2737\u2737",
+  Commissaris: "\u2759\u2737",
+  Hoofdinspecteur: "I\u2655",
+  Inspecteur: "\u2655",
+  Brigadier: "\u2725",
+  Hoofdagent: "IIII",
+  Agent: "III",
+  Surveillant: "II",
+  Aspirant: "I"
 };
 
 const commonDistinctions = [
@@ -368,6 +368,7 @@ const organizationConfigs = {
         "OVD-P": { envKey: "DISCORD_POLITIE_OVD_ROLE_ID", defaultRoleId: "1424523647816699996", label: "OVD-P" }
       },
       nicknameSymbols: politieNicknameSymbols,
+      nicknameSymbolSeparator: " - ",
       portoOperatorLabel: "OC"
     },
     porto: {

@@ -137,6 +137,18 @@ function rankSymbolsFor(rank) {
   return symbols[String(rank || "").trim()] || "";
 }
 
+function rankSymbolSeparator() {
+  const separator = organization.discord?.nicknameSymbolSeparator;
+  return typeof separator === "string" ? separator : " ";
+}
+
+function buildNicknamePrefix(serviceNumber, symbols) {
+  const number = String(serviceNumber || "-").trim() || "-";
+  const rankSymbols = String(symbols || "").trim();
+  if (!rankSymbols) return `[${number}]`;
+  return `[${number}${rankSymbolSeparator()}${rankSymbols}]`;
+}
+
 function formatNameForDiscordNickname(name) {
   const parts = String(name || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
   if (!parts.length) return "";
@@ -157,7 +169,7 @@ function buildServiceNicknameDefault(person) {
   const serviceNumber = person?.serviceNumber || person?.previousServiceNumber || "-";
   const symbols = rankSymbolsFor(person?.rank);
   const name = formatNameForDiscordNickname(person?.name || person?.discordUsername || "");
-  const prefix = symbols ? `[${serviceNumber} ${symbols}]` : `[${serviceNumber}]`;
+  const prefix = buildNicknamePrefix(serviceNumber, symbols);
   return truncateDiscordNickname(`${prefix} ${name}`.trim());
 }
 
@@ -165,7 +177,7 @@ function buildPortoNicknameDefault(person, unit = {}) {
   const serviceNumber = unit?.vehicleNumber || person?.serviceNumber || person?.previousServiceNumber || "-";
   const symbols = rankSymbolsFor(person?.rank || unit?.rank);
   const name = formatNameForDiscordNickname(person?.name || unit?.name || person?.discordUsername || "");
-  const prefix = symbols ? `[${serviceNumber} ${symbols}]` : `[${serviceNumber}]`;
+  const prefix = buildNicknamePrefix(serviceNumber, symbols);
   const body = `${prefix} ${name}`.trim();
   const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
   const isOpsLead = unit?.vehicleNumber === operatorVehicleNumber && unit?.isPortoOpsLead === true;
@@ -174,7 +186,13 @@ function buildPortoNicknameDefault(person, unit = {}) {
 }
 
 function nicknameTemplateHasPlaceholders(template) {
-  return /\{(?:serviceNumber|name|formattedName|rank|symbols)\}/.test(String(template || ""));
+  return /\{(?:serviceNumber|name|formattedName|rank|symbols|symbolSeparator)\}/.test(String(template || ""));
+}
+
+function normalizeNicknameTemplateForOrganization(template) {
+  const text = String(template || "");
+  if (rankSymbolSeparator() === " " || text.includes("{symbolSeparator}")) return text;
+  return text.replaceAll("{serviceNumber} {symbols}", "{serviceNumber}{symbolSeparator}{symbols}");
 }
 
 function createDiscordBotServices(options = {}) {
@@ -396,15 +414,17 @@ function createDiscordBotServices(options = {}) {
     if (!template || template === "personeelsportaal" || !nicknameTemplateHasPlaceholders(template)) {
       return buildServiceNicknameDefault(person);
     }
+    const resolvedTemplate = normalizeNicknameTemplateForOrganization(template);
     const serviceNumber = person?.serviceNumber || person?.previousServiceNumber || "";
     const name = person?.name || person?.discordUsername || "";
     const symbols = rankSymbolsFor(person?.rank);
-    const nickname = template
+    const nickname = resolvedTemplate
       .replaceAll("{serviceNumber}", serviceNumber)
       .replaceAll("{name}", name)
       .replaceAll("{formattedName}", formatNameForDiscordNickname(name))
       .replaceAll("{rank}", person?.rank || "")
       .replaceAll("{symbols}", symbols)
+      .replaceAll("{symbolSeparator}", rankSymbolSeparator())
       .replace(/\s+/g, " ")
       .trim();
     return truncateDiscordNickname(nickname || buildServiceNicknameDefault(person));
