@@ -68,7 +68,8 @@ const publicFormConfigs = {
   },
   otc: {
     slug: "otc",
-    hostnames: formHosts("otc"),
+    aliases: organization.key === "politie" ? ["trainer"] : [],
+    hostnames: organization.key === "politie" ? formHosts("trainer") : formHosts("otc"),
     title: "ORP - OTC Aanmeldformulier",
     subtitle: "Aanmelding voor het opleidings- en trainingscentrum van Defensie Oranjestad.",
     accent: "#38bdf8",
@@ -193,6 +194,14 @@ function replaceOrganizationText(value) {
 function applyOrganizationTextToForm(config) {
   for (const key of ["title", "subtitle", "notice"]) {
     if (config[key]) config[key] = replaceOrganizationText(config[key]);
+  }
+  if (organization.key === "politie" && config.slug === "overstap") {
+    config.subtitle = "Ben jij momenteel Defensie? Dan kan je via deze weg aangeven dat je wil overstappen. Let op dat je maximaal kan intreden op Agent.";
+  }
+  if (organization.key === "politie" && config.slug === "herintrede") {
+    config.notice = "Houd er rekening mee dat jij niet terug komt op je oude rang. Ook dien je minimaal de rang Agent te zijn geweest en moet dit formulier binnen 6 maanden na ontslag ingediend zijn.";
+    const previousRankQuestion = (config.questions || []).find((question) => question.id === "previousRank");
+    if (previousRankQuestion) previousRankQuestion.options = [...organization.ranks];
   }
   for (const question of config.questions || []) {
     for (const key of ["label", "placeholder", "help"]) {

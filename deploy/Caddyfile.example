@@ -43,7 +43,7 @@ porto.orpdefensie.nl {
 }
 
 # Politie Personeelsportaal + publieke formulieren.
-orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, otc.orppolitie.nl, hrb.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl, hovj.orppolitie.nl {
+orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, trainer.orppolitie.nl, hrb.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl, hovj.orppolitie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3010
 
@@ -52,6 +52,10 @@ orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.
     Referrer-Policy no-referrer-when-downgrade
     X-Frame-Options DENY
   }
+}
+
+otc.orppolitie.nl {
+  redir https://trainer.orppolitie.nl{uri} permanent
 }
 
 # Politie Porto draait als eigen service.
