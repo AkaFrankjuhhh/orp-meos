@@ -53,31 +53,33 @@ function createPersoneelsportaalRouteHandler(deps) {
   const formsStorage = deps.formsStorage || { readState, writeState };
   const peopleStorage = deps.peopleStorage || { readState, writeState };
 
-  const defaultMentorChecklistGroups = [
-    {
-      title: "Praktijk",
-      items: [
-        "Leerling kent de rechten van een verdachte",
-        "Leerling kan rustig handelen tijdens een incident",
-        "Leerling weet hoe een verdachte staande gehouden wordt",
-        "Leerling weet hoe een verdachte aangehouden wordt",
-        "Leerling kan een BTGV uitvoeren",
-        "Leerling kan zich professioneel opstellen",
-        "Leerling heeft zijn vuurwapen op een correcte manier gebruikt"
-      ]
-    },
-    {
-      title: "Theorie",
-      items: [
-        "Leerling weet hoe MEOS werkt",
-        "Leerling weet hoe een I8 ingevuld moet worden",
-        "Leerling kan bewijzen opstellen",
-        "Leerling kent de geweldsladder",
-        "Leerling kent de douane gebieden",
-        "Leerling kent de discord"
-      ]
-    }
-  ];
+  const defaultMentorChecklistGroups = Array.isArray(organization.mentorChecklistGroups) && organization.mentorChecklistGroups.length
+    ? organization.mentorChecklistGroups
+    : [
+        {
+          title: "Praktijk",
+          items: [
+            "Leerling kent de rechten van een verdachte",
+            "Leerling kan rustig handelen tijdens een incident",
+            "Leerling weet hoe een verdachte staande gehouden wordt",
+            "Leerling weet hoe een verdachte aangehouden wordt",
+            "Leerling kan een BTGV uitvoeren",
+            "Leerling kan zich professioneel opstellen",
+            "Leerling heeft zijn vuurwapen op een correcte manier gebruikt"
+          ]
+        },
+        {
+          title: "Theorie",
+          items: [
+            "Leerling weet hoe MEOS werkt",
+            "Leerling weet hoe een I8 ingevuld moet worden",
+            "Leerling kan bewijzen opstellen",
+            "Leerling kent de geweldsladder",
+            "Leerling kent de douane gebieden",
+            "Leerling kent de discord"
+          ]
+        }
+      ];
 
   function slugId(value, fallback) {
     const slug = String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");

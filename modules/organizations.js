@@ -60,6 +60,59 @@ const defaultMentorChecklistGroups = [
   }
 ];
 
+const politieMentorChecklistGroups = [
+  {
+    title: "Basis Politiewerk",
+    items: [
+      "Kennis van rangen en hi\u00ebrarchie binnen het korps",
+      "Correct aanspreken van collega's en burgers",
+      "Basisuitrusting kennen en gebruiken",
+      "Dienst starten en eindigen volgens procedure",
+      "Gebruik van dienstvoertuigen begrijpen"
+    ]
+  },
+  {
+    title: "Communicatie & Porto",
+    items: [
+      "Porto correct gebruiken (call signs, meldingen)",
+      "Korte en duidelijke communicatie via de radio",
+      "Prioriteiten (prio 1, 2, 3) correct toepassen",
+      "Back-up aanvragen op de juiste manier",
+      "OPCO/OVD-P communicatie begrijpen"
+    ]
+  },
+  {
+    title: "Wetten & Procedures",
+    items: [
+      "Basiskennis van wetgeving (boetes, misdrijven)",
+      "Staandehouding correct uitvoeren",
+      "Fouilleren volgens procedure",
+      "Aanhouding correct uitvoeren",
+      "Rechten van een verdachte benoemen"
+    ]
+  },
+  {
+    title: "Praktische Handelingen",
+    items: [
+      "Verkeerscontroles uitvoeren",
+      "Boetes uitschrijven (juiste reden & bedrag)",
+      "Voertuigen controleren (papieren, kenteken)",
+      "Gebruik van handboeien en transport",
+      "Verdachte veilig vervoeren naar bureau"
+    ]
+  },
+  {
+    title: "Achtervolging & Nood",
+    items: [
+      "Basis achtervolgingstechnieken begrijpen",
+      "Wegblokkades correct neerzetten",
+      "Tactisch rijden tijdens achtervolgingen",
+      "Handelen bij gewapende situaties",
+      "Samenwerken bij grote incidenten"
+    ]
+  }
+];
+
 const defensieExtraTasks = [
   "Interne-Zaken",
   "OvJ",
@@ -320,8 +373,8 @@ const organizationConfigs = {
     restrictedTaskBadges: politieSideTaskBadges,
     mentorRanks: ["Aspirant", "Surveillant"],
     mentorTrainingName: "Basis",
-    mentorChecklistGroups: defaultMentorChecklistGroups,
-    mentorChecklistCount: 13,
+    mentorChecklistGroups: politieMentorChecklistGroups,
+    mentorChecklistCount: 25,
     rankTrainingRequirements: {
       Surveillant: ["Basis"],
       Agent: ["Basis", "NH", "IBT"],
