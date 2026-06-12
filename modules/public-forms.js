@@ -67,11 +67,11 @@ const publicFormConfigs = {
     ]
   },
   otc: {
-    slug: "otc",
-    aliases: organization.key === "politie" ? ["trainer"] : [],
+    slug: organization.key === "politie" ? "trainer" : "otc",
+    aliases: organization.key === "politie" ? ["otc"] : [],
     hostnames: organization.key === "politie" ? formHosts("trainer") : formHosts("otc"),
-    title: "ORP - OTC Aanmeldformulier",
-    subtitle: "Aanmelding voor het opleidings- en trainingscentrum van Defensie Oranjestad.",
+    title: organization.key === "politie" ? "ORP - Trainer Aanmeldformulier" : "ORP - OTC Aanmeldformulier",
+    subtitle: organization.key === "politie" ? "Aanmelding voor trainer of mentor binnen Politie Oranjestad." : "Aanmelding voor het opleidings- en trainingscentrum van Defensie Oranjestad.",
     accent: "#38bdf8",
     internalOnly: true,
     webhookEnv: "DISCORD_FORM_OTC_WEBHOOK_URL",
@@ -79,7 +79,7 @@ const publicFormConfigs = {
       { id: "fullName", label: "Naam + achternaam (in-game)", type: "text", required: true },
       { id: "discord", label: "Discord naam + ID", type: "text", required: true },
       { id: "rank", label: "Huidige rang", type: "text", required: true },
-      { id: "motivation", label: "Waarom wil je deelnemen aan OTC?", type: "textarea", required: true },
+      { id: "motivation", label: organization.key === "politie" ? "Waarom wil je trainer of mentor worden?" : "Waarom wil je deelnemen aan OTC?", type: "textarea", required: true },
       { id: "applicationType", label: "Training / Mentor", type: "checkboxGroup", required: true, options: [{ value: "trainer", label: "Trainer" }, { value: "mentor", label: "Mentor" }], help: "Je mag voor beide solliciteren." },
       { id: "trainerReason", label: "Waarom wil je trainer worden?", type: "textarea", required: true, showIf: { field: "applicationType", includes: "trainer" } },
       { id: "mentorReason", label: "Waarom wil je mentor worden?", type: "textarea", required: true, showIf: { field: "applicationType", includes: "mentor" } },
@@ -177,6 +177,7 @@ const publicFormManagerBadges = {
   overstap: ["Kader"],
   klachten: ["Kader"],
   otc: ["OTC-Leiding", "Trainer-Leiding"],
+  trainer: ["Trainer-Leiding"],
   hrb: ["HRB-Leiding"],
   "w-s": ["W&S-Leiding"],
   hovj: ["OvJ"]
