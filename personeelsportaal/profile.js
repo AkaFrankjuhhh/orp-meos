@@ -425,14 +425,30 @@ function renderProfile() {
   const current = currentProfile();
   const viewed = visibleProfile();
   if (!current) return;
+  const isPoliceProfile = window.DefensiePortalData?.organization?.key === "politie";
   $("#currentName").textContent = current.name;
   $("#currentService").textContent = current.serviceNumber;
   $("#currentAvatar").src = avatarFor(current);
   $("#absenceMemberDisplay").value = `${current.serviceNumber || "-"} - ${current.name}`;
   renderResignationForm();
   $("#profilePageAvatar").src = avatarFor(viewed);
-  $("#profilePageRankNumber").textContent = `${profileRankLabel(viewed.rank)} - ${viewed.serviceNumber || "-"}`;
-  $("#profilePageDisplayName").textContent = viewed.name || "-";
+  const profileNameStack = $("#profilePageNameService");
+  const profileRankNumber = $("#profilePageRankNumber");
+  const profileDisplayName = $("#profilePageDisplayName");
+  profileNameStack.classList.toggle("profile-police-layout", isPoliceProfile);
+  if (isPoliceProfile) {
+    profileRankNumber.textContent = profileRankLabel(viewed.rank);
+    const serviceLine = document.createElement("span");
+    serviceLine.className = "profile-police-service";
+    serviceLine.textContent = viewed.serviceNumber || "-";
+    const nameLine = document.createElement("span");
+    nameLine.className = "profile-police-name";
+    nameLine.textContent = viewed.name || "-";
+    profileDisplayName.replaceChildren(serviceLine, nameLine);
+  } else {
+    profileRankNumber.textContent = `${profileRankLabel(viewed.rank)} - ${viewed.serviceNumber || "-"}`;
+    profileDisplayName.textContent = viewed.name || "-";
+  }
   const profileStatus = statusInfoFor(viewed);
   const profileStatusDot = $("#profilePageStatusDot");
   if (profileStatusDot) {

@@ -3911,8 +3911,46 @@ body[data-device="mobile"] .profile-person-name {
   margin-top: 10px;
 }
 
+.profile-rank-stack.profile-police-layout {
+  gap: 6px;
+}
+
+.profile-rank-stack.profile-police-layout .profile-rank-number {
+  color: #93c5fd;
+  font-size: clamp(17px, 1.7vw, 22px);
+  line-height: 1.1;
+}
+
+.profile-rank-stack.profile-police-layout .profile-person-name {
+  display: grid;
+  gap: 4px;
+  margin-top: 0;
+}
+
+.profile-police-service {
+  display: block;
+  color: #f8fafc;
+  font-size: clamp(32px, 3.1vw, 44px);
+  font-weight: 950;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.profile-police-name {
+  display: block;
+  color: #f8fafc;
+  font-size: clamp(24px, 2.5vw, 34px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
 body[data-device="mobile"] .profile-rank-number {
   font-size: 24px;
+}
+
+body[data-device="mobile"] .profile-police-service {
+  font-size: 34px;
 }
 /* Handmatige diensturen tonen weekuren als eigen compacte module in dezelfde panelstijl. */
 .manual-hours-total {
