@@ -312,7 +312,7 @@ const organizationConfigs = {
       { prefix: "22", min: 87, max: 99, ranks: ["Aspirant"] }
     ],
     autoSortRanks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris", "Hoofdinspecteur", "Inspecteur", "Brigadier", "Hoofdagent", "Agent"],
-    profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "WaterPolitie", "SIV", "TMO", "ZULU", "OGM"],
+    profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM"],
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
     extraFunctions: ["Korpsleiding", "Bestuur"],
