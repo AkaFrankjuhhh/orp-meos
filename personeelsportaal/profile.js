@@ -23,7 +23,10 @@ const profileRankLabels = {
   "Marrechaussee 1ste Klasser": "Mar 1de Klasser"
 };
 
-const profileSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
+const configuredSideTaskBadges = window.DefensiePortalData?.sideTaskBadges;
+const profileSideTaskBadges = Array.isArray(configuredSideTaskBadges) && configuredSideTaskBadges.length
+  ? configuredSideTaskBadges
+  : ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
 window.profileSideTaskBadges = profileSideTaskBadges;
 
 function profileRankLabel(rank) {

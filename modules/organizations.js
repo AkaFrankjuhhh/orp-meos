@@ -82,6 +82,9 @@ const defensieExtraTasks = [
   "HRB"
 ];
 
+const defensieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
+const politieSideTaskBadges = ["DSI", "DNR"];
+
 const politieExtraTasks = [
   "OvJ",
   "hOvJ",
@@ -91,7 +94,8 @@ const politieExtraTasks = [
   "Mentor-Leiding",
   "OTC-Leiding",
   "W&S-Leiding",
-  "Trainer-Leiding"
+  "Trainer-Leiding",
+  ...politieSideTaskBadges
 ];
 
 const disciplineTypes = {
@@ -172,7 +176,8 @@ const organizationConfigs = {
     profileOperational: ["OPS", "OPCO", "OVD"],
     extraTasks: defensieExtraTasks,
     extraFunctions: ["Kader", "Overheidscoördinator", "Hoofdofficier", "Officiersraad"],
-    restrictedTaskBadges: ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"],
+    sideTaskBadges: defensieSideTaskBadges,
+    restrictedTaskBadges: defensieSideTaskBadges,
     mentorRanks: ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"],
     mentorTrainingName: "Mentor-Traject",
     mentorChecklistGroups: defaultMentorChecklistGroups,
@@ -311,7 +316,8 @@ const organizationConfigs = {
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
     extraFunctions: ["Korpsleiding", "Bestuur"],
-    restrictedTaskBadges: [],
+    sideTaskBadges: politieSideTaskBadges,
+    restrictedTaskBadges: politieSideTaskBadges,
     mentorRanks: ["Aspirant", "Surveillant"],
     mentorTrainingName: "Basis",
     mentorChecklistGroups: defaultMentorChecklistGroups,
@@ -532,6 +538,7 @@ function publicClientData(config = currentOrganization()) {
     mentorChecklistLabels: config.mentorChecklistGroups.flatMap((group) => group.items),
     extraTasks: config.extraTasks,
     extraFunctions: config.extraFunctions,
+    sideTaskBadges: config.sideTaskBadges || [],
     disciplineTypes,
     profileDistinctions: commonDistinctions,
     rankTrainingRequirements: config.rankTrainingRequirements || {},
