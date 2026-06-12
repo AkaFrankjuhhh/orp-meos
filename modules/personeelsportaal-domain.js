@@ -1,7 +1,8 @@
 const crypto = require("node:crypto");
 const {
   currentOrganization,
-  serviceNumberGroupForRank
+  serviceNumberGroupForRank,
+  serviceNumberGroupsForRank
 } = require("./organizations");
 
 // Centrale Personeelsportaal domeinregels: rangen, dienstnummers, profieldata en mutaties.
@@ -51,6 +52,10 @@ function getGroupForRank(rank) {
   return serviceNumberGroupForRank(organization, rank);
 }
 
+function getGroupsForRank(rank) {
+  return serviceNumberGroupsForRank(organization, rank);
+}
+
 function sameServiceNumberGroup(first, second) {
   if (!first || !second) return false;
   return first.prefix === second.prefix && Number(first.min) === Number(second.min) && Number(first.max) === Number(second.max);
@@ -60,8 +65,15 @@ function formatService(prefix, number) {
   return `${prefix}-${String(number).padStart(2, "0")}`;
 }
 
-function getAvailableServiceNumbers(state, rank, currentId = "") {
-  const group = getGroupForRank(rank);
+function getAvailableServiceNumbers(state, rank, currentId = "", preferredPrefix = "") {
+  const groups = getGroupsForRank(rank);
+  const sortedGroups = preferredPrefix
+    ? [...groups].sort((first, second) => {
+        if (first.prefix === preferredPrefix && second.prefix !== preferredPrefix) return -1;
+        if (second.prefix === preferredPrefix && first.prefix !== preferredPrefix) return 1;
+        return 0;
+      })
+    : groups;
   const used = new Set(
     (state.people || [])
       .filter((person) => person.id !== currentId)
@@ -70,15 +82,22 @@ function getAvailableServiceNumbers(state, rank, currentId = "") {
       .filter(Boolean)
   );
   const numbers = [];
-  for (let i = group.min; i <= group.max; i += 1) {
-    const service = formatService(group.prefix, i);
-    if (!used.has(service)) numbers.push(service);
+  for (const group of sortedGroups) {
+    for (let i = group.min; i <= group.max; i += 1) {
+      const service = formatService(group.prefix, i);
+      if (!used.has(service)) numbers.push(service);
+    }
   }
   return numbers;
 }
 
-function assignFirstAvailableServiceNumber(state, person) {
-  const numbers = getAvailableServiceNumbers(state, person.rank, person.id);
+function serviceNumberPrefix(serviceNumber) {
+  const match = /^(\d{2})-\d{2,3}$/.exec(String(serviceNumber || "").trim());
+  return match?.[1] || "";
+}
+
+function assignFirstAvailableServiceNumber(state, person, preferredPrefix = "") {
+  const numbers = getAvailableServiceNumbers(state, person.rank, person.id, preferredPrefix);
   person.serviceNumber = numbers[0] || "";
 }
 
@@ -112,11 +131,13 @@ function autoSortServiceNumbers(state) {
 }
 
 function assertValidServiceNumber(state, person) {
-  const group = getGroupForRank(person.rank);
   const match = /^(\d{2})-(\d{2,3})$/.exec(person.serviceNumber || "");
-  if (!match || match[1] !== group.prefix) {
+  if (!match) {
     return "Dienstnummer hoort niet bij deze ranggroep.";
   }
+  const groups = getGroupsForRank(person.rank);
+  const group = groups.find((entry) => entry.prefix === match[1]);
+  if (!group) return "Dienstnummer hoort niet bij deze ranggroep.";
   const value = Number(match[2]);
   if (value < group.min || value > group.max) {
     return "Dienstnummer valt buiten de toegestane reeks.";
@@ -186,6 +207,7 @@ function promotePerson(state, person) {
 
   const previousRank = person.rank;
   const previousGroup = getGroupForRank(previousRank);
+  const previousPrefix = serviceNumberPrefix(person.serviceNumber);
   const nextRank = ranks[currentIndex - 1];
   const nextGroup = getGroupForRank(nextRank);
   const todayValue = today();
@@ -196,7 +218,7 @@ function promotePerson(state, person) {
   person.promotionDate = todayValue;
 
   if (!sameServiceNumberGroup(previousGroup, nextGroup) || !person.serviceNumber) {
-    assignFirstAvailableServiceNumber(state, person);
+    assignFirstAvailableServiceNumber(state, person, previousPrefix);
   }
 
   person.rankHistory = person.rankHistory || [];
@@ -213,6 +235,7 @@ function demotePerson(state, person) {
 
   const previousRank = person.rank;
   const previousGroup = getGroupForRank(previousRank);
+  const previousPrefix = serviceNumberPrefix(person.serviceNumber);
   const nextRank = ranks[currentIndex + 1];
   const nextGroup = getGroupForRank(nextRank);
   const todayValue = today();
@@ -223,7 +246,7 @@ function demotePerson(state, person) {
   person.promotionDate = todayValue;
 
   if (!sameServiceNumberGroup(previousGroup, nextGroup) || !person.serviceNumber) {
-    assignFirstAvailableServiceNumber(state, person);
+    assignFirstAvailableServiceNumber(state, person, previousPrefix);
   }
 
   person.rankHistory = person.rankHistory || [];

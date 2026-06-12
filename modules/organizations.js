@@ -288,15 +288,23 @@ const organizationConfigs = {
     defaultRecruitRank: "Aspirant",
     rankCategories: [
       { title: "Korpsleiding", serviceRange: "21-01 t/m 21-05", ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"] },
-      { title: "Bestuur", serviceRange: "21-06 t/m 21-15", ranks: ["Hoofdinspecteur", "Inspecteur"] },
-      { title: "Uitvoerend personeel", serviceRange: "21-16 t/m 21-75", ranks: ["Brigadier", "Hoofdagent", "Agent"] },
-      { title: "Opleiding", serviceRange: "21-76 t/m 21-200", ranks: ["Surveillant", "Aspirant"] }
+      { title: "Bestuur", serviceRange: "21-06 t/m 21-16", ranks: ["Hoofdinspecteur", "Inspecteur"] },
+      { title: "Uitvoerend personeel", serviceRange: "21/22-17 t/m 21/22-70", ranks: ["Brigadier", "Hoofdagent", "Agent"] },
+      { title: "Opleiding", serviceRange: "21/22-71 t/m 21/22-99", ranks: ["Surveillant", "Aspirant"] }
     ],
     serviceNumberGroups: [
       { prefix: "21", min: 1, max: 5, ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"], autoSort: true },
-      { prefix: "21", min: 6, max: 15, ranks: ["Hoofdinspecteur", "Inspecteur"], autoSort: true },
-      { prefix: "21", min: 16, max: 75, ranks: ["Brigadier", "Hoofdagent", "Agent"], autoSort: true },
-      { prefix: "21", min: 76, max: 200, ranks: ["Surveillant", "Aspirant"] }
+      { prefix: "21", min: 6, max: 16, ranks: ["Hoofdinspecteur", "Inspecteur"], autoSort: true },
+      { prefix: "21", min: 17, max: 27, ranks: ["Brigadier"], autoSort: true },
+      { prefix: "22", min: 17, max: 27, ranks: ["Brigadier"], autoSort: true },
+      { prefix: "21", min: 28, max: 48, ranks: ["Hoofdagent"], autoSort: true },
+      { prefix: "22", min: 28, max: 48, ranks: ["Hoofdagent"], autoSort: true },
+      { prefix: "21", min: 49, max: 70, ranks: ["Agent"], autoSort: true },
+      { prefix: "22", min: 49, max: 70, ranks: ["Agent"], autoSort: true },
+      { prefix: "21", min: 71, max: 86, ranks: ["Surveillant"] },
+      { prefix: "22", min: 71, max: 86, ranks: ["Surveillant"] },
+      { prefix: "21", min: 87, max: 99, ranks: ["Aspirant"] },
+      { prefix: "22", min: 87, max: 99, ranks: ["Aspirant"] }
     ],
     autoSortRanks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris", "Hoofdinspecteur", "Inspecteur", "Brigadier", "Hoofdagent", "Agent"],
     profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "WaterPolitie", "SIV", "TMO", "ZULU", "OGM"],
@@ -408,8 +416,13 @@ function organizationMainRoleId(config = currentOrganization()) {
   return envOrDefault(mainRole.envKey, mainRole.defaultRoleId);
 }
 
+function serviceNumberGroupsForRank(config, rank) {
+  const groups = (config.serviceNumberGroups || []).filter((group) => (group.ranks || []).includes(rank));
+  return groups.length ? groups : [config.serviceNumberGroups?.[0] || { prefix: "00", min: 1, max: 999 }];
+}
+
 function serviceNumberGroupForRank(config, rank) {
-  return (config.serviceNumberGroups || []).find((group) => (group.ranks || []).includes(rank)) || config.serviceNumberGroups?.[0] || { prefix: "00", min: 1, max: 999 };
+  return serviceNumberGroupsForRank(config, rank)[0];
 }
 
 function rankWeightEntries(config = currentOrganization()) {
@@ -564,6 +577,7 @@ module.exports = {
   currentOrganization,
   organizationMainRoleId,
   serviceNumberGroupForRank,
+  serviceNumberGroupsForRank,
   rankWeightEntries,
   publicClientData,
   clientDataScript,

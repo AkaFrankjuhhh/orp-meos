@@ -18,12 +18,17 @@ function getGroupForRank(rank) {
   return { prefix: "74", min: 1, max: 100, sortable: false };
 }
 
+function getGroupsForRank(rank) {
+  const configuredGroups = (serviceNumberGroups || []).filter((group) => (group.ranks || []).includes(rank));
+  return configuredGroups.length ? configuredGroups : [getGroupForRank(rank)];
+}
+
 function formatService(prefix, number) {
   return `${prefix}-${String(number).padStart(2, "0")}`;
 }
 
 function getAvailableServiceNumbers(rank, permRole, currentId = "") {
-  const group = getGroupForRank(rank);
+  const groups = getGroupsForRank(rank);
   const used = new Set(
     state.people
       .filter((person) => person.id !== currentId)
@@ -32,9 +37,11 @@ function getAvailableServiceNumbers(rank, permRole, currentId = "") {
       .filter(Boolean)
   );
   const numbers = [];
-  for (let i = group.min; i <= group.max; i += 1) {
-    const service = formatService(group.prefix, i);
-    if (!used.has(service)) numbers.push(service);
+  for (const group of groups) {
+    for (let i = group.min; i <= group.max; i += 1) {
+      const service = formatService(group.prefix, i);
+      if (!used.has(service)) numbers.push(service);
+    }
   }
   return numbers;
 }
