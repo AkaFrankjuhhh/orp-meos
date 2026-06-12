@@ -371,8 +371,8 @@ const organizationConfigs = {
     extraFunctions: ["Korpsleiding", "Bestuur"],
     sideTaskBadges: politieSideTaskBadges,
     restrictedTaskBadges: politieSideTaskBadges,
-    mentorRanks: ["Aspirant", "Surveillant"],
-    mentorTrainingName: "Basis",
+    mentorRanks: ["Aspirant"],
+    mentorTrainingName: "Mentor-Traject",
     mentorChecklistGroups: politieMentorChecklistGroups,
     mentorChecklistCount: 25,
     rankTrainingRequirements: {

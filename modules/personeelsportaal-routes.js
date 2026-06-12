@@ -137,6 +137,25 @@ function createPersoneelsportaalRouteHandler(deps) {
     };
   }
 
+  function isMentorTrajectoryCompleted(person, state) {
+    const checklist = normalizeMentorChecklistForState(person, state);
+    const items = Array.isArray(checklist.items) ? checklist.items : [];
+    return Boolean(checklist.completed)
+      && items.length > 0
+      && items.every((item) => Boolean(item.checked))
+      && Boolean(checklist.testSent)
+      && Boolean(checklist.testApproved);
+  }
+
+  function promotionBlockReason(person, state) {
+    const currentIndex = ranks.indexOf(person.rank);
+    const nextRank = currentIndex > 0 ? ranks[currentIndex - 1] : "";
+    if (organization.key === "politie" && person.rank === "Aspirant" && nextRank === "Surveillant" && !isMentorTrajectoryCompleted(person, state)) {
+      return "Promotie naar Surveillant kan pas als het mentor-traject volledig is afgerond.";
+    }
+    return "";
+  }
+
   async function readFormsState() {
     return Promise.resolve(formsStorage.readState());
   }
@@ -1632,7 +1651,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     if (!mentorRanks.includes(person.rank)) {
-      sendJson(res, 400, { error: "Mentor-checklist is alleen voor 4de, 3de en 2de klassers." });
+      sendJson(res, 400, { error: `Mentor-checklist is alleen voor ${mentorRanks.join(", ")}.` });
       return;
     }
 
@@ -1698,10 +1717,11 @@ function createPersoneelsportaalRouteHandler(deps) {
       updatedByName: auth.profile.name
     };
     person.completedTrainings = Array.isArray(person.completedTrainings) ? person.completedTrainings : [];
-    if (completed && !person.completedTrainings.includes(mentorTrainingName)) {
+    const shouldSyncMentorTraining = Boolean(mentorTrainingName && profileTrainings.includes(mentorTrainingName));
+    if (shouldSyncMentorTraining && completed && !person.completedTrainings.includes(mentorTrainingName)) {
       person.completedTrainings.push(mentorTrainingName);
     }
-    if (!completed) {
+    if (shouldSyncMentorTraining && !completed) {
       person.completedTrainings = person.completedTrainings.filter((item) => item !== mentorTrainingName);
     }
     state.activity = state.activity || [];
@@ -1785,6 +1805,13 @@ function createPersoneelsportaalRouteHandler(deps) {
     const body = await readBody(req);
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
+    if (action === "promote") {
+      const blockReason = promotionBlockReason(person, state);
+      if (blockReason) {
+        sendJson(res, 400, { error: blockReason });
+        return;
+      }
+    }
     if (action === "promote" && !promotePerson(state, person)) {
       sendJson(res, 400, { error: "Promotie is niet mogelijk voor deze rang." });
       return;

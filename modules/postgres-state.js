@@ -1,4 +1,7 @@
 const { withClient } = require("./db");
+const { currentOrganization } = require("./organizations");
+
+const organization = currentOrganization();
 
 function parseJson(value, fallback) {
   if (value == null) return fallback;
@@ -16,6 +19,24 @@ function iso(value) {
 
 function stripEmpty(object) {
   return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined));
+}
+
+function isLegacyDefensieMentorTemplate(groups) {
+  if (!Array.isArray(groups) || groups.length !== 2) return false;
+  const titles = groups.map((group) => String(group?.title || "").trim());
+  const labels = groups.flatMap((group) => Array.isArray(group?.items) ? group.items : []).map((item) => String(typeof item === "string" ? item : item?.label || ""));
+  return titles.includes("Praktijk")
+    && titles.includes("Theorie")
+    && labels.includes("Leerling weet hoe MEOS werkt")
+    && labels.includes("Leerling kent de douane gebieden");
+}
+
+function mentorChecklistGroupsFromSettings(settings) {
+  const configured = settings.mentorChecklistGroups;
+  if (organization.key === "politie" && isLegacyDefensieMentorTemplate(configured)) {
+    return organization.mentorChecklistGroups || [];
+  }
+  return configured || [];
 }
 
 async function readPostgresState() {
@@ -194,7 +215,7 @@ async function readPostgresState() {
       i8Forms,
       resignationForms,
       blacklist,
-      mentorChecklistGroups: settings.mentorChecklistGroups || [],
+      mentorChecklistGroups: mentorChecklistGroupsFromSettings(settings),
       portoUnits,
       portoVehicleRanges: settings.portoVehicleRanges || [],
       portoCurrentOps: settings.portoCurrentOps || null,
