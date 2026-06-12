@@ -11,7 +11,7 @@ orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefen
 }
 
 # Centrale klachtenplek voor Politie en Defensie.
-klachten.orpoverheid.nl {
+klachten.orpoverheid.nl, klachten.orpdefensie.nl, klachten.orppolitie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000 {
     header_up Host {host}
@@ -24,10 +24,6 @@ klachten.orpoverheid.nl {
     Referrer-Policy no-referrer-when-downgrade
     X-Frame-Options DENY
   }
-}
-
-klachten.orpdefensie.nl, klachten.orppolitie.nl {
-  redir https://klachten.orpoverheid.nl{uri} permanent
 }
 
 # Porto draait als eigen service, zodat personeelsportaal deploys OPS niet onderbreken.

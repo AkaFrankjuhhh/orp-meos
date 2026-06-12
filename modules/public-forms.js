@@ -14,6 +14,14 @@ function overheidFormHosts(...subdomains) {
   return subdomains.map((subdomain) => `${subdomain}.${overheidPublicFormDomain}`);
 }
 
+function klachtenFormHosts() {
+  return Array.from(new Set([
+    ...overheidFormHosts("klachten"),
+    "klachten.orpdefensie.nl",
+    "klachten.orppolitie.nl"
+  ]));
+}
+
 const publicFormConfigs = {
   herintrede: {
     slug: "herintrede",
@@ -49,7 +57,7 @@ const publicFormConfigs = {
   },
   klachten: {
     slug: "klachten",
-    hostnames: overheidFormHosts("klachten"),
+    hostnames: klachtenFormHosts(),
     title: "ORP - Klachtenformulier",
     subtitle: "Gebruik dit formulier om een klacht of melding richting Politie of Defensie Oranjestad door te geven.",
     accent: "#ef4444",
