@@ -136,9 +136,10 @@ const defensieExtraTasks = [
 ];
 
 const defensieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
-const politieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "ME-Leiding", "ME"];
+const politieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR"];
 
 const politieExtraTasks = [
+  "Interne-Zaken",
   "OvJ",
   "hOvJ",
   "Trainer",
@@ -147,6 +148,7 @@ const politieExtraTasks = [
   "Mentor-Leiding",
   "OTC-Leiding",
   "W&S-Leiding",
+  "IZ-Leiding",
   "Trainer-Leiding",
   ...politieSideTaskBadges
 ];
@@ -373,7 +375,7 @@ const organizationConfigs = {
       { prefix: "22", min: 87, max: 99, ranks: ["Aspirant"] }
     ],
     autoSortRanks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris", "Hoofdinspecteur", "Inspecteur", "Brigadier", "Hoofdagent", "Agent"],
-    profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM"],
+    profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME"],
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
     extraFunctions: ["Korpsleiding", "Bestuur"],
