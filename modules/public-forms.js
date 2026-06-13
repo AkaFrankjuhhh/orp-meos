@@ -535,6 +535,7 @@ module.exports = {
   applyProfileAnswersToPublicForm,
   validatePublicFormSubmission,
   createPublicFormSubmission,
+  formatCaseNumber,
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
   mergePublicFormConfig,

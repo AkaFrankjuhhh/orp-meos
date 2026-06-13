@@ -1,13 +1,37 @@
 const { currentOrganization } = require("./organizations");
 
-async function sendDiscordWebhook(webhookUrl, payload, files = []) {
+function webhookUrlWithWait(webhookUrl, wait) {
+  if (!wait) return webhookUrl;
+  const url = new URL(webhookUrl);
+  url.searchParams.set("wait", "true");
+  return url.toString();
+}
+
+function truncateDiscordThreadName(value) {
+  const text = String(value || "").trim();
+  return text.length > 100 ? text.slice(0, 100) : text;
+}
+
+async function sendDiscordWebhook(webhookUrl, payload, files = [], options = {}) {
   if (!webhookUrl) return { skipped: true };
   async function webhookResult(response) {
-    if (response.ok) return { ok: true, status: response.status };
+    const shouldParseBody = Boolean(options.wait);
+    if (response.ok) {
+      if (!shouldParseBody) return { ok: true, status: response.status };
+      const body = await response.json().catch(() => null);
+      return {
+        ok: true,
+        status: response.status,
+        messageId: body?.id || "",
+        channelId: body?.channel_id || "",
+        body
+      };
+    }
     const body = await response.text().catch(() => "");
     return { ok: false, status: response.status, body: body.slice(0, 800) };
   }
 
+  const targetUrl = webhookUrlWithWait(webhookUrl, options.wait);
   if (Array.isArray(files) && files.length) {
     const formData = new FormData();
     formData.append("payload_json", JSON.stringify(payload));
@@ -15,19 +39,51 @@ async function sendDiscordWebhook(webhookUrl, payload, files = []) {
       const blob = new Blob([file.buffer], { type: file.contentType || "application/octet-stream" });
       formData.append(`files[${index}]`, blob, file.filename || `bijlage-${index + 1}`);
     });
-    const response = await fetch(webhookUrl, {
+    const response = await fetch(targetUrl, {
       method: "POST",
       body: formData
     });
     return webhookResult(response);
   }
 
-  const response = await fetch(webhookUrl, {
+  const response = await fetch(targetUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
   return webhookResult(response);
+}
+
+async function createDiscordThreadFromMessage(channelId, messageId, threadName) {
+  const token = String(process.env.DISCORD_BOT_TOKEN || "").trim();
+  const name = truncateDiscordThreadName(threadName);
+  if (!token) return { skipped: true, reason: "DISCORD_BOT_TOKEN ontbreekt." };
+  if (!channelId || !messageId || !name) return { skipped: true, reason: "Kanaal, bericht of threadnaam ontbreekt." };
+
+  const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}/threads`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      name,
+      auto_archive_duration: 10080
+    })
+  });
+  if (response.ok) {
+    const body = await response.json().catch(() => null);
+    return { ok: true, status: response.status, threadId: body?.id || "", body };
+  }
+  const body = await response.text().catch(() => "");
+  return { ok: false, status: response.status, body: body.slice(0, 800) };
+}
+
+async function sendDiscordWebhookWithMessageThread(webhookUrl, payload, files = [], threadName) {
+  const webhookResult = await sendDiscordWebhook(webhookUrl, payload, files, { wait: true });
+  if (!webhookResult.ok) return webhookResult;
+  const threadResult = await createDiscordThreadFromMessage(webhookResult.channelId, webhookResult.messageId, threadName);
+  return { ...webhookResult, thread: threadResult };
 }
 
 function createDiscordWebhookServices({ formatDate }) {
@@ -196,6 +252,7 @@ function createDiscordWebhookServices({ formatDate }) {
 
   return {
     sendDiscordWebhook,
+    sendDiscordWebhookWithMessageThread,
     absenceWebhookUrl,
     personnelWebhookUrl,
     buildAbsenceWebhookPayload,

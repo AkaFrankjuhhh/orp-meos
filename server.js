@@ -32,6 +32,7 @@ const {
   applyProfileAnswersToPublicForm,
   validatePublicFormSubmission,
   createPublicFormSubmission,
+  formatCaseNumber,
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
   mergePublicFormConfig,
@@ -226,6 +227,7 @@ function syncProfileFromDiscord(state, profile, user, member) {
 
 const {
   sendDiscordWebhook,
+  sendDiscordWebhookWithMessageThread,
   absenceWebhookUrl,
   personnelWebhookUrl,
   buildAbsenceWebhookPayload,
@@ -519,13 +521,20 @@ function sendPublicFormWebhookInBackground(config, submission, files = []) {
   Promise.resolve().then(async () => {
     let webhookResult;
     try {
-      webhookResult = await sendDiscordWebhook(publicFormWebhookUrl(config), buildPublicFormWebhookPayload(config, submission), files);
+      const webhookUrl = publicFormWebhookUrl(config);
+      const payload = buildPublicFormWebhookPayload(config, submission);
+      webhookResult = config.slug === "klachten"
+        ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, files, `zaaknummer ${formatCaseNumber(submission.caseNumber)}`)
+        : await sendDiscordWebhook(webhookUrl, payload, files);
     } catch (error) {
       logServerError(`Public form webhook failed for ${config.slug}`, error);
       webhookResult = { ok: false, status: "error", error: error.message || "webhook failed" };
     }
     if (webhookResult && !webhookResult.ok && !webhookResult.skipped) {
       logServerError(`Public form webhook rejected for ${config.slug}`, new Error(`status=${webhookResult.status || "unknown"} body=${webhookResult.body || webhookResult.error || ""}`));
+    }
+    if (config.slug === "klachten" && webhookResult?.ok && webhookResult.thread && !webhookResult.thread.ok && !webhookResult.thread.skipped) {
+      logServerError(`Public form complaint thread failed for ${submission.caseNumber || submission.id}`, new Error(`status=${webhookResult.thread.status || "unknown"} body=${webhookResult.thread.body || webhookResult.thread.error || ""}`));
     }
     try {
       await publicFormsStore.saveSubmission(submission, webhookResult);

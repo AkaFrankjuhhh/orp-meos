@@ -4,6 +4,7 @@ const {
   publicFormFromSlug,
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
+  formatCaseNumber,
   mergePublicFormConfig
 } = require("../modules/public-forms");
 const { createPublicFormsStore } = require("../modules/public-forms-store");
@@ -65,7 +66,7 @@ async function main() {
     return;
   }
 
-  const { sendDiscordWebhook } = createDiscordWebhookServices({ formatDate: (value) => value || "-" });
+  const { sendDiscordWebhook, sendDiscordWebhookWithMessageThread } = createDiscordWebhookServices({ formatDate: (value) => value || "-" });
   const store = createPublicFormsStore({ storageMode: "postgres" });
   console.log(`${dryRun ? "[dry-run] " : ""}${result.rows.length} webhook(s) opnieuw verwerken voor ${slug} (${status}).`);
 
@@ -77,7 +78,9 @@ async function main() {
       console.log(`[dry-run] ${submission.id} ${submission.submittedAt} fields=${fieldCount}`);
       continue;
     }
-    const webhookResult = await sendDiscordWebhook(webhookUrl, payload);
+    const webhookResult = config.slug === "klachten"
+      ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, [], `zaaknummer ${formatCaseNumber(submission.caseNumber)}`)
+      : await sendDiscordWebhook(webhookUrl, payload);
     await store.saveSubmission(submission, webhookResult);
     console.log(`${submission.id} -> ${webhookResult.ok ? "sent" : `failed:${webhookResult.status || "unknown"}`}`);
   }
