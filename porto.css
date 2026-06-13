@@ -1270,6 +1270,12 @@ body.porto-org-politie .porto-wall-brand-politie {
   opacity: 0.76;
 }
 
+body.porto-workspace .porto-wall-brand,
+body.porto-ops-workspace .porto-wall-brand,
+body.porto-duty-workspace .porto-wall-brand {
+  display: none;
+}
+
 .porto-wall-logo {
   width: clamp(122px, 13vw, 210px);
   filter: saturate(0.96) contrast(0.98);
