@@ -345,10 +345,18 @@ const organizationConfigs = {
     ranks: politieRanks,
     defaultRecruitRank: "Aspirant",
     rankCategories: [
-      { title: "Korpsleiding", serviceRange: "21-01 t/m 21-05", ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"] },
-      { title: "Bestuur", serviceRange: "21-06 t/m 21-16", ranks: ["Hoofdinspecteur", "Inspecteur"] },
-      { title: "Uitvoerend personeel", serviceRange: "21/22-17 t/m 21/22-70", ranks: ["Brigadier", "Hoofdagent", "Agent"] },
-      { title: "Opleiding", serviceRange: "21/22-71 t/m 21/22-99", ranks: ["Surveillant", "Aspirant"] }
+      { title: "Korpsleiding", serviceRange: "21-01 t/m 21-05", ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"], ranges: [{ prefix: "21", min: 1, max: 5 }] },
+      { title: "Hoofdinspecteur en Inspecteur (Bestuur)", serviceRange: "21-06 t/m 21-16", ranks: ["Hoofdinspecteur", "Inspecteur"], ranges: [{ prefix: "21", min: 6, max: 16 }] },
+      { title: "Brigadier", serviceRange: "21-17 t/m 21-27", ranks: ["Brigadier"], ranges: [{ prefix: "21", min: 17, max: 27 }] },
+      { title: "Brigadier", serviceRange: "22-17 t/m 22-27", ranks: ["Brigadier"], ranges: [{ prefix: "22", min: 17, max: 27 }] },
+      { title: "Hoofdagent", serviceRange: "21-28 t/m 21-48", ranks: ["Hoofdagent"], ranges: [{ prefix: "21", min: 28, max: 48 }] },
+      { title: "Hoofdagent", serviceRange: "22-28 t/m 22-48", ranks: ["Hoofdagent"], ranges: [{ prefix: "22", min: 28, max: 48 }] },
+      { title: "Agent", serviceRange: "21-49 t/m 21-70", ranks: ["Agent"], ranges: [{ prefix: "21", min: 49, max: 70 }] },
+      { title: "Agent", serviceRange: "22-49 t/m 22-70", ranks: ["Agent"], ranges: [{ prefix: "22", min: 49, max: 70 }] },
+      { title: "Surveillant", serviceRange: "21-71 t/m 21-86", ranks: ["Surveillant"], ranges: [{ prefix: "21", min: 71, max: 86 }] },
+      { title: "Surveillant", serviceRange: "22-71 t/m 22-86", ranks: ["Surveillant"], ranges: [{ prefix: "22", min: 71, max: 86 }] },
+      { title: "Aspirant", serviceRange: "21-87 t/m 21-99", ranks: ["Aspirant"], ranges: [{ prefix: "21", min: 87, max: 99 }] },
+      { title: "Aspirant", serviceRange: "22-87 t/m 22-99", ranks: ["Aspirant"], ranges: [{ prefix: "22", min: 87, max: 99 }] }
     ],
     serviceNumberGroups: [
       { prefix: "21", min: 1, max: 5, ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"], autoSort: true },

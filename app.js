@@ -944,9 +944,22 @@ function renderDashboard() {
       .join("");
   }
 
+  function personInServiceRange(person, category) {
+    if (!Array.isArray(category.ranges) || !category.ranges.length) return category.ranks.includes(person.rank);
+    const match = /^(\d{2})-(\d{2,3})$/.exec(String(person.serviceNumber || "").trim());
+    if (!match) return false;
+    const prefix = match[1];
+    const number = Number(match[2]);
+    return category.ranges.some((range) => (
+      String(range.prefix) === prefix
+      && number >= Number(range.min)
+      && number <= Number(range.max)
+    ));
+  }
+
   $("#serviceRangeRows").innerHTML = rankCategories
     .map((category) => {
-      const count = activePeople.filter((person) => category.ranks.includes(person.rank)).length;
+      const count = activePeople.filter((person) => personInServiceRange(person, category)).length;
       return `
         <div class="range-row">
           <strong>${escapeHtml(category.serviceRange)}</strong>
