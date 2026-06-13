@@ -136,7 +136,7 @@ const defensieExtraTasks = [
 ];
 
 const defensieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
-const politieSideTaskBadges = ["DSI", "DNR"];
+const politieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "ME-Leiding", "ME"];
 
 const politieExtraTasks = [
   "OvJ",
