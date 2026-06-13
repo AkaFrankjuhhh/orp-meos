@@ -1,8 +1,10 @@
 const { loadEnv } = require("../modules/db");
-const { readPostgresState } = require("../modules/postgres-state");
-const { createDiscordBotServices } = require("../modules/discord-bot");
 
 loadEnv();
+
+const { currentOrganization } = require("../modules/organizations");
+const { readPostgresState } = require("../modules/postgres-state");
+const { createDiscordBotServices } = require("../modules/discord-bot");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -16,6 +18,8 @@ function maskDiscordId(value) {
 
 async function main() {
   const apply = process.argv.includes("--apply");
+  const organization = currentOrganization();
+  const syncReason = `${organization.portalTitle || "Personeelsportaal"} bulk Discord profiel sync`;
   const bot = createDiscordBotServices();
   if (!bot.isConfigured()) {
     throw new Error("DISCORD_BOT_TOKEN en DISCORD_GUILD_ID moeten gevuld zijn.");
@@ -61,8 +65,8 @@ async function main() {
     }
 
     try {
-      await bot.syncNicknameForPerson(person, "Defensie Personeelsportaal bulk Discord profiel sync");
-      const roleResult = await bot.syncRankRoleForPerson?.(person, "Defensie Personeelsportaal bulk Discord profiel sync");
+      await bot.syncNicknameForPerson(person, syncReason);
+      const roleResult = await bot.syncRankRoleForPerson?.(person, syncReason);
       changed += 1;
       const roleText = roleResult?.ok
         ? `${roleResult.changes?.length || 0} rolwijzigingen`

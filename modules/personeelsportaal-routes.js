@@ -289,7 +289,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     return new Map(
       (state.people || [])
         .filter((person) => person.discordId)
-        .map((person) => [person.id, `${person.discordId || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`])
+        .map((person) => [person.id, `${person.discordId || ""}:${person.rank || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`])
     );
   }
 
@@ -297,7 +297,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncRankRoleForPerson !== "function") return;
     const changedPeople = (state.people || [])
       .filter((person) => person.status === "Actief" && person.discordId)
-      .filter((person) => previousRankRoles.get(person.id) !== `${person.discordId || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`);
+      .filter((person) => previousRankRoles.get(person.id) !== `${person.discordId || ""}:${person.rank || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`);
 
     for (const person of changedPeople) {
       try {
@@ -305,6 +305,9 @@ function createPersoneelsportaalRouteHandler(deps) {
         if (result?.ok && Array.isArray(result.changes) && result.changes.length) {
           state.activity = state.activity || [];
           state.activity.push(`Discord rangrol gesynchroniseerd voor ${person.name}: ${person.rank}.`);
+        } else if (result?.skipped) {
+          state.activity = state.activity || [];
+          state.activity.push(`Discord rangrol overgeslagen voor ${person.name}: ${result.reason}`);
         }
       } catch (error) {
         state.activity = state.activity || [];

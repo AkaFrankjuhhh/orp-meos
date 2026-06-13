@@ -1,4 +1,7 @@
 const { loadEnv, closePool, withClient } = require("../modules/db");
+
+loadEnv();
+
 const { readPostgresState } = require("../modules/postgres-state");
 const { createDiscordBotServices } = require("../modules/discord-bot");
 const { nonRegularPortoDiscordChannel } = require("../modules/porto-discord-channels");
@@ -10,8 +13,6 @@ const {
   completeDiscordSyncJob,
   failDiscordSyncJob
 } = require("../modules/discord-sync-jobs");
-
-loadEnv();
 
 const workerId = `discord-bot-${process.pid}`;
 const dailySyncTime = String(process.env.DISCORD_DAILY_SYNC_TIME || "05:00").trim();

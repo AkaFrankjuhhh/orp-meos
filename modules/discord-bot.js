@@ -10,8 +10,6 @@ const {
   envOrDefault
 } = require("./organizations");
 
-const organization = currentOrganization();
-const portalAuditLabel = organization.portalTitle || "Personeelsportaal";
 const defaultDefensieRankNicknameSymbols = {
   "Marechaussee 4de Klasser": "\u276F",
   "Marechaussee 3de Klasser": "\u276F\u276F",
@@ -107,9 +105,12 @@ function discordSyncExcludedResult() {
   return { skipped: true, reason: "Discord sync staat uitgeschakeld voor dit profiel." };
 }
 
+function activeOrganization() {
+  return currentOrganization();
+}
 
 function requiredDefensieRoleId() {
-  return organizationMainRoleId(organization);
+  return organizationMainRoleId(activeOrganization());
 }
 
 function memberHasRequiredDefensieRole(memberResult) {
@@ -119,6 +120,7 @@ function memberHasRequiredDefensieRole(memberResult) {
 }
 
 function missingDefensieRoleResult() {
+  const organization = activeOrganization();
   return { skipped: true, reason: `${organization.requiredRoleLabel || organization.label} rol ontbreekt; Discord naam en rangrollen worden niet aangepast.` };
 }
 
@@ -133,11 +135,13 @@ function truncateDiscordNickname(value) {
 }
 
 function rankSymbolsFor(rank) {
+  const organization = activeOrganization();
   const symbols = organization.discord?.nicknameSymbols || defaultDefensieRankNicknameSymbols;
   return symbols[String(rank || "").trim()] || "";
 }
 
 function rankSymbolSeparator() {
+  const organization = activeOrganization();
   const separator = organization.discord?.nicknameSymbolSeparator;
   return typeof separator === "string" ? separator : " ";
 }
@@ -174,6 +178,7 @@ function buildServiceNicknameDefault(person) {
 }
 
 function buildPortoNicknameDefault(person, unit = {}) {
+  const organization = activeOrganization();
   const serviceNumber = unit?.vehicleNumber || person?.serviceNumber || person?.previousServiceNumber || "-";
   const symbols = rankSymbolsFor(person?.rank || unit?.rank);
   const name = formatNameForDiscordNickname(person?.name || unit?.name || person?.discordUsername || "");
@@ -196,6 +201,8 @@ function normalizeNicknameTemplateForOrganization(template) {
 }
 
 function createDiscordBotServices(options = {}) {
+  const organization = currentOrganization();
+  const portalAuditLabel = organization.portalTitle || "Personeelsportaal";
   const tokenProvider = typeof options.tokenProvider === "function" ? options.tokenProvider : () => process.env.DISCORD_BOT_TOKEN || "";
   const guildProvider = typeof options.guildProvider === "function" ? options.guildProvider : () => process.env.DISCORD_GUILD_ID || "";
 
@@ -224,11 +231,32 @@ function createDiscordBotServices(options = {}) {
       .filter((mapping) => String(mapping.roleId || "").trim());
   }
 
-  function configuredRankRoleMappings() {
+  function normalizeRankRoleMapping(rank, config) {
+    if (typeof config === "string") {
+      return { rank, envKey: config, roleId: process.env[config] || "" };
+    }
+    const envKey = config?.envKey || "";
+    return {
+      rank,
+      envKey,
+      roleId: envOrDefault(envKey, config?.defaultRoleId || config?.roleId || "")
+    };
+  }
+
+  function allRankRoleMappings() {
     const rankRoleEnvKeys = organization.discord?.rankRoleEnvKeys || defaultDefensieRankRoleEnvKeys;
     return Object.entries(rankRoleEnvKeys)
-      .map(([rank, envKey]) => ({ rank, envKey, roleId: process.env[envKey] }))
+      .map(([rank, config]) => normalizeRankRoleMapping(rank, config));
+  }
+
+  function configuredRankRoleMappings() {
+    return allRankRoleMappings()
       .filter((mapping) => String(mapping.roleId || "").trim());
+  }
+
+  function missingRankRoleMappings() {
+    return allRankRoleMappings()
+      .filter((mapping) => !String(mapping.roleId || "").trim());
   }
 
   function configuredQualificationRoleMappings() {
@@ -533,7 +561,9 @@ function createDiscordBotServices(options = {}) {
   return {
     isConfigured,
     configuredRoleMappings,
+    allRankRoleMappings,
     configuredRankRoleMappings,
+    missingRankRoleMappings,
     configuredQualificationRoleMappings,
     configuredVoiceChannels,
     resolveVoiceChannelId,

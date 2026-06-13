@@ -1,0 +1,19 @@
+[Unit]
+Description=ORP Politie Discord Bot
+After=network.target postgresql.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=defensie
+WorkingDirectory=/home/defensie/defensie-personeelsportaal
+Environment=NODE_ENV=production
+EnvironmentFile=/home/defensie/defensie-personeelsportaal/.env.politie
+Environment=ORP_ORGANIZATION=politie
+ExecStart=/usr/bin/node /home/defensie/defensie-personeelsportaal/scripts/discord-bot-worker.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
