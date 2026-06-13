@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260524-sidebar-scroll" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260613-police-profile-layout" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260613-shared-profile-layout" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -391,6 +391,7 @@
             <label class="full">Naam nieuwe medewerker<span class="field-hint">Voor en achternaam</span><input id="recruitmentName" type="text" required /></label>
             <label>Aangenomen op<input id="recruitmentHiredDate" type="date" required /></label>
             <label>Discord ID<input id="recruitmentDiscordId" type="text" required /></label>
+            <label id="recruitmentServiceField" hidden>Dienstnummer<select id="recruitmentServiceNumber"></select></label>
             <button class="primary" type="submit">Medewerker opslaan</button>
           </form>
           <div id="recruitmentMessage" class="form-message" hidden></div>
@@ -899,14 +900,14 @@
       });
     </script>    <script src="shared-ui.js?v=20260602-autogrow-textareas"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/profile.js?v=20260613-police-profile-layout"></script>
+    <script src="personeelsportaal/profile.js?v=20260613-shared-profile-branding"></script>
     <script src="personeelsportaal/hours.js?v=20260610-operator-hours-label"></script>
-    <script src="personeelsportaal/people.js?v=20260610-operator-hours-label"></script>
+    <script src="personeelsportaal/people.js?v=20260613-police-manual-rank-number"></script>
     <script src="personeelsportaal/i8.js?v=20260607-interne-zaken-i8"></script>
     <script src="personeelsportaal/mentor.js?v=20260522-mentor-autosave"></script>
     <script src="personeelsportaal/absence.js?v=20260607-profile-absence-log"></script>
     <script src="personeelsportaal/archive.js?v=20260606-resignation-overview"></script>
     <script src="personeelsportaal-data.js?v=20260607-overheids-viewonly"></script>
-    <script src="app.js?v=20260610-operator-hours-label"></script>
+    <script src="app.js?v=20260613-police-manual-rank-number"></script>
   </body>
 </html>

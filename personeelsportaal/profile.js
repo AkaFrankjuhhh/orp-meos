@@ -1,5 +1,30 @@
 /* Defensie Personeelsportaal-profielmodule: profielkaart, trainingen, badges, uren en sancties. */
 
+function setProfilePageIcon(href) {
+  if (!href) return;
+  const icons = [...document.querySelectorAll("link[rel~='icon']")];
+  if (!icons.length) {
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.type = "image/png";
+    document.head.appendChild(link);
+    icons.push(link);
+  }
+  icons.forEach((link) => {
+    link.href = href;
+  });
+}
+
+function applyPortalBranding() {
+  const organization = window.DefensiePortalData?.organization || {};
+  const isPolice = organization.key === "politie";
+  document.body.classList.toggle("portal-org-politie", isPolice);
+  document.body.classList.toggle("portal-org-defensie", !isPolice);
+  setProfilePageIcon(isPolice ? "/assets/politie-logo.png?v=20260613-form-branding" : "/assets/favicon.png?v=20260526");
+}
+
+applyPortalBranding();
+
 function openProfilePage(profileId = "") {
   selectedProfileId = profileId;
   renderProfile();
@@ -425,7 +450,6 @@ function renderProfile() {
   const current = currentProfile();
   const viewed = visibleProfile();
   if (!current) return;
-  const isPoliceProfile = window.DefensiePortalData?.organization?.key === "politie";
   $("#currentName").textContent = current.name;
   $("#currentService").textContent = current.serviceNumber;
   $("#currentAvatar").src = avatarFor(current);
@@ -435,20 +459,16 @@ function renderProfile() {
   const profileNameStack = $("#profilePageNameService");
   const profileRankNumber = $("#profilePageRankNumber");
   const profileDisplayName = $("#profilePageDisplayName");
-  profileNameStack.classList.toggle("profile-police-layout", isPoliceProfile);
-  if (isPoliceProfile) {
-    profileRankNumber.textContent = profileRankLabel(viewed.rank);
-    const serviceLine = document.createElement("span");
-    serviceLine.className = "profile-police-service";
-    serviceLine.textContent = viewed.serviceNumber || "-";
-    const nameLine = document.createElement("span");
-    nameLine.className = "profile-police-name";
-    nameLine.textContent = viewed.name || "-";
-    profileDisplayName.replaceChildren(serviceLine, nameLine);
-  } else {
-    profileRankNumber.textContent = `${profileRankLabel(viewed.rank)} - ${viewed.serviceNumber || "-"}`;
-    profileDisplayName.textContent = viewed.name || "-";
-  }
+  profileNameStack.classList.remove("profile-police-layout");
+  profileNameStack.classList.add("profile-service-layout");
+  profileRankNumber.textContent = profileRankLabel(viewed.rank);
+  const serviceLine = document.createElement("span");
+  serviceLine.className = "profile-service-line";
+  serviceLine.textContent = viewed.serviceNumber || "-";
+  const nameLine = document.createElement("span");
+  nameLine.className = "profile-display-name";
+  nameLine.textContent = viewed.name || "-";
+  profileDisplayName.replaceChildren(serviceLine, nameLine);
   const profileStatus = statusInfoFor(viewed);
   const profileStatusDot = $("#profilePageStatusDot");
   if (profileStatusDot) {

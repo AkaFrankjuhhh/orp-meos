@@ -5,7 +5,8 @@ const {
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
   formatCaseNumber,
-  mergePublicFormConfig
+  mergePublicFormConfig,
+  isComplaintForm
 } = require("../modules/public-forms");
 const { createPublicFormsStore } = require("../modules/public-forms-store");
 
@@ -78,7 +79,7 @@ async function main() {
       console.log(`[dry-run] ${submission.id} ${submission.submittedAt} fields=${fieldCount}`);
       continue;
     }
-    const webhookResult = config.slug === "klachten"
+    const webhookResult = isComplaintForm(config)
       ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, [], `zaaknummer ${formatCaseNumber(submission.caseNumber)}`)
       : await sendDiscordWebhook(webhookUrl, payload);
     await store.saveSubmission(submission, webhookResult);

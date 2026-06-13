@@ -1,5 +1,5 @@
 # Defensie Personeelsportaal + publieke formulieren.
-orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl, hovj.orpdefensie.nl {
+orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl, interne-klacht.orpdefensie.nl, interne-klachten.orpdefensie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000
 
@@ -30,6 +30,34 @@ klachten.orpdefensie.nl, klachten.orppolitie.nl {
   redir https://klachten.orpoverheid.nl{uri} permanent
 }
 
+# Centrale interne klachtenrouter. Deze stuurt leden na Discord-login naar het juiste portaal.
+interne-klacht.orpoverheid.nl, interne-klachten.orpoverheid.nl {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3020
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
+}
+
+# Centrale hOvJ-formulierplek.
+hovj.orpoverheid.nl {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3010
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
+}
+
+hovj.orpdefensie.nl, hovj.orppolitie.nl {
+  redir https://hovj.orpoverheid.nl{uri} permanent
+}
+
 # Porto draait als eigen service, zodat personeelsportaal deploys OPS niet onderbreken.
 porto.orpdefensie.nl {
   encode zstd gzip
@@ -43,7 +71,7 @@ porto.orpdefensie.nl {
 }
 
 # Politie Personeelsportaal + publieke formulieren.
-orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, trainer.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl {
+orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, trainer.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl, interne-klacht.orppolitie.nl, interne-klachten.orppolitie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3010
 

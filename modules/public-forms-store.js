@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const { withClient } = require("./db");
 
 let ensured = false;
+const caseNumberFormSlugs = new Set(["klachten", "interne-klacht"]);
 
 async function ensurePublicFormsTable() {
   if (ensured) return;
@@ -57,7 +58,7 @@ function publicFormWebhookStatus(webhookResult = {}) {
 }
 
 function shouldAssignCaseNumber(submission) {
-  return submission?.formSlug === "klachten" && !Number(submission.caseNumber || 0);
+  return caseNumberFormSlugs.has(submission?.formSlug) && !Number(submission.caseNumber || 0);
 }
 
 function createPublicFormsStore({ storageMode, readState, writeState, afterWrite } = {}) {

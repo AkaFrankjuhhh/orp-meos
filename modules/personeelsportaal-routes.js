@@ -1216,7 +1216,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     const rank = defaultRecruitRank || ranks[ranks.length - 1];
-    const serviceNumber = getAvailableServiceNumbers(state, rank)[0];
+    const requestedServiceNumber = String(body.serviceNumber || "").trim();
+    const serviceNumber = requestedServiceNumber || getAvailableServiceNumbers(state, rank)[0];
     if (!serviceNumber) {
       sendJson(res, 409, { error: "Geen vrij dienstnummer beschikbaar voor de standaard aanname-rang." });
       return;
@@ -1818,13 +1819,19 @@ function createPersoneelsportaalRouteHandler(deps) {
         return;
       }
     }
-    if (action === "promote" && !promotePerson(state, person)) {
-      sendJson(res, 400, { error: "Promotie is niet mogelijk voor deze rang." });
-      return;
+    if (action === "promote") {
+      const result = promotePerson(state, person, { serviceNumber: body.serviceNumber });
+      if (!result.ok) {
+        sendJson(res, 400, { error: result.error || "Promotie is niet mogelijk voor deze rang." });
+        return;
+      }
     }
-    if (action === "demote" && !demotePerson(state, person)) {
-      sendJson(res, 400, { error: "Degradatie is niet mogelijk voor deze rang." });
-      return;
+    if (action === "demote") {
+      const result = demotePerson(state, person, { serviceNumber: body.serviceNumber });
+      if (!result.ok) {
+        sendJson(res, 400, { error: result.error || "Degradatie is niet mogelijk voor deze rang." });
+        return;
+      }
     }
     if (action === "dismiss") {
       const reason = String(body.reason || "").trim();

@@ -21,6 +21,21 @@ function showMessage(text, tone = "ok") {
   element.textContent = text;
 }
 
+function setPageIcon(href) {
+  if (!href) return;
+  const icons = [...document.querySelectorAll("link[rel~='icon']")];
+  if (!icons.length) {
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.type = "image/png";
+    document.head.appendChild(link);
+    icons.push(link);
+  }
+  icons.forEach((link) => {
+    link.href = href;
+  });
+}
+
 function showAuthErrorFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get("authError");
@@ -153,7 +168,7 @@ function renderQuestion(question) {
 
 function showLoginRequired(loginUrl, message) {
   document.body.dataset.formSlug = "internal-login";
-  $("#formTitle").textContent = "Interne vacature";
+  $("#formTitle").textContent = "Intern formulier";
   $("#formSubtitle").textContent = message || "Log in met Discord om dit interne formulier te openen.";
   $("#questions").innerHTML = `<a class="login-button" href="${escapeHtml(loginUrl)}">Aanmelden met Discord</a>`;
   $("#submitButton").hidden = true;
@@ -326,6 +341,7 @@ function bindFormAdmin() {
 function applyLoadedConfig(config) {
   document.body.dataset.formSlug = config.slug;
   document.title = config.title;
+  setPageIcon(config.iconHref);
   document.documentElement.style.setProperty("--accent", config.accent || "#f59e0b");
   $("#formTitle").textContent = config.title;
   $("#formSubtitle").textContent = config.subtitle || "";

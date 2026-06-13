@@ -61,6 +61,13 @@ function sameServiceNumberGroup(first, second) {
   return first.prefix === second.prefix && Number(first.min) === Number(second.min) && Number(first.max) === Number(second.max);
 }
 
+function isAutoSortedRank(rank) {
+  const sortableRanks = new Set(organization.autoSortRanks || []);
+  return getGroupsForRank(rank).some((group) => (
+    group.autoSort && (!sortableRanks.size || sortableRanks.has(rank))
+  ));
+}
+
 function formatService(prefix, number) {
   return `${prefix}-${String(number).padStart(2, "0")}`;
 }
@@ -99,6 +106,21 @@ function serviceNumberPrefix(serviceNumber) {
 function assignFirstAvailableServiceNumber(state, person, preferredPrefix = "") {
   const numbers = getAvailableServiceNumbers(state, person.rank, person.id, preferredPrefix);
   person.serviceNumber = numbers[0] || "";
+}
+
+function applyRankChangeServiceNumber(state, person, previousGroup, nextGroup, previousPrefix, options = {}) {
+  const requestedServiceNumber = String(options.serviceNumber || "").trim();
+  const requiresManualNumber = Boolean(organization.manualRankChangeServiceNumber) && !isAutoSortedRank(person.rank);
+
+  if (requestedServiceNumber) {
+    person.serviceNumber = requestedServiceNumber;
+  } else if (requiresManualNumber && assertValidServiceNumber(state, person)) {
+    return "Kies een dienstnummer voor deze rang.";
+  } else if (!sameServiceNumberGroup(previousGroup, nextGroup) || !person.serviceNumber) {
+    assignFirstAvailableServiceNumber(state, person, previousPrefix);
+  }
+
+  return assertValidServiceNumber(state, person);
 }
 
 function autoSortServiceNumbers(state) {
@@ -176,6 +198,9 @@ function savePerson(state, payload) {
     status: existing?.status || "Actief",
     rankHistory: existing?.rankHistory || []
   };
+  const requestedRank = person.rank;
+  const requestedRankDate = person.rankDate;
+  const requestedServiceNumber = person.serviceNumber;
 
   if (!person.name || !person.discordId || !ranks.includes(person.rank) || !person.serviceNumber) {
     return { error: "Naam, Discord ID, rang en dienstnummer zijn verplicht." };
@@ -198,16 +223,33 @@ function savePerson(state, payload) {
     state.activity.push(`${person.name} toegevoegd als ${person.rank}.`);
   }
   autoSortServiceNumbers(state);
+  if (!isAutoSortedRank(requestedRank)) {
+    const savedPerson = state.people.find((entry) => entry.id === person.id);
+    if (savedPerson && savedPerson.serviceNumber !== requestedServiceNumber) {
+      savedPerson.serviceNumber = requestedServiceNumber;
+      const lastHistory = savedPerson.rankHistory?.[savedPerson.rankHistory.length - 1];
+      if (lastHistory && lastHistory.rank === requestedRank && lastHistory.date === requestedRankDate) {
+        lastHistory.serviceNumber = requestedServiceNumber;
+      }
+    }
+  }
   return { person };
 }
 
-function promotePerson(state, person) {
+function promotePerson(state, person, options = {}) {
   const currentIndex = ranks.indexOf(person.rank);
-  if (currentIndex <= 0) return false;
+  if (currentIndex <= 0) return { ok: false };
 
   const previousRank = person.rank;
   const previousGroup = getGroupForRank(previousRank);
   const previousPrefix = serviceNumberPrefix(person.serviceNumber);
+  const previousState = {
+    rank: person.rank,
+    serviceNumber: person.serviceNumber,
+    rankDate: person.rankDate,
+    promotionDate: person.promotionDate,
+    hiredDate: person.hiredDate
+  };
   const nextRank = ranks[currentIndex - 1];
   const nextGroup = getGroupForRank(nextRank);
   const todayValue = today();
@@ -217,8 +259,10 @@ function promotePerson(state, person) {
   person.rankDate = todayValue;
   person.promotionDate = todayValue;
 
-  if (!sameServiceNumberGroup(previousGroup, nextGroup) || !person.serviceNumber) {
-    assignFirstAvailableServiceNumber(state, person, previousPrefix);
+  const serviceError = applyRankChangeServiceNumber(state, person, previousGroup, nextGroup, previousPrefix, options);
+  if (serviceError) {
+    Object.assign(person, previousState);
+    return { ok: false, error: serviceError };
   }
 
   person.rankHistory = person.rankHistory || [];
@@ -226,16 +270,23 @@ function promotePerson(state, person) {
   state.activity = state.activity || [];
   state.activity.push(`${person.name} gepromoveerd van ${previousRank} naar ${nextRank}.`);
   autoSortServiceNumbers(state);
-  return true;
+  return { ok: true };
 }
 
-function demotePerson(state, person) {
+function demotePerson(state, person, options = {}) {
   const currentIndex = ranks.indexOf(person.rank);
-  if (currentIndex === -1 || currentIndex >= ranks.length - 1) return false;
+  if (currentIndex === -1 || currentIndex >= ranks.length - 1) return { ok: false };
 
   const previousRank = person.rank;
   const previousGroup = getGroupForRank(previousRank);
   const previousPrefix = serviceNumberPrefix(person.serviceNumber);
+  const previousState = {
+    rank: person.rank,
+    serviceNumber: person.serviceNumber,
+    rankDate: person.rankDate,
+    promotionDate: person.promotionDate,
+    hiredDate: person.hiredDate
+  };
   const nextRank = ranks[currentIndex + 1];
   const nextGroup = getGroupForRank(nextRank);
   const todayValue = today();
@@ -245,8 +296,10 @@ function demotePerson(state, person) {
   person.rankDate = todayValue;
   person.promotionDate = todayValue;
 
-  if (!sameServiceNumberGroup(previousGroup, nextGroup) || !person.serviceNumber) {
-    assignFirstAvailableServiceNumber(state, person, previousPrefix);
+  const serviceError = applyRankChangeServiceNumber(state, person, previousGroup, nextGroup, previousPrefix, options);
+  if (serviceError) {
+    Object.assign(person, previousState);
+    return { ok: false, error: serviceError };
   }
 
   person.rankHistory = person.rankHistory || [];
@@ -254,7 +307,7 @@ function demotePerson(state, person) {
   state.activity = state.activity || [];
   state.activity.push(`${person.name} gedegradeerd van ${previousRank} naar ${nextRank}.`);
   autoSortServiceNumbers(state);
-  return true;
+  return { ok: true };
 }
 
 function normalizeMentorNotes(checklist) {

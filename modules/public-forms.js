@@ -22,6 +22,33 @@ function klachtenFormHosts() {
   ]));
 }
 
+function interneKlachtFormHosts() {
+  return Array.from(new Set([
+    ...overheidFormHosts("interne-klacht", "interne-klachten"),
+    ...formHosts("interne-klacht", "interne-klachten")
+  ]));
+}
+
+function hovjFormHosts() {
+  return Array.from(new Set([
+    ...overheidFormHosts("hovj"),
+    ...formHosts("hovj"),
+    "hovj.orpdefensie.nl",
+    "hovj.orppolitie.nl"
+  ]));
+}
+
+function publicFormIconHref(config) {
+  if (isComplaintForm(config)) return "/assets/orp-logo.png?v=20260613-form-branding";
+  if (organization.key === "politie") return "/assets/politie-logo.png?v=20260613-form-branding";
+  return "/assets/favicon.png?v=20260526";
+}
+
+function isComplaintForm(configOrSlug) {
+  const slug = typeof configOrSlug === "string" ? configOrSlug : configOrSlug?.slug;
+  return ["klachten", "interne-klacht"].includes(slug);
+}
+
 const publicFormConfigs = {
   herintrede: {
     slug: "herintrede",
@@ -72,6 +99,32 @@ const publicFormConfigs = {
       { id: "evidence", label: "Bewijs of links", type: "textarea", required: false },
       { id: "attachment", label: "Bijlage", type: "file", required: false, accept: ".png,.jpg,.jpeg,.webp", help: "Optioneel: voeg maximaal 1 foto toe als bewijs. Maximaal 8 MB. Links naar Medal/YouTube kunnen in het tekstveld." },
       { id: "desiredOutcome", label: "Wat zou voor jou een passende oplossing zijn?", type: "textarea", required: false }
+    ]
+  },
+  "interne-klacht": {
+    slug: "interne-klacht",
+    aliases: ["interne-klachten", "interne-klachtformulier", "interne-klachtenformulier"],
+    hostnames: interneKlachtFormHosts(),
+    title: "ORP - Intern Klachtenformulier",
+    subtitle: "Gebruik dit formulier voor interne klachten of meldingen tussen collega's binnen Politie en Defensie Oranjestad.",
+    notice: "Deze melding is intern en wordt vertrouwelijk behandeld door de bevoegde leiding. Vul concreet in wat er is gebeurd en voeg bewijs toe als dat beschikbaar is.",
+    accent: "#ef4444",
+    internalOnly: true,
+    webhookEnv: "DISCORD_FORM_INTERNE_KLACHT_WEBHOOK_URL",
+    questions: [
+      { id: "complaintType", label: "Waar gaat de interne klacht over?", type: "select", required: true, options: ["Gedrag van collega", "Samenwerking / communicatie", "Misbruik van bevoegdheden", "Integriteit", "Discriminatie of intimidatie", "Procedurele fout", "Overig"] },
+      { id: "organization", label: "Welke organisatie is betrokken?", type: "select", required: true, options: ["Defensie", "Politie", "Beide / samenwerking"] },
+      { id: "involvedColleague", label: "Over welke collega of collega's gaat de klacht?", type: "text", required: true, placeholder: "Naam, rang of roepnummer indien bekend" },
+      { id: "incidentDate", label: "Wanneer is dit gebeurd?", type: "text", required: true, placeholder: "Datum en tijd, of zo nauwkeurig mogelijk" },
+      { id: "location", label: "Waar is dit gebeurd?", type: "text", required: false, placeholder: "Locatie, porto-kanaal, Discord-kanaal of situatie" },
+      { id: "description", label: "Beschrijf zo duidelijk mogelijk wat er is gebeurd", type: "textarea", required: true },
+      { id: "impact", label: "Wat was de impact of waarom meld je dit?", type: "textarea", required: true },
+      { id: "witnesses", label: "Zijn er getuigen?", type: "textarea", required: false, placeholder: "Namen of roepnummers indien bekend" },
+      { id: "evidence", label: "Bewijs of links", type: "textarea", required: false, placeholder: "Medal, screenshots, Discord links of andere bewijslinks" },
+      { id: "attachment", label: "Bijlage", type: "file", required: false, accept: ".png,.jpg,.jpeg,.webp", help: "Optioneel: voeg maximaal 1 foto toe als bewijs. Maximaal 8 MB." },
+      { id: "desiredOutcome", label: "Wat zou volgens jou een passende vervolgstap zijn?", type: "textarea", required: false },
+      { id: "confidentiality", label: "Vertrouwelijkheid", type: "checkboxGroup", required: false, options: [{ value: "vertrouwelijk", label: "Ik wil dat deze melding zo vertrouwelijk mogelijk behandeld wordt." }] },
+      { id: "truth", label: "Bevestiging", type: "checkboxGroup", required: true, options: [{ value: "waarheid", label: "Ik verklaar dat ik dit formulier naar waarheid heb ingevuld." }] }
     ]
   },
   otc: {
@@ -138,7 +191,7 @@ const publicFormConfigs = {
   },
   hovj: {
     slug: "hovj",
-    hostnames: formHosts("hovj"),
+    hostnames: hovjFormHosts(),
     title: "Sollicitatie hulpofficier van justitie (hOvJ)",
     subtitle: "Dit formulier dient voor het verzamelen van gegevens ten behoeve van de beoordeling van uw sollicitatie voor de functie van hulp Officier van Justitie.\n\nU wordt verzocht uw persoonlijke gegevens, ervaring en relevante competenties volledig en naar waarheid in te vullen. Tevens dient u uw motivatie toe te lichten.\n\nDe verstrekte informatie wordt uitsluitend gebruikt voor de selectieprocedure en vertrouwelijk behandeld.\n\nHet gebruik van AI wordt gecontroleerd. Let op uw taalgebruik en geef authentieke, eigen antwoorden.",
     notice: "Indien tijdens de selectie of proefperiode blijkt dat u niet over de vereiste competenties beschikt, kan dit alsnog leiden tot beëindiging van uw aanstelling.",
@@ -331,6 +384,7 @@ function publicFormClientConfig(config, profile = null) {
     subtitle: config.subtitle || "",
     notice: config.notice || "",
     accent: config.accent || "#f59e0b",
+    iconHref: publicFormIconHref(config),
     internalOnly: Boolean(config.internalOnly),
     managerBadges: managerBadgesForConfig(config),
     canManage: canManagePublicForm(profile, config),
@@ -442,6 +496,14 @@ function publicFormWebhookUrl(config) {
       "DISCORD_PUBLIC_FORMS_WEBHOOK_URL"
     );
   }
+  if (config?.slug === "interne-klacht") {
+    return firstConfiguredEnv(
+      "DISCORD_OVERHEID_FORM_INTERNE_KLACHT_WEBHOOK_URL",
+      organizationWebhookEnvKey(config.webhookEnv),
+      config.webhookEnv,
+      "DISCORD_PUBLIC_FORMS_WEBHOOK_URL"
+    );
+  }
   return firstConfiguredEnv(
     organizationWebhookEnvKey(config.webhookEnv),
     `DISCORD_${String(organization.key || "defensie").trim().toUpperCase()}_PUBLIC_FORMS_WEBHOOK_URL`,
@@ -462,7 +524,7 @@ function truncateDiscordText(value, maxLength) {
 }
 
 function buildPublicFormWebhookPayload(config, submission) {
-  const embedTitle = config.slug === "klachten" ? config.title : `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`;
+  const embedTitle = isComplaintForm(config) ? config.title : `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`;
   const footerText = `Formulier: ${config.slug}`;
   const fields = [];
   const maxFields = 25;
@@ -489,7 +551,7 @@ function buildPublicFormWebhookPayload(config, submission) {
   }
 
   // Klachten krijgen een vast zaaknummer bovenaan de Discord embed, zodat leiding dit makkelijk kan terugvinden.
-  if (config.slug === "klachten") {
+  if (isComplaintForm(config)) {
     fields.unshift({ name: "Zaaknummer", value: formatCaseNumber(submission.caseNumber), inline: false });
     usedChars += "Zaaknummer".length + formatCaseNumber(submission.caseNumber).length;
   }
@@ -540,5 +602,6 @@ module.exports = {
   buildPublicFormWebhookPayload,
   mergePublicFormConfig,
   sanitizePublicFormOverride,
-  canManagePublicForm
+  canManagePublicForm,
+  isComplaintForm
 };

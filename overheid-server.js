@@ -25,6 +25,8 @@ const roleRoutes = [
     targetUrl: process.env.OVERHEID_POLITIE_URL || process.env.POLITIE_APP_BASE_URL || "https://orppolitie.nl"
   }
 ];
+const INTERNAL_COMPLAINT_RETURN_TO = "/forms/interne-klacht";
+const internalComplaintHosts = new Set(["interne-klacht.orpoverheid.nl", "interne-klachten.orpoverheid.nl"]);
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -76,11 +78,33 @@ function choiceCookie(routes) {
   return authCookie("orp_overheid_choices", routes.map((route) => route.key).join(","), 120);
 }
 
+function returnToCookie(returnTo) {
+  return authCookie("orp_overheid_return_to", safeReturnTo(returnTo), 120);
+}
+
+function safeReturnTo(value) {
+  const path = String(value || "/").trim();
+  if (!path.startsWith("/") || path.startsWith("//")) return "/";
+  return path;
+}
+
 function choicesFromCookie(req) {
   const cookies = parseCookies(req);
   const keys = new Set(String(cookies.orp_overheid_choices || "").split(",").map((key) => key.trim()).filter(Boolean));
   if (!keys.size) return [];
   return roleRoutes.filter((route) => keys.has(route.key));
+}
+
+function returnToFromRequest(req, url) {
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].split(":")[0].trim().toLowerCase();
+  if (internalComplaintHosts.has(host)) return INTERNAL_COMPLAINT_RETURN_TO;
+  if (["/interne-klacht", "/interne-klachten"].includes(url.pathname)) return INTERNAL_COMPLAINT_RETURN_TO;
+  return safeReturnTo(url.searchParams.get("returnTo") || "/");
+}
+
+function returnToFromCookie(req, fallback = "/") {
+  const cookies = parseCookies(req);
+  return safeReturnTo(cookies.orp_overheid_return_to || fallback);
 }
 
 function requestBaseUrl(req) {
@@ -159,9 +183,9 @@ async function getGuildMember(accessToken) {
   });
 }
 
-function targetLoginUrl(route) {
+function targetLoginUrl(route, returnTo = "/") {
   const target = String(route.targetUrl || "").replace(/\/+$/, "");
-  return `${target}/api/auth/login?returnTo=%2F`;
+  return `${target}/api/auth/login?returnTo=${encodeURIComponent(safeReturnTo(returnTo))}`;
 }
 
 function escapeHtml(value) {
@@ -215,11 +239,11 @@ function loginPage(error = "") {
   });
 }
 
-function choicePage(routes) {
+function choicePage(routes, returnTo = "/") {
   return page({
     title: "Kies organisatie",
     subtitle: "Je hebt toegang tot meerdere organisaties. Kies welk portaal je wilt openen.",
-    body: `<div class="actions">${routes.map((route) => `<a href="${escapeHtml(targetLoginUrl(route))}">${escapeHtml(route.label)} openen</a>`).join("")}</div>`
+    body: `<div class="actions">${routes.map((route) => `<a href="${escapeHtml(targetLoginUrl(route, returnTo))}">${escapeHtml(route.label)} openen</a>`).join("")}</div>`
   });
 }
 
@@ -251,11 +275,12 @@ async function handleRequest(req, res) {
   if (url.pathname === "/" && req.method === "GET") {
     const choices = choicesFromCookie(req);
     if (choices.length) {
+      const returnTo = returnToFromCookie(req);
       writeHeadSecure(res, 200, {
         "Content-Type": "text/html; charset=utf-8",
-        "Set-Cookie": clearCookie("orp_overheid_choices")
+        "Set-Cookie": [clearCookie("orp_overheid_choices"), clearCookie("orp_overheid_return_to")]
       });
-      res.end(choicePage(choices));
+      res.end(choicePage(choices, returnTo));
       return;
     }
     sendHtml(res, 200, loginPage());
@@ -269,6 +294,7 @@ async function handleRequest(req, res) {
     }
     const state = crypto.randomBytes(24).toString("hex");
     const redirectUri = callbackUrl(req);
+    const returnTo = returnToFromRequest(req, url);
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
       redirect_uri: redirectUri,
@@ -280,7 +306,8 @@ async function handleRequest(req, res) {
       Location: `https://discord.com/api/oauth2/authorize?${params}`,
       "Set-Cookie": [
         authCookie("orp_overheid_state", state, 600),
-        authCookie("orp_overheid_redirect", redirectUri, 600)
+        authCookie("orp_overheid_redirect", redirectUri, 600),
+        returnToCookie(returnTo)
       ]
     });
     res.end();
@@ -296,6 +323,7 @@ async function handleRequest(req, res) {
         return;
       }
       const redirectUri = cookies.orp_overheid_redirect || callbackUrl(req);
+      const returnTo = returnToFromCookie(req);
       const token = await exchangeCode(url.searchParams.get("code"), redirectUri);
       const user = await getDiscordUser(token.access_token);
       const member = await getGuildMember(token.access_token);
@@ -309,8 +337,8 @@ async function handleRequest(req, res) {
 
       if (matches.length === 1) {
         writeHeadSecure(res, 302, {
-          Location: targetLoginUrl(matches[0]),
-          "Set-Cookie": [clearCookie("orp_overheid_state"), clearCookie("orp_overheid_redirect")]
+          Location: targetLoginUrl(matches[0], returnTo),
+          "Set-Cookie": [clearCookie("orp_overheid_state"), clearCookie("orp_overheid_redirect"), clearCookie("orp_overheid_return_to")]
         });
         res.end();
         return;
@@ -318,7 +346,7 @@ async function handleRequest(req, res) {
 
       writeHeadSecure(res, 302, {
         Location: "/",
-        "Set-Cookie": [clearCookie("orp_overheid_state"), clearCookie("orp_overheid_redirect"), choiceCookie(matches)]
+        "Set-Cookie": [clearCookie("orp_overheid_state"), clearCookie("orp_overheid_redirect"), choiceCookie(matches), returnToCookie(returnTo)]
       });
       res.end();
       return;

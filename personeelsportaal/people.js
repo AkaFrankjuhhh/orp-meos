@@ -80,6 +80,60 @@ function fillServiceSelect(selected = "") {
   if (selected) $("#memberService").value = selected;
 }
 
+function usesManualRecruitServiceNumber() {
+  return Boolean(organizationConfig?.manualRecruitServiceNumber);
+}
+
+function fillRecruitmentServiceSelect(selected = "") {
+  const field = $("#recruitmentServiceField");
+  const select = $("#recruitmentServiceNumber");
+  if (!field || !select) return;
+
+  if (!usesManualRecruitServiceNumber()) {
+    field.hidden = true;
+    select.required = false;
+    select.innerHTML = "";
+    return;
+  }
+
+  const rank = defaultRecruitRank || ranks[ranks.length - 1] || "";
+  const numbers = getAvailableServiceNumbers(rank, "Geen");
+  if (selected && !numbers.includes(selected)) numbers.unshift(selected);
+  field.hidden = false;
+  select.required = true;
+  select.innerHTML = numbers.map((number) => `<option>${number}</option>`).join("");
+  if (selected) select.value = selected;
+}
+
+function isAutoSortedPersonnelRank(rank) {
+  const sortableRanks = new Set(organizationConfig?.autoSortRanks || []);
+  return getGroupsForRank(rank).some((group) => (
+    group.autoSort && (!sortableRanks.size || sortableRanks.has(rank))
+  ));
+}
+
+function targetRankForAction(person, action) {
+  const currentIndex = ranks.indexOf(person?.rank);
+  if (currentIndex < 0) return "";
+  if (action === "promote" && currentIndex > 0) return ranks[currentIndex - 1] || "";
+  if (action === "demote" && currentIndex < ranks.length - 1) return ranks[currentIndex + 1] || "";
+  return "";
+}
+
+function requiresManualRankChangeServiceNumber(person, action) {
+  const targetRank = targetRankForAction(person, action);
+  return Boolean(organizationConfig?.manualRankChangeServiceNumber && targetRank && !isAutoSortedPersonnelRank(targetRank));
+}
+
+function serviceNumberChoicesForRankAction(person, action) {
+  const targetRank = targetRankForAction(person, action);
+  if (!targetRank) return [];
+  return getAvailableServiceNumbers(targetRank, "Geen", person.id).map((number) => ({
+    label: `${number} - ${targetRank}`,
+    value: number
+  }));
+}
+
 function renderResignationForm() {
   const current = currentProfile();
   const memberField = $("#resignationMemberDisplay");
@@ -100,8 +154,9 @@ function renderRecruitment() {
   if (!hiredDate.value) hiredDate.value = today;
   const canView = canViewRecruitment();
   const canRecruit = canRecruitPeople();
+  fillRecruitmentServiceSelect($("#recruitmentServiceNumber")?.value || "");
   if (form) {
-    form.querySelectorAll("input, button").forEach((element) => {
+    form.querySelectorAll("input, select, button").forEach((element) => {
       if (element.id === "recruitmentOfficer") return;
       element.disabled = !canRecruit;
     });

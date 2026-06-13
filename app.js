@@ -340,6 +340,7 @@ function updateDeviceMode() {
 const siteNotice = DefensiePortalUI.createNoticeDialog({ id: "siteNoticeDialog", className: "site-notice-dialog" });
 const showSiteNotice = siteNotice.showNotice;
 const showSiteConfirm = siteNotice.showConfirm;
+const showSiteChoice = siteNotice.showChoice;
 const escapeHtml = DefensiePortalUI.escapeHtml;
 const formatDate = DefensiePortalUI.formatDate;
 const formatDateTime = DefensiePortalUI.formatDateTime;
@@ -1989,10 +1990,36 @@ function wireEvents() {
       if (await runAction(`/api/people/${encodeURIComponent(clearHistoryId)}/clear-history`)) render();
     }
     if (promoteId) {
-      if (await runAction(`/api/people/${encodeURIComponent(promoteId)}/promote`)) render();
+      const person = state.people.find((entry) => entry.id === promoteId);
+      if (!person) return;
+      const body = {};
+      if (typeof requiresManualRankChangeServiceNumber === "function" && requiresManualRankChangeServiceNumber(person, "promote")) {
+        const choices = serviceNumberChoicesForRankAction(person, "promote");
+        if (!choices.length) {
+          await showSiteNotice("Geen vrij dienstnummer beschikbaar voor deze rang.", "Geen dienstnummer vrij");
+          return;
+        }
+        const choice = await showSiteChoice(`Dienstnummer kiezen voor ${targetRankForAction(person, "promote")}`, choices);
+        if (!choice) return;
+        body.serviceNumber = choice.value;
+      }
+      if (await runAction(`/api/people/${encodeURIComponent(promoteId)}/promote`, body)) render();
     }
     if (demoteId) {
-      if (await runAction(`/api/people/${encodeURIComponent(demoteId)}/demote`)) render();
+      const person = state.people.find((entry) => entry.id === demoteId);
+      if (!person) return;
+      const body = {};
+      if (typeof requiresManualRankChangeServiceNumber === "function" && requiresManualRankChangeServiceNumber(person, "demote")) {
+        const choices = serviceNumberChoicesForRankAction(person, "demote");
+        if (!choices.length) {
+          await showSiteNotice("Geen vrij dienstnummer beschikbaar voor deze rang.", "Geen dienstnummer vrij");
+          return;
+        }
+        const choice = await showSiteChoice(`Dienstnummer kiezen voor ${targetRankForAction(person, "demote")}`, choices);
+        if (!choice) return;
+        body.serviceNumber = choice.value;
+      }
+      if (await runAction(`/api/people/${encodeURIComponent(demoteId)}/demote`, body)) render();
     }
     if (dismissId) {
       const person = state.people.find((entry) => entry.id === dismissId);
@@ -2094,7 +2121,7 @@ function wireEvents() {
     render();
   });
 
-  // W&S maakt een basisprofiel aan; de server kiest de standaardrang en het eerste vrije dienstnummer.
+  // W&S maakt een basisprofiel aan. Organisaties met handmatige reeksen sturen het gekozen dienstnummer mee.
   $("#recruitmentForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const message = $("#recruitmentMessage");
@@ -2109,14 +2136,19 @@ function wireEvents() {
       }
       return;
     }
-    const saved = await runAction("/api/recruitment/hire", {
+    const recruitPayload = {
       name: $("#recruitmentName").value.trim(),
       hiredDate: $("#recruitmentHiredDate").value,
       discordId: $("#recruitmentDiscordId").value.trim()
-    });
+    };
+    if (typeof usesManualRecruitServiceNumber === "function" && usesManualRecruitServiceNumber()) {
+      recruitPayload.serviceNumber = $("#recruitmentServiceNumber")?.value || "";
+    }
+    const saved = await runAction("/api/recruitment/hire", recruitPayload);
     if (!saved) return;
     event.target.reset();
     $("#recruitmentHiredDate").value = today;
+    if (typeof fillRecruitmentServiceSelect === "function") fillRecruitmentServiceSelect();
     render();
     if (message) {
       message.textContent = "Medewerker aangenomen en toegevoegd aan Personeel en Medewerkers.";

@@ -3911,22 +3911,26 @@ body[data-device="mobile"] .profile-person-name {
   margin-top: 10px;
 }
 
+.profile-rank-stack.profile-service-layout,
 .profile-rank-stack.profile-police-layout {
   gap: 6px;
 }
 
+.profile-rank-stack.profile-service-layout .profile-rank-number,
 .profile-rank-stack.profile-police-layout .profile-rank-number {
   color: #93c5fd;
   font-size: clamp(17px, 1.7vw, 22px);
   line-height: 1.1;
 }
 
+.profile-rank-stack.profile-service-layout .profile-person-name,
 .profile-rank-stack.profile-police-layout .profile-person-name {
   display: grid;
   gap: 4px;
   margin-top: 0;
 }
 
+.profile-service-line,
 .profile-police-service {
   display: block;
   color: #f8fafc;
@@ -3936,6 +3940,7 @@ body[data-device="mobile"] .profile-person-name {
   letter-spacing: 0;
 }
 
+.profile-display-name,
 .profile-police-name {
   display: block;
   color: #f8fafc;
@@ -3949,6 +3954,7 @@ body[data-device="mobile"] .profile-rank-number {
   font-size: 24px;
 }
 
+body[data-device="mobile"] .profile-service-line,
 body[data-device="mobile"] .profile-police-service {
   font-size: 34px;
 }

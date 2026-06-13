@@ -33,6 +33,7 @@ const {
   validatePublicFormSubmission,
   createPublicFormSubmission,
   formatCaseNumber,
+  isComplaintForm,
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
   mergePublicFormConfig,
@@ -523,7 +524,7 @@ function sendPublicFormWebhookInBackground(config, submission, files = []) {
     try {
       const webhookUrl = publicFormWebhookUrl(config);
       const payload = buildPublicFormWebhookPayload(config, submission);
-      webhookResult = config.slug === "klachten"
+      webhookResult = isComplaintForm(config)
         ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, files, `zaaknummer ${formatCaseNumber(submission.caseNumber)}`)
         : await sendDiscordWebhook(webhookUrl, payload, files);
     } catch (error) {
@@ -533,7 +534,7 @@ function sendPublicFormWebhookInBackground(config, submission, files = []) {
     if (webhookResult && !webhookResult.ok && !webhookResult.skipped) {
       logServerError(`Public form webhook rejected for ${config.slug}`, new Error(`status=${webhookResult.status || "unknown"} body=${webhookResult.body || webhookResult.error || ""}`));
     }
-    if (config.slug === "klachten" && webhookResult?.ok && webhookResult.thread && !webhookResult.thread.ok && !webhookResult.thread.skipped) {
+    if (isComplaintForm(config) && webhookResult?.ok && webhookResult.thread && !webhookResult.thread.ok && !webhookResult.thread.skipped) {
       logServerError(`Public form complaint thread failed for ${submission.caseNumber || submission.id}`, new Error(`status=${webhookResult.thread.status || "unknown"} body=${webhookResult.thread.body || webhookResult.thread.error || ""}`));
     }
     try {
@@ -549,7 +550,7 @@ function requirePublicFormAccess(req, res, config) {
   const auth = getLoggedInProfile(req);
   if (auth) return auth;
   sendJson(res, 401, {
-    error: "Dit is een interne vacature. Log in met Discord om dit formulier te openen.",
+    error: "Dit is een intern formulier. Log in met Discord om dit formulier te openen.",
     loginUrl: publicFormLoginUrl(config)
   });
   return null;
