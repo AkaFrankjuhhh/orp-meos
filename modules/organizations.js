@@ -346,7 +346,7 @@ const organizationConfigs = {
     defaultRecruitRank: "Aspirant",
     rankCategories: [
       { title: "Korpsleiding", serviceRange: "21-01 t/m 21-05", ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"], ranges: [{ prefix: "21", min: 1, max: 5 }] },
-      { title: "Hoofdinspecteur en Inspecteur (Bestuur)", serviceRange: "21-06 t/m 21-16", ranks: ["Hoofdinspecteur", "Inspecteur"], ranges: [{ prefix: "21", min: 6, max: 16 }] },
+      { title: "Bestuur", serviceRange: "21-06 t/m 21-16", ranks: ["Hoofdinspecteur", "Inspecteur"], ranges: [{ prefix: "21", min: 6, max: 16 }] },
       { title: "Brigadier", serviceRange: "21-17 t/m 21-27", ranks: ["Brigadier"], ranges: [{ prefix: "21", min: 17, max: 27 }] },
       { title: "Brigadier", serviceRange: "22-17 t/m 22-27", ranks: ["Brigadier"], ranges: [{ prefix: "22", min: 17, max: 27 }] },
       { title: "Hoofdagent", serviceRange: "21-28 t/m 21-48", ranks: ["Hoofdagent"], ranges: [{ prefix: "21", min: 28, max: 48 }] },
