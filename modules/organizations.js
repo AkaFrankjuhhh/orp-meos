@@ -146,7 +146,6 @@ const politieExtraTasks = [
   "Mentor",
   "W&S",
   "Mentor-Leiding",
-  "OTC-Leiding",
   "W&S-Leiding",
   "IZ-Leiding",
   "Trainer-Leiding",
