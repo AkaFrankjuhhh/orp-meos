@@ -4713,12 +4713,15 @@ body[data-device="mobile"] .notification-panel {
 /* Profiel-logboek: zichtbaar voor Kader/Hoofdofficier met acties op het profiel. */
 .profile-log-sections {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  align-items: start;
 }
 
 .profile-log-section {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .profile-log-section h3 {
@@ -4764,6 +4767,16 @@ body[data-device="mobile"] .notification-panel {
   margin: 0;
   color: #dbeafe;
   line-height: 1.4;
+}
+
+@media (max-width: 980px) {
+  .profile-log-sections {
+    grid-template-columns: 1fr;
+  }
+}
+
+body[data-device="mobile"] .profile-log-sections {
+  grid-template-columns: 1fr;
 }
 
 body[data-device="mobile"] .profile-audit-item div {
