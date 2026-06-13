@@ -1,5 +1,5 @@
 # Defensie Personeelsportaal + publieke formulieren.
-orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl, interne-klacht.orpdefensie.nl, interne-klachten.orpdefensie.nl {
+orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000
 
@@ -42,6 +42,10 @@ interne-klacht.orpoverheid.nl, interne-klachten.orpoverheid.nl {
   }
 }
 
+interne-klacht.orpdefensie.nl, interne-klachten.orpdefensie.nl, interne-klacht.orppolitie.nl, interne-klachten.orppolitie.nl {
+  redir https://interne-klacht.orpoverheid.nl{uri} permanent
+}
+
 # Centrale hOvJ-formulierplek.
 hovj.orpoverheid.nl {
   encode zstd gzip
@@ -71,7 +75,7 @@ porto.orpdefensie.nl {
 }
 
 # Politie Personeelsportaal + publieke formulieren.
-orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, trainer.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl, interne-klacht.orppolitie.nl, interne-klachten.orppolitie.nl {
+orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, trainer.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3010
 

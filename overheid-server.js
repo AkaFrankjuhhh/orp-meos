@@ -188,6 +188,16 @@ function targetLoginUrl(route, returnTo = "/") {
   return `${target}/api/auth/login?returnTo=${encodeURIComponent(safeReturnTo(returnTo))}`;
 }
 
+function shouldOpenReturnToDirectly(returnTo) {
+  return safeReturnTo(returnTo) === INTERNAL_COMPLAINT_RETURN_TO;
+}
+
+function targetPortalUrl(route, returnTo = "/") {
+  if (!shouldOpenReturnToDirectly(returnTo)) return targetLoginUrl(route, returnTo);
+  const target = String(route.targetUrl || "").replace(/\/+$/, "");
+  return `${target}${safeReturnTo(returnTo)}`;
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -243,7 +253,7 @@ function choicePage(routes, returnTo = "/") {
   return page({
     title: "Kies organisatie",
     subtitle: "Je hebt toegang tot meerdere organisaties. Kies welk portaal je wilt openen.",
-    body: `<div class="actions">${routes.map((route) => `<a href="${escapeHtml(targetLoginUrl(route, returnTo))}">${escapeHtml(route.label)} openen</a>`).join("")}</div>`
+    body: `<div class="actions">${routes.map((route) => `<a href="${escapeHtml(targetPortalUrl(route, returnTo))}">${escapeHtml(route.label)} openen</a>`).join("")}</div>`
   });
 }
 
@@ -337,7 +347,7 @@ async function handleRequest(req, res) {
 
       if (matches.length === 1) {
         writeHeadSecure(res, 302, {
-          Location: targetLoginUrl(matches[0], returnTo),
+          Location: targetPortalUrl(matches[0], returnTo),
           "Set-Cookie": [clearCookie("orp_overheid_state"), clearCookie("orp_overheid_redirect"), clearCookie("orp_overheid_return_to")]
         });
         res.end();

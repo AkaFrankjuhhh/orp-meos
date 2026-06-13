@@ -658,12 +658,21 @@ function requestHostname(req) {
   return String(req.headers.host || "").split(":")[0].trim().toLowerCase();
 }
 
-function redirectComplaintAlias(req, res, url) {
+function redirectPublicFormAlias(req, res, url) {
   const host = requestHostname(req);
-  if (!["klachten.orpdefensie.nl", "klachten.orppolitie.nl"].includes(host)) return false;
   const canonicalDomain = process.env.OVERHEID_PUBLIC_FORM_DOMAIN || "orpoverheid.nl";
+  const aliases = {
+    "klachten.orpdefensie.nl": `https://klachten.${canonicalDomain}`,
+    "klachten.orppolitie.nl": `https://klachten.${canonicalDomain}`,
+    "interne-klacht.orpdefensie.nl": `https://interne-klacht.${canonicalDomain}`,
+    "interne-klachten.orpdefensie.nl": `https://interne-klacht.${canonicalDomain}`,
+    "interne-klacht.orppolitie.nl": `https://interne-klacht.${canonicalDomain}`,
+    "interne-klachten.orppolitie.nl": `https://interne-klacht.${canonicalDomain}`
+  };
+  const targetBase = aliases[host];
+  if (!targetBase) return false;
   res.writeHead(308, {
-    Location: `https://klachten.${canonicalDomain}${url.pathname}${url.search}`,
+    Location: `${targetBase}${url.pathname}${url.search}`,
     "Cache-Control": "no-store"
   });
   res.end();
@@ -923,7 +932,7 @@ function serveStatic(req, res, url) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, appBaseUrl);
   try {
-    if (redirectComplaintAlias(req, res, url)) return;
+    if (redirectPublicFormAlias(req, res, url)) return;
     if (shouldRejectMutation(req, appBaseUrl)) {
       sendJson(res, 403, { error: "Verzoek geweigerd: ongeldige herkomst." });
       return;
