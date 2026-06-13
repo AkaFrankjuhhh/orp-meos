@@ -27,6 +27,20 @@ function formatService(prefix, number) {
   return `${prefix}-${String(number).padStart(2, "0")}`;
 }
 
+function personMatchesRankCategory(person, category) {
+  if (!(category.ranks || []).includes(person.rank)) return false;
+  if (!Array.isArray(category.ranges) || !category.ranges.length) return true;
+  const match = /^(\d{2})-(\d{2,3})$/.exec(String(person.serviceNumber || "").trim());
+  if (!match) return false;
+  const prefix = match[1];
+  const number = Number(match[2]);
+  return category.ranges.some((range) => (
+    String(range.prefix) === prefix
+    && number >= Number(range.min)
+    && number <= Number(range.max)
+  ));
+}
+
 function getAvailableServiceNumbers(rank, permRole, currentId = "") {
   const groups = getGroupsForRank(rank);
   const used = new Set(
@@ -294,11 +308,11 @@ function renderPeople() {
         .filter((rank) => !(hasLeadershipOverview && category.title === leadershipCategory.title && rank === leadershipRank))
         .map((rank) => ({
           rank,
-          people: people.filter((person) => person.rank === rank)
+          people: people.filter((person) => person.rank === rank && personMatchesRankCategory(person, category))
         }))
         .filter((group) => group.people.length > 0)
     }))
-    .filter((category) => category.rankGroups.length > 0 || (hasLeadershipOverview && category.title === leadershipCategory.title && people.some((person) => person.rank === leadershipRank)));
+    .filter((category) => category.rankGroups.length > 0 || (hasLeadershipOverview && category.title === leadershipCategory.title && people.some((person) => person.rank === leadershipRank && personMatchesRankCategory(person, category))));
 
   $("#peopleList").innerHTML = groups
     .map((category) => `
@@ -349,7 +363,7 @@ function renderEmployeeDirectory() {
 
   $("#employeeDirectory").innerHTML = rankCategories
     .map((category) => {
-      const categoryPeople = people.filter((person) => category.ranks.includes(person.rank));
+      const categoryPeople = people.filter((person) => personMatchesRankCategory(person, category));
       if (!categoryPeople.length) return "";
       const tone = employeeCategoryTone(category.title);
       return `
