@@ -37,6 +37,9 @@ const rankMappings = typeof bot.allRankRoleMappings === "function"
   ? bot.allRankRoleMappings()
   : Object.entries(bot.rankRoleEnvKeys || {}).map(([rank, envKey]) => ({ rank, envKey, roleId: process.env[envKey] || "" }));
 const missingRankMappings = rankMappings.filter((mapping) => !String(mapping.roleId || "").trim());
+const qualificationMappings = typeof bot.configuredQualificationRoleMappings === "function"
+  ? bot.configuredQualificationRoleMappings()
+  : [];
 
 console.log(`Organisatie: ${organization.key}`);
 console.log(`Hoofdrol: ${organizationMainRoleId(organization) || "NIET INGESTELD"}`);
@@ -58,4 +61,15 @@ if (missingRankMappings.length) {
     console.log(`${mapping.envKey}=`);
   }
   process.exitCode = 1;
+}
+
+console.log("");
+console.log("Kwalificatierollen:");
+if (!qualificationMappings.length) {
+  console.log("[mist] Geen kwalificatierollen ingesteld.");
+  process.exitCode = 1;
+} else {
+  for (const mapping of qualificationMappings) {
+    console.log(`[ok] ${mapping.qualification}: ${mapping.envKey}=${mapping.roleId}`);
+  }
 }

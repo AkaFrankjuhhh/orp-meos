@@ -327,6 +327,9 @@ function createPersoneelsportaalRouteHandler(deps) {
       if (result?.ok && Array.isArray(result.changes) && result.changes.length) {
         state.activity = state.activity || [];
         state.activity.push(`Discord kwalificatierollen gesynchroniseerd voor ${person.name}.`);
+      } else if (result?.skipped) {
+        state.activity = state.activity || [];
+        state.activity.push(`Discord kwalificatierollen overgeslagen voor ${person.name}: ${result.reason}`);
       }
     } catch (error) {
       state.activity = state.activity || [];
