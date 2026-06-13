@@ -47,7 +47,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     buildDismissalWebhookPayload,
     buildResignationFormWebhookPayload,
     buildBlacklistWebhookPayload,
-    discordBot
+    discordBot,
+    enqueuePersonDiscordSync
   } = deps;
 
   const formsStorage = deps.formsStorage || { readState, writeState };
@@ -313,6 +314,18 @@ function createPersoneelsportaalRouteHandler(deps) {
         state.activity = state.activity || [];
         state.activity.push(`Discord rangrol synchroniseren mislukt voor ${person.name}: ${error.message || "onbekende fout"}.`);
       }
+    }
+  }
+
+  async function queuePersonDiscordSync(state, person, reason) {
+    if (typeof enqueuePersonDiscordSync !== "function" || !person?.discordId) return;
+    try {
+      await enqueuePersonDiscordSync(person, reason);
+      state.activity = state.activity || [];
+      state.activity.push(`Discord profielsync ingepland voor ${person.name}.`);
+    } catch (error) {
+      state.activity = state.activity || [];
+      state.activity.push(`Discord profielsync inplannen mislukt voor ${person.name}: ${error.message || "onbekende fout"}.`);
     }
   }
 
@@ -1259,6 +1272,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     await syncChangedDiscordNicknames(state, previousNicknames);
     await syncChangedDiscordRankRoles(state, previousRankRoles);
+    await queuePersonDiscordSync(state, result.person, "recruitment_hire");
 
     await sendPeopleStateAfterMutation(res, auth, state);
 
@@ -1306,6 +1320,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     await syncChangedDiscordNicknames(state, previousNicknames);
     await syncChangedDiscordRankRoles(state, previousRankRoles);
+    await queuePersonDiscordSync(state, result.person, existingBeforeSave ? "person_updated" : "person_created");
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
@@ -1329,6 +1344,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     await syncChangedDiscordNicknames(state, previousNicknames);
     await syncChangedDiscordRankRoles(state, previousRankRoles);
+    await queuePersonDiscordSync(state, result.person, "person_updated");
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
@@ -1413,6 +1429,9 @@ function createPersoneelsportaalRouteHandler(deps) {
       ...removedTrainings,
       ...removedOperational
     ]);
+    if (changeDetails.length) {
+      await queuePersonDiscordSync(state, person, "qualification_updated");
+    }
     const qualificationActivityMessages = state.activity.slice(activityStartIndex);
     if (typeof peopleStorage.writePersonQualifications === "function") {
       await Promise.resolve(peopleStorage.writePersonQualifications(person, qualificationActivityMessages));
@@ -1917,6 +1936,9 @@ function createPersoneelsportaalRouteHandler(deps) {
 
     await syncChangedDiscordNicknames(state, previousNicknames);
     await syncChangedDiscordRankRoles(state, previousRankRoles);
+    if (person.status === "Actief" && ["promote", "demote", "reactivate"].includes(action)) {
+      await queuePersonDiscordSync(state, person, `person_${action}`);
+    }
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }

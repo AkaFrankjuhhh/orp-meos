@@ -18,6 +18,7 @@ const { createEventBus } = require("./modules/event-bus");
 const { createHttpResponder, createJsonBodyReader, readRawBody, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
 const { createPublicFormsStore } = require("./modules/public-forms-store");
+const { enqueuePersonDiscordSync } = require("./modules/discord-sync-jobs");
 const {
   currentOrganization,
   organizationMainRoleId,
@@ -446,7 +447,8 @@ const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   buildDismissalWebhookPayload,
   buildResignationFormWebhookPayload,
   buildBlacklistWebhookPayload,
-  discordBot
+  discordBot,
+  enqueuePersonDiscordSync: storageMode === "postgres" ? enqueuePersonDiscordSync : null
 });
 function errorPage(title, message) {
   return `<!doctype html>
