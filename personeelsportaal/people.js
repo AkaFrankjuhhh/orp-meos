@@ -122,7 +122,9 @@ function targetRankForAction(person, action) {
 
 function requiresManualRankChangeServiceNumber(person, action) {
   const targetRank = targetRankForAction(person, action);
-  return Boolean(organizationConfig?.manualRankChangeServiceNumber && targetRank && !isAutoSortedPersonnelRank(targetRank));
+  if (!organizationConfig?.manualRankChangeServiceNumber || !targetRank) return false;
+  if (organizationConfig?.manualRankChangeServiceNumberForAllRanks) return true;
+  return !isAutoSortedPersonnelRank(targetRank);
 }
 
 function serviceNumberChoicesForRankAction(person, action) {

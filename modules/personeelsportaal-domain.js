@@ -68,6 +68,12 @@ function isAutoSortedRank(rank) {
   ));
 }
 
+function requiresManualRankChangeServiceNumber(rank) {
+  if (!organization.manualRankChangeServiceNumber) return false;
+  if (organization.manualRankChangeServiceNumberForAllRanks) return true;
+  return !isAutoSortedRank(rank);
+}
+
 function formatService(prefix, number) {
   return `${prefix}-${String(number).padStart(2, "0")}`;
 }
@@ -110,11 +116,11 @@ function assignFirstAvailableServiceNumber(state, person, preferredPrefix = "") 
 
 function applyRankChangeServiceNumber(state, person, previousGroup, nextGroup, previousPrefix, options = {}) {
   const requestedServiceNumber = String(options.serviceNumber || "").trim();
-  const requiresManualNumber = Boolean(organization.manualRankChangeServiceNumber) && !isAutoSortedRank(person.rank);
+  const requiresManualNumber = requiresManualRankChangeServiceNumber(person.rank);
 
   if (requestedServiceNumber) {
     person.serviceNumber = requestedServiceNumber;
-  } else if (requiresManualNumber && assertValidServiceNumber(state, person)) {
+  } else if (requiresManualNumber) {
     return "Kies een dienstnummer voor deze rang.";
   } else if (!sameServiceNumberGroup(previousGroup, nextGroup) || !person.serviceNumber) {
     assignFirstAvailableServiceNumber(state, person, previousPrefix);

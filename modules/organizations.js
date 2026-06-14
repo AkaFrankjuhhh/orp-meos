@@ -347,6 +347,7 @@ const organizationConfigs = {
     defaultRecruitRank: "Aspirant",
     manualRecruitServiceNumber: true,
     manualRankChangeServiceNumber: true,
+    manualRankChangeServiceNumberForAllRanks: true,
     rankCategories: [
       { title: "Korpsleiding", serviceRange: "21-01 t/m 21-05", ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"], ranges: [{ prefix: "21", min: 1, max: 5 }] },
       { title: "Bestuur", serviceRange: "21-06 t/m 21-16", ranks: ["Hoofdinspecteur", "Inspecteur"], ranges: [{ prefix: "21", min: 6, max: 16 }] },
@@ -362,8 +363,8 @@ const organizationConfigs = {
       { title: "Aspirant", serviceRange: "22-87 t/m 22-99", ranks: ["Aspirant"], ranges: [{ prefix: "22", min: 87, max: 99 }] }
     ],
     serviceNumberGroups: [
-      { prefix: "21", min: 1, max: 5, ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"], autoSort: true },
-      { prefix: "21", min: 6, max: 16, ranks: ["Hoofdinspecteur", "Inspecteur"], autoSort: true },
+      { prefix: "21", min: 1, max: 5, ranks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris"] },
+      { prefix: "21", min: 6, max: 16, ranks: ["Hoofdinspecteur", "Inspecteur"] },
       { prefix: "21", min: 17, max: 27, ranks: ["Brigadier"] },
       { prefix: "22", min: 17, max: 27, ranks: ["Brigadier"] },
       { prefix: "21", min: 28, max: 48, ranks: ["Hoofdagent"] },
@@ -375,7 +376,7 @@ const organizationConfigs = {
       { prefix: "21", min: 87, max: 99, ranks: ["Aspirant"] },
       { prefix: "22", min: 87, max: 99, ranks: ["Aspirant"] }
     ],
-    autoSortRanks: ["Eerste hoofdcommissaris", "Hoofdcommissaris", "Commissaris", "Hoofdinspecteur", "Inspecteur"],
+    autoSortRanks: [],
     profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME"],
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
@@ -587,6 +588,7 @@ function publicClientData(config = currentOrganization()) {
       requiredRoleLabel: config.requiredRoleLabel,
       manualRecruitServiceNumber: Boolean(config.manualRecruitServiceNumber),
       manualRankChangeServiceNumber: Boolean(config.manualRankChangeServiceNumber),
+      manualRankChangeServiceNumberForAllRanks: Boolean(config.manualRankChangeServiceNumberForAllRanks),
       autoSortRanks: config.autoSortRanks || []
     },
     ranks: config.ranks,
