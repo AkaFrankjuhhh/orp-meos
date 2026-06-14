@@ -27,6 +27,8 @@ const roleRoutes = [
 ];
 const INTERNAL_COMPLAINT_RETURN_TO = "/forms/interne-klacht";
 const internalComplaintHosts = new Set(["interne-klacht.orpoverheid.nl", "interne-klachten.orpoverheid.nl"]);
+const oauthStateTtlMs = 10 * 60 * 1000;
+const pendingOAuthStates = new Map();
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -60,6 +62,29 @@ function parseCookies(req) {
         }
       })
   );
+}
+
+function cleanupPendingOAuthStates() {
+  const expiredBefore = Date.now() - oauthStateTtlMs;
+  for (const [state, value] of pendingOAuthStates) {
+    if (!value?.createdAt || value.createdAt < expiredBefore) pendingOAuthStates.delete(state);
+  }
+}
+
+function rememberOAuthState(state, data) {
+  cleanupPendingOAuthStates();
+  pendingOAuthStates.set(state, {
+    ...data,
+    createdAt: Date.now()
+  });
+}
+
+function takeOAuthState(state) {
+  cleanupPendingOAuthStates();
+  if (!state) return null;
+  const value = pendingOAuthStates.get(state);
+  if (value) pendingOAuthStates.delete(state);
+  return value || null;
 }
 
 function forwardedHost(req) {
@@ -328,6 +353,7 @@ async function handleRequest(req, res) {
     const state = crypto.randomBytes(24).toString("hex");
     const redirectUri = callbackUrl(req);
     const returnTo = returnToFromRequest(req, url);
+    rememberOAuthState(state, { redirectUri, returnTo });
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,
       redirect_uri: redirectUri,
@@ -351,13 +377,19 @@ async function handleRequest(req, res) {
   if (url.pathname === "/auth/discord/callback" && req.method === "GET") {
     try {
       const cookies = parseCookies(req);
+      const returnedState = url.searchParams.get("state");
+      const rememberedState = takeOAuthState(returnedState);
       const expectedState = cookies.orp_overheid_state;
-      if (!expectedState || expectedState !== url.searchParams.get("state")) {
-        sendHtml(res, 400, loginPage("Discord login sessie klopt niet. Probeer opnieuw."));
+      if (!rememberedState && (!expectedState || expectedState !== returnedState)) {
+        writeHeadSecure(res, 400, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Set-Cookie": clearOverheidCookies(["orp_overheid_state", "orp_overheid_redirect", "orp_overheid_return_to", "orp_overheid_choices"], req)
+        });
+        res.end(loginPage("Discord login sessie klopt niet. Probeer opnieuw."));
         return;
       }
-      const redirectUri = cookies.orp_overheid_redirect || callbackUrl(req);
-      const returnTo = returnToFromCookie(req);
+      const redirectUri = rememberedState?.redirectUri || cookies.orp_overheid_redirect || callbackUrl(req);
+      const returnTo = rememberedState?.returnTo || returnToFromCookie(req);
       const token = await exchangeCode(url.searchParams.get("code"), redirectUri);
       const user = await getDiscordUser(token.access_token);
       const member = await getGuildMember(token.access_token);
