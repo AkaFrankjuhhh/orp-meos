@@ -15,70 +15,133 @@
 body {
   --form-bg-position: center;
   --form-bg-accent: rgba(245, 158, 11, 0.16);
-  --form-bg-image: url("/assets/public-form-herintrede-background.svg");
+  --form-bg-image: url("/assets/lockscreen-defensie.png?v=20260614-form-photo-refresh");
+  --form-logo-image: url("/assets/defensielogo-wall-clean.png?v=20260614-form-photo-refresh");
+  --form-logo-opacity: 0.12;
+  --form-logo-size: min(38vw, 420px);
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 50% 8%, var(--form-bg-accent), transparent 30%),
-    linear-gradient(90deg, rgba(5, 12, 22, 0.88), rgba(5, 12, 22, 0.52) 52%, rgba(5, 12, 22, 0.88)),
-    linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.88)),
+    radial-gradient(circle at 50% 8%, var(--form-bg-accent), transparent 32%),
+    linear-gradient(90deg, rgba(5, 12, 22, 0.94), rgba(5, 12, 22, 0.58) 50%, rgba(5, 12, 22, 0.92)),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.92)),
     var(--form-bg-image) var(--form-bg-position) / cover no-repeat,
     #0f172a;
   color: var(--text);
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  overflow-x: hidden;
+  position: relative;
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::before {
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(14, 116, 144, 0.16), transparent 34%),
+    linear-gradient(240deg, rgba(245, 158, 11, 0.12), transparent 36%);
+  mix-blend-mode: screen;
+}
+
+body::after {
+  bottom: 7vh;
+  right: max(4vw, 36px);
+  width: var(--form-logo-size);
+  aspect-ratio: 1;
+  background: var(--form-logo-image) center / contain no-repeat;
+  filter: drop-shadow(0 26px 60px rgba(0, 0, 0, 0.42));
+  opacity: var(--form-logo-opacity);
+}
+
+body[data-form-org="politie"] {
+  --form-bg-image: url("/assets/porto-dispatch-background.png?v=20260614-form-photo-refresh");
+  --form-bg-position: center;
+  --form-bg-accent: rgba(56, 189, 248, 0.18);
+  --form-logo-image: url("/assets/politie-logo.png?v=20260614-form-photo-refresh");
+  --form-logo-opacity: 0.1;
+}
+
+body[data-form-org="overheid"] {
+  --form-bg-image: url("/assets/porto-dispatch-background.png?v=20260614-form-photo-refresh");
+  --form-bg-position: center;
+  --form-bg-accent: rgba(59, 130, 246, 0.16);
+  --form-logo-image: url("/assets/orp-logo.png?v=20260614-form-photo-refresh");
+  --form-logo-opacity: 0.11;
+  --form-logo-size: min(42vw, 460px);
 }
 
 body[data-form-slug="klachten"] {
-  --form-bg-image: url("/assets/klachten-background.svg");
+  --form-bg-image: url("/assets/porto-dispatch-background.png?v=20260614-form-photo-refresh");
   --form-bg-position: center;
   --form-bg-accent: rgba(239, 68, 68, 0.16);
 }
 
 body[data-form-slug="otc"] {
-  --form-bg-image: url("/assets/otc-background.svg");
+  --form-bg-image: url("/assets/porto-dispatch-background.png?v=20260614-form-photo-refresh");
+  --form-bg-position: 48% center;
+  --form-bg-accent: rgba(56, 189, 248, 0.18);
+}
+
+body[data-form-slug="trainer"] {
+  --form-bg-image: url("/assets/porto-dispatch-background.png?v=20260614-form-photo-refresh");
   --form-bg-position: 48% center;
   --form-bg-accent: rgba(56, 189, 248, 0.18);
 }
 
 body[data-form-slug="w-s"] {
-  --form-bg-image: url("/assets/ws-background.svg");
+  --form-bg-image: url("/assets/lockscreen-defensie.png?v=20260614-form-photo-refresh");
   --form-bg-position: 42% center;
   --form-bg-accent: rgba(245, 158, 11, 0.18);
 }
 
 body[data-form-slug="hovj"] {
-  --form-bg-image: url("/assets/hovj-background.svg");
+  --form-bg-image: url("/assets/porto-dispatch-background.png?v=20260614-form-photo-refresh");
   --form-bg-position: 56% center;
   --form-bg-accent: rgba(96, 165, 250, 0.18);
 }
 
 body[data-form-slug="hrb"] {
-  --form-bg-image: url("/assets/hrb-background.svg");
+  --form-bg-image: url("/assets/lockscreen-defensie.png?v=20260614-form-photo-refresh");
   --form-bg-position: 40% center;
   --form-bg-accent: rgba(100, 116, 139, 0.2);
 }
 
 body[data-form-slug="herintrede"] {
-  --form-bg-image: url("/assets/public-form-herintrede-background.svg");
+  --form-bg-image: url("/assets/lockscreen-defensie.png?v=20260614-form-photo-refresh");
   --form-bg-position: 52% center;
   --form-bg-accent: rgba(245, 158, 11, 0.16);
 }
 
 body[data-form-slug="overstap"] {
-  --form-bg-image: url("/assets/public-form-overstap-background.svg");
+  --form-bg-image: url("/assets/lockscreen-defensie.png?v=20260614-form-photo-refresh");
   --form-bg-position: 50% center;
   --form-bg-accent: rgba(56, 189, 248, 0.15);
 }
 
+body[data-form-org="politie"][data-form-slug="herintrede"],
+body[data-form-org="politie"][data-form-slug="overstap"],
+body[data-form-org="politie"][data-form-slug="w-s"] {
+  --form-bg-image: url("/assets/porto-dispatch-background.png?v=20260614-form-photo-refresh");
+}
+
 body[data-form-slug] .form-card {
-  background: rgba(15, 23, 42, 0.94);
-  border-color: rgba(71, 85, 105, 0.78);
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(109, 132, 166, 0.5);
+  backdrop-filter: blur(12px);
 }
 
 .form-shell {
   width: min(780px, calc(100% - 32px));
   margin: 0 auto;
   padding: 48px 0;
+  position: relative;
+  z-index: 1;
 }
 
 .form-card {
@@ -446,6 +509,13 @@ select:focus {
 }
 
 @media (max-width: 720px) {
+  body::after {
+    bottom: 1vh;
+    right: -64px;
+    width: 220px;
+    opacity: 0.06;
+  }
+
   body[data-form-slug] .form-shell {
     width: min(100% - 20px, 760px);
     margin-left: auto;

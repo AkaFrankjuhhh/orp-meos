@@ -168,6 +168,7 @@ function renderQuestion(question) {
 
 function showLoginRequired(loginUrl, message) {
   document.body.dataset.formSlug = "internal-login";
+  document.body.dataset.formOrg = "overheid";
   $("#formTitle").textContent = "Intern formulier";
   $("#formSubtitle").textContent = message || "Log in met Discord om dit interne formulier te openen.";
   $("#questions").innerHTML = `<a class="login-button" href="${escapeHtml(loginUrl)}">Aanmelden met Discord</a>`;
@@ -340,6 +341,7 @@ function bindFormAdmin() {
 
 function applyLoadedConfig(config) {
   document.body.dataset.formSlug = config.slug;
+  document.body.dataset.formOrg = config.visualScope || config.organizationKey || "defensie";
   document.title = config.title;
   setPageIcon(config.iconHref);
   document.documentElement.style.setProperty("--accent", config.accent || "#f59e0b");

@@ -378,8 +378,11 @@ function publicFormClientConfig(config, profile = null) {
   const questions = config.internalOnly && profile
     ? (config.questions || []).filter((question) => !profileBackedQuestionIds.has(question.id))
     : (config.questions || []);
+  const visualScope = isComplaintForm(config) ? "overheid" : organization.key;
   return {
     slug: config.slug,
+    organizationKey: organization.key,
+    visualScope,
     title: config.title,
     subtitle: config.subtitle || "",
     notice: config.notice || "",
