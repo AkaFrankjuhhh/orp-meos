@@ -62,24 +62,47 @@ function parseCookies(req) {
   );
 }
 
-function secureCookieSuffix() {
-  return String(appBaseUrl || "").startsWith("https://") ? "; Secure" : "";
+function forwardedHost(req) {
+  return String(req?.headers?.["x-forwarded-host"] || req?.headers?.host || "")
+    .split(",")[0]
+    .split(":")[0]
+    .trim()
+    .toLowerCase();
 }
 
-function authCookie(name, value, maxAgeSeconds = 600) {
-  return `${name}=${encodeURIComponent(String(value || ""))}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${secureCookieSuffix()}`;
+function cookieDomainSuffix(req) {
+  const host = forwardedHost(req);
+  if (host === "orpoverheid.nl" || host.endsWith(".orpoverheid.nl")) return "; Domain=.orpoverheid.nl";
+  return "";
 }
 
-function clearCookie(name) {
-  return `${name}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secureCookieSuffix()}`;
+function secureCookieSuffix(req) {
+  const proto = String(req?.headers?.["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
+  return proto === "https" || String(appBaseUrl || "").startsWith("https://") ? "; Secure" : "";
 }
 
-function choiceCookie(routes) {
-  return authCookie("orp_overheid_choices", routes.map((route) => route.key).join(","), 120);
+function authCookie(name, value, maxAgeSeconds = 600, req = null) {
+  return `${name}=${encodeURIComponent(String(value || ""))}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${cookieDomainSuffix(req)}${secureCookieSuffix(req)}`;
 }
 
-function returnToCookie(returnTo) {
-  return authCookie("orp_overheid_return_to", safeReturnTo(returnTo), 120);
+function clearCookie(name, req = null) {
+  return `${name}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${cookieDomainSuffix(req)}${secureCookieSuffix(req)}`;
+}
+
+function clearHostCookie(name, req = null) {
+  return `${name}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secureCookieSuffix(req)}`;
+}
+
+function clearOverheidCookies(names, req = null) {
+  return names.flatMap((name) => [clearHostCookie(name, req), clearCookie(name, req)]);
+}
+
+function choiceCookie(routes, req = null) {
+  return authCookie("orp_overheid_choices", routes.map((route) => route.key).join(","), 120, req);
+}
+
+function returnToCookie(returnTo, req = null) {
+  return authCookie("orp_overheid_return_to", safeReturnTo(returnTo), 120, req);
 }
 
 function safeReturnTo(value) {
@@ -96,7 +119,7 @@ function choicesFromCookie(req) {
 }
 
 function returnToFromRequest(req, url) {
-  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].split(":")[0].trim().toLowerCase();
+  const host = forwardedHost(req);
   if (internalComplaintHosts.has(host)) return INTERNAL_COMPLAINT_RETURN_TO;
   if (["/interne-klacht", "/interne-klachten"].includes(url.pathname)) return INTERNAL_COMPLAINT_RETURN_TO;
   return safeReturnTo(url.searchParams.get("returnTo") || "/");
@@ -288,7 +311,7 @@ async function handleRequest(req, res) {
       const returnTo = returnToFromCookie(req);
       writeHeadSecure(res, 200, {
         "Content-Type": "text/html; charset=utf-8",
-        "Set-Cookie": [clearCookie("orp_overheid_choices"), clearCookie("orp_overheid_return_to")]
+        "Set-Cookie": clearOverheidCookies(["orp_overheid_choices", "orp_overheid_return_to"], req)
       });
       res.end(choicePage(choices, returnTo));
       return;
@@ -315,9 +338,10 @@ async function handleRequest(req, res) {
     writeHeadSecure(res, 302, {
       Location: `https://discord.com/api/oauth2/authorize?${params}`,
       "Set-Cookie": [
-        authCookie("orp_overheid_state", state, 600),
-        authCookie("orp_overheid_redirect", redirectUri, 600),
-        returnToCookie(returnTo)
+        ...clearOverheidCookies(["orp_overheid_state", "orp_overheid_redirect", "orp_overheid_return_to", "orp_overheid_choices"], req),
+        authCookie("orp_overheid_state", state, 600, req),
+        authCookie("orp_overheid_redirect", redirectUri, 600, req),
+        returnToCookie(returnTo, req)
       ]
     });
     res.end();
@@ -348,7 +372,7 @@ async function handleRequest(req, res) {
       if (matches.length === 1) {
         writeHeadSecure(res, 302, {
           Location: targetPortalUrl(matches[0], returnTo),
-          "Set-Cookie": [clearCookie("orp_overheid_state"), clearCookie("orp_overheid_redirect"), clearCookie("orp_overheid_return_to")]
+          "Set-Cookie": clearOverheidCookies(["orp_overheid_state", "orp_overheid_redirect", "orp_overheid_return_to"], req)
         });
         res.end();
         return;
@@ -356,7 +380,11 @@ async function handleRequest(req, res) {
 
       writeHeadSecure(res, 302, {
         Location: "/",
-        "Set-Cookie": [clearCookie("orp_overheid_state"), clearCookie("orp_overheid_redirect"), choiceCookie(matches), returnToCookie(returnTo)]
+        "Set-Cookie": [
+          ...clearOverheidCookies(["orp_overheid_state", "orp_overheid_redirect", "orp_overheid_choices", "orp_overheid_return_to"], req),
+          choiceCookie(matches, req),
+          returnToCookie(returnTo, req)
+        ]
       });
       res.end();
       return;
