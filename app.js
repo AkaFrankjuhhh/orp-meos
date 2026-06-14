@@ -213,6 +213,10 @@ function canManagePersonnelRanks() {
   return Boolean(permissions.canManagePersonnelRanks || hasKaderAccess());
 }
 
+function canManageInvestigationStatus() {
+  return Boolean(permissions.canManageInvestigationStatus || hasKaderAccess());
+}
+
 function canReviewAbsences() {
   return Boolean(permissions.canReviewAbsences || hasKaderAccess());
 }
@@ -2014,6 +2018,8 @@ function wireEvents() {
     const openPersonProfileId = event.target.dataset.openPersonProfile;
     const editId = event.target.dataset.edit;
     const clearHistoryId = event.target.dataset.clearHistory;
+    const ioMarkId = event.target.dataset.ioMark;
+    const ioClearId = event.target.dataset.ioClear;
     const promoteId = event.target.dataset.promote;
     const demoteId = event.target.dataset.demote;
     const dismissId = event.target.dataset.dismiss;
@@ -2023,6 +2029,16 @@ function wireEvents() {
       const person = state.people.find((entry) => entry.id === clearHistoryId);
       if (!person || !(await showSiteConfirm(`Rang geschiedenis wissen voor ${person.name}?`, "Rang geschiedenis wissen"))) return;
       if (await runAction(`/api/people/${encodeURIComponent(clearHistoryId)}/clear-history`)) render();
+    }
+    if (ioMarkId) {
+      const person = state.people.find((entry) => entry.id === ioMarkId);
+      if (!person || !(await showSiteConfirm(`${person.name} op I.O zetten?`, "I.O melden"))) return;
+      if (await runAction(`/api/people/${encodeURIComponent(ioMarkId)}/io`, { active: true })) render();
+    }
+    if (ioClearId) {
+      const person = state.people.find((entry) => entry.id === ioClearId);
+      if (!person || !(await showSiteConfirm(`I.O status intrekken voor ${person.name}?`, "I.O intrekken"))) return;
+      if (await runAction(`/api/people/${encodeURIComponent(ioClearId)}/io`, { active: false })) render();
     }
     if (promoteId) {
       const person = state.people.find((entry) => entry.id === promoteId);

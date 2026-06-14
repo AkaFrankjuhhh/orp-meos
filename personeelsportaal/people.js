@@ -266,6 +266,8 @@ function renderPersonnelTopHoursList(title, subtitle, people, valueForPerson, cl
 
 function renderPersonnelCard(person) {
   const isOvcOnly = typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person);
+  const status = statusInfoFor(person);
+  const statusTitle = status.title || status.label;
   const rankServiceText = isOvcOnly
     ? "OVC"
     : `${person.rank || "-"} - ${person.serviceNumber || "Geen roepnummer"}`;
@@ -275,6 +277,9 @@ function renderPersonnelCard(person) {
           <button class="card-menu" type="button" aria-label="Meer opties">...</button>
           <div class="card-menu-panel">
             <button type="button" data-open-person-profile="${person.id}">Profiel openen</button>
+            ${canManageInvestigationStatus() && person.status === "Actief" ? (person.ioStatus?.active
+              ? `<button type="button" data-io-clear="${person.id}">I.O intrekken</button>`
+              : `<button type="button" data-io-mark="${person.id}">I.O Melden</button>`) : ""}
             ${hasKaderAccess() ? `<button type="button" data-edit="${person.id}">Bewerken</button>` : ""}
             ${hasKaderAccess() ? `<button type="button" data-clear-history="${person.id}">Rang geschiedenis wissen</button>` : ""}
           </div>
@@ -282,14 +287,14 @@ function renderPersonnelCard(person) {
         <div class="person-head">
           <div class="avatar-status-wrap">
             <img class="avatar" src="${avatarFor(person)}" alt="" />
-            <span class="status-dot ${statusInfoFor(person).className}" title="${escapeHtml(statusInfoFor(person).label)}" aria-label="${escapeHtml(statusInfoFor(person).label)}"></span>
+            <span class="status-dot ${status.className}" title="${escapeHtml(statusTitle)}" aria-label="${escapeHtml(statusTitle)}"></span>
           </div>
           <div>
             <span class="person-label">Naam</span>
             <h2>${escapeHtml(person.name)}</h2>
             <p class="muted">${escapeHtml(rankServiceText)}</p>
             <div class="person-status-line">
-              <span class="person-status ${statusInfoFor(person).className}">${escapeHtml(statusInfoFor(person).label)}</span>
+              <span class="person-status ${status.className}" title="${escapeHtml(statusTitle)}">${escapeHtml(status.label)}</span>
               ${renderPersonnelHourBadges(person)}
             </div>
           </div>
@@ -458,7 +463,11 @@ function renderEmployeeDirectory() {
               <span class="employee-service-badge">OVC</span>
               <span class="employee-rank-badge">Overheid Coördinator</span>
               <strong>${escapeHtml(person.name)}</strong>
-              <span class="employee-status ${statusInfoFor(person).className}">${escapeHtml(statusInfoFor(person).label)}</span>
+              ${(() => {
+                const status = statusInfoFor(person);
+                const statusTitle = status.title || status.label;
+                return `<span class="employee-status ${status.className}" title="${escapeHtml(statusTitle)}">${escapeHtml(status.label)}</span>`;
+              })()}
             </button>
           `).join("")}
         </div>
@@ -488,12 +497,13 @@ function renderEmployeeDirectory() {
             ${categoryPeople
               .map((person) => {
                 const status = statusInfoFor(person);
+                const statusTitle = status.title || status.label;
                 return `
                   <button class="employee-row employee-row-${tone}" type="button" data-open-profile="${person.id}">
                     <span class="employee-service-number">${escapeHtml(person.serviceNumber || "-")}</span>
                     <span class="employee-rank-badge">${escapeHtml(person.rank)}</span>
                     <strong>${escapeHtml(person.name)}</strong>
-                    <span class="employee-status ${status.className}">${escapeHtml(status.label)}</span>
+                    <span class="employee-status ${status.className}" title="${escapeHtml(statusTitle)}">${escapeHtml(status.label)}</span>
                   </button>
                 `;
               })

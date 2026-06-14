@@ -28,12 +28,25 @@ function personHasActiveAbsence(person) {
   return (state.absences || []).some((entry) => entry.memberId === person.id && absenceIsActive(entry));
 }
 
+function activeInvestigationStatusFor(person) {
+  return person?.ioStatus?.active ? person.ioStatus : null;
+}
+
 function statusInfoFor(person) {
-  if (personHasActiveAbsence(person)) return { label: "Afwezig", className: "absent" };
+  const investigation = activeInvestigationStatusFor(person);
+  if (investigation) {
+    const setBy = investigation.setByName || "Onbekend";
+    return {
+      label: "I.O",
+      className: "io",
+      title: `I.O - In overleg / in onderzoek\nOp naam gezet door: ${setBy}`
+    };
+  }
+  if (personHasActiveAbsence(person)) return { label: "Afwezig", className: "absent", title: "Afwezig" };
   const status = person.status || "Actief";
-  if (status === "Non-Actief") return { label: status, className: "non-active" };
-  if (status === "I.O") return { label: status, className: "io" };
-  return { label: "Actief", className: "active" };
+  if (status === "Non-Actief") return { label: status, className: "non-active", title: status };
+  if (status === "I.O") return { label: status, className: "io", title: "I.O - In overleg / in onderzoek" };
+  return { label: "Actief", className: "active", title: "Actief" };
 }
 
 function renderAbsenceOverview() {

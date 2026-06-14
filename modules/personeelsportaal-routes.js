@@ -1830,7 +1830,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
-  const personActionMatch = url.pathname.match(/^\/api\/people\/([^/]+)\/(promote|demote|dismiss|restore|clear-history|delete-archive)$/);
+  const personActionMatch = url.pathname.match(/^\/api\/people\/([^/]+)\/(promote|demote|dismiss|restore|clear-history|delete-archive|io)$/);
   if (personActionMatch && req.method === "POST") {
     const auth = requireAuth(req, res);
     if (!auth) return;
@@ -1853,7 +1853,11 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 403, { error: "Alleen Kader of Hoofdofficier mag tot en met Adjudant ontslaan." });
       return;
     }
-    if (!["promote", "demote", "dismiss"].includes(action) && !permissions.canManagePeople) {
+    if (action === "io" && !permissions.canManageInvestigationStatus) {
+      sendJson(res, 403, { error: "Alleen Officiersraad, Hoofdofficier of Kader mag I.O aanpassen." });
+      return;
+    }
+    if (!["promote", "demote", "dismiss", "io"].includes(action) && !permissions.canManagePeople) {
       sendJson(res, 403, { error: "Alleen Kader mag deze actie uitvoeren." });
       return;
     }
@@ -1964,6 +1968,45 @@ function createPersoneelsportaalRouteHandler(deps) {
       state.activity = state.activity || [];
       state.activity.push(`Rang geschiedenis gewist voor ${person.name}.`);
     }
+    if (action === "io") {
+      if (person.status !== "Actief") {
+        sendJson(res, 400, { error: "Alleen actieve medewerkers kunnen op I.O worden gezet." });
+        return;
+      }
+      const now = new Date().toISOString();
+      const actorName = actor.name || auth.profile.name || "Onbekend";
+      const actorId = actor.id || auth.profile.id || "";
+      state.activity = state.activity || [];
+      if (body.active === false) {
+        person.ioStatus = {
+          active: false,
+          clearedAt: now,
+          clearedById: actorId,
+          clearedByName: actorName
+        };
+        state.activity.push(`${person.name} is van I.O gehaald door ${actorName}.`);
+        addProfileLog(person, {
+          type: "profile",
+          action: "I.O ingetrokken",
+          details: `I.O status ingetrokken door ${actorName}.`,
+          actor
+        });
+      } else {
+        person.ioStatus = {
+          active: true,
+          setAt: now,
+          setById: actorId,
+          setByName: actorName
+        };
+        state.activity.push(`${person.name} is op I.O gezet door ${actorName}.`);
+        addProfileLog(person, {
+          type: "profile",
+          action: "I.O melding",
+          details: `Op I.O gezet door ${actorName}.`,
+          actor
+        });
+      }
+    }
     if (action === "delete-archive") {
       if (hasOvcFunctionBadge(person)) {
         sendJson(res, 403, { error: "OVC-profielen kunnen niet uit het portaal verwijderd worden." });
@@ -1986,7 +2029,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
 
-    if (!(action === "dismiss" && hasOvcFunctionBadge(person))) {
+    if (action !== "io" && !(action === "dismiss" && hasOvcFunctionBadge(person))) {
       await syncChangedDiscordNicknames(state, previousNicknames);
       await syncChangedDiscordRankRoles(state, previousRankRoles);
     }

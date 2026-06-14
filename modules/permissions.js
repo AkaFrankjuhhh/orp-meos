@@ -95,6 +95,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewResignationOverview: canViewAsKader || (canOfficerManage && isHoofdofficier),
       canViewPersonnelArchive: canViewAsKader || (canOfficerManage && isHoofdofficier),
       canViewKaderPages: canViewAsKader,
+      canManageInvestigationStatus: isKader || isHoofdofficier || isOfficiersraad,
       canManageProfileBadges: isKader || (canOfficerManage && (isHoofdofficier || isOfficiersraad)),
       canManageQualifications: isKader || isTrainer || isTrainerLeadership,
       canRevokeIbt: isKader || isOvJ,

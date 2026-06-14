@@ -480,8 +480,8 @@ function renderProfile() {
   const profileStatusDot = $("#profilePageStatusDot");
   if (profileStatusDot) {
     profileStatusDot.className = `status-dot ${profileStatus.className}`;
-    profileStatusDot.title = profileStatus.label;
-    profileStatusDot.setAttribute("aria-label", profileStatus.label);
+    profileStatusDot.title = profileStatus.title || profileStatus.label;
+    profileStatusDot.setAttribute("aria-label", profileStatus.title || profileStatus.label);
   }
   updateProfileNavigationButtons(viewed);
   renderProfileBadges(viewed);
