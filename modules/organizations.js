@@ -229,7 +229,7 @@ const organizationConfigs = {
     profileTrainings: ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"],
     profileOperational: ["OPS", "OPCO", "OVD"],
     extraTasks: defensieExtraTasks,
-    extraFunctions: ["Kader", "Overheidscoördinator", "Hoofdofficier", "Officiersraad"],
+    extraFunctions: ["Kader", "OVC", "Hoofdofficier", "Officiersraad"],
     sideTaskBadges: defensieSideTaskBadges,
     restrictedTaskBadges: defensieSideTaskBadges,
     mentorRanks: ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"],
@@ -252,8 +252,8 @@ const organizationConfigs = {
       { label: "Hoofdofficier", ranks: ["Kolonel", "Luitenant-Kolonel", "Majoor"] }
     ],
     permissionAliases: {
-      kader: ["Kader"],
-      viewAsKader: ["Kader", "Overheidscoördinator"],
+      kader: ["Kader", "OVC", "Overheidscoordinator"],
+      viewAsKader: ["Kader", "OVC", "Overheidscoordinator"],
       hoofdofficier: ["Hoofdofficier"],
       officiersraad: ["Officiersraad"]
     },
@@ -285,7 +285,6 @@ const organizationConfigs = {
       mainRole: { envKey: "DISCORD_DEFENSIE_ROLE_ID" },
       functionRoleMappings: [
         { key: "kader", label: "Kader", envKey: "DISCORD_KADER_ROLE_ID", stateKey: "kaderRoleId" },
-        { key: "overheidscoordinator", label: "Overheidscoördinator", envKey: "DISCORD_OVERHEIDSCOORDINATOR_ROLE_ID", stateKey: "overheidsCoordinatorRoleId" },
         { key: "hoofdofficier", label: "Hoofdofficier", envKey: "DISCORD_HOOFDOFFICIER_ROLE_ID", stateKey: "hoofdofficierRoleId" },
         { key: "officiersraad", label: "Officiersraad", envKey: "DISCORD_OFFICIERSRAAD_ROLE_ID", stateKey: "officiersraadRoleId" }
       ],
@@ -380,7 +379,7 @@ const organizationConfigs = {
     profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME"],
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
-    extraFunctions: ["Korpsleiding", "Bestuur"],
+    extraFunctions: ["Korpsleiding", "Bestuur", "OVC"],
     sideTaskBadges: politieSideTaskBadges,
     restrictedTaskBadges: politieSideTaskBadges,
     mentorRanks: ["Aspirant"],
@@ -398,8 +397,8 @@ const organizationConfigs = {
       { label: "Bestuur", ranks: ["Hoofdinspecteur", "Inspecteur"] }
     ],
     permissionAliases: {
-      kader: ["Korpsleiding"],
-      viewAsKader: ["Korpsleiding", "Bestuur"],
+      kader: ["Korpsleiding", "OVC", "Overheidscoordinator"],
+      viewAsKader: ["Korpsleiding", "Bestuur", "OVC", "Overheidscoordinator"],
       hoofdofficier: ["Bestuur"],
       officiersraad: []
     },

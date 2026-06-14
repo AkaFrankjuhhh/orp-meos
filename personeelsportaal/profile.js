@@ -62,7 +62,7 @@ function profileNavigationPeople() {
   return (state.people || [])
     .filter((person) => person.status === "Actief")
     .sort((a, b) => {
-      const rankDelta = rankWeight.get(b.rank) - rankWeight.get(a.rank);
+      const rankDelta = (rankWeight.get(b.rank) || 0) - (rankWeight.get(a.rank) || 0);
       if (rankDelta !== 0) return rankDelta;
       return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
     });
@@ -118,12 +118,15 @@ function automaticFunctionBadges(person) {
 
 function renderProfileBadges(person) {
   const personBadges = person.badges || [];
+  const profileFunctions = typeof canonicalProfileFunctions === "function"
+    ? canonicalProfileFunctions(person.extraFunctions || [])
+    : (person.extraFunctions || []);
   const sideTaskSet = new Set(profileSideTaskBadges);
   const taskBadges = extraTasks.filter((badge) => personBadges.includes(badge) && !sideTaskSet.has(badge));
   const sideTaskBadges = profileSideTaskBadges.filter((badge) => personBadges.includes(badge));
   const functionBadges = [
     ...automaticFunctionBadges(person),
-    ...extraFunctions.filter((badge) => (person.extraFunctions || []).includes(badge))
+    ...extraFunctions.filter((badge) => profileFunctions.includes(badge))
   ].filter((badge, index, list) => list.indexOf(badge) === index)
     .sort((a, b) => extraFunctions.indexOf(a) - extraFunctions.indexOf(b));
   const functionRow = functionBadges.map((badge) => `<span class="profile-badge function">${escapeHtml(badge)}</span>`).join("");
@@ -422,12 +425,15 @@ function openProfileBadgeDialog(mode = "main") {
   const selectedTasks = viewed.badges || [];
   const sideTaskSet = new Set(profileSideTaskBadges);
   const isSideMode = mode === "side";
-  const manageableFunctions = !isSideMode && hasKaderAccess() ? extraFunctions : [];
+  const selectedProfileFunctions = typeof canonicalProfileFunctions === "function" ? canonicalProfileFunctions(selectedFunctions) : selectedFunctions;
+  const manageableFunctions = !isSideMode && hasKaderAccess()
+    ? extraFunctions.filter((item) => !(typeof isOvcFunctionBadge === "function" && isOvcFunctionBadge(item)) || (typeof canManageOvcBadge === "function" && canManageOvcBadge()))
+    : [];
   $("#profileBadgeFunctionOptions").innerHTML = manageableFunctions.length
     ? manageableFunctions
       .map((item) => `
         <label>
-          <input type="checkbox" value="${escapeHtml(item)}" ${selectedFunctions.includes(item) ? "checked" : ""} />
+          <input type="checkbox" value="${escapeHtml(item)}" ${selectedProfileFunctions.includes(item) ? "checked" : ""} />
           ${escapeHtml(item)}
         </label>
       `)
@@ -461,10 +467,11 @@ function renderProfile() {
   const profileDisplayName = $("#profilePageDisplayName");
   profileNameStack.classList.remove("profile-police-layout");
   profileNameStack.classList.add("profile-service-layout");
-  profileRankNumber.textContent = profileRankLabel(viewed.rank);
+  const viewedIsOvcOnly = typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(viewed);
+  profileRankNumber.textContent = viewedIsOvcOnly ? "" : profileRankLabel(viewed.rank);
   const serviceLine = document.createElement("span");
   serviceLine.className = "profile-service-line";
-  serviceLine.textContent = viewed.serviceNumber || "-";
+  serviceLine.textContent = viewedIsOvcOnly ? "" : viewed.serviceNumber || "-";
   const nameLine = document.createElement("span");
   nameLine.className = "profile-display-name";
   nameLine.textContent = viewed.name || "-";

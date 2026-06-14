@@ -3,19 +3,12 @@ const {
   configuredPortoDiscordChannels
 } = require("./porto-discord-channels");
 const { currentOrganization } = require("./organizations");
+const { isDevDiscordId } = require("./ovc");
 
 const PORTO_HEARTBEAT_WRITE_MS = 60 * 1000;
 
-function normalizeDiscordId(value) {
-  return String(value || "").replace(/^discord:/i, "").trim();
-}
-
-function configuredDevDiscordIds() {
-  return new Set(String(process.env.DEV_OVERRIDE_DISCORD_IDS || "").split(",").map(normalizeDiscordId).filter(Boolean));
-}
-
 function isDevOverrideProfile(person) {
-  return Boolean(person?.status === "Actief" && configuredDevDiscordIds().has(normalizeDiscordId(person.discordId)));
+  return Boolean(person?.status === "Actief" && isDevDiscordId(person.discordId));
 }
 
 function timestampMs(value) {

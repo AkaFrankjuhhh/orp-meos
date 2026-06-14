@@ -4,6 +4,10 @@ const {
   serviceNumberGroupForRank,
   serviceNumberGroupsForRank
 } = require("./organizations");
+const {
+  hasOvcFunctionBadge,
+  normalizeOvcFunctionBadges
+} = require("./ovc");
 
 // Centrale Personeelsportaal domeinregels: rangen, dienstnummers, profieldata en mutaties.
 const organization = currentOrganization();
@@ -159,6 +163,7 @@ function autoSortServiceNumbers(state) {
 }
 
 function assertValidServiceNumber(state, person) {
+  if (hasOvcFunctionBadge(person) && !person.rank && !person.serviceNumber) return "";
   const match = /^(\d{2})-(\d{2,3})$/.exec(person.serviceNumber || "");
   if (!match) {
     return "Dienstnummer hoort niet bij deze ranggroep.";
@@ -204,18 +209,20 @@ function savePerson(state, payload) {
     status: existing?.status || "Actief",
     rankHistory: existing?.rankHistory || []
   };
+  person.extraFunctions = normalizeOvcFunctionBadges(person.extraFunctions);
   const requestedRank = person.rank;
   const requestedRankDate = person.rankDate;
   const requestedServiceNumber = person.serviceNumber;
+  const isOvcOnlyProfile = hasOvcFunctionBadge(person) && !person.rank && !person.serviceNumber;
 
-  if (!person.name || !person.discordId || !ranks.includes(person.rank) || !person.serviceNumber) {
+  if (!person.name || !person.discordId || (!isOvcOnlyProfile && (!ranks.includes(person.rank) || !person.serviceNumber))) {
     return { error: "Naam, Discord ID, rang en dienstnummer zijn verplicht." };
   }
 
   const serviceError = assertValidServiceNumber(state, person);
   if (serviceError) return { error: serviceError };
 
-  if (!existing || existing.rank !== person.rank || existing.serviceNumber !== person.serviceNumber) {
+  if (!isOvcOnlyProfile && (!existing || existing.rank !== person.rank || existing.serviceNumber !== person.serviceNumber)) {
     person.rankHistory.push({ rank: person.rank, date: person.rankDate, serviceNumber: person.serviceNumber });
   }
 

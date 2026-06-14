@@ -1,6 +1,12 @@
 // Defensie Personeelsportaal API-routes staan los van Porto, zodat beide websites apart kunnen groeien.
 const crypto = require("node:crypto");
 const { currentOrganization } = require("./organizations");
+const {
+  OVC_FUNCTION_BADGE,
+  hasOvcFunctionBadge,
+  isOvcFunctionBadge,
+  normalizeOvcFunctionBadges
+} = require("./ovc");
 
 function createPersoneelsportaalRouteHandler(deps) {
   const organization = currentOrganization();
@@ -213,11 +219,29 @@ function createPersoneelsportaalRouteHandler(deps) {
   }
 
   function canDismissPerson(permissions, person) {
+    if (hasOvcFunctionBadge(person) && !person?.rank && !person?.serviceNumber) return false;
     if (permissions.canManagePeople) return true;
     if (!permissions.canDismissPersonnelToAdjudant || !person) return false;
     const adjudantIndex = ranks.indexOf("Adjudant");
     const currentIndex = ranks.indexOf(person.rank);
     return adjudantIndex >= 0 && currentIndex >= adjudantIndex;
+  }
+
+  function normalizeSelectedExtraFunctions(items = []) {
+    const allowed = new Set(extraFunctions);
+    return normalizeOvcFunctionBadges(items)
+      .filter((badge) => allowed.has(badge))
+      .filter((badge, index, list) => list.indexOf(badge) === index);
+  }
+
+  function mergeOvcBadgeForActor(nextFunctions, previousFunctions, permissions) {
+    const nextWithoutOvc = nextFunctions.filter((badge) => !isOvcFunctionBadge(badge));
+    const previousHasOvc = previousFunctions.some(isOvcFunctionBadge);
+    const nextHasOvc = nextFunctions.some(isOvcFunctionBadge);
+    if (permissions.canManageOvcBadge) {
+      return nextHasOvc ? [...nextWithoutOvc, OVC_FUNCTION_BADGE] : nextWithoutOvc;
+    }
+    return previousHasOvc ? [...nextWithoutOvc, OVC_FUNCTION_BADGE] : nextWithoutOvc;
   }
 
   function blacklistErrorMessage() {
@@ -245,7 +269,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.buildServiceNickname !== "function") return new Map();
     return new Map(
       (state.people || [])
-        .filter((person) => person.discordId)
+        .filter((person) => person.discordId && person.rank && person.serviceNumber)
         .map((person) => [person.id, discordBot.buildServiceNickname(person)])
     );
   }
@@ -254,6 +278,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncNicknameForPerson !== "function") return;
     const changedPeople = (state.people || [])
       .filter((person) => person.status === "Actief" && person.discordId)
+      .filter((person) => person.rank && person.serviceNumber)
       .filter((person) => previousNicknames.get(person.id) !== discordBot.buildServiceNickname(person));
 
     for (const person of changedPeople) {
@@ -289,7 +314,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.rankRoleIdForPerson !== "function") return new Map();
     return new Map(
       (state.people || [])
-        .filter((person) => person.discordId)
+        .filter((person) => person.discordId && person.rank && person.serviceNumber)
         .map((person) => [person.id, `${person.discordId || ""}:${person.rank || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`])
     );
   }
@@ -298,6 +323,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncRankRoleForPerson !== "function") return;
     const changedPeople = (state.people || [])
       .filter((person) => person.status === "Actief" && person.discordId)
+      .filter((person) => person.rank && person.serviceNumber)
       .filter((person) => previousRankRoles.get(person.id) !== `${person.discordId || ""}:${person.rank || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`);
 
     for (const person of changedPeople) {
@@ -319,6 +345,7 @@ function createPersoneelsportaalRouteHandler(deps) {
 
   async function queuePersonDiscordSync(state, person, reason) {
     if (typeof enqueuePersonDiscordSync !== "function" || !person?.discordId) return;
+    if (!person.rank || !person.serviceNumber) return;
     try {
       await enqueuePersonDiscordSync(person, reason);
       state.activity = state.activity || [];
@@ -1470,7 +1497,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     // Alleen Kader mag de functie-badges Kader/Hoofdofficier/Officiersraad wijzigen.
     // Hoofdofficier en Officiersraad mogen wel taakbadges zoals hOvJ, Interne-Zaken en Trainer beheren.
     person.extraFunctions = permissions.canManagePeople
-      ? selectedFunctions.filter((badge) => extraFunctions.includes(badge))
+      ? mergeOvcBadgeForActor(normalizeSelectedExtraFunctions(selectedFunctions), previousFunctions, permissions)
       : previousFunctions;
     person.badges = badges.filter((badge) => extraTasks.includes(badge));
     const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
@@ -1816,6 +1843,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     const action = personActionMatch[2];
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    const actorIsOvcOnly = hasOvcFunctionBadge(actor) && !actor.rank && !actor.serviceNumber;
     if (["promote", "demote"].includes(action) && !canManageRankAction(permissions, person, action)) {
       sendJson(res, 403, { error: "Alleen Kader mag boven Adjudant aanpassen." });
       return;
@@ -1826,6 +1855,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     if (!["promote", "demote", "dismiss"].includes(action) && !permissions.canManagePeople) {
       sendJson(res, 403, { error: "Alleen Kader mag deze actie uitvoeren." });
+      return;
+    }
+    if (action === "delete-archive" && actorIsOvcOnly && !permissions.canManageOvcBadge) {
+      sendJson(res, 403, { error: "OVC mag profielen niet definitief uit het portaal verwijderen." });
       return;
     }
     const body = await readBody(req);
@@ -1858,22 +1891,37 @@ function createPersoneelsportaalRouteHandler(deps) {
         sendJson(res, 400, { error: "Ontslagreden is verplicht." });
         return;
       }
+      const hasOvcBadge = hasOvcFunctionBadge(person);
       const releasedNumber = person.serviceNumber;
+      const releasedRank = person.rank;
       const todayValue = today();
-      const dismissedBy = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
-      person.status = "Ontslagen";
+      const dismissedBy = actor;
       person.dismissalDate = todayValue;
       person.dismissalReason = reason;
-      person.archivedUntil = addMonths(todayValue, 6);
+      person.archivedUntil = hasOvcBadge ? "" : addMonths(todayValue, 6);
       person.previousServiceNumber = releasedNumber;
+      person.previousRank = releasedRank || person.previousRank || "";
       person.serviceNumber = "";
+      if (hasOvcBadge) {
+        person.status = "Actief";
+        person.rank = "";
+        person.rankDate = "";
+        person.promotionDate = "";
+        person.extraFunctions = normalizeOvcFunctionBadges(person.extraFunctions || []);
+      } else {
+        person.status = "Ontslagen";
+      }
       person.permRole = "Geen";
       state.activity = state.activity || [];
-      state.activity.push(`${person.name} is op ontslag gezet. Dienstnummer ${releasedNumber} is vrijgegeven.`);
+      state.activity.push(
+        hasOvcBadge
+          ? `${person.name} is als medewerker ontslagen. OVC-toegang is behouden en dienstnummer ${releasedNumber || "-"} is vrijgegeven.`
+          : `${person.name} is op ontslag gezet. Dienstnummer ${releasedNumber} is vrijgegeven.`
+      );
       try {
         const webhookResult = await sendDiscordWebhook(
           personnelWebhookUrl("dismissal"),
-          buildDismissalWebhookPayload(person, { reason, releasedNumber, date: todayValue }, dismissedBy)
+          buildDismissalWebhookPayload(person, { reason, releasedNumber, date: todayValue, rank: releasedRank }, dismissedBy)
         );
         if (webhookResult.ok) {
           state.activity.push(`Ontslag webhook verzonden voor ${person.name}.`);
@@ -1917,6 +1965,10 @@ function createPersoneelsportaalRouteHandler(deps) {
       state.activity.push(`Rang geschiedenis gewist voor ${person.name}.`);
     }
     if (action === "delete-archive") {
+      if (hasOvcFunctionBadge(person)) {
+        sendJson(res, 403, { error: "OVC-profielen kunnen niet uit het portaal verwijderd worden." });
+        return;
+      }
       if (!["Ontslagen", "Gearchiveerd"].includes(person.status)) {
         sendJson(res, 400, { error: "Alleen archiefprofielen kunnen definitief verwijderd worden." });
         return;
@@ -1934,8 +1986,10 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
 
-    await syncChangedDiscordNicknames(state, previousNicknames);
-    await syncChangedDiscordRankRoles(state, previousRankRoles);
+    if (!(action === "dismiss" && hasOvcFunctionBadge(person))) {
+      await syncChangedDiscordNicknames(state, previousNicknames);
+      await syncChangedDiscordRankRoles(state, previousRankRoles);
+    }
     if (person.status === "Actief" && ["promote", "demote", "reactivate"].includes(action)) {
       await queuePersonDiscordSync(state, person, `person_${action}`);
     }

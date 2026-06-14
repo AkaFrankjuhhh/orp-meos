@@ -19,6 +19,7 @@ const { createHttpResponder, createJsonBodyReader, readRawBody, serveWhitelisted
 const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
 const { createPublicFormsStore } = require("./modules/public-forms-store");
 const { enqueuePersonDiscordSync } = require("./modules/discord-sync-jobs");
+const { normalizeDiscordId, isDevDiscordId } = require("./modules/ovc");
 const {
   currentOrganization,
   organizationMainRoleId,
@@ -141,16 +142,8 @@ function allowDevUnauth() {
 }
 
 
-function normalizeDiscordId(value) {
-  return String(value || "").replace(/^discord:/i, "").trim();
-}
-
-function configuredDevDiscordIds() {
-  return new Set(String(process.env.DEV_OVERRIDE_DISCORD_IDS || "").split(/[,\s]+/).map(normalizeDiscordId).filter(Boolean));
-}
-
 function isDevOverrideDiscordId(discordId) {
-  return configuredDevDiscordIds().has(normalizeDiscordId(discordId));
+  return isDevDiscordId(discordId);
 }
 
 function syntheticDevProfile(user) {

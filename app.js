@@ -168,6 +168,39 @@ function hasKaderAccess() {
   return Boolean(permissions.canManagePeople);
 }
 
+function canManageOvcBadge() {
+  return Boolean(permissions.canManageOvcBadge);
+}
+
+function normalizeFunctionBadgeName(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+function isOvcFunctionBadge(value) {
+  const normalized = normalizeFunctionBadgeName(value);
+  return normalized === "ovc" || normalized === "overheidscoordinator";
+}
+
+function canonicalProfileFunctions(functions = []) {
+  const seen = new Set();
+  const result = [];
+  for (const badge of functions || []) {
+    const next = isOvcFunctionBadge(badge) ? "OVC" : String(badge || "").trim();
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    result.push(next);
+  }
+  return result;
+}
+
+function personHasOvcBadge(person) {
+  return canonicalProfileFunctions(person?.extraFunctions || []).some((badge) => isOvcFunctionBadge(badge));
+}
+
+function isOvcOnlyProfile(person) {
+  return Boolean(personHasOvcBadge(person) && !person?.rank && !person?.serviceNumber);
+}
+
 function canViewKaderPages() {
   return Boolean(permissions.canViewKaderPages || permissions.canViewLogbook || canViewLogbook || hasKaderAccess());
 }
@@ -197,6 +230,7 @@ function canViewPersonnelArchive() {
 }
 
 function canManagePersonnelRanksFor(person, action = "") {
+  if (!person || ranks.indexOf(person.rank) < 0) return false;
   if (hasKaderAccess()) return true;
   if (!canManagePersonnelRanks() || !person) return false;
   const adjudantIndex = ranks.indexOf("Adjudant");
@@ -211,6 +245,7 @@ function canManagePersonnelRanksFor(person, action = "") {
 }
 
 function canDismissPerson(person) {
+  if (isOvcOnlyProfile(person)) return false;
   if (hasKaderAccess()) return true;
   if (!permissions.canDismissPersonnelToAdjudant || !person) return false;
   const adjudantIndex = ranks.indexOf("Adjudant");
@@ -1564,7 +1599,7 @@ function wireEvents() {
     const sideTaskSet = new Set(window.profileSideTaskBadges || []);
     const dialogMode = window.profileBadgeDialogMode || "main";
     const selectedFunctions = $$("#profileBadgeFunctionOptions input:checked").map((input) => input.value);
-    const extraFunctions = dialogMode === "side" ? (viewed?.extraFunctions || []) : selectedFunctions;
+    const extraFunctions = dialogMode === "side" ? canonicalProfileFunctions(viewed?.extraFunctions || []) : selectedFunctions;
     const selectedBadges = $$("#profileBadgeTaskOptions input:checked").map((input) => input.value);
     const existingBadges = viewed?.badges || [];
     const badges = dialogMode === "side"

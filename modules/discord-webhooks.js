@@ -200,7 +200,7 @@ function createDiscordWebhookServices({ formatDate }) {
           thumbnail: member.avatar ? { url: member.avatar } : undefined,
           fields: [
             { name: "Personeelslid", value: `${dismissal.releasedNumber || member.previousServiceNumber || "-"} - ${member.name}`, inline: false },
-            { name: "Rang", value: member.rank || "-", inline: true },
+            { name: "Rang", value: dismissal.rank || member.previousRank || member.rank || "-", inline: true },
             { name: "Ontslagdatum", value: formatDate(dismissal.date), inline: true },
             { name: "Reden", value: dismissal.reason || "-", inline: false },
             { name: "Uitgevoerd door", value: dismissedBy?.name || "Kader", inline: false }

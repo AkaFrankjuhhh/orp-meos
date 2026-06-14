@@ -1,15 +1,14 @@
 const { currentOrganization, envOrDefault } = require("./organizations");
-
-function normalizeDiscordId(value) {
-  return String(value || "").replace(/^discord:/i, "").trim();
-}
-
-function configuredDevDiscordIds() {
-  return new Set(String(process.env.DEV_OVERRIDE_DISCORD_IDS || "").split(",").map(normalizeDiscordId).filter(Boolean));
-}
+const {
+  configuredDevDiscordIds,
+  isDevDiscordId,
+  isOvcFunctionBadge,
+  canonicalizeFunctionBadge,
+  normalizeFunctionBadge
+} = require("./ovc");
 
 function isDevOverrideProfile(profile) {
-  return Boolean(profile?.status === "Actief" && configuredDevDiscordIds().has(normalizeDiscordId(profile.discordId)));
+  return Boolean(profile?.status === "Actief" && isDevDiscordId(profile.discordId));
 }
 
 function automaticFunctionBadges(profile) {
@@ -26,18 +25,13 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
   const organization = currentOrganization();
   const permissionAliases = organization.permissionAliases || {};
 
-  function normalizeFunctionBadge(value) {
-    return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  }
-
   function hasFunctionBadge(functionBadges, badge) {
     const normalized = normalizeFunctionBadge(badge);
     return functionBadges.some((item) => normalizeFunctionBadge(item) === normalized);
   }
 
   function canonicalFunctionBadge(value) {
-    const normalized = normalizeFunctionBadge(value);
-    return extraFunctions.find((badge) => normalizeFunctionBadge(badge) === normalized) || "";
+    return canonicalizeFunctionBadge(value, extraFunctions);
   }
 
   function effectiveFunctionBadges(profile) {
@@ -65,8 +59,9 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const functionBadges = effectiveFunctionBadges(profile);
     const taskBadges = effectiveTaskBadges(profile);
     const isDevOverride = isDevOverrideProfile(profile);
+    const canManageOvcBadge = isDevDiscordId(profile?.discordId);
     const isKader = (permissionAliases.kader || ["Kader"]).some((badge) => hasFunctionBadge(functionBadges, badge)) || isDevOverride;
-    const canViewAsKader = isKader || (permissionAliases.viewAsKader || ["Kader", "Overheidscoördinator"]).some((badge) => hasFunctionBadge(functionBadges, badge));
+    const canViewAsKader = isKader || (permissionAliases.viewAsKader || ["Kader", "OVC", "Overheidscoordinator"]).some((badge) => hasFunctionBadge(functionBadges, badge));
     const isHoofdofficier = (permissionAliases.hoofdofficier || ["Hoofdofficier"]).some((badge) => hasFunctionBadge(functionBadges, badge));
     const isOfficiersraad = (permissionAliases.officiersraad || ["Officiersraad"]).some((badge) => hasFunctionBadge(functionBadges, badge));
     const isInterneZaken = taskBadges.includes("Interne-Zaken");
@@ -124,6 +119,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewMentorLeadershipLog: canViewAsKader || isMentorLeadership || isOtcLeadership,
       canViewProfileAuditLog: canViewAsKader || isHoofdofficier,
       canViewRestrictedTaskBadges: canViewAsKader || isHoofdofficier || isOfficiersraad,
+      canManageOvcBadge,
       canUseDevTools: isDevOverride
     };
   }
@@ -175,7 +171,9 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     hasPermission,
     hasKaderAccess,
     getPermRoleMappings,
+    configuredDevDiscordIds,
     isDevOverrideProfile,
+    isOvcFunctionBadge,
     resolveSyncedPermRole
   };
 }

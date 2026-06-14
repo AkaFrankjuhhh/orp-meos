@@ -213,6 +213,7 @@ function personnelOperatorLabel() {
 }
 
 function renderPersonnelHourBadges(person) {
+  if (typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person)) return "";
   const serviceHours = personnelCurrentWeekHours(person);
   const opsHours = personnelOpsHoursLastWeeks(person, 2);
   const operatorLabel = personnelOperatorLabel();
@@ -264,6 +265,10 @@ function renderPersonnelTopHoursList(title, subtitle, people, valueForPerson, cl
 }
 
 function renderPersonnelCard(person) {
+  const isOvcOnly = typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person);
+  const rankServiceText = isOvcOnly
+    ? "OVC"
+    : `${person.rank || "-"} - ${person.serviceNumber || "Geen roepnummer"}`;
   return `
       <article class="person-card" data-person-card="${person.id}">
         <div class="card-menu-wrap">
@@ -282,7 +287,7 @@ function renderPersonnelCard(person) {
           <div>
             <span class="person-label">Naam</span>
             <h2>${escapeHtml(person.name)}</h2>
-            <p class="muted">${escapeHtml(person.rank)} - ${escapeHtml(person.serviceNumber || "Geen roepnummer")}</p>
+            <p class="muted">${escapeHtml(rankServiceText)}</p>
             <div class="person-status-line">
               <span class="person-status ${statusInfoFor(person).className}">${escapeHtml(statusInfoFor(person).label)}</span>
               ${renderPersonnelHourBadges(person)}
@@ -300,8 +305,8 @@ function renderPersonnelCard(person) {
           </div>
         </details>
         <div class="person-actions">
-          ${canManagePersonnelRanksFor(person, "promote") && ranks.indexOf(person.rank) > 0 ? `<button class="primary" type="button" data-promote="${person.id}">Promotie</button>` : ""}
-          ${canManagePersonnelRanksFor(person, "demote") && ranks.indexOf(person.rank) < ranks.length - 1 ? `<button class="ghost secondary" type="button" data-demote="${person.id}">Degraderen</button>` : ""}
+          ${!isOvcOnly && canManagePersonnelRanksFor(person, "promote") && ranks.indexOf(person.rank) > 0 ? `<button class="primary" type="button" data-promote="${person.id}">Promotie</button>` : ""}
+          ${!isOvcOnly && canManagePersonnelRanksFor(person, "demote") && ranks.indexOf(person.rank) < ranks.length - 1 ? `<button class="ghost secondary" type="button" data-demote="${person.id}">Degraderen</button>` : ""}
           ${canDismissPerson(person) ? `<button class="ghost danger" type="button" data-dismiss="${person.id}">Ontslag</button>` : ""}
         </div>
       </article>
@@ -349,11 +354,12 @@ function renderPeople() {
       return haystack.includes(query);
     })
     .sort((a, b) => {
-      const rankDelta = rankWeight.get(b.rank) - rankWeight.get(a.rank);
+      const rankDelta = (rankWeight.get(b.rank) || 0) - (rankWeight.get(a.rank) || 0);
       if (rankDelta !== 0) return rankDelta;
       return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
     });
   const allActivePeople = state.people.filter((person) => person.status === "Actief");
+  const ovcPeople = people.filter((person) => typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person));
 
   const leadershipCategory = rankCategories[0] || {};
   const leadershipRank = leadershipCategory.ranks?.[0] || "";
@@ -370,6 +376,25 @@ function renderPeople() {
         .filter((group) => group.people.length > 0)
     }))
     .filter((category) => category.rankGroups.length > 0 || (hasLeadershipOverview && category.title === leadershipCategory.title && people.some((person) => person.rank === leadershipRank && personMatchesRankCategory(person, category))));
+
+  const ovcSection = ovcPeople.length
+    ? `
+      <section class="rank-category">
+        <div class="rank-category-title">
+          <h2>OVC</h2>
+          <span>${ovcPeople.length}</span>
+        </div>
+        <section class="rank-group">
+          <div class="rank-group-title count-left">
+            <span>${ovcPeople.length}</span><h3>Overheid Coördinator</h3>
+          </div>
+          <div class="rank-group-list">
+            ${ovcPeople.map(renderPersonnelCard).join("")}
+          </div>
+        </section>
+      </section>
+    `
+    : "";
 
   $("#peopleList").innerHTML = groups
     .map((category) => `
@@ -393,7 +418,7 @@ function renderPeople() {
           .join("")}
       </section>
     `)
-    .join("");
+    .join("") + ovcSection;
 }
 
 function employeeCategoryTone(title) {
@@ -413,10 +438,33 @@ function renderEmployeeDirectory() {
       return haystack.includes(query);
     })
     .sort((a, b) => {
-      const rankDelta = rankWeight.get(b.rank) - rankWeight.get(a.rank);
+      const rankDelta = (rankWeight.get(b.rank) || 0) - (rankWeight.get(a.rank) || 0);
       if (rankDelta !== 0) return rankDelta;
       return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
     });
+  const ovcPeople = people.filter((person) => typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person));
+
+  const ovcDirectory = ovcPeople.length
+    ? `
+      <section class="employee-group employee-group-kader">
+        <div class="employee-group-title">
+          <span class="employee-group-icon" aria-hidden="true">O</span>
+          <h2>OVC</h2>
+          <span class="employee-group-count">${ovcPeople.length}</span>
+        </div>
+        <div class="employee-table">
+          ${ovcPeople.map((person) => `
+            <button class="employee-row employee-row-kader" type="button" data-open-profile="${person.id}">
+              <span class="employee-service-badge">OVC</span>
+              <span class="employee-rank-badge">Overheid Coördinator</span>
+              <strong>${escapeHtml(person.name)}</strong>
+              <span class="employee-status ${statusInfoFor(person).className}">${escapeHtml(statusInfoFor(person).label)}</span>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+    `
+    : "";
 
   $("#employeeDirectory").innerHTML = rankCategories
     .map((category) => {
@@ -454,7 +502,7 @@ function renderEmployeeDirectory() {
         </section>
       `;
     })
-    .join("") || '<div class="feed-item">Geen medewerkers gevonden.</div>';
+    .join("") + ovcDirectory || '<div class="feed-item">Geen medewerkers gevonden.</div>';
 }
 
 function openMemberDialog(person = null) {
