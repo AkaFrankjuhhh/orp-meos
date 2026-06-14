@@ -265,7 +265,7 @@ function page({ title, subtitle, body, error = "" }) {
   <style>
     :root { color-scheme: dark; font-family: Inter, Segoe UI, system-ui, sans-serif; background: #08111f; color: #f8fbff; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background-image: linear-gradient(90deg, rgba(3, 8, 14, .26), rgba(3, 8, 14, .04) 34%, rgba(3, 8, 14, .18) 65%, rgba(3, 8, 14, .30)), radial-gradient(circle at 50% 50%, rgba(8, 17, 31, .18), rgba(3, 7, 12, .46) 55%, rgba(3, 7, 12, .72)), url("/assets/orp-overheid-background.png?v=20260610"); background-position: center; background-size: cover; background-repeat: no-repeat; background-attachment: fixed; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background-image: linear-gradient(90deg, rgba(3, 8, 14, .26), rgba(3, 8, 14, .04) 34%, rgba(3, 8, 14, .18) 65%, rgba(3, 8, 14, .30)), radial-gradient(circle at 50% 50%, rgba(8, 17, 31, .18), rgba(3, 7, 12, .46) 55%, rgba(3, 7, 12, .72)), url("/assets/orp-overheid-background.png?v=20260614-modern-login"); background-position: center; background-size: cover; background-repeat: no-repeat; background-attachment: fixed; }
     main { width: min(680px, calc(100vw - 32px)); padding: 34px; border: 1px solid rgba(135, 171, 219, .32); border-radius: 18px; background: rgba(10, 20, 35, .82); box-shadow: 0 28px 90px rgba(0,0,0,.48); backdrop-filter: blur(14px); }
     .eyebrow { margin: 0 0 12px; color: #93b7e5; font-weight: 800; text-transform: uppercase; font-size: 12px; letter-spacing: .04em; }
     h1 { margin: 0; font-size: clamp(34px, 6vw, 58px); line-height: 1; }
