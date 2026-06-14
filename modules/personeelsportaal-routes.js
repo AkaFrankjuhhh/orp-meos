@@ -203,6 +203,43 @@ function createPersoneelsportaalRouteHandler(deps) {
     return (state.blacklist || []).find((entry) => normalizeDiscordId(entry.discordId) === normalized && !entry.revokedAt) || null;
   }
 
+  function unlinkDeletedPersonReferences(state, person) {
+    const personId = person?.id || "";
+    if (!personId) return { hoursRemoved: 0, resignationUnlinked: 0, blacklistUnlinked: 0 };
+    const previousHours = Array.isArray(state.hours) ? state.hours : [];
+    state.hours = previousHours.filter((entry) => entry.personId !== personId);
+    let resignationUnlinked = 0;
+    state.resignationForms = (Array.isArray(state.resignationForms) ? state.resignationForms : []).map((entry) => {
+      if (entry.memberId !== personId) return entry;
+      resignationUnlinked += 1;
+      return {
+        ...entry,
+        memberId: "",
+        name: entry.name || person.name || "",
+        rank: entry.rank || person.rank || "",
+        serviceNumber: entry.serviceNumber || person.serviceNumber || ""
+      };
+    });
+    let blacklistUnlinked = 0;
+    state.blacklist = (Array.isArray(state.blacklist) ? state.blacklist : []).map((entry) => {
+      if (entry.personId !== personId) return entry;
+      blacklistUnlinked += 1;
+      return {
+        ...entry,
+        personId: "",
+        name: entry.name || person.name || "",
+        discordId: entry.discordId || person.discordId || "",
+        rank: entry.rank || person.rank || "",
+        serviceNumber: entry.serviceNumber || person.serviceNumber || ""
+      };
+    });
+    return {
+      hoursRemoved: previousHours.length - state.hours.length,
+      resignationUnlinked,
+      blacklistUnlinked
+    };
+  }
+
   function canManageRankAction(permissions, person, action) {
     if (permissions.canManagePeople) return true;
     if (!permissions.canManagePersonnelRanks || !person) return false;
@@ -2022,9 +2059,13 @@ function createPersoneelsportaalRouteHandler(deps) {
         sendJson(res, 404, { error: "Personeels-archiefprofiel niet gevonden." });
         return;
       }
+      const cleanup = unlinkDeletedPersonReferences(state, person);
       state.people.splice(archiveIndex, 1);
       state.activity = state.activity || [];
       state.activity.push(`${removedName} is definitief verwijderd uit het archief.`);
+      if (cleanup.hoursRemoved || cleanup.resignationUnlinked || cleanup.blacklistUnlinked) {
+        state.activity.push(`Gekoppelde archiefgegevens van ${removedName} zijn opgeschoond.`);
+      }
       await sendPeopleStateAfterMutation(res, auth, state);
       return;
     }

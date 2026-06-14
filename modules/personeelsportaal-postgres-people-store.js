@@ -15,6 +15,22 @@ function ids(items) {
   return (items || []).map((item) => item.id).filter(Boolean);
 }
 
+function idSet(items) {
+  return new Set(ids(items));
+}
+
+function filterHoursForKnownPeople(hours, knownPeopleIds) {
+  return (hours || []).filter((entry) => !entry.personId || knownPeopleIds.has(entry.personId));
+}
+
+function unlinkUnknownPersonReferences(items, knownPeopleIds, key) {
+  return (items || []).map((entry) => {
+    const personId = entry?.[key];
+    if (!personId || knownPeopleIds.has(personId)) return entry;
+    return { ...entry, [key]: "" };
+  });
+}
+
 function createPostgresPeopleStore(options = {}) {
   const afterWrite = typeof options.afterWrite === "function" ? options.afterWrite : null;
 
@@ -280,12 +296,27 @@ function createPostgresPeopleStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
-        await writePeople(client, Array.isArray(state.people) ? state.people : []);
-        if (Array.isArray(state.resignationForms)) {
-          await writeResignationForms(client, state.resignationForms);
+        const people = Array.isArray(state.people) ? state.people : [];
+        const knownPeopleIds = idSet(people);
+        const hasResignationForms = Array.isArray(state.resignationForms);
+        const resignationForms = hasResignationForms
+          ? unlinkUnknownPersonReferences(state.resignationForms, knownPeopleIds, "memberId")
+          : [];
+        const blacklist = unlinkUnknownPersonReferences(
+          Array.isArray(state.blacklist) ? state.blacklist : [],
+          knownPeopleIds,
+          "personId"
+        );
+        const hours = filterHoursForKnownPeople(Array.isArray(state.hours) ? state.hours : [], knownPeopleIds);
+        if (hasResignationForms) state.resignationForms = resignationForms;
+        state.blacklist = blacklist;
+        state.hours = hours;
+        await writePeople(client, people);
+        if (hasResignationForms) {
+          await writeResignationForms(client, resignationForms);
         }
-        await writeBlacklist(client, Array.isArray(state.blacklist) ? state.blacklist : []);
-        await writeHours(client, Array.isArray(state.hours) ? state.hours : []);
+        await writeBlacklist(client, blacklist);
+        await writeHours(client, hours);
         await writeActivity(client, Array.isArray(state.activity) ? state.activity : []);
         await client.query("commit");
       } catch (error) {
