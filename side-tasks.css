@@ -131,6 +131,13 @@ h2 {
   font-size: clamp(2rem, 4vw, 3.5rem);
 }
 
+.user-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .user-chip {
   display: flex;
   align-items: center;
@@ -140,6 +147,24 @@ h2 {
   border-radius: 14px;
   background: rgba(7, 17, 31, 0.72);
   cursor: pointer;
+}
+
+.profile-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  width: min(380px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--line-bright);
+  border-radius: 14px;
+  background: rgba(9, 20, 36, 0.98);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+}
+
+.full-width {
+  width: 100%;
+  margin-top: 12px;
 }
 
 .avatar {
@@ -156,6 +181,10 @@ h2 {
   grid-template-columns: 380px 1fr;
   gap: 16px;
   align-items: start;
+}
+
+.dashboard-grid {
+  grid-template-columns: minmax(320px, 420px) 1fr;
 }
 
 .panel {
@@ -182,7 +211,7 @@ h2 {
 }
 
 .member-admin-list {
-  max-height: 320px;
+  max-height: min(620px, 60vh);
   overflow: auto;
   margin: 10px 0 14px;
   border: 1px solid var(--line);
@@ -193,7 +222,7 @@ h2 {
 .member-admin-list table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 520px;
+  min-width: 720px;
 }
 
 .member-admin-list th,
@@ -214,6 +243,23 @@ h2 {
 
 .member-admin-list tr:last-child td {
   border-bottom: 0;
+}
+
+.member-admin-page {
+  display: grid;
+  gap: 16px;
+}
+
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-heading h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
 }
 
 label {

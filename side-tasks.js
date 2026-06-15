@@ -3,7 +3,8 @@ const app = document.querySelector("#app");
 let appState = {
   me: null,
   members: [],
-  statuses: []
+  statuses: [],
+  profileOpen: false
 };
 
 function escapeHtml(value) {
@@ -62,98 +63,63 @@ function statusButton(status, currentStatus) {
   `;
 }
 
-function profilePanel() {
+function profileMenu() {
   const { member, task, permissions } = appState.me;
-  const profileFields = `
-    <form class="profile-form" data-form="profile">
-      ${task.allowAlias ? `
-        <label>DSI roepnummer
-          <input name="callSign" value="${escapeHtml(member?.callSign || "")}" placeholder="A-01" />
-        </label>
-        <label>Schuilnaam
-          <input name="aliasName" value="${escapeHtml(member?.aliasName || "")}" placeholder="Schuilnaam" />
-        </label>
-      ` : ""}
-      <label>Telefoonnummer
-        <input name="phone" value="${escapeHtml(member?.phone || "")}" placeholder="06-12345678" />
-      </label>
-      <button class="secondary-button" type="submit">Profiel opslaan</button>
-    </form>
-  `;
+  if (!appState.profileOpen) return "";
   return `
-    <section class="panel" id="my-profile">
+    <div class="profile-popover">
       <h2>Je profiel</h2>
       <p class="muted">${escapeHtml(displayMemberName(member || {}, task))}</p>
-      ${profileFields}
-      ${permissions.canManageMembers ? managerPanel() : ""}
-      <div class="status-block">
+      <form class="profile-form" data-form="profile">
+        ${task.allowAlias ? `
+          <label>DSI roepnummer
+            <input name="callSign" value="${escapeHtml(member?.callSign || "")}" placeholder="A-01" />
+          </label>
+          <label>Schuilnaam
+            <input name="aliasName" value="${escapeHtml(member?.aliasName || "")}" placeholder="Schuilnaam" />
+          </label>
+        ` : ""}
+        <label>Telefoonnummer
+          <input name="phone" value="${escapeHtml(member?.phone || "")}" placeholder="06-12345678" />
+        </label>
+        <button class="secondary-button" type="submit">Profiel opslaan</button>
+      </form>
+      ${permissions.canManageMembers ? `<button class="primary-button full-width" type="button" data-action="open-member-admin">Leden beheer</button>` : ""}
+    </div>
+  `;
+}
+
+function topbar() {
+  const task = appState.me.task;
+  return `
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">ORP Neventaken</p>
+        <h1>${escapeHtml(task.label)}</h1>
+        <p class="muted">${escapeHtml(task.displayName)}</p>
+      </div>
+      <div class="user-menu">
+        <button class="user-chip" type="button" data-action="toggle-profile" title="Je profiel">
+          ${appState.me.user.avatarUrl ? `<img class="avatar" src="${escapeHtml(appState.me.user.avatarUrl)}" alt="" />` : `<div class="avatar"></div>`}
+          <strong>${escapeHtml(appState.me.user.displayName)}</strong>
+        </button>
+        <button class="secondary-button" data-action="logout">Uitloggen</button>
+        ${profileMenu()}
+      </div>
+    </header>
+  `;
+}
+
+function statusPanel() {
+  const { member, task } = appState.me;
+  return `
+    <section class="panel">
       <h2>Mijn status</h2>
       <p class="muted">${escapeHtml(task.displayName)}</p>
       <div class="status-grid">
         ${appState.statuses.map((status) => statusButton(status, member?.status || "8")).join("")}
       </div>
-      </div>
     </section>
-  `;
-}
-
-function managerPanel() {
-  const rows = appState.members
-    .slice()
-    .sort((a, b) => displayMemberName(a, appState.me.task).localeCompare(displayMemberName(b, appState.me.task), "nl"))
-    .map(memberAdminRow)
-    .join("");
-  return `
-    <div class="manager-block">
-      <h2>Ledenbeheer</h2>
-      <div class="member-admin-list">
-        <table>
-          <thead>
-            <tr>
-              <th>Naam // schuilnaam</th>
-              <th>Specialisaties</th>
-              <th>Nummer</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || `<tr><td colspan="3">Geen leden gevonden.</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-      <form class="manager-form" data-form="add-member">
-        <label>Discord ID
-          <input name="discordId" placeholder="Discord ID" required />
-        </label>
-        <label>Naam
-          <input name="displayName" placeholder="Optioneel, wordt anders via Discord gevuld" />
-        </label>
-        <label>Telefoonnummer
-          <input name="phone" placeholder="06-12345678" />
-        </label>
-        ${appState.me.task.allowAlias ? `
-          <label>DSI roepnummer
-            <input name="callSign" placeholder="A-01" />
-          </label>
-          <label>Schuilnaam
-            <input name="aliasName" placeholder="Schuilnaam" />
-          </label>
-        ` : ""}
-        <button class="primary-button" type="submit">Lid toevoegen</button>
-      </form>
-    </div>
-  `;
-}
-
-function memberAdminRow(member) {
-  const name = member.displayName || member.discordId;
-  const alias = member.aliasName ? ` // ${member.aliasName}` : "";
-  const specialties = member.specialties?.length ? member.specialties.join(", ") : "Geen specialisaties";
-  return `
-    <tr>
-      <td>${escapeHtml(name)}${escapeHtml(alias)}</td>
-      <td>${escapeHtml(specialties)}</td>
-      <td>${escapeHtml(member.callSign || "-")}</td>
-    </tr>
   `;
 }
 
@@ -172,52 +138,23 @@ function summaryRow() {
 }
 
 function memberCard(member) {
-  const { task, permissions } = appState.me;
-  const canManage = permissions.canManageMembers;
+  const { task } = appState.me;
   const statusClass = member.isActive ? "active" : "inactive";
   const specialties = member.specialties?.length
     ? member.specialties.map((label) => `<span class="specialty-chip">${escapeHtml(label)}</span>`).join("")
     : `<span class="specialty-chip">Geen specialisatie</span>`;
-  const editControls = canManage ? `
-    <form class="edit-grid" data-form="edit-member" data-id="${escapeHtml(member.id)}">
-      <label>Naam
-        <input name="displayName" value="${escapeHtml(member.displayName)}" />
-      </label>
-      <label>Telefoonnummer
-        <input name="phone" value="${escapeHtml(member.phone || "")}" />
-      </label>
-      <label>Status
-        <select name="status">
-          ${appState.statuses.map((status) => `<option value="${status.value}" ${status.value === member.status ? "selected" : ""}>Status ${status.value} - ${escapeHtml(status.label)}</option>`).join("")}
-        </select>
-      </label>
-      ${task.allowAlias ? `
-        <label>DSI roepnummer
-          <input name="callSign" value="${escapeHtml(member.callSign)}" />
-        </label>
-        <label>Schuilnaam
-          <input name="aliasName" value="${escapeHtml(member.aliasName)}" />
-        </label>
-      ` : ""}
-      <div class="button-row">
-        <button class="secondary-button" type="submit">Opslaan</button>
-        <button class="danger-button" type="button" data-action="delete-member" data-id="${escapeHtml(member.id)}">Verwijderen</button>
-      </div>
-    </form>
-  ` : "";
   return `
     <article class="member-card ${member.isActive ? "" : "inactive"}">
       <div class="member-main">
         ${memberAvatar(member)}
         <div>
           <p class="member-name">${escapeHtml(displayMemberName(member, task))}</p>
-          <p class="muted">${escapeHtml(member.displayName)}${member.callSign ? ` · ${escapeHtml(member.callSign)}` : ""}</p>
+          <p class="muted">${escapeHtml(member.displayName)}${member.callSign ? ` / ${escapeHtml(member.callSign)}` : ""}</p>
           ${member.phone ? `<p class="muted">${escapeHtml(member.phone)}</p>` : ""}
         </div>
         <span class="status-pill ${statusClass}">${escapeHtml(member.statusLabel)}</span>
       </div>
       <div class="chips">${specialties}</div>
-      ${editControls}
     </article>
   `;
 }
@@ -233,30 +170,106 @@ function memberSection(title, members) {
   `;
 }
 
-function renderApp() {
+function memberAdminRow(member) {
+  const name = member.displayName || member.discordId;
+  const alias = member.aliasName || "-";
+  const specialties = member.specialties?.length ? member.specialties.join(", ") : "Geen specialisaties";
+  return `
+    <tr>
+      <td>${escapeHtml(name)}</td>
+      <td>${escapeHtml(alias)}</td>
+      <td>${escapeHtml(member.callSign || "-")}</td>
+      <td>${escapeHtml(specialties)}</td>
+      <td>${escapeHtml(member.statusLabel || "-")}</td>
+    </tr>
+  `;
+}
+
+function memberAdminPage() {
+  const { task, permissions } = appState.me;
+  if (!permissions.canManageMembers) {
+    return `
+      ${topbar()}
+      <section class="panel">
+        <h2>Geen toegang</h2>
+        <p class="muted">Je hebt geen rechten voor ledenbeheer.</p>
+      </section>
+    `;
+  }
+  const rows = appState.members
+    .slice()
+    .sort((a, b) => (a.callSign || "").localeCompare(b.callSign || "", "nl") || displayMemberName(a, task).localeCompare(displayMemberName(b, task), "nl"))
+    .map(memberAdminRow)
+    .join("");
+  return `
+    ${topbar()}
+    <section class="panel member-admin-page">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">ORP Neventaken</p>
+          <h2>${escapeHtml(task.label)} - Ledenbeheer</h2>
+        </div>
+        <button class="secondary-button" type="button" data-action="open-dashboard">Terug naar overzicht</button>
+      </div>
+      <div class="member-admin-list">
+        <table>
+          <thead>
+            <tr>
+              <th>Naam</th>
+              <th>Schuilnaam</th>
+              <th>Roepnummer</th>
+              <th>Specialisaties</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="5">Geen leden gevonden.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <form class="manager-form" data-form="add-member">
+        <h3>Lid toevoegen</h3>
+        <label>Discord ID
+          <input name="discordId" placeholder="Discord ID" required />
+        </label>
+        <label>Naam
+          <input name="displayName" placeholder="Optioneel, wordt anders via Discord gevuld" />
+        </label>
+        <label>Telefoonnummer
+          <input name="phone" placeholder="06-12345678" />
+        </label>
+        ${task.allowAlias ? `
+          <label>DSI roepnummer
+            <input name="callSign" placeholder="A-01" />
+          </label>
+          <label>Schuilnaam
+            <input name="aliasName" placeholder="Schuilnaam" />
+          </label>
+        ` : ""}
+        <button class="primary-button" type="submit">Lid toevoegen</button>
+      </form>
+    </section>
+  `;
+}
+
+function renderDashboard() {
   const task = appState.me.task;
   const active = appState.members.filter((member) => member.isActive);
-  app.innerHTML = `
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">ORP Neventaken</p>
-        <h1>${escapeHtml(task.label)}</h1>
-        <p class="muted">${escapeHtml(task.displayName)}</p>
-      </div>
-      <div class="user-chip" data-action="focus-profile" title="Je profiel">
-        ${appState.me.user.avatarUrl ? `<img class="avatar" src="${escapeHtml(appState.me.user.avatarUrl)}" alt="" />` : `<div class="avatar"></div>`}
-        <strong>${escapeHtml(appState.me.user.displayName)}</strong>
-        <button class="secondary-button" data-action="logout">Uitloggen</button>
-      </div>
-    </header>
-    <div class="grid">
-      ${profilePanel()}
+  return `
+    ${topbar()}
+    <div class="grid dashboard-grid">
+      ${statusPanel()}
       <section class="panel">
         ${summaryRow()}
         ${memberSection(`Aanwezige ${task.label} leden`, active)}
       </section>
     </div>
   `;
+}
+
+function renderApp() {
+  const page = location.hash === "#ledenbeheer" ? "ledenbeheer" : "dashboard";
+  app.innerHTML = page === "ledenbeheer" ? memberAdminPage() : renderDashboard();
 }
 
 async function refresh() {
@@ -295,8 +308,21 @@ app.addEventListener("click", async (event) => {
       loginView();
       return;
     }
-    if (action === "focus-profile") {
-      document.querySelector("#my-profile")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (action === "toggle-profile") {
+      appState.profileOpen = !appState.profileOpen;
+      renderApp();
+      return;
+    }
+    if (action === "open-member-admin") {
+      appState.profileOpen = false;
+      location.hash = "ledenbeheer";
+      renderApp();
+      return;
+    }
+    if (action === "open-dashboard") {
+      appState.profileOpen = false;
+      history.replaceState(null, "", location.pathname + location.search);
+      renderApp();
       return;
     }
     if (action === "set-status") {
@@ -342,6 +368,10 @@ app.addEventListener("submit", async (event) => {
   } catch (error) {
     alert(error.message);
   }
+});
+
+window.addEventListener("hashchange", () => {
+  if (appState.me) renderApp();
 });
 
 init();
