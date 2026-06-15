@@ -39,6 +39,7 @@ const SIDE_TASK_DEFINITIONS = {
     slug: "klu",
     label: "KLu",
     displayName: "Koninklijke Luchtmacht",
+    logoUrl: "/assets/klu-logo.png",
     allowAlias: false,
     specialties: [
       { label: "298", roleId: "1486813167899381811" },
