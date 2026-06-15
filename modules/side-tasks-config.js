@@ -9,6 +9,7 @@ const SIDE_TASK_DEFINITIONS = {
     slug: "dsi",
     label: "DSI",
     displayName: "Dienst Speciale Interventies",
+    logoUrl: "/assets/dsi-logo.png",
     allowAlias: true,
     specialties: [
       { label: "CLS", roleId: "1446494955718709338" },

@@ -131,6 +131,21 @@ h2 {
   font-size: clamp(2rem, 4vw, 3.5rem);
 }
 
+.task-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.task-logo {
+  width: 86px;
+  height: 86px;
+  flex: 0 0 86px;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+}
+
 .user-menu {
   position: relative;
   display: flex;
@@ -455,5 +470,15 @@ select:focus {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .task-brand {
+    align-items: flex-start;
+  }
+
+  .task-logo {
+    width: 64px;
+    height: 64px;
+    flex-basis: 64px;
   }
 }

@@ -93,12 +93,16 @@ function profileMenu() {
 
 function topbar() {
   const task = appState.me.task;
+  const logo = task.logoUrl ? `<img class="task-logo" src="${escapeHtml(task.logoUrl)}" alt="${escapeHtml(task.label)} logo" />` : "";
   return `
     <header class="topbar">
-      <div>
-        <p class="eyebrow">ORP Neventaken</p>
-        <h1>${escapeHtml(task.label)}</h1>
-        <p class="muted">${escapeHtml(task.displayName)}</p>
+      <div class="task-brand">
+        ${logo}
+        <div>
+          <p class="eyebrow">ORP Neventaken</p>
+          <h1>${escapeHtml(task.label)}</h1>
+          <p class="muted">${escapeHtml(task.displayName)}</p>
+        </div>
       </div>
       <div class="user-menu">
         <button class="user-chip" type="button" data-action="toggle-profile" title="Je profiel">
