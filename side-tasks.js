@@ -128,13 +128,11 @@ function statusPanel() {
 function summaryRow() {
   const active = appState.members.filter((member) => member.isActive);
   const inactive = appState.members.filter((member) => !member.isActive);
-  const specialties = new Set(active.flatMap((member) => member.specialties || []));
   return `
     <div class="summary-row">
       <div class="summary-tile"><span class="muted">Totaal</span><strong>${appState.members.length}</strong></div>
-      <div class="summary-tile"><span class="muted">Aanwezig</span><strong>${active.length}</strong></div>
-      <div class="summary-tile"><span class="muted">Niet aanwezig</span><strong>${inactive.length}</strong></div>
-      <div class="summary-tile"><span class="muted">Specialisaties actief</span><strong>${specialties.size}</strong></div>
+      <div class="summary-tile"><span class="muted">Inzetbaar</span><strong>${active.length}</strong></div>
+      <div class="summary-tile"><span class="muted">Niet beschikbaar</span><strong>${inactive.length}</strong></div>
     </div>
   `;
 }
@@ -263,7 +261,7 @@ function renderDashboard() {
       ${statusPanel()}
       <section class="panel">
         ${summaryRow()}
-        ${memberSection(`Aanwezige ${task.label} leden`, active)}
+        ${memberSection(`Inzetbare ${task.label} leden`, active)}
       </section>
     </div>
   `;

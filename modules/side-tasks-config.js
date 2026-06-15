@@ -6,7 +6,7 @@ const SIDE_TASK_STATUS_OPTIONS = [
   { value: "5", label: "Transport aanvraag", active: true, color: "light-blue" },
   { value: "6", label: "Spraak aanvraag", active: true, color: "orange" },
   { value: "7", label: "Spraak aanvraag urgent", active: true, color: "red" },
-  { value: "8", label: "Niet aanwezig", active: false, color: "amber" }
+  { value: "8", label: "Niet beschikbaar", active: false, color: "amber" }
 ];
 
 const SIDE_TASK_DEFINITIONS = {
