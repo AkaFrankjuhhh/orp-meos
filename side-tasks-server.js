@@ -212,6 +212,20 @@ async function patchMainGuildNickname(discordId, nickname) {
   }, MAIN_BOT_TOKEN);
 }
 
+function nicknameSyncWarning(error) {
+  const message = String(error?.message || "");
+  if (error?.status === 403 || /missing permissions/i.test(message)) {
+    return "Status is opgeslagen, maar Discord kon de DSI-naam niet aanpassen. Controleer of de bot in de main overheid Discord Manage Nicknames heeft en boven deze gebruiker staat.";
+  }
+  if (error?.status === 404) {
+    return "Status is opgeslagen, maar deze gebruiker is niet gevonden in de main overheid Discord.";
+  }
+  if (error?.status === 500) {
+    return "Status is opgeslagen, maar de main overheid Discord bot/guild is niet ingesteld.";
+  }
+  return `Status is opgeslagen, maar Discord nickname sync mislukte: ${message || "onbekende fout"}`;
+}
+
 function buildSessionUser(user, guildMember, task, permissions) {
   const roles = Array.isArray(guildMember.roles) ? guildMember.roles.map(String) : [];
   return {
@@ -278,7 +292,7 @@ function validateStatus(value) {
 }
 
 async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
-  if (!task.allowAlias) return member;
+  if (!task.allowAlias) return { member };
   if (nextStatus !== "8") {
     if (!member.callSign || !member.aliasName) {
       const error = new Error("Vul eerst je DSI roepnummer en schuilnaam in.");
@@ -291,13 +305,21 @@ async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
       originalNickname = mainMember?.nick || mainMember?.user?.global_name || mainMember?.user?.username || "";
       member = await store.updateMember(task.key, member.id, { originalNickname });
     }
-    await patchMainGuildNickname(member.discordId, `[${member.callSign}] ${member.aliasName}`);
-    return member;
+    try {
+      await patchMainGuildNickname(member.discordId, `[${member.callSign}] ${member.aliasName}`);
+      return { member };
+    } catch (error) {
+      return { member, warning: nicknameSyncWarning(error) };
+    }
   }
   if (member.originalNickname) {
-    await patchMainGuildNickname(member.discordId, member.originalNickname);
+    try {
+      await patchMainGuildNickname(member.discordId, member.originalNickname);
+    } catch (error) {
+      return { member, warning: nicknameSyncWarning(error) };
+    }
   }
-  return member;
+  return { member };
 }
 
 function publicMember(member) {
@@ -488,8 +510,8 @@ async function handleApi(req, res, task, url) {
       statusDetail: statusOption(status).label,
       specialties: specialtiesForRoles(task, session.roles || [])
     });
-    member = await applyDsiNicknameIfNeeded(task, member, status);
-    return sendJson(res, 200, { member: publicMember(member) });
+    const nicknameResult = await applyDsiNicknameIfNeeded(task, member, status);
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
 
   if (url.pathname === "/api/side-tasks/members" && req.method === "POST") {
@@ -516,8 +538,8 @@ async function handleApi(req, res, task, url) {
       status,
       statusDetail: statusOption(status).label
     });
-    member = await applyDsiNicknameIfNeeded(task, member, status);
-    return sendJson(res, 200, { member: publicMember(member) });
+    const nicknameResult = await applyDsiNicknameIfNeeded(task, member, status);
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
 
   if (memberMatch && req.method === "DELETE") {

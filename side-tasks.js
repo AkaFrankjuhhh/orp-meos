@@ -250,11 +250,12 @@ app.addEventListener("click", async (event) => {
       return;
     }
     if (action === "set-status") {
-      await api("/api/side-tasks/me/status", {
+      const result = await api("/api/side-tasks/me/status", {
         method: "POST",
         body: JSON.stringify({ status: button.dataset.status })
       });
       await refresh();
+      if (result.warning) alert(result.warning);
       return;
     }
     if (action === "delete-member") {
@@ -281,10 +282,11 @@ app.addEventListener("submit", async (event) => {
       form.reset();
     }
     if (form.dataset.form === "edit-member") {
-      await api(`/api/side-tasks/members/${encodeURIComponent(form.dataset.id)}`, {
+      const result = await api(`/api/side-tasks/members/${encodeURIComponent(form.dataset.id)}`, {
         method: "PATCH",
         body: JSON.stringify(data)
       });
+      if (result.warning) alert(result.warning);
     }
     await refresh();
   } catch (error) {
