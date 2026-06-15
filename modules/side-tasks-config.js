@@ -27,6 +27,7 @@ const SIDE_TASK_DEFINITIONS = {
     slug: "hrb",
     label: "HRB",
     displayName: "Hoog Risico Beveiliging",
+    logoUrl: "/assets/hrb-logo.png",
     allowAlias: false,
     specialties: [
       { label: "Konvooi", roleId: "1504458999439954090" },

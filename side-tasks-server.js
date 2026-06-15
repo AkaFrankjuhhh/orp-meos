@@ -379,6 +379,7 @@ async function serveStatic(req, res, pathname) {
     ["/side-tasks.css", "side-tasks.css"],
     ["/side-tasks.js", "side-tasks.js"],
     ["/assets/dsi-logo.png", "assets/dsi-logo.png"],
+    ["/assets/hrb-logo.png", "assets/hrb-logo.png"],
     ["/assets/klu-logo.png", "assets/klu-logo.png"]
   ]);
   const fileName = fileMap.get(pathname);
