@@ -154,10 +154,29 @@ function createPersoneelsportaalRouteHandler(deps) {
       && Boolean(checklist.testApproved);
   }
 
-  function promotionBlockReason(person, state) {
+  function profileHasFunction(profile, label) {
+    const badges = new Set([profile?.permRole, ...(profile?.extraFunctions || [])].filter(Boolean));
+    for (const mapping of organization.autoFunctionByRanks || []) {
+      if (mapping.label === label && (mapping.ranks || []).includes(profile?.rank || "")) badges.add(mapping.label);
+    }
+    return badges.has(label);
+  }
+
+  function canBypassMentorPromotion(actor, permissions) {
+    if (organization.key !== "politie") return false;
+    return Boolean(permissions?.canUseDevTools) || profileHasFunction(actor, "Korpsleiding");
+  }
+
+  function promotionBlockReason(person, state, actor, permissions) {
     const currentIndex = ranks.indexOf(person.rank);
     const nextRank = currentIndex > 0 ? ranks[currentIndex - 1] : "";
-    if (organization.key === "politie" && person.rank === "Aspirant" && nextRank === "Surveillant" && !isMentorTrajectoryCompleted(person, state)) {
+    if (
+      organization.key === "politie"
+      && person.rank === "Aspirant"
+      && nextRank === "Surveillant"
+      && !isMentorTrajectoryCompleted(person, state)
+      && !canBypassMentorPromotion(actor, permissions)
+    ) {
       return "Promotie naar Surveillant kan pas als het mentor-traject volledig is afgerond.";
     }
     return "";
@@ -1906,7 +1925,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
     if (action === "promote") {
-      const blockReason = promotionBlockReason(person, state);
+      const blockReason = promotionBlockReason(person, state, actor, permissions);
       if (blockReason) {
         sendJson(res, 400, { error: blockReason });
         return;

@@ -109,3 +109,15 @@ orpoverheid.nl, www.orpoverheid.nl {
     X-Frame-Options DENY
   }
 }
+
+# Centrale neventaken-app. Het subdomein bepaalt automatisch DSI/HRB/DNR/KLu.
+dsi.orpoverheid.nl, hrb.orpoverheid.nl, dnr.orpoverheid.nl, klu.orpoverheid.nl {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3030
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
+}

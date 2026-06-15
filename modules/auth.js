@@ -89,22 +89,28 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
     res.setHeader("Set-Cookie", clearAuthCookie("orp_session"));
   }
 
+  function readSynchronousState() {
+    const state = readState();
+    return state && typeof state.then !== "function" ? state : null;
+  }
+
   function getLoggedInProfile(req) {
     const session = getSession(req);
     if (session) {
-      if (session.profile && session.profile.status === "Actief") return { profile: session.profile, session };
-      const state = readState();
-      if (state && typeof state.then !== "function") {
+      const state = readSynchronousState();
+      if (state) {
         const profile = state.people.find((person) => person.id === session.profileId && person.status === "Actief");
         if (profile) {
           session.profile = { ...profile };
           return { profile, session };
         }
+        return null;
       }
+      if (session.profile && session.profile.status === "Actief") return { profile: session.profile, session };
     }
     if (!discordConfigured() && allowDevUnauth()) {
-      const state = readState();
-      if (state && typeof state.then !== "function") {
+      const state = readSynchronousState();
+      if (state) {
         const profile = state.people.find((person) => person.status === "Actief") || state.people[0];
         if (profile) return { profile, session: { dev: true, profile: { ...profile } } };
       }

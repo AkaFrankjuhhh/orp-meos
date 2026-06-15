@@ -25,6 +25,18 @@ async function appendActivityMessages(client, messages = []) {
   }
 }
 
+async function lockFormsWrite(client) {
+  await client.query("select pg_advisory_xact_lock(hashtext($1))", ["forms-write"]);
+}
+
+async function appendActivitySuffix(client, activity = []) {
+  if (!Array.isArray(activity)) return;
+  const result = await client.query("select message from activity_log order by position nulls last, id asc");
+  const existingCount = result.rows.length;
+  const nextMessages = activity.slice(existingCount).filter(Boolean);
+  await appendActivityMessages(client, nextMessages);
+}
+
 async function ensureI8FormSchema(client) {
   await client.query("alter table if exists i8_forms add column if not exists i8_number text");
   await client.query(`
@@ -146,40 +158,39 @@ function createPostgresFormsStore(options = {}) {
     return readPostgresState();
   }
 
-  async function writeState(state) {
-    // Fallback voor JSON-achtige mutaties: schrijft formulierdata volledig terug.
-    // Nieuwe live-routes gebruiken de gerichte functies hieronder om concurrent writes veiliger te maken.
+  async function writeState(state = {}) {
+    // Fallback voor JSON-achtige mutaties. Schrijf alleen aanwezige delen terug,
+    // zodat een gedeeltelijke state nooit per ongeluk formulierdata wist.
     await withClient(async (client) => {
       await client.query("begin");
       try {
-        const absences = Array.isArray(state.absences) ? state.absences : [];
-        const absenceIds = absenceIdList(absences);
-        if (absenceIds.length) {
-          await client.query("delete from absences where not (id = any($1::text[]))", [absenceIds]);
-        } else {
-          await client.query("delete from absences");
-        }
-        for (const absence of absences) {
-          await upsertAbsence(client, absence);
+        await lockFormsWrite(client);
+        if (Array.isArray(state.absences)) {
+          const absenceIds = absenceIdList(state.absences);
+          if (absenceIds.length) {
+            await client.query("delete from absences where not (id = any($1::text[]))", [absenceIds]);
+          } else {
+            await client.query("delete from absences");
+          }
+          for (const absence of state.absences) {
+            await upsertAbsence(client, absence);
+          }
         }
 
-        const forms = Array.isArray(state.i8Forms) ? state.i8Forms : [];
         await ensureI8FormSchema(client);
-        const formIds = i8IdList(forms);
-        if (formIds.length) {
-          await client.query("delete from i8_forms where not (id = any($1::text[]))", [formIds]);
-        } else {
-          await client.query("delete from i8_forms");
-        }
-        for (const form of forms) {
-          await upsertI8Form(client, form);
+        if (Array.isArray(state.i8Forms)) {
+          const formIds = i8IdList(state.i8Forms);
+          if (formIds.length) {
+            await client.query("delete from i8_forms where not (id = any($1::text[]))", [formIds]);
+          } else {
+            await client.query("delete from i8_forms");
+          }
+          for (const form of state.i8Forms) {
+            await upsertI8Form(client, form);
+          }
         }
 
-        await client.query("delete from activity_log");
-        const activity = Array.isArray(state.activity) ? state.activity : [];
-        for (let index = 0; index < activity.length; index += 1) {
-          await client.query("insert into activity_log(position, message) values($1, $2)", [index, String(activity[index])]);
-        }
+        await appendActivitySuffix(client, state.activity);
 
         await client.query("commit");
       } catch (error) {
@@ -195,6 +206,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockFormsWrite(client);
         await upsertAbsence(client, absence);
         await appendActivityMessages(client, activityMessages);
         await client.query("commit");
@@ -211,6 +223,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockFormsWrite(client);
         await upsertAbsence(client, absence);
         await appendActivityMessages(client, activityMessages);
         await client.query("commit");
@@ -227,6 +240,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockFormsWrite(client);
         await client.query("delete from absences where id = $1", [absenceId]);
         await appendActivityMessages(client, activityMessages);
         await client.query("commit");
@@ -243,6 +257,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockFormsWrite(client);
         await ensureI8FormSchema(client);
         await upsertI8Form(client, form);
         await appendActivityMessages(client, activityMessages);
@@ -261,6 +276,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockFormsWrite(client);
         await ensureI8FormSchema(client);
         await client.query("delete from i8_forms where id = $1", [formId]);
         await appendActivityMessages(client, activityMessages);
@@ -278,6 +294,7 @@ function createPostgresFormsStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockFormsWrite(client);
         await ensureI8FormSchema(client);
         await upsertI8Form(client, form);
         await appendActivityMessages(client, activityMessages);

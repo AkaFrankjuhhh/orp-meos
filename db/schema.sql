@@ -311,3 +311,25 @@ CREATE TABLE IF NOT EXISTS discord_sync_jobs (
 CREATE INDEX IF NOT EXISTS discord_sync_jobs_status_run_idx ON discord_sync_jobs(status, run_after, created_at);
 CREATE INDEX IF NOT EXISTS discord_sync_jobs_person_idx ON discord_sync_jobs(person_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS discord_sync_jobs_discord_idx ON discord_sync_jobs(discord_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS side_task_members (
+  id text PRIMARY KEY,
+  task_key text NOT NULL,
+  discord_id text NOT NULL,
+  discord_username text NOT NULL DEFAULT '',
+  display_name text NOT NULL DEFAULT '',
+  avatar_url text NOT NULL DEFAULT '',
+  call_sign text NOT NULL DEFAULT '',
+  alias_name text NOT NULL DEFAULT '',
+  original_nickname text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT '8',
+  status_detail text NOT NULL DEFAULT 'Niet aanwezig',
+  specialties jsonb NOT NULL DEFAULT '[]'::jsonb,
+  added_by_discord_id text NOT NULL DEFAULT '',
+  raw jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS side_task_members_task_discord_uidx ON side_task_members(task_key, discord_id);
+CREATE INDEX IF NOT EXISTS side_task_members_task_status_idx ON side_task_members(task_key, status, updated_at DESC);

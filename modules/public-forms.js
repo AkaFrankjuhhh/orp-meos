@@ -237,6 +237,7 @@ const publicFormManagerBadges = {
   herintrede: ["Kader"],
   overstap: ["Kader"],
   klachten: ["Kader"],
+  "interne-klacht": ["Interne-Zaken", "IZ-Leiding"],
   otc: ["OTC-Leiding", "Trainer-Leiding"],
   trainer: ["Trainer-Leiding"],
   hrb: ["HRB-Leiding"],
