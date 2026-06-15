@@ -315,31 +315,6 @@ select:focus {
   background: var(--green);
 }
 
-.status-button[data-status="2"] {
-  background: var(--cyan);
-}
-
-.status-button[data-status="3"] {
-  background: var(--blue);
-}
-
-.status-button[data-status="4"] {
-  background: #bec4cc;
-}
-
-.status-button[data-status="5"] {
-  background: #a9c8f7;
-}
-
-.status-button[data-status="6"] {
-  background: #ff9f2f;
-}
-
-.status-button[data-status="7"] {
-  background: var(--red);
-  color: var(--text);
-}
-
 .status-button.is-active {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3) inset;
 }

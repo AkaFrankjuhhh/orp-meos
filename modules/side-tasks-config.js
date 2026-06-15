@@ -1,12 +1,6 @@
 const SIDE_TASK_STATUS_OPTIONS = [
   { value: "1", label: "Beschikbaar", active: true, color: "green" },
-  { value: "2", label: "Aanrijdend", active: true, color: "cyan" },
-  { value: "3", label: "Ter plaatse", active: true, color: "blue" },
-  { value: "4", label: "Niet beschikbaar", active: true, color: "gray" },
-  { value: "5", label: "Transport aanvraag", active: true, color: "light-blue" },
-  { value: "6", label: "Spraak aanvraag", active: true, color: "orange" },
-  { value: "7", label: "Spraak aanvraag urgent", active: true, color: "red" },
-  { value: "8", label: "Niet beschikbaar", active: false, color: "amber" }
+  { value: "8", label: "Afwezig", active: false, color: "amber" }
 ];
 
 const SIDE_TASK_DEFINITIONS = {
@@ -150,7 +144,7 @@ function permissionsForTask(task, memberRoles, discordId) {
 }
 
 function statusOption(value) {
-  return SIDE_TASK_STATUS_OPTIONS.find((option) => option.value === String(value)) || SIDE_TASK_STATUS_OPTIONS[7];
+  return SIDE_TASK_STATUS_OPTIONS.find((option) => option.value === String(value)) || SIDE_TASK_STATUS_OPTIONS[1];
 }
 
 module.exports = {

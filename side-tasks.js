@@ -131,8 +131,8 @@ function summaryRow() {
   return `
     <div class="summary-row">
       <div class="summary-tile"><span class="muted">Totaal</span><strong>${appState.members.length}</strong></div>
-      <div class="summary-tile"><span class="muted">Inzetbaar</span><strong>${active.length}</strong></div>
-      <div class="summary-tile"><span class="muted">Niet beschikbaar</span><strong>${inactive.length}</strong></div>
+      <div class="summary-tile"><span class="muted">Beschikbaar</span><strong>${active.length}</strong></div>
+      <div class="summary-tile"><span class="muted">Afwezig</span><strong>${inactive.length}</strong></div>
     </div>
   `;
 }
