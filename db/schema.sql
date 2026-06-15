@@ -319,6 +319,7 @@ CREATE TABLE IF NOT EXISTS side_task_members (
   discord_username text NOT NULL DEFAULT '',
   display_name text NOT NULL DEFAULT '',
   avatar_url text NOT NULL DEFAULT '',
+  phone text NOT NULL DEFAULT '',
   call_sign text NOT NULL DEFAULT '',
   alias_name text NOT NULL DEFAULT '',
   original_nickname text NOT NULL DEFAULT '',

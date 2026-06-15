@@ -248,6 +248,7 @@ async function syncLoginMember(sessionUser, task) {
     discordUsername: sessionUser.username,
     displayName: sessionUser.displayName,
     avatarUrl: sessionUser.avatarUrl,
+    phone: existing?.phone || "",
     callSign: existing?.callSign || "",
     aliasName: existing?.aliasName || "",
     originalNickname: existing?.originalNickname || "",
@@ -328,6 +329,7 @@ function publicMember(member) {
     discordId: member.discordId,
     displayName: member.displayName,
     avatarUrl: member.avatarUrl,
+    phone: member.phone,
     callSign: member.callSign,
     aliasName: member.aliasName,
     status: member.status,
@@ -359,6 +361,7 @@ function memberFromBotOrBody(task, body, botMember, actorId) {
     discordUsername: user.username || "",
     displayName: sanitizeText(body.displayName || user.global_name || user.username || body.discordId),
     avatarUrl: avatarUrl(user),
+    phone: sanitizeText(body.phone, 32),
     callSign: sanitizeText(body.callSign, 32),
     aliasName: sanitizeText(body.aliasName, 80),
     status: validateStatus(body.status || "8"),
@@ -494,6 +497,7 @@ async function handleApi(req, res, task, url) {
     const existing = await store.findMemberByDiscordId(task.key, session.user.id);
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
     const member = await store.updateMember(task.key, existing.id, {
+      phone: sanitizeText(body.phone, 32),
       callSign: sanitizeText(body.callSign, 32),
       aliasName: sanitizeText(body.aliasName, 80)
     });
@@ -533,6 +537,7 @@ async function handleApi(req, res, task, url) {
     const status = body.status ? validateStatus(body.status) : existing.status;
     let member = await store.updateMember(task.key, existing.id, {
       displayName: body.displayName !== undefined ? sanitizeText(body.displayName, 120) : existing.displayName,
+      phone: body.phone !== undefined ? sanitizeText(body.phone, 32) : existing.phone,
       callSign: body.callSign !== undefined ? sanitizeText(body.callSign, 32) : existing.callSign,
       aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
       status,

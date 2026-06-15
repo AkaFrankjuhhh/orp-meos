@@ -24,6 +24,7 @@ function memberFromRow(row) {
     discordUsername: row.discord_username || "",
     displayName: row.display_name || "",
     avatarUrl: row.avatar_url || "",
+    phone: row.phone || "",
     callSign: row.call_sign || "",
     aliasName: row.alias_name || "",
     originalNickname: row.original_nickname || "",
@@ -58,6 +59,7 @@ async function ensureSideTaskSchema() {
         discord_username text not null default '',
         display_name text not null default '',
         avatar_url text not null default '',
+        phone text not null default '',
         call_sign text not null default '',
         alias_name text not null default '',
         original_nickname text not null default '',
@@ -78,6 +80,7 @@ async function ensureSideTaskSchema() {
       create index if not exists side_task_members_task_status_idx
       on side_task_members(task_key, status, updated_at desc)
     `);
+    await client.query("alter table side_task_members add column if not exists phone text not null default ''");
   });
   schemaReady = true;
 }
@@ -91,6 +94,7 @@ function normalizeMember(taskKey, member) {
     discordUsername: String(member.discordUsername || "").trim(),
     displayName: String(member.displayName || "").trim(),
     avatarUrl: String(member.avatarUrl || "").trim(),
+    phone: String(member.phone || "").trim(),
     callSign: String(member.callSign || "").trim(),
     aliasName: String(member.aliasName || "").trim(),
     originalNickname: String(member.originalNickname || "").trim(),
@@ -150,14 +154,15 @@ function createSideTasksStore() {
       const result = await client.query(
         `insert into side_task_members (
           id, task_key, discord_id, discord_username, display_name, avatar_url,
-          call_sign, alias_name, original_nickname, status, status_detail,
+          phone, call_sign, alias_name, original_nickname, status, status_detail,
           specialties, added_by_discord_id, raw, updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14::jsonb, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15::jsonb, now())
         on conflict (task_key, discord_id) do update set
           discord_username = excluded.discord_username,
           display_name = excluded.display_name,
           avatar_url = excluded.avatar_url,
+          phone = excluded.phone,
           call_sign = excluded.call_sign,
           alias_name = excluded.alias_name,
           original_nickname = case
@@ -177,6 +182,7 @@ function createSideTasksStore() {
           normalized.discordUsername,
           normalized.displayName,
           normalized.avatarUrl,
+          normalized.phone,
           normalized.callSign,
           normalized.aliasName,
           normalized.originalNickname,

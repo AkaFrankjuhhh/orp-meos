@@ -64,40 +64,71 @@ function statusButton(status, currentStatus) {
 
 function profilePanel() {
   const { member, task, permissions } = appState.me;
-  const aliasFields = task.allowAlias ? `
+  const profileFields = `
     <form class="profile-form" data-form="profile">
-      <label>DSI roepnummer
-        <input name="callSign" value="${escapeHtml(member?.callSign || "")}" placeholder="A-01" />
-      </label>
-      <label>Schuilnaam
-        <input name="aliasName" value="${escapeHtml(member?.aliasName || "")}" placeholder="Schuilnaam" />
+      ${task.allowAlias ? `
+        <label>DSI roepnummer
+          <input name="callSign" value="${escapeHtml(member?.callSign || "")}" placeholder="A-01" />
+        </label>
+        <label>Schuilnaam
+          <input name="aliasName" value="${escapeHtml(member?.aliasName || "")}" placeholder="Schuilnaam" />
+        </label>
+      ` : ""}
+      <label>Telefoonnummer
+        <input name="phone" value="${escapeHtml(member?.phone || "")}" placeholder="06-12345678" />
       </label>
       <button class="secondary-button" type="submit">Profiel opslaan</button>
     </form>
-  ` : "";
+  `;
   return `
-    <section class="panel">
+    <section class="panel" id="my-profile">
+      <h2>Je profiel</h2>
+      <p class="muted">${escapeHtml(displayMemberName(member || {}, task))}</p>
+      ${profileFields}
+      ${permissions.canManageMembers ? managerPanel() : ""}
+      <div class="status-block">
       <h2>Mijn status</h2>
       <p class="muted">${escapeHtml(task.displayName)}</p>
       <div class="status-grid">
         ${appState.statuses.map((status) => statusButton(status, member?.status || "8")).join("")}
       </div>
-      ${aliasFields}
-      ${permissions.canManageMembers ? managerPanel() : ""}
+      </div>
     </section>
   `;
 }
 
 function managerPanel() {
+  const rows = appState.members
+    .slice()
+    .sort((a, b) => displayMemberName(a, appState.me.task).localeCompare(displayMemberName(b, appState.me.task), "nl"))
+    .map(memberAdminRow)
+    .join("");
   return `
     <div class="manager-block">
       <h2>Ledenbeheer</h2>
+      <div class="member-admin-list">
+        <table>
+          <thead>
+            <tr>
+              <th>Naam // schuilnaam</th>
+              <th>Specialisaties</th>
+              <th>Nummer</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="3">Geen leden gevonden.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
       <form class="manager-form" data-form="add-member">
         <label>Discord ID
           <input name="discordId" placeholder="Discord ID" required />
         </label>
         <label>Naam
           <input name="displayName" placeholder="Optioneel, wordt anders via Discord gevuld" />
+        </label>
+        <label>Telefoonnummer
+          <input name="phone" placeholder="06-12345678" />
         </label>
         ${appState.me.task.allowAlias ? `
           <label>DSI roepnummer
@@ -110,6 +141,19 @@ function managerPanel() {
         <button class="primary-button" type="submit">Lid toevoegen</button>
       </form>
     </div>
+  `;
+}
+
+function memberAdminRow(member) {
+  const name = member.displayName || member.discordId;
+  const alias = member.aliasName ? ` // ${member.aliasName}` : "";
+  const specialties = member.specialties?.length ? member.specialties.join(", ") : "Geen specialisaties";
+  return `
+    <tr>
+      <td>${escapeHtml(name)}${escapeHtml(alias)}</td>
+      <td>${escapeHtml(specialties)}</td>
+      <td>${escapeHtml(member.callSign || "-")}</td>
+    </tr>
   `;
 }
 
@@ -139,6 +183,9 @@ function memberCard(member) {
       <label>Naam
         <input name="displayName" value="${escapeHtml(member.displayName)}" />
       </label>
+      <label>Telefoonnummer
+        <input name="phone" value="${escapeHtml(member.phone || "")}" />
+      </label>
       <label>Status
         <select name="status">
           ${appState.statuses.map((status) => `<option value="${status.value}" ${status.value === member.status ? "selected" : ""}>Status ${status.value} - ${escapeHtml(status.label)}</option>`).join("")}
@@ -165,6 +212,7 @@ function memberCard(member) {
         <div>
           <p class="member-name">${escapeHtml(displayMemberName(member, task))}</p>
           <p class="muted">${escapeHtml(member.displayName)}${member.callSign ? ` · ${escapeHtml(member.callSign)}` : ""}</p>
+          ${member.phone ? `<p class="muted">${escapeHtml(member.phone)}</p>` : ""}
         </div>
         <span class="status-pill ${statusClass}">${escapeHtml(member.statusLabel)}</span>
       </div>
@@ -188,7 +236,6 @@ function memberSection(title, members) {
 function renderApp() {
   const task = appState.me.task;
   const active = appState.members.filter((member) => member.isActive);
-  const inactive = appState.members.filter((member) => !member.isActive);
   app.innerHTML = `
     <header class="topbar">
       <div>
@@ -196,7 +243,7 @@ function renderApp() {
         <h1>${escapeHtml(task.label)}</h1>
         <p class="muted">${escapeHtml(task.displayName)}</p>
       </div>
-      <div class="user-chip">
+      <div class="user-chip" data-action="focus-profile" title="Je profiel">
         ${appState.me.user.avatarUrl ? `<img class="avatar" src="${escapeHtml(appState.me.user.avatarUrl)}" alt="" />` : `<div class="avatar"></div>`}
         <strong>${escapeHtml(appState.me.user.displayName)}</strong>
         <button class="secondary-button" data-action="logout">Uitloggen</button>
@@ -207,7 +254,6 @@ function renderApp() {
       <section class="panel">
         ${summaryRow()}
         ${memberSection(`Aanwezige ${task.label} leden`, active)}
-        ${memberSection(`Niet aanwezige ${task.label} leden`, inactive)}
       </section>
     </div>
   `;
@@ -247,6 +293,10 @@ app.addEventListener("click", async (event) => {
     if (action === "logout") {
       await api("/api/auth/logout", { method: "POST", body: "{}" });
       loginView();
+      return;
+    }
+    if (action === "focus-profile") {
+      document.querySelector("#my-profile")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     if (action === "set-status") {

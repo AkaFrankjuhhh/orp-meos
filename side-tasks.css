@@ -139,6 +139,7 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(7, 17, 31, 0.72);
+  cursor: pointer;
 }
 
 .avatar {
@@ -166,6 +167,53 @@ h2 {
 .edit-grid {
   display: grid;
   gap: 10px;
+}
+
+.status-block {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.manager-block {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.member-admin-list {
+  max-height: 320px;
+  overflow: auto;
+  margin: 10px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(7, 17, 31, 0.62);
+}
+
+.member-admin-list table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.member-admin-list th,
+.member-admin-list td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(153, 190, 239, 0.12);
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.82rem;
+}
+
+.member-admin-list th {
+  color: #9ec9ff;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.member-admin-list tr:last-child td {
+  border-bottom: 0;
 }
 
 label {
