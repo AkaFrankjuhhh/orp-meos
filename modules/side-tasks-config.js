@@ -57,6 +57,7 @@ const SIDE_TASK_DEFINITIONS = {
     slug: "dnr",
     label: "DNR",
     displayName: "Dienst Nationale Recherche",
+    logoUrl: "/assets/politie-logo.png",
     allowAlias: false,
     specialties: []
   }
