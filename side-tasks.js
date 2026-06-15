@@ -68,6 +68,7 @@ function profileMenu() {
   if (!appState.profileOpen) return "";
   return `
     <div class="profile-popover">
+      <div class="profile-popover-card">
       <h2>Je profiel</h2>
       <p class="muted">${escapeHtml(displayMemberName(member || {}, task))}</p>
       <form class="profile-form" data-form="profile">
@@ -84,7 +85,8 @@ function profileMenu() {
         </label>
         <button class="secondary-button" type="submit">Profiel opslaan</button>
       </form>
-      ${permissions.canManageMembers ? `<button class="primary-button full-width" type="button" data-action="open-member-admin">Leden beheer</button>` : ""}
+      </div>
+      ${permissions.canManageMembers ? `<button class="primary-button member-admin-button" type="button" data-action="open-member-admin">Leden beheer</button>` : ""}
     </div>
   `;
 }

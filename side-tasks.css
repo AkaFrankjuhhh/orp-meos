@@ -155,6 +155,9 @@ h2 {
   right: 0;
   z-index: 20;
   width: min(380px, calc(100vw - 32px));
+}
+
+.profile-popover-card {
   padding: 16px;
   border: 1px solid var(--line-bright);
   border-radius: 14px;
@@ -162,9 +165,11 @@ h2 {
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
 }
 
-.full-width {
+.member-admin-button {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 10px;
+  justify-content: center;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.3);
 }
 
 .avatar {
