@@ -347,11 +347,15 @@ select:focus {
 }
 
 .status-button[data-status="8"] {
-  background: var(--amber);
+  background: #a7adb6;
 }
 
 .status-button[data-status="1"] {
   background: var(--green);
+}
+
+.status-button[data-status="4"] {
+  background: var(--amber);
 }
 
 .status-button.is-active {

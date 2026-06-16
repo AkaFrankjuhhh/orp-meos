@@ -1,6 +1,7 @@
 const SIDE_TASK_STATUS_OPTIONS = [
-  { value: "1", label: "Beschikbaar", active: true, color: "green" },
-  { value: "8", label: "Afwezig", active: false, color: "amber" }
+  { value: "1", label: "Aanwezig", active: true, color: "green" },
+  { value: "4", label: "Afwezig", active: false, color: "amber" },
+  { value: "8", label: "Uit dienst melden", active: false, color: "gray" }
 ];
 
 const SIDE_TASK_DEFINITIONS = {

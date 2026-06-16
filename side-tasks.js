@@ -58,7 +58,7 @@ function memberAvatar(member) {
 function statusButton(status, currentStatus) {
   return `
     <button class="status-button ${status.value === currentStatus ? "is-active" : ""}" data-action="set-status" data-status="${status.value}">
-      Status ${status.value}<br><span>${escapeHtml(status.label)}</span>
+      ${status.value === "8" ? "Status 8" : `Status ${status.value}`}<br><span>${escapeHtml(status.label)}</span>
     </button>
   `;
 }
@@ -133,21 +133,17 @@ function statusPanel() {
 }
 
 function isOperationalMember(member) {
-  return Boolean(
-    member?.isActive ||
-    member?.callSign ||
-    member?.aliasName ||
-    member?.specialties?.length
-  );
+  return member?.status === "1" || member?.status === "4";
 }
 
 function summaryRow() {
-  const active = appState.members.filter((member) => member.isActive);
-  const inactive = appState.members.filter((member) => !member.isActive && isOperationalMember(member));
+  const active = appState.members.filter((member) => member.status === "1");
+  const inactive = appState.members.filter((member) => member.status === "4");
+  const operational = appState.members.filter(isOperationalMember);
   return `
     <div class="summary-row">
-      <div class="summary-tile"><span class="muted">Totaal</span><strong>${appState.members.length}</strong></div>
-      <div class="summary-tile"><span class="muted">Beschikbaar</span><strong>${active.length}</strong></div>
+      <div class="summary-tile"><span class="muted">Totaal in dienst</span><strong>${operational.length}</strong></div>
+      <div class="summary-tile"><span class="muted">Aanwezig</span><strong>${active.length}</strong></div>
       <div class="summary-tile"><span class="muted">Afwezig</span><strong>${inactive.length}</strong></div>
     </div>
   `;
@@ -155,12 +151,12 @@ function summaryRow() {
 
 function memberCard(member) {
   const { task } = appState.me;
-  const statusClass = member.isActive ? "active" : "inactive";
+  const statusClass = member.status === "1" ? "active" : "inactive";
   const specialties = member.specialties?.length
     ? member.specialties.map((label) => `<span class="specialty-chip">${escapeHtml(label)}</span>`).join("")
     : `<span class="specialty-chip">Geen specialisatie</span>`;
   return `
-    <article class="member-card ${member.isActive ? "" : "inactive"}">
+    <article class="member-card ${member.status === "1" ? "" : "inactive"}">
       <div class="member-main">
         ${memberAvatar(member)}
         <div>
@@ -270,14 +266,16 @@ function memberAdminPage() {
 
 function renderDashboard() {
   const task = appState.me.task;
-  const active = appState.members.filter((member) => member.isActive);
+  const active = appState.members.filter((member) => member.status === "1");
+  const inactive = appState.members.filter((member) => member.status === "4");
   return `
     ${topbar()}
     <div class="grid dashboard-grid">
       ${statusPanel()}
       <section class="panel">
         ${summaryRow()}
-        ${memberSection(`Beschikbare ${task.label} leden`, active)}
+        ${memberSection(`Aanwezige ${task.label} leden`, active)}
+        ${memberSection(`Afwezige ${task.label} leden`, inactive)}
       </section>
     </div>
   `;
