@@ -348,6 +348,7 @@ function publicTask(task) {
     slug: task.slug,
     label: task.label,
     displayName: task.displayName,
+    logoUrl: task.logoUrl || "",
     allowAlias: task.allowAlias,
     specialties: task.specialties.map((specialty) => ({ label: specialty.label }))
   };

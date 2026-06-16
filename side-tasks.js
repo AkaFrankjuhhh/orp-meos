@@ -129,9 +129,18 @@ function statusPanel() {
   `;
 }
 
+function isOperationalMember(member) {
+  return Boolean(
+    member?.isActive ||
+    member?.callSign ||
+    member?.aliasName ||
+    member?.specialties?.length
+  );
+}
+
 function summaryRow() {
   const active = appState.members.filter((member) => member.isActive);
-  const inactive = appState.members.filter((member) => !member.isActive);
+  const inactive = appState.members.filter((member) => !member.isActive && isOperationalMember(member));
   return `
     <div class="summary-row">
       <div class="summary-tile"><span class="muted">Totaal</span><strong>${appState.members.length}</strong></div>
@@ -265,7 +274,7 @@ function renderDashboard() {
       ${statusPanel()}
       <section class="panel">
         ${summaryRow()}
-        ${memberSection(`Inzetbare ${task.label} leden`, active)}
+        ${memberSection(`Beschikbare ${task.label} leden`, active)}
       </section>
     </div>
   `;
