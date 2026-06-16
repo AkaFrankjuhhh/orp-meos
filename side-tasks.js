@@ -86,7 +86,11 @@ function profileMenu() {
         <button class="secondary-button" type="submit">Profiel opslaan</button>
       </form>
       </div>
-      ${permissions.canManageMembers ? `<button class="primary-button member-admin-button" type="button" data-action="open-member-admin" aria-label="Leden Beheer"><span>Leden Beheer</span></button>` : ""}
+      ${permissions.canManageMembers ? `
+        <div class="profile-popover-actions">
+          <button class="member-admin-button" type="button" data-action="open-member-admin" aria-label="Leden Beheer">Leden Beheer</button>
+        </div>
+      ` : ""}
     </div>
   `;
 }

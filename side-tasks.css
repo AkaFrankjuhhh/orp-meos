@@ -180,21 +180,29 @@ h2 {
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
 }
 
-.member-admin-button {
-  display: flex;
-  align-items: center;
-  width: 100%;
+.profile-popover-actions {
   margin-top: 10px;
-  justify-content: center;
-  color: #101827;
-  font-size: 0.95rem;
-  line-height: 1;
-  text-align: center;
-  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.3);
 }
 
-.member-admin-button span {
-  display: block;
+.member-admin-button {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 138, 0, 0.8);
+  border-radius: 12px;
+  background: var(--orange);
+  color: #101827;
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.3);
 }
 
 .avatar {
