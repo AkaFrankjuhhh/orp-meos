@@ -148,6 +148,12 @@ h2 {
 
 .user-menu {
   position: relative;
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.user-menu-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -180,10 +186,6 @@ h2 {
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
 }
 
-.profile-popover-actions {
-  margin-top: 10px;
-}
-
 .member-admin-button {
   appearance: none;
   display: flex;
@@ -203,6 +205,10 @@ h2 {
   white-space: nowrap;
   cursor: pointer;
   box-shadow: 0 14px 35px rgba(0, 0, 0, 0.3);
+}
+
+.user-menu-admin {
+  width: 180px;
 }
 
 .avatar {

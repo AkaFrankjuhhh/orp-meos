@@ -64,7 +64,7 @@ function statusButton(status, currentStatus) {
 }
 
 function profileMenu() {
-  const { member, task, permissions } = appState.me;
+  const { member, task } = appState.me;
   if (!appState.profileOpen) return "";
   return `
     <div class="profile-popover">
@@ -86,17 +86,13 @@ function profileMenu() {
         <button class="secondary-button" type="submit">Profiel opslaan</button>
       </form>
       </div>
-      ${permissions.canManageMembers ? `
-        <div class="profile-popover-actions">
-          <button class="member-admin-button" type="button" data-action="open-member-admin" aria-label="Leden Beheer">Leden Beheer</button>
-        </div>
-      ` : ""}
     </div>
   `;
 }
 
 function topbar() {
   const task = appState.me.task;
+  const permissions = appState.me.permissions || {};
   const logo = task.logoUrl ? `<img class="task-logo" src="${escapeHtml(task.logoUrl)}" alt="${escapeHtml(task.label)} logo" />` : "";
   return `
     <header class="topbar">
@@ -109,11 +105,14 @@ function topbar() {
         </div>
       </div>
       <div class="user-menu">
-        <button class="user-chip" type="button" data-action="toggle-profile" title="Je profiel">
-          ${appState.me.user.avatarUrl ? `<img class="avatar" src="${escapeHtml(appState.me.user.avatarUrl)}" alt="" />` : `<div class="avatar"></div>`}
-          <strong>${escapeHtml(appState.me.user.displayName)}</strong>
-        </button>
-        <button class="secondary-button" data-action="logout">Uitloggen</button>
+        <div class="user-menu-row">
+          <button class="user-chip" type="button" data-action="toggle-profile" title="Je profiel">
+            ${appState.me.user.avatarUrl ? `<img class="avatar" src="${escapeHtml(appState.me.user.avatarUrl)}" alt="" />` : `<div class="avatar"></div>`}
+            <strong>${escapeHtml(appState.me.user.displayName)}</strong>
+          </button>
+          <button class="secondary-button" data-action="logout">Uitloggen</button>
+        </div>
+        ${permissions.canManageMembers ? `<button class="member-admin-button user-menu-admin" type="button" data-action="open-member-admin">Leden Beheer</button>` : ""}
         ${profileMenu()}
       </div>
     </header>
