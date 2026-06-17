@@ -1,5 +1,12 @@
-const formState = { config: null, adminQuestions: [] };
+const formState = {
+  config: null,
+  adminQuestions: [],
+  currentPageIndex: 0,
+  draftAnswers: {},
+  draftKey: ""
+};
 let questionsChangeBound = false;
+let questionsInputBound = false;
 
 function $(selector) {
   return document.querySelector(selector);
@@ -19,6 +26,11 @@ function showMessage(text, tone = "ok") {
   element.hidden = false;
   element.className = `form-message ${tone}`;
   element.textContent = text;
+}
+
+function hideMessage() {
+  const element = $("#formMessage");
+  if (element) element.hidden = true;
 }
 
 function setPageIcon(href) {
@@ -85,10 +97,11 @@ function conditionMatches(condition) {
   const checked = [...document.querySelectorAll(`[name="${CSS.escape(condition.field)}"]:checked`)].map((input) => input.value);
   if (checked.length) return condition.includes !== undefined ? checked.includes(condition.includes) : true;
   const field = $(`#field-${CSS.escape(condition.field)}`);
-  if (!field) return false;
-  if (condition.includes !== undefined) return field.value === condition.includes;
-  if (condition.equals !== undefined) return field.value === condition.equals;
-  return Boolean(field.value);
+  const value = field ? field.value : formState.draftAnswers?.[condition.field];
+  if (value === undefined) return false;
+  if (condition.includes !== undefined) return Array.isArray(value) ? value.includes(condition.includes) : value === condition.includes;
+  if (condition.equals !== undefined) return value === condition.equals;
+  return Array.isArray(value) ? value.length > 0 : Boolean(value);
 }
 
 function updateConditionalFields() {
@@ -166,6 +179,139 @@ function renderQuestion(question) {
   return `<section class="field"${showIf}><label for="field-${escapeHtml(question.id)}">${escapeHtml(question.label)} ${required}</label>${help}${control}</section>`;
 }
 
+function hasFormPages() {
+  return Array.isArray(formState.config?.pages) && formState.config.pages.length > 0;
+}
+
+function currentFormPage() {
+  return hasFormPages() ? formState.config.pages[formState.currentPageIndex] : null;
+}
+
+function questionsForCurrentPage() {
+  const questions = formState.config?.questions || [];
+  const page = currentFormPage();
+  if (!page) return questions;
+  return questions.filter((question) => (question.page || formState.config.pages[0]?.id) === page.id);
+}
+
+function draftStorageKey(config) {
+  if (!config?.slug) return "";
+  return `orp-public-form-draft:${config.organizationKey || "defensie"}:${config.slug}`;
+}
+
+function loadDraftAnswers(config) {
+  formState.draftKey = draftStorageKey(config);
+  formState.draftAnswers = {};
+  if (!formState.draftKey) return;
+  try {
+    const saved = localStorage.getItem(formState.draftKey);
+    if (saved) formState.draftAnswers = JSON.parse(saved) || {};
+  } catch {
+    formState.draftAnswers = {};
+  }
+}
+
+function saveDraftAnswers() {
+  if (!formState.draftKey) return;
+  try {
+    localStorage.setItem(formState.draftKey, JSON.stringify(formState.draftAnswers || {}));
+  } catch {
+    // Draft-opslag is extra gemak; het formulier moet blijven werken als storage niet beschikbaar is.
+  }
+}
+
+function clearDraftAnswers() {
+  if (formState.draftKey) localStorage.removeItem(formState.draftKey);
+  formState.draftAnswers = {};
+}
+
+function updateDraftFromVisibleFields() {
+  for (const question of questionsForCurrentPage()) {
+    if (question.type === "section" || question.type === "file") continue;
+    if (question.showIf && !conditionMatches(question.showIf)) {
+      delete formState.draftAnswers[question.id];
+      continue;
+    }
+    if (question.type === "checkboxGroup") {
+      const inputs = [...document.querySelectorAll(`[name="${CSS.escape(question.id)}"]`)];
+      if (inputs.length) formState.draftAnswers[question.id] = inputs.filter((input) => input.checked).map((input) => input.value);
+      continue;
+    }
+    const field = $(`#field-${CSS.escape(question.id)}`);
+    if (field) formState.draftAnswers[question.id] = field.value;
+  }
+  saveDraftAnswers();
+}
+
+function restoreDraftValues(root = document) {
+  const scope = root || document;
+  for (const question of questionsForCurrentPage()) {
+    if (question.type === "section" || question.type === "file") continue;
+    const value = formState.draftAnswers?.[question.id];
+    if (value === undefined) continue;
+    if (question.type === "checkboxGroup") {
+      const values = new Set(Array.isArray(value) ? value : [value]);
+      scope.querySelectorAll(`[name="${CSS.escape(question.id)}"]`).forEach((input) => {
+        input.checked = values.has(input.value);
+      });
+      continue;
+    }
+    const field = scope.querySelector(`#field-${CSS.escape(question.id)}`);
+    if (field) field.value = value;
+  }
+}
+
+function pageHeaderMarkup() {
+  const page = currentFormPage();
+  if (!page) return "";
+  return `
+    <section class="form-page-header">
+      <p class="form-page-step">Pagina ${formState.currentPageIndex + 1} van ${formState.config.pages.length}</p>
+      <h2>${escapeHtml(page.title || `Pagina ${formState.currentPageIndex + 1}`)}</h2>
+      ${page.description ? `<p>${escapeHtml(page.description)}</p>` : ""}
+    </section>
+  `;
+}
+
+function updatePageButtons() {
+  const previousButton = $("#previousPageButton");
+  const nextButton = $("#nextPageButton");
+  const submitButton = $("#submitButton");
+  const multiPage = hasFormPages();
+  if (previousButton) previousButton.hidden = !multiPage || formState.currentPageIndex <= 0;
+  if (nextButton) nextButton.hidden = !multiPage || formState.currentPageIndex >= formState.config.pages.length - 1;
+  if (submitButton) submitButton.hidden = multiPage && formState.currentPageIndex < formState.config.pages.length - 1;
+}
+
+function renderQuestions() {
+  const questionsElement = $("#questions");
+  questionsElement.innerHTML = `${pageHeaderMarkup()}${questionsForCurrentPage().map(renderQuestion).join("")}`;
+  restoreDraftValues(questionsElement);
+  bindAutoGrowingTextareas(questionsElement);
+  updateConditionalFields();
+  updatePageButtons();
+}
+
+function validateCurrentPage() {
+  updateDraftFromVisibleFields();
+  for (const question of questionsForCurrentPage()) {
+    if (!question.required || question.type === "section") continue;
+    if (question.showIf && !conditionMatches(question.showIf)) continue;
+    if (question.type === "checkboxGroup") {
+      const values = formState.draftAnswers[question.id];
+      if (!Array.isArray(values) || values.length === 0) return false;
+      continue;
+    }
+    if (question.type === "file") {
+      const file = $(`#field-${CSS.escape(question.id)}`)?.files?.[0];
+      if (!file) return false;
+      continue;
+    }
+    if (!String(formState.draftAnswers[question.id] || "").trim()) return false;
+  }
+  return true;
+}
+
 function showLoginRequired(loginUrl, message) {
   document.body.dataset.formSlug = "internal-login";
   document.body.dataset.formOrg = "overheid";
@@ -173,6 +319,8 @@ function showLoginRequired(loginUrl, message) {
   $("#formSubtitle").textContent = message || "Log in met Discord om dit interne formulier te openen.";
   $("#questions").innerHTML = `<a class="login-button" href="${escapeHtml(loginUrl)}">Aanmelden met Discord</a>`;
   $("#submitButton").hidden = true;
+  $("#previousPageButton").hidden = true;
+  $("#nextPageButton").hidden = true;
 }
 
 
@@ -340,6 +488,9 @@ function bindFormAdmin() {
 }
 
 function applyLoadedConfig(config) {
+  formState.config = config;
+  formState.currentPageIndex = 0;
+  loadDraftAnswers(config);
   document.body.dataset.formSlug = config.slug;
   document.body.dataset.formOrg = config.visualScope || config.organizationKey || "defensie";
   document.title = config.title;
@@ -351,13 +502,20 @@ function applyLoadedConfig(config) {
   notice.hidden = !config.notice;
   notice.textContent = config.notice || "";
   const questionsElement = $("#questions");
-  questionsElement.innerHTML = (config.questions || []).map(renderQuestion).join("");
   if (!questionsChangeBound) {
-    questionsElement.addEventListener("change", updateConditionalFields);
+    questionsElement.addEventListener("change", () => {
+      updateConditionalFields();
+      updateDraftFromVisibleFields();
+    });
     questionsChangeBound = true;
   }
-  bindAutoGrowingTextareas(questionsElement);
-  updateConditionalFields();
+  if (!questionsInputBound) {
+    questionsElement.addEventListener("input", (event) => {
+      if (event.target.matches("input, textarea, select")) updateDraftFromVisibleFields();
+    });
+    questionsInputBound = true;
+  }
+  renderQuestions();
   renderFormAdmin(config);
 }
 async function loadForm() {
@@ -376,15 +534,18 @@ async function loadForm() {
 }
 
 function collectAnswers() {
-  const answers = {};
+  updateDraftFromVisibleFields();
+  const answers = { ...(formState.draftAnswers || {}) };
   for (const question of formState.config.questions || []) {
     if (question.showIf && !conditionMatches(question.showIf)) continue;
     if (question.type === "file") continue;
     if (question.type === "checkboxGroup") {
-      answers[question.id] = [...document.querySelectorAll(`[name="${CSS.escape(question.id)}"]:checked`)].map((input) => input.value);
+      const inputs = [...document.querySelectorAll(`[name="${CSS.escape(question.id)}"]`)];
+      if (inputs.length) answers[question.id] = inputs.filter((input) => input.checked).map((input) => input.value);
       continue;
     }
-    answers[question.id] = $(`#field-${CSS.escape(question.id)}`)?.value?.trim() || "";
+    const field = $(`#field-${CSS.escape(question.id)}`);
+    if (field) answers[question.id] = field.value.trim();
   }
   return answers;
 }
@@ -417,6 +578,10 @@ async function submitForm(event) {
   event.preventDefault();
   if (!formState.config) return;
   if ($("#website").value) return;
+  if (hasFormPages() && !validateCurrentPage()) {
+    showMessage("Vul de verplichte velden op deze pagina in voordat je verzendt.", "error");
+    return;
+  }
   const button = $("#submitButton");
   button.disabled = true;
   button.textContent = "Verzenden...";
@@ -433,8 +598,9 @@ async function submitForm(event) {
     }
     if (!response.ok) throw new Error(data.error || "Formulier verzenden is mislukt.");
     $("#publicForm").reset();
-    updateConditionalFields();
-    bindAutoGrowingTextareas($("#questions"));
+    clearDraftAnswers();
+    formState.currentPageIndex = 0;
+    renderQuestions();
     showMessage("Formulier ontvangen. De melding naar Discord wordt verwerkt.", "ok");
   } catch (error) {
     showMessage(error.message || "Formulier verzenden is mislukt.", "error");
@@ -445,6 +611,25 @@ async function submitForm(event) {
 }
 
 $("#publicForm").addEventListener("submit", submitForm);
+$("#previousPageButton")?.addEventListener("click", () => {
+  if (!hasFormPages()) return;
+  updateDraftFromVisibleFields();
+  formState.currentPageIndex = Math.max(0, formState.currentPageIndex - 1);
+  hideMessage();
+  renderQuestions();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+$("#nextPageButton")?.addEventListener("click", () => {
+  if (!hasFormPages()) return;
+  if (!validateCurrentPage()) {
+    showMessage("Vul de verplichte velden op deze pagina in voordat je verder gaat.", "error");
+    return;
+  }
+  formState.currentPageIndex = Math.min(formState.config.pages.length - 1, formState.currentPageIndex + 1);
+  hideMessage();
+  renderQuestions();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
 bindFormAdmin();
 showAuthErrorFromUrl();
 loadForm().catch((error) => {

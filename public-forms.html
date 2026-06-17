@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>ORP Defensie Formulier</title>
-    <link rel="stylesheet" href="/public-forms.css?v=20260614-form-photo-refresh" />
+    <link rel="stylesheet" href="/public-forms.css?v=20260617-bsb-form" />
   </head>
   <body>
     <main class="form-shell">
@@ -48,10 +48,14 @@
         <input id="website" name="website" type="text" autocomplete="off" tabindex="-1" class="hp-field" />
         <div id="questions"></div>
         <div id="formMessage" class="form-message" hidden></div>
-        <button id="submitButton" class="submit-button" type="submit">Formulier verzenden</button>
+        <div class="form-actions">
+          <button id="previousPageButton" class="ghost-button" type="button" hidden>Vorige</button>
+          <button id="nextPageButton" class="submit-button" type="button" hidden>Volgende</button>
+          <button id="submitButton" class="submit-button" type="submit">Formulier verzenden</button>
+        </div>
       </form>
     </main>
-    <script src="/public-forms.js?v=20260614-form-photo-refresh"></script>
+    <script src="/public-forms.js?v=20260617-bsb-form"></script>
   </body>
 </html>
 

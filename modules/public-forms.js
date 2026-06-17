@@ -38,6 +38,13 @@ function hovjFormHosts() {
   ]));
 }
 
+function bsbFormHosts() {
+  return Array.from(new Set([
+    ...overheidFormHosts("bsb"),
+    "bsb.orpdefensie.nl"
+  ]));
+}
+
 function publicFormIconHref(config) {
   if (isComplaintForm(config)) return "/assets/orp-logo.png?v=20260613-form-branding";
   if (organization.key === "politie") return "/assets/politie-logo.png?v=20260613-form-branding";
@@ -172,6 +179,39 @@ const publicFormConfigs = {
       { id: "questions", label: "Heb jij nog verdere vragen en/of opmerkingen?", type: "textarea", required: false }
     ]
   },
+  bsb: {
+    slug: "bsb",
+    hostnames: bsbFormHosts(),
+    title: "Brigade Speciale Beveiligingsopdrachten",
+    subtitle: "Sollicitatieformulier voor deelname aan de BSB. Vul de intake en praktijkvragen volledig en naar waarheid in.",
+    notice: "Dit formulier bestaat uit twee delen. Je antwoorden worden tijdelijk in deze browser opgeslagen zolang je het formulier nog niet hebt verzonden.",
+    accent: "#2563eb",
+    internalOnly: true,
+    webhookEnv: "DISCORD_FORM_BSB_WEBHOOK_URL",
+    pages: [
+      {
+        id: "intake",
+        title: "Intake",
+        description: "Dit zijn vragen over wie jij bent. Vanzelfsprekend gaat dit over ingame informatie."
+      },
+      {
+        id: "situaties",
+        title: "Praktijk Situaties",
+        description: "Beantwoord de situaties vanuit jouw eigen inzicht, houding en manier van samenwerken."
+      }
+    ],
+    questions: [
+      { id: "name", page: "intake", label: "Wat is jouw naam", type: "text", required: true },
+      { id: "rank", page: "intake", label: "Wat is jouw rang", type: "text", required: true },
+      { id: "defenceTenure", page: "intake", label: "Hoelang ben je lid van Defensie", type: "text", required: true },
+      { id: "strengths", page: "intake", label: "Noem 3 goede eigenschappen die van pas komen bij de BSB", type: "textarea", required: true },
+      { id: "weaknesses", page: "intake", label: "Noem 3 mindere eigenschappen van jezelf", type: "textarea", required: true },
+      { id: "motivation", page: "intake", label: "Waarom wil je juist bij de BSB werken?", type: "textarea", required: true },
+      { id: "teamRole", page: "situaties", label: "Welke rol neem jij meestal aan binnen een team?", type: "textarea", required: true },
+      { id: "disagreement", page: "situaties", label: "Je krijgt een opdracht waar je het persoonlijk niet mee eens bent. Wat doe je?", type: "textarea", required: true },
+      { id: "suspiciousSituation", page: "situaties", label: "Tijdens een beveiligingsopdracht zie je iets verdachts. Hoe handel je?", type: "textarea", required: true }
+    ]
+  },
   "w-s": {
     slug: "w-s",
     aliases: ["w&s", "ws"],
@@ -241,6 +281,7 @@ const publicFormManagerBadges = {
   otc: ["OTC-Leiding", "Trainer-Leiding"],
   trainer: ["Trainer-Leiding"],
   hrb: ["HRB-Leiding"],
+  bsb: ["BSB-Leiding"],
   "w-s": ["W&S-Leiding"],
   hovj: ["OvJ"]
 };
@@ -393,6 +434,7 @@ function publicFormClientConfig(config, profile = null) {
     managerBadges: managerBadgesForConfig(config),
     canManage: canManagePublicForm(profile, config),
     questions,
+    pages: config.pages || [],
     editable: canManagePublicForm(profile, config) ? {
       title: config.title,
       subtitle: config.subtitle || "",

@@ -112,6 +112,14 @@ body[data-form-slug="hrb"] {
   --form-bg-accent: rgba(100, 116, 139, 0.2);
 }
 
+body[data-form-slug="bsb"] {
+  --form-bg-image: url("/assets/bsb-background.png?v=20260617-bsb-form");
+  --form-bg-position: center;
+  --form-bg-accent: rgba(37, 99, 235, 0.22);
+  --form-logo-image: url("/assets/defensielogo-wall-clean.png?v=20260614-form-photo-refresh");
+  --form-logo-opacity: 0.08;
+}
+
 body[data-form-slug="herintrede"] {
   --form-bg-image: url("/assets/lockscreen-defensie.png?v=20260614-form-photo-refresh");
   --form-bg-position: 52% center;
@@ -191,6 +199,35 @@ h1 {
 .form-fields {
   margin-top: 18px;
   padding: 22px;
+}
+
+.form-page-header {
+  margin-bottom: 8px;
+  padding: 18px;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(15, 23, 42, 0.82));
+}
+
+.form-page-header h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.form-page-header p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.form-page-header .form-page-step {
+  margin: 0 0 8px;
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .field {
@@ -322,6 +359,27 @@ select:focus {
   padding: 0 18px;
   text-decoration: none;
 }
+
+.form-actions {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.form-actions .submit-button {
+  margin-top: 0;
+}
+
+.form-actions #submitButton:first-child,
+.form-actions #submitButton:not([hidden]) {
+  grid-column: 1 / -1;
+}
+
+.form-actions #previousPageButton:not([hidden]) + #nextPageButton:not([hidden]) {
+  grid-column: 2;
+}
+
 .submit-button {
   width: 100%;
   margin-top: 18px;
@@ -368,6 +426,10 @@ select:focus {
 @media (max-width: 640px) {
   .form-shell { padding: 24px 0; }
   .form-card-hero, .form-fields { padding: 18px; }
+
+  .form-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-admin {
