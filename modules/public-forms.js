@@ -50,6 +50,12 @@ function publicFormIconHref(config) {
   return "/assets/favicon.png?v=20260526";
 }
 
+function publicFormEyebrow(config) {
+  if (isComplaintForm(config)) return "ORP Overheid";
+  if (organization.key === "politie") return "ORP Politie Oranjestad";
+  return "ORP Defensie Oranjestad";
+}
+
 function isComplaintForm(configOrSlug) {
   const slug = typeof configOrSlug === "string" ? configOrSlug : configOrSlug?.slug;
   return ["klachten", "interne-klacht"].includes(slug);
@@ -425,6 +431,7 @@ function publicFormClientConfig(config, profile = null) {
     organizationKey: organization.key,
     visualScope,
     title: config.title,
+    eyebrow: publicFormEyebrow(config),
     subtitle: config.subtitle || "",
     notice: config.notice || "",
     accent: config.accent || "#f59e0b",

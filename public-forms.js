@@ -496,6 +496,7 @@ function applyLoadedConfig(config) {
   document.title = config.title;
   setPageIcon(config.iconHref);
   document.documentElement.style.setProperty("--accent", config.accent || "#f59e0b");
+  $("#formEyebrow").textContent = config.eyebrow || "ORP Defensie Oranjestad";
   $("#formTitle").textContent = config.title;
   $("#formSubtitle").textContent = config.subtitle || "";
   const notice = $("#formNotice");
