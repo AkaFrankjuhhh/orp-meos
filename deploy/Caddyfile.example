@@ -1,5 +1,5 @@
 # Defensie Personeelsportaal + publieke formulieren.
-orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, bsb.orpdefensie.nl, bsb.orpoverheid.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl {
+orpdefensie.nl, www.orpdefensie.nl, herintrede.orpdefensie.nl, overstap.orpdefensie.nl, otc.orpdefensie.nl, hrb.orpdefensie.nl, bsb.orpdefensie.nl, ws.orpdefensie.nl, w-s.orpdefensie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3000
 

@@ -40,7 +40,6 @@ function hovjFormHosts() {
 
 function bsbFormHosts() {
   return Array.from(new Set([
-    ...overheidFormHosts("bsb"),
     "bsb.orpdefensie.nl"
   ]));
 }
