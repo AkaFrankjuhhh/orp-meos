@@ -2,6 +2,8 @@ const crypto = require("node:crypto");
 const { createPortoServices } = require("./porto");
 const { enqueueDiscordSyncJob } = require("./discord-sync-jobs");
 const { currentOrganization } = require("./organizations");
+const { allSideTasks } = require("./side-tasks-config");
+const { createSideTasksStore } = require("./side-tasks-store");
 
 function activePersonForAuth(state, auth) {
   return (state.people || []).find((entry) => entry.id === auth.profile.id && entry.status === "Actief");
@@ -9,6 +11,10 @@ function activePersonForAuth(state, auth) {
 
 function createPortoRouteHandler({ requireAuth, readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits, readBody, sendJson, discordBot }) {
   const organization = currentOrganization();
+  const sideTasksStore = createSideTasksStore();
+  const sideTaskDefinitions = allSideTasks();
+  let sideTaskStatusWarningLogged = false;
+  let sideTaskStatusCache = { expiresAt: 0, byDiscordId: new Map() };
   const operatorLabel = organization.porto?.operatorLabel || organization.discord?.portoOperatorLabel || "OPS";
   const operatorTraining = organization.porto?.operatorTraining || operatorLabel;
   const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
@@ -61,6 +67,76 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   function peopleById(state) {
     return new Map((state.people || []).map((entry) => [entry.id, entry]));
+  }
+
+  function sideTaskStatusView(task, member) {
+    const value = String(member?.status || "8");
+    if (value === "1") {
+      return { key: task.key, label: task.label, state: "available", text: "Beschikbaar" };
+    }
+    if (value === "4") {
+      return { key: task.key, label: task.label, state: "temporary", text: "Tijdelijk Afwezig" };
+    }
+    return { key: task.key, label: task.label, state: "absent", text: "Afwezig" };
+  }
+
+  function defaultSideTaskStatuses() {
+    return sideTaskDefinitions.map((task) => sideTaskStatusView(task, null));
+  }
+
+  async function loadSideTaskMembersByDiscordId() {
+    if (sideTaskStatusCache.expiresAt > Date.now()) return sideTaskStatusCache.byDiscordId;
+    const byDiscordId = new Map();
+    try {
+      await Promise.all(sideTaskDefinitions.map(async (task) => {
+        const members = await sideTasksStore.listMembers(task.key);
+        for (const member of members || []) {
+          const discordId = String(member.discordId || "").trim();
+          if (!discordId) continue;
+          if (!byDiscordId.has(discordId)) byDiscordId.set(discordId, new Map());
+          byDiscordId.get(discordId).set(task.key, member);
+        }
+      }));
+    } catch (error) {
+      if (!sideTaskStatusWarningLogged) {
+        sideTaskStatusWarningLogged = true;
+        console.error(`[porto] Neventaken-status kon niet worden geladen: ${error.message}`);
+      }
+      return new Map();
+    }
+    sideTaskStatusCache = { expiresAt: Date.now() + 2500, byDiscordId };
+    return byDiscordId;
+  }
+
+  function sideTaskStatusesForPerson(person, membersByDiscordId) {
+    const discordId = String(person?.discordId || "").trim();
+    if (!discordId) return defaultSideTaskStatuses();
+    const taskMembers = membersByDiscordId.get(discordId) || new Map();
+    return sideTaskDefinitions.map((task) => sideTaskStatusView(task, taskMembers.get(task.key)));
+  }
+
+  function attachSideTaskStatusesToMember(member, statePeople, membersByDiscordId) {
+    if (!member) return;
+    const person = statePeople.get(member.memberId);
+    member.sideTaskStatuses = sideTaskStatusesForPerson(person, membersByDiscordId);
+  }
+
+  async function attachSideTaskStatuses(payload, state) {
+    const membersByDiscordId = await loadSideTaskMembersByDiscordId();
+    const statePeople = peopleById(state);
+    const decorateGroup = (group) => {
+      for (const member of group?.members || []) {
+        attachSideTaskStatusesToMember(member, statePeople, membersByDiscordId);
+      }
+    };
+    for (const group of payload.activeUnits || []) decorateGroup(group);
+    for (const channelGroup of payload.discordChannelGroups || []) {
+      for (const group of channelGroup.units || []) decorateGroup(group);
+    }
+    for (const member of payload.unit?.unitMembers || []) {
+      attachSideTaskStatusesToMember(member, statePeople, membersByDiscordId);
+    }
+    return payload;
   }
 
   function delayedDiscordJobRunAfter() {
@@ -420,13 +496,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   }
 
   async function sendPortoState(res, state, person, unit = null, extra = {}) {
-    sendJson(res, 200, {
+    const payload = {
       ...extra,
       unit: decoratePortoUnit(state, unit),
       profile: person,
       vehicleRanges: state.portoVehicleRanges,
       ...portoOpsPayload(state, person)
-    });
+    };
+    sendJson(res, 200, await attachSideTaskStatuses(payload, state));
   }
 
   async function requireActivePerson(req, res) {
@@ -652,7 +729,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         createdByName: person.name
       });
       await persistPortoState(state, { units: state.portoUnits });
-      sendJson(res, 200, { devTestPerson: { id: picked.id, name: picked.name }, vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+      await sendPortoState(res, state, person, null, { devTestPerson: { id: picked.id, name: picked.name } });
       return true;
     }
 
@@ -721,7 +798,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (action === "release") {
         if (!currentOps && cleanedOpsEligibility) {
           await persistPortoState(state, { settings: true, units: state.portoUnits });
-          sendJson(res, 200, portoOpsPayload(state, person));
+          await sendPortoState(res, state, person, null);
           return true;
         }
         if (!canReleasePortoOps(person, currentOps)) {
@@ -733,7 +810,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         releaseCurrentOps(state, currentOps, person, endedAt, `${operatorLabel} neergelegd`);
         await persistPortoState(state, { settings: true, units: state.portoUnits });
         if (opsUnit) await enqueueNormalDiscordNicknames(state, [opsUnit], `${operatorLabel} dienst beeindigd`);
-        sendJson(res, 200, portoOpsPayload(state, person));
+        await sendPortoState(res, state, person, null);
         return true;
       }
       sendJson(res, 400, { error: `Ongeldige ${operatorLabel} actie.` });
@@ -806,7 +883,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         syncPortoLinkedNames(state, oldVehicleNumber);
         syncPortoLinkedNames(state, vehicleNumber);
         await persistPortoState(state, { units: state.portoUnits });
-        sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+        await sendPortoState(res, state, person, unit);
         return true;
       }
 
@@ -835,7 +912,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         syncPortoLinkedNames(state, oldVehicleNumber);
         await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
         await enqueueNormalDiscordNicknames(state, unitsToEnd);
-        sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+        await sendPortoState(res, state, person, unit);
         return true;
       }
       if (discordChannelKey || body.discordChannelStatus !== undefined) {
@@ -868,7 +945,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         if (discordChannelKey && body.discordChannelStatus === undefined) {
           await enqueuePortoVoiceMove(state, group, key, `Porto kanaal handmatig gezet door ${person.name || operatorLabel}`);
         }
-        sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+        await sendPortoState(res, state, person, unit);
         return true;
       }
       if (newStatus) {
@@ -894,7 +971,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           entry.statusUpdatedByName = person.name;
         }
         await persistPortoState(state, { units: state.portoUnits });
-        sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+        await sendPortoState(res, state, person, unit);
         return true;
       }
 
@@ -905,7 +982,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       let targetDiscordChannelKey = unit.discordChannelKey || "";
       if (exactVehicleNumber) {
         if (exactVehicleNumber === unit.vehicleNumber) {
-          sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+          await sendPortoState(res, state, person, unit);
           return true;
         }
         range = vehicleRangeForNumber(state, exactVehicleNumber);
@@ -923,7 +1000,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         unit.reviewStatus = "number-changed";
       } else if (linkToVehicleNumber) {
         if (linkToVehicleNumber === unit.vehicleNumber) {
-          sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+          await sendPortoState(res, state, person, unit);
           return true;
         }
         const linkedGroup = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === linkToVehicleNumber);
@@ -980,7 +1057,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
       await enqueuePortoDiscordNicknames(state, unitsToMove, "Porto roepnummer aangepast");
-      sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+      await sendPortoState(res, state, person, unit);
       return true;
     }
 
@@ -1023,7 +1100,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           updatedAt: rejectedAt
         });
         await persistPortoState(state, { units: state.portoUnits });
-        sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+        await sendPortoState(res, state, person, unit);
         return true;
       }
       let vehicleNumber = "";
@@ -1081,7 +1158,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
       await enqueuePortoDiscordNicknames(state, [unit], "Porto indeling actief");
-      sendJson(res, 200, { unit: decoratePortoUnit(state, unit), vehicleRanges: state.portoVehicleRanges, ...portoOpsPayload(state, person) });
+      await sendPortoState(res, state, person, unit);
       return true;
     }
 

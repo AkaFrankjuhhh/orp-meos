@@ -1904,6 +1904,58 @@ body.porto-ops-workspace .porto-ops-empty {
   font-weight: 900;
 }
 
+.porto-side-task-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.porto-side-task-status {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.porto-side-task-status b {
+  color: #f8fafc;
+  font-size: 11px;
+}
+
+.porto-side-task-status small {
+  color: inherit;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.porto-side-task-status.available {
+  border-color: rgba(34, 197, 94, 0.46);
+  background: rgba(22, 101, 52, 0.24);
+  color: #86efac;
+}
+
+.porto-side-task-status.temporary {
+  border-color: rgba(245, 158, 11, 0.52);
+  background: rgba(146, 64, 14, 0.24);
+  color: #facc15;
+}
+
+.porto-side-task-status.absent {
+  border-color: rgba(251, 146, 60, 0.34);
+  background: rgba(67, 56, 40, 0.24);
+  color: #fdba74;
+}
+
 .porto-modern-members {
   display: grid;
   gap: 8px;
