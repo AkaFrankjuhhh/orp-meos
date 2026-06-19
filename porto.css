@@ -1949,10 +1949,10 @@ body.porto-ops-workspace .porto-ops-empty {
 
 .porto-side-task-overview-item.available { border-color: rgba(34, 197, 94, 0.48); background: rgba(22, 101, 52, 0.2); }
 .porto-side-task-overview-item.available strong { color: #86efac; }
-.porto-side-task-overview-item.temporary { border-color: rgba(245, 158, 11, 0.58); background: rgba(146, 64, 14, 0.2); }
-.porto-side-task-overview-item.temporary strong { color: #facc15; }
-.porto-side-task-overview-item.absent { border-color: rgba(251, 146, 60, 0.36); background: rgba(67, 56, 40, 0.2); }
-.porto-side-task-overview-item.absent strong { color: #fdba74; }
+.porto-side-task-overview-item.temporary { border-color: rgba(245, 158, 11, 0.62); background: rgba(146, 64, 14, 0.24); }
+.porto-side-task-overview-item.temporary strong { color: #fbbf24; }
+.porto-side-task-overview-item.absent { border-color: rgba(239, 68, 68, 0.56); background: rgba(127, 29, 29, 0.22); }
+.porto-side-task-overview-item.absent strong { color: #fca5a5; }
 
 .porto-modern-members {
   display: grid;

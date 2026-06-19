@@ -949,6 +949,7 @@ function renderDashboard() {
   const activePeople = state.people.filter((person) => person.status === "Actief");
   $("#statActive").textContent = activePeople.length;
   $("#statAbsent").textContent = state.absences.filter(absenceIsActive).length;
+  $("#statTotal").textContent = state.people.length;
 
   const rankCounts = ranks
     .map((rank) => ({

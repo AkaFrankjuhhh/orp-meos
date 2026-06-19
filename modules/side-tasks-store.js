@@ -3,6 +3,48 @@ const { withClient } = require("./db");
 const { statusOption } = require("./side-tasks-config");
 
 let schemaReady = false;
+let sideTaskPool = null;
+
+function sideTaskDatabaseUrl() {
+  return String(process.env.SIDE_TASK_DATABASE_URL || "").trim();
+}
+
+function sideTaskDatabaseConfig() {
+  const connectionString = sideTaskDatabaseUrl();
+  if (!connectionString) return null;
+  const sslEnabled = String(process.env.SIDE_TASK_DATABASE_SSL || process.env.DATABASE_SSL || "false").toLowerCase() === "true";
+  const configuredMax = Number(process.env.SIDE_TASK_DATABASE_POOL_MAX || 2);
+  return {
+    connectionString,
+    max: Number.isFinite(configuredMax) ? Math.min(Math.max(Math.floor(configuredMax), 1), 8) : 2,
+    idleTimeoutMillis: Number(process.env.SIDE_TASK_DATABASE_POOL_IDLE_MS || 30000),
+    connectionTimeoutMillis: Number(process.env.SIDE_TASK_DATABASE_POOL_CONNECT_MS || 10000),
+    ssl: sslEnabled ? { rejectUnauthorized: false } : false
+  };
+}
+
+function createSideTaskPool() {
+  if (sideTaskPool) return sideTaskPool;
+  const config = sideTaskDatabaseConfig();
+  if (!config) return null;
+  const { Pool } = require("pg");
+  sideTaskPool = new Pool(config);
+  sideTaskPool.on("error", (error) => {
+    console.error("Neventaken PostgreSQL pool error:", error.message || error);
+  });
+  return sideTaskPool;
+}
+
+async function withSideTaskClient(callback) {
+  const pool = createSideTaskPool();
+  if (!pool) return withClient(callback);
+  const client = await pool.connect();
+  try {
+    return await callback(client);
+  } finally {
+    client.release();
+  }
+}
 
 function jsonArray(value) {
   if (Array.isArray(value)) return value;
@@ -40,7 +82,7 @@ function memberFromRow(row) {
 
 async function ensureSideTaskSchema() {
   if (schemaReady) return;
-  await withClient(async (client) => {
+  await withSideTaskClient(async (client) => {
     await client.query(`
       create table if not exists app_sessions (
         id text primary key,
@@ -109,7 +151,7 @@ function normalizeMember(taskKey, member) {
 function createSideTasksStore() {
   async function listMembers(taskKey) {
     await ensureSideTaskSchema();
-    return withClient(async (client) => {
+    return withSideTaskClient(async (client) => {
       const result = await client.query(
         `select * from side_task_members
          where task_key = $1
@@ -122,7 +164,7 @@ function createSideTasksStore() {
 
   async function findMemberByDiscordId(taskKey, discordId) {
     await ensureSideTaskSchema();
-    return withClient(async (client) => {
+    return withSideTaskClient(async (client) => {
       const result = await client.query(
         "select * from side_task_members where task_key = $1 and discord_id = $2 limit 1",
         [taskKey, String(discordId)]
@@ -133,7 +175,7 @@ function createSideTasksStore() {
 
   async function findMemberById(taskKey, id) {
     await ensureSideTaskSchema();
-    return withClient(async (client) => {
+    return withSideTaskClient(async (client) => {
       const result = await client.query(
         "select * from side_task_members where task_key = $1 and id = $2 limit 1",
         [taskKey, String(id)]
@@ -150,7 +192,7 @@ function createSideTasksStore() {
       error.status = 400;
       throw error;
     }
-    return withClient(async (client) => {
+    return withSideTaskClient(async (client) => {
       const result = await client.query(
         `insert into side_task_members (
           id, task_key, discord_id, discord_username, display_name, avatar_url,
@@ -209,7 +251,7 @@ function createSideTasksStore() {
 
   async function deleteMember(taskKey, id) {
     await ensureSideTaskSchema();
-    return withClient(async (client) => {
+    return withSideTaskClient(async (client) => {
       const result = await client.query(
         "delete from side_task_members where task_key = $1 and id = $2 returning *",
         [taskKey, String(id)]

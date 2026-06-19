@@ -26,3 +26,12 @@ DATABASE_POOL_MAX=4
 ```
 
 Verhoog `DATABASE_POOL_MAX` alleen na het controleren van PostgreSQL-verbindingen. Met meerdere portalen, Porto-services en workers is een lage, voorspelbare limiet veiliger dan iedere service tien verbindingen geven.
+
+## Neventaken in Porto
+
+De beide Porto-services lezen de status van DSI, HRB, KLu en DNR uit de centrale neventakendatabase. Zet daarom in zowel `.env` als `.env.politie` dezelfde waarde als de `DATABASE_URL` van `.env.side-tasks`:
+
+```env
+SIDE_TASK_DATABASE_URL=postgres://defensie_portal:WACHTWOORD@localhost:5432/side_tasks_portal
+SIDE_TASK_DATABASE_POOL_MAX=2
+```

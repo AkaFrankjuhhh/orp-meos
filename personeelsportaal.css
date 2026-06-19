@@ -2361,6 +2361,10 @@ dialog {
   background: var(--status-absent);
 }
 
+.stat-total {
+  grid-column: 1 / -1;
+}
+
 .stat-card strong {
   width: fit-content;
   font-variant-numeric: tabular-nums;
