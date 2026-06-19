@@ -578,20 +578,67 @@ function truncateDiscordText(value, maxLength) {
 function buildPublicFormWebhookPayload(config, submission) {
   const embedTitle = isComplaintForm(config) ? config.title : `${submission.formScope || "Openbaar"} - Nieuwe inzending: ${config.title}`;
   const footerText = `Formulier: ${config.slug}`;
-  const fields = [];
   const maxFields = 25;
-  const maxTotalChars = 5600;
-  let usedChars = embedTitle.length + footerText.length;
+  const maxEmbeds = 10;
+  const maxEmbedChars = 5800;
+  const maxFieldValueChars = 1000;
+  const color = Number.parseInt(String(config.accent || "#f59e0b").replace("#", ""), 16) || 0xf59e0b;
+  const embeds = [];
+  let droppedFields = 0;
+
+  function createEmbed() {
+    if (embeds.length >= maxEmbeds) return null;
+    const number = embeds.length + 1;
+    const title = number === 1 ? embedTitle : `${embedTitle} - vervolg ${number}`;
+    const embed = {
+      title: truncateDiscordText(title, 256),
+      color,
+      fields: [],
+      footer: { text: footerText },
+      timestamp: submission.submittedAt,
+      usedChars: title.length + footerText.length
+    };
+    embeds.push(embed);
+    return embed;
+  }
+
+  function splitFieldValue(value) {
+    const text = String(value || "-").trim() || "-";
+    const chunks = [];
+    let remaining = text;
+    while (remaining.length > maxFieldValueChars) {
+      let boundary = remaining.lastIndexOf("\n", maxFieldValueChars);
+      if (boundary < Math.floor(maxFieldValueChars * 0.6)) boundary = remaining.lastIndexOf(" ", maxFieldValueChars);
+      if (boundary < Math.floor(maxFieldValueChars * 0.6)) boundary = maxFieldValueChars;
+      chunks.push(remaining.slice(0, boundary).trim());
+      remaining = remaining.slice(boundary).trimStart();
+    }
+    chunks.push(remaining || "-");
+    return chunks;
+  }
 
   function addField(name, value) {
-    if (fields.length >= maxFields) return false;
     const cleanName = truncateDiscordText(name, 220);
-    const remaining = maxTotalChars - usedChars - cleanName.length - 32;
-    if (remaining < 80) return false;
-    const cleanValue = truncateDiscordText(value, Math.min(900, remaining));
-    fields.push({ name: cleanName, value: cleanValue, inline: false });
-    usedChars += cleanName.length + cleanValue.length;
-    return true;
+    const chunks = splitFieldValue(value);
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunkName = chunks.length > 1 ? `${cleanName} (${index + 1}/${chunks.length})` : cleanName;
+      const chunkValue = chunks[index];
+      let embed = embeds[embeds.length - 1] || createEmbed();
+      if (!embed) {
+        droppedFields += 1;
+        continue;
+      }
+      const fieldChars = chunkName.length + chunkValue.length;
+      if (embed.fields.length >= maxFields || embed.usedChars + fieldChars > maxEmbedChars) {
+        embed = createEmbed();
+      }
+      if (!embed) {
+        droppedFields += 1;
+        continue;
+      }
+      embed.fields.push({ name: chunkName, value: chunkValue, inline: false });
+      embed.usedChars += fieldChars;
+    }
   }
 
   if (submission.submittedBy) {
@@ -604,40 +651,32 @@ function buildPublicFormWebhookPayload(config, submission) {
 
   // Klachten krijgen een vast zaaknummer bovenaan de Discord embed, zodat leiding dit makkelijk kan terugvinden.
   if (isComplaintForm(config)) {
-    fields.unshift({ name: "Zaaknummer", value: formatCaseNumber(submission.caseNumber), inline: false });
-    usedChars += "Zaaknummer".length + formatCaseNumber(submission.caseNumber).length;
+    addField("Zaaknummer", formatCaseNumber(submission.caseNumber));
   }
 
-  let truncatedOrSkipped = false;
   for (const question of (config.questions || [])) {
     if (question.type === "file" || !conditionMatches(question.showIf, submission.answers)) continue;
     const rawValue = submission.answers?.[question.id];
     const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue || "-";
-    const beforeCount = fields.length;
-    if (!addField(question.label, value)) {
-      truncatedOrSkipped = true;
-      break;
-    }
-    if (fields.length > beforeCount && String(value).length > String(fields[fields.length - 1].value).length) truncatedOrSkipped = true;
+    addField(question.label, value);
   }
 
   if (submission.attachments?.length) {
-    if (!addField("Bijlage", submission.attachments.map((file) => `${file.filename} (${Math.round(file.size / 1024)} KB)`).join("\n"))) truncatedOrSkipped = true;
+    addField("Bijlage", submission.attachments.map((file) => `${file.filename} (${Math.round(file.size / 1024)} KB)`).join("\n"));
   }
-  if (truncatedOrSkipped && fields.length < maxFields) {
-    addField("Let op", "Een deel van de antwoorden is ingekort voor Discord. De volledige inzending staat opgeslagen in het portaal.");
+  if (droppedFields) {
+    const embed = embeds[embeds.length - 1];
+    if (embed && embed.fields.length < maxFields) {
+      embed.fields.push({
+        name: "Let op",
+        value: `${droppedFields} antwoorddeel/antwoorddelen pasten niet binnen de Discord-limiet van ${maxEmbeds} embeds. De volledige inzending staat in het portaal.`,
+        inline: false
+      });
+    }
   }
 
   return {
-    embeds: [
-      {
-        title: embedTitle,
-        color: Number.parseInt(String(config.accent || "#f59e0b").replace("#", ""), 16) || 0xf59e0b,
-        fields,
-        footer: { text: footerText },
-        timestamp: submission.submittedAt
-      }
-    ]
+    embeds: embeds.map(({ usedChars, ...embed }) => embed)
   };
 }
 
