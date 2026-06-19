@@ -138,7 +138,8 @@ function discordConfigured() {
 }
 
 function allowDevUnauth() {
-  return process.env.DEV_ALLOW_UNAUTH !== "false";
+  return String(process.env.NODE_ENV || "development").toLowerCase() !== "production"
+    && String(process.env.DEV_ALLOW_UNAUTH || "false").toLowerCase() === "true";
 }
 
 

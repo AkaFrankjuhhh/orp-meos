@@ -19,6 +19,10 @@ function idSet(items) {
   return new Set(ids(items));
 }
 
+function uniqueNonEmptyIds(items) {
+  return [...new Set((items || []).map((item) => String(item || "").trim()).filter(Boolean))];
+}
+
 function filterHoursForKnownPeople(hours, knownPeopleIds) {
   return (hours || []).filter((entry) => !entry.personId || knownPeopleIds.has(entry.personId));
 }
@@ -39,13 +43,6 @@ function createPostgresPeopleStore(options = {}) {
   }
 
   async function writePeople(client, people) {
-    const peopleIds = ids(people);
-    if (peopleIds.length) {
-      await client.query("delete from people where not (id = any($1::text[]))", [peopleIds]);
-    } else {
-      await client.query("delete from people");
-    }
-
     for (const person of people) {
       await client.query(`
         insert into people(
@@ -121,12 +118,6 @@ function createPostgresPeopleStore(options = {}) {
   }
 
   async function writeResignationForms(client, forms) {
-    const formIds = ids(forms);
-    if (formIds.length) {
-      await client.query("delete from resignation_forms where not (id = any($1::text[]))", [formIds]);
-    } else {
-      await client.query("delete from resignation_forms");
-    }
     for (const form of forms) {
       await client.query(`
         insert into resignation_forms(id, member_id, name, rank, service_number, reason, status, requested_at, processed_at, processed_by_id, processed_by_name, raw, updated_at)
@@ -162,12 +153,6 @@ function createPostgresPeopleStore(options = {}) {
   }
 
   async function writeBlacklist(client, blacklist) {
-    const entryIds = ids(blacklist);
-    if (entryIds.length) {
-      await client.query("delete from blacklist_entries where not (id = any($1::text[]))", [entryIds]);
-    } else {
-      await client.query("delete from blacklist_entries");
-    }
     for (const entry of blacklist) {
       await client.query(`
         insert into blacklist_entries(
@@ -255,22 +240,27 @@ function createPostgresPeopleStore(options = {}) {
   }
 
   async function writeHours(client, hours) {
-    const hourIds = ids(hours);
-    if (hourIds.length) {
-      await client.query("delete from hours where not (id = any($1::text[]))", [hourIds]);
-    } else {
-      await client.query("delete from hours");
-    }
     for (const entry of hours) {
       await upsertHourEntry(client, entry);
     }
   }
 
   async function writeActivity(client, activity) {
-    await client.query("delete from activity_log");
-    for (let index = 0; index < activity.length; index += 1) {
-      await client.query("insert into activity_log(position, message) values($1, $2)", [index, String(activity[index])]);
+    const existing = await client.query("select count(*)::int as count from activity_log");
+    const existingCount = Number(existing.rows[0]?.count || 0);
+    for (const message of activity.slice(existingCount).filter(Boolean)) {
+      await client.query("insert into activity_log(message) values($1)", [String(message)]);
     }
+  }
+
+  async function deleteExplicitRows(client, table, idsToDelete) {
+    const uniqueIds = uniqueNonEmptyIds(idsToDelete);
+    if (!uniqueIds.length) return;
+    await client.query(`delete from ${table} where id = any($1::text[])`, [uniqueIds]);
+  }
+
+  async function lockPeopleWrite(client) {
+    await client.query("select pg_advisory_xact_lock(hashtext($1))", ["people-write"]);
   }
 
   async function writeMentorChecklistGroups(state) {
@@ -296,6 +286,7 @@ function createPostgresPeopleStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await lockPeopleWrite(client);
         const people = Array.isArray(state.people) ? state.people : [];
         const knownPeopleIds = idSet(people);
         const hasResignationForms = Array.isArray(state.resignationForms);
@@ -311,6 +302,10 @@ function createPostgresPeopleStore(options = {}) {
         if (hasResignationForms) state.resignationForms = resignationForms;
         state.blacklist = blacklist;
         state.hours = hours;
+        // Een state is een momentopname van een browser. Alleen expliciet gemarkeerde
+        // verwijderingen mogen rijen wissen; een oudere tab kan zo geen nieuw profiel verliezen.
+        await deleteExplicitRows(client, "resignation_forms", state.deletedResignationFormIds);
+        await deleteExplicitRows(client, "people", state.deletedPersonIds);
         await writePeople(client, people);
         if (hasResignationForms) {
           await writeResignationForms(client, resignationForms);

@@ -67,9 +67,12 @@ function databaseConfig() {
   }
   validateDatabaseOrganizationMatch(connectionString);
   const sslEnabled = String(process.env.DATABASE_SSL || "false").toLowerCase() === "true";
+  const configuredPoolMax = Number(process.env.DATABASE_POOL_MAX || 4);
   return {
     connectionString,
-    max: Number(process.env.DATABASE_POOL_MAX || 10),
+    // Elke systemd-service heeft een eigen pool. Een bescheiden standaard voorkomt
+    // dat portaal-, Porto- en workerprocessen samen PostgreSQL uitputten.
+    max: Number.isFinite(configuredPoolMax) ? Math.min(Math.max(Math.floor(configuredPoolMax), 1), 20) : 4,
     idleTimeoutMillis: Number(process.env.DATABASE_POOL_IDLE_MS || 30000),
     connectionTimeoutMillis: Number(process.env.DATABASE_POOL_CONNECT_MS || 10000),
     ssl: sslEnabled ? { rejectUnauthorized: false } : false

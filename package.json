@@ -12,6 +12,8 @@
     "db:import-json": "node scripts/import-data-json.js --replace",
     "db:export-state": "node scripts/db-export-state.js",
     "db:compare-json": "node scripts/db-compare-json.js",
+    "db:discord-identity:check": "node scripts/check-discord-identity.js",
+    "db:discord-identity:enforce": "node scripts/enforce-discord-identity.js",
     "prod:check": "node scripts/prod-check.js",
     "ops:reset-times": "node scripts/reset-ops-times.js",
     "db:backup": "node scripts/db-backup.js",

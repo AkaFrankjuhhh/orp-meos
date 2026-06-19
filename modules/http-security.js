@@ -140,9 +140,15 @@ function serveWhitelistedStatic({ root, requested, res, writeHeadSecure, publicR
       res.end("Not found");
       return;
     }
+    const extension = path.extname(filePath).toLowerCase();
+    const cacheControl = extension === ".html"
+      ? "no-cache"
+      : "public, max-age=300, stale-while-revalidate=86400";
     writeHeadSecure(res, 200, {
       "Content-Type": contentTypeForPath(filePath),
-      "Cache-Control": "no-store"
+      // HTML blijft altijd vers; assets mogen kort gecachet worden voor merkbaar
+      // snellere pagina's zonder dat een deployment lang blijft hangen.
+      "Cache-Control": cacheControl
     });
     res.end(data);
   });

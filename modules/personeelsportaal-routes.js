@@ -222,6 +222,14 @@ function createPersoneelsportaalRouteHandler(deps) {
     return (state.blacklist || []).find((entry) => normalizeDiscordId(entry.discordId) === normalized && !entry.revokedAt) || null;
   }
 
+  function existingProfileForDiscordId(state, discordId, excludedPersonId = "") {
+    const normalized = normalizeDiscordId(discordId);
+    if (!normalized) return null;
+    return (state.people || []).find((person) => (
+      person.id !== excludedPersonId && normalizeDiscordId(person.discordId) === normalized
+    )) || null;
+  }
+
   function unlinkDeletedPersonReferences(state, person) {
     const personId = person?.id || "";
     if (!personId) return { hoursRemoved: 0, resignationUnlinked: 0, blacklistUnlinked: 0 };
@@ -802,6 +810,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const deletedBy = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     state.resignationForms = state.resignationForms.filter((entry) => entry.id !== formId);
+    state.deletedResignationFormIds = [...new Set([...(state.deletedResignationFormIds || []), formId])];
     state.activity = state.activity || [];
     state.activity.push(`${deletedBy.name} heeft het ontslagformulier van ${form.name || "onbekend"} verwijderd.`);
     await sendPeopleStateAfterMutation(res, auth, state);
@@ -1300,17 +1309,11 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
 
-    const existingActive = (state.people || []).find((person) => person.discordId === discordId && person.status === "Actief");
-    if (existingActive) {
-      sendJson(res, 409, { error: "Er bestaat al een actief profiel met deze Discord ID." });
+    const existingProfile = existingProfileForDiscordId(state, discordId);
+    if (existingProfile) {
+      sendJson(res, 409, { error: "Er bestaat al een profiel met deze Discord ID. Heractiveer het bestaande profiel in plaats van een tweede profiel aan te maken." });
       return;
     }
-    const existingArchived = (state.people || []).find((person) => person.discordId === discordId && person.status !== "Actief");
-    if (existingArchived) {
-      sendJson(res, 409, { error: "Deze Discord ID staat al in het personeels-archief. Gebruik Herintrede via Personeels-Archief." });
-      return;
-    }
-
     const rank = defaultRecruitRank || ranks[ranks.length - 1];
     const requestedServiceNumber = String(body.serviceNumber || "").trim();
     const serviceNumber = requestedServiceNumber || getAvailableServiceNumbers(state, rank)[0];
@@ -1373,6 +1376,11 @@ function createPersoneelsportaalRouteHandler(deps) {
     const body = await readBody(req);
     const personPayload = body.person || {};
     const existingBeforeSave = (state.people || []).find((person) => person.id === personPayload.id);
+    const duplicateDiscordProfile = existingProfileForDiscordId(state, personPayload.discordId, personPayload.id);
+    if (duplicateDiscordProfile) {
+      sendJson(res, 409, { error: "Deze Discord ID is al gekoppeld aan een ander profiel." });
+      return;
+    }
     if (!existingBeforeSave && activeBlacklistEntryForDiscordId(state, personPayload.discordId)) {
       sendJson(res, 409, { error: blacklistErrorMessage() });
       return;
@@ -1418,6 +1426,11 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     const body = await readBody(req);
+    const duplicateDiscordProfile = existingProfileForDiscordId(state, body?.person?.discordId, decodeURIComponent(updatePersonMatch[1]));
+    if (duplicateDiscordProfile) {
+      sendJson(res, 409, { error: "Deze Discord ID is al gekoppeld aan een ander profiel." });
+      return;
+    }
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
     const result = savePerson(state, { ...(body.person || {}), id: decodeURIComponent(updatePersonMatch[1]) });
@@ -2080,6 +2093,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       }
       const cleanup = unlinkDeletedPersonReferences(state, person);
       state.people.splice(archiveIndex, 1);
+      state.deletedPersonIds = [...new Set([...(state.deletedPersonIds || []), person.id])];
       state.activity = state.activity || [];
       state.activity.push(`${removedName} is definitief verwijderd uit het archief.`);
       if (cleanup.hoursRemoved || cleanup.resignationUnlinked || cleanup.blacklistUnlinked) {
