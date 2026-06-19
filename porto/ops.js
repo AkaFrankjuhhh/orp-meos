@@ -36,6 +36,7 @@ function applyPortoPayload(payload, options = {}) {
   portoAvailableVehicleRanges = payload.availableVehicleRanges || [];
   portoLinkableUnits = payload.linkableUnits || [];
   portoActiveUnits = payload.activeUnits || [];
+  portoSideTaskOverview = payload.sideTaskOverview || [];
   portoDiscordChannels = payload.discordChannels || [];
   portoDiscordChannelGroups = payload.discordChannelGroups || [];
   portoMapEnabled = Boolean(payload.mapEnabled);
@@ -323,39 +324,6 @@ function memberAvatarHtml(member) {
   return `<img class="porto-modern-member-avatar" src="${escapeHtml(avatar)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
 }
 
-function sideTaskPriority(state) {
-  if (state === "available") return 0;
-  if (state === "temporary") return 1;
-  return 2;
-}
-
-function aggregateSideTaskStatuses(members) {
-  const byKey = new Map();
-  for (const member of members || []) {
-    for (const status of member.sideTaskStatuses || []) {
-      const current = byKey.get(status.key);
-      if (!current || sideTaskPriority(status.state) < sideTaskPriority(current.state)) {
-        byKey.set(status.key, status);
-      }
-    }
-  }
-  return [...byKey.values()];
-}
-
-function renderSideTaskStatusRow(members) {
-  const statuses = aggregateSideTaskStatuses(members);
-  if (!statuses.length) return "";
-  return `
-    <div class="porto-side-task-statuses" aria-label="Neventaken porto">
-      ${statuses.map((status) => `
-        <span class="porto-side-task-status ${escapeHtml(status.state || "absent")}" title="${escapeHtml(status.label)}: ${escapeHtml(status.text)}">
-          <b>${escapeHtml(status.label)}</b>
-          <small>${escapeHtml(status.text)}</small>
-        </span>
-      `).join("")}
-    </div>`;
-}
-
 function setButtonPressed(button, active) {
   if (!button) return;
   button.classList.toggle("active", active);
@@ -419,6 +387,20 @@ function renderOpsUnitsSummary(units) {
     ${vehicleItems}`;
 }
 
+function renderSideTaskOverview() {
+  const overview = $("#portoSideTaskOverview");
+  if (!overview) return;
+  const statuses = portoSideTaskOverview || [];
+  overview.hidden = !statuses.length;
+  overview.innerHTML = statuses.map((status) => `
+    <article class="porto-side-task-overview-item ${escapeHtml(status.state || "absent")}" title="${escapeHtml(status.label)}: ${escapeHtml(status.text)}">
+      <span>${escapeHtml(status.label)}</span>
+      <strong>${escapeHtml(status.text)}</strong>
+      <small>Neventaken porto</small>
+    </article>
+  `).join("");
+}
+
 function renderModernOpsUnitCard(unit, options = {}) {
   const vehicleLine = opsUnitVehicleLine(unit);
   const primaryMember = primaryOpsMember(unit);
@@ -449,7 +431,6 @@ function renderModernOpsUnitCard(unit, options = {}) {
   const statusButton = primaryActionId
     ? `<button class="porto-status-pill porto-ops-status-button ${statusClassName(primaryMember)}" type="button" data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen">${escapeHtml(memberStatusLabel(primaryMember))}</button>`
     : '<span class="porto-status-pill pending">Geen status</span>';
-  const sideTaskStatuses = renderSideTaskStatusRow(unit.members || []);
   return `
     <article class="porto-modern-unit-card ${unit.autoOffline ? "auto-offline" : ""} ${options.channelCard ? "in-channel" : ""}" ${primaryActionId ? `data-ops-unit-card="${escapeHtml(primaryActionId)}"` : ""}>
       <header class="porto-modern-unit-head">
@@ -463,7 +444,6 @@ function renderModernOpsUnitCard(unit, options = {}) {
       <div class="porto-modern-unit-meta">
         <span>${memberCount}/3 personen</span>
       </div>
-      ${sideTaskStatuses}
       <div class="porto-modern-members">${members}</div>
     </article>`;
 }
@@ -476,6 +456,7 @@ function renderOpsUnits() {
   const memberCount = units.reduce((total, unit) => total + (unit.members || []).length, 0);
   count.textContent = `${memberCount} actief`;
   renderOpsUnitsSummary(units);
+  renderSideTaskOverview();
 }
 
 function renderDiscordChannels() {

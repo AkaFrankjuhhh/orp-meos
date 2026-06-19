@@ -42,6 +42,7 @@ let portoOpsRequests = [];
 let portoAvailableVehicleRanges = [];
 let portoLinkableUnits = [];
 let portoActiveUnits = [];
+let portoSideTaskOverview = [];
 let portoDiscordChannels = [];
 let portoDiscordChannelGroups = [];
 let portoMapEnabled = false;

@@ -80,10 +80,6 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return { key: task.key, label: task.label, state: "absent", text: "Afwezig" };
   }
 
-  function defaultSideTaskStatuses() {
-    return sideTaskDefinitions.map((task) => sideTaskStatusView(task, null));
-  }
-
   async function loadSideTaskMembersByDiscordId() {
     if (sideTaskStatusCache.expiresAt > Date.now()) return sideTaskStatusCache.byDiscordId;
     const byDiscordId = new Map();
@@ -108,34 +104,24 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return byDiscordId;
   }
 
-  function sideTaskStatusesForPerson(person, membersByDiscordId) {
-    const discordId = String(person?.discordId || "").trim();
-    if (!discordId) return defaultSideTaskStatuses();
-    const taskMembers = membersByDiscordId.get(discordId) || new Map();
-    return sideTaskDefinitions.map((task) => sideTaskStatusView(task, taskMembers.get(task.key)));
-  }
-
-  function attachSideTaskStatusesToMember(member, statePeople, membersByDiscordId) {
-    if (!member) return;
-    const person = statePeople.get(member.memberId);
-    member.sideTaskStatuses = sideTaskStatusesForPerson(person, membersByDiscordId);
-  }
-
-  async function attachSideTaskStatuses(payload, state) {
-    const membersByDiscordId = await loadSideTaskMembersByDiscordId();
-    const statePeople = peopleById(state);
-    const decorateGroup = (group) => {
-      for (const member of group?.members || []) {
-        attachSideTaskStatusesToMember(member, statePeople, membersByDiscordId);
+  function sideTaskOverview(membersByDiscordId) {
+    return sideTaskDefinitions.map((task) => {
+      const statuses = [];
+      for (const taskMembers of membersByDiscordId.values()) {
+        const member = taskMembers.get(task.key);
+        if (member) statuses.push(sideTaskStatusView(task, member));
       }
-    };
-    for (const group of payload.activeUnits || []) decorateGroup(group);
-    for (const channelGroup of payload.discordChannelGroups || []) {
-      for (const group of channelGroup.units || []) decorateGroup(group);
-    }
-    for (const member of payload.unit?.unitMembers || []) {
-      attachSideTaskStatusesToMember(member, statePeople, membersByDiscordId);
-    }
+      if (!statuses.length) return sideTaskStatusView(task, null);
+      return statuses.sort((left, right) => {
+        const priority = { available: 0, temporary: 1, absent: 2 };
+        return (priority[left.state] ?? 9) - (priority[right.state] ?? 9);
+      })[0];
+    });
+  }
+
+  async function attachSideTaskOverview(payload) {
+    const membersByDiscordId = await loadSideTaskMembersByDiscordId();
+    payload.sideTaskOverview = sideTaskOverview(membersByDiscordId);
     return payload;
   }
 
@@ -503,7 +489,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       vehicleRanges: state.portoVehicleRanges,
       ...portoOpsPayload(state, person)
     };
-    sendJson(res, 200, await attachSideTaskStatuses(payload, state));
+    sendJson(res, 200, await attachSideTaskOverview(payload));
   }
 
   async function requireActivePerson(req, res) {
