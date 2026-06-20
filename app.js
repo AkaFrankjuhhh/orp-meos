@@ -947,9 +947,18 @@ function restoreSavedPage() {
 
 function renderDashboard() {
   const activePeople = state.people.filter((person) => person.status === "Actief");
+  const absentMemberIds = new Set(
+    state.absences
+      .filter(absenceIsActive)
+      .map((absence) => absence.memberId)
+      .filter(Boolean)
+  );
+  const absentCount = absentMemberIds.size;
   $("#statActive").textContent = activePeople.length;
-  $("#statAbsent").textContent = state.absences.filter(absenceIsActive).length;
-  $("#statTotal").textContent = state.people.length;
+  $("#statAbsent").textContent = absentCount;
+  // Het dashboard telt alleen de twee actuele groepen: aanwezig/actief en afwezig.
+  // Historische, ontslagen en non-actieve profielen horen niet in dit totaal.
+  $("#statTotal").textContent = activePeople.length + absentCount;
 
   const rankCounts = ranks
     .map((rank) => ({
