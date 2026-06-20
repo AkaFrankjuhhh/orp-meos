@@ -6,11 +6,11 @@ const { URLSearchParams } = require("node:url");
 const { loadEnv } = require("./modules/db");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 const {
-  SIDE_TASK_STATUS_OPTIONS,
   sideTaskForHost,
   specialtiesForRoles,
   permissionsForTask,
-  statusOption
+  statusOption,
+  statusOptionsForTask
 } = require("./modules/side-tasks-config");
 const { createSideTasksStore } = require("./modules/side-tasks-store");
 const {
@@ -252,6 +252,8 @@ async function syncLoginMember(sessionUser, task) {
     callSign: existing?.callSign || "",
     aliasName: existing?.aliasName || "",
     originalNickname: existing?.originalNickname || "",
+    unitNumber: existing?.unitNumber || "",
+    commandRole: existing?.commandRole || "",
     status: existing?.status || "8",
     statusDetail: existing?.statusDetail || statusOption(existing?.status || "8").label,
     specialties: specialtiesForRoles(task, sessionUser.roles),
@@ -282,9 +284,9 @@ function sanitizeText(value, maxLength = 120) {
   return String(value || "").trim().slice(0, maxLength);
 }
 
-function validateStatus(value) {
+function validateStatus(task, value) {
   const status = String(value || "8");
-  if (!SIDE_TASK_STATUS_OPTIONS.some((option) => option.value === status)) {
+  if (!statusOptionsForTask(task).some((option) => option.value === status)) {
     const error = new Error("Ongeldige status.");
     error.status = 400;
     throw error;
@@ -295,7 +297,10 @@ function validateStatus(value) {
 async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
   if (!task.allowAlias) return { member };
   if (nextStatus !== "8") {
-    if (!member.callSign || !member.aliasName) {
+    const displayNumber = (nextStatus === "1" || nextStatus === "4") && member.unitNumber
+      ? member.unitNumber
+      : member.callSign;
+    if (!displayNumber || !member.aliasName) {
       const error = new Error("Vul eerst je DSI roepnummer en schuilnaam in.");
       error.status = 400;
       throw error;
@@ -307,7 +312,8 @@ async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
       member = await store.updateMember(task.key, member.id, { originalNickname });
     }
     try {
-      await patchMainGuildNickname(member.discordId, `[${member.callSign}] ${member.aliasName}`);
+      const commandPrefix = ["ACO", "TCO"].includes(member.commandRole) ? `${member.commandRole} ` : "";
+      await patchMainGuildNickname(member.discordId, `${commandPrefix}[${displayNumber}] ${member.aliasName}`);
       return { member };
     } catch (error) {
       return { member, warning: nicknameSyncWarning(error) };
@@ -332,6 +338,8 @@ function publicMember(member) {
     phone: member.phone,
     callSign: member.callSign,
     aliasName: member.aliasName,
+    unitNumber: member.unitNumber,
+    commandRole: member.commandRole,
     status: member.status,
     statusLabel: statusOption(member.status).label,
     statusColor: statusOption(member.status).color,
@@ -350,6 +358,7 @@ function publicTask(task) {
     displayName: task.displayName,
     logoUrl: task.logoUrl || "",
     allowAlias: task.allowAlias,
+    dsiUnits: task.dsiUnits || null,
     specialties: task.specialties.map((specialty) => ({ label: specialty.label }))
   };
 }
@@ -365,7 +374,7 @@ function memberFromBotOrBody(task, body, botMember, actorId) {
     phone: sanitizeText(body.phone, 32),
     callSign: sanitizeText(body.callSign, 32),
     aliasName: sanitizeText(body.aliasName, 80),
-    status: validateStatus(body.status || "8"),
+    status: validateStatus(task, body.status || "8"),
     statusDetail: statusOption(body.status || "8").label,
     specialties: roles.length ? specialtiesForRoles(task, roles) : [],
     addedByDiscordId: actorId,
@@ -488,37 +497,44 @@ async function handleApi(req, res, task, url) {
       task: publicTask(task),
       permissions: session.permissions,
       member: member ? publicMember(member) : null,
-      statuses: SIDE_TASK_STATUS_OPTIONS
+      statuses: statusOptionsForTask(task)
     });
   }
 
   if (url.pathname === "/api/side-tasks/members" && req.method === "GET") {
     const members = await store.listMembers(task.key);
-    return sendJson(res, 200, { members: members.map(publicMember), statuses: SIDE_TASK_STATUS_OPTIONS });
+    return sendJson(res, 200, { members: members.map(publicMember), statuses: statusOptionsForTask(task) });
   }
 
   if (url.pathname === "/api/side-tasks/me/profile" && req.method === "POST") {
     const body = await readBody(req);
     const existing = await store.findMemberByDiscordId(task.key, session.user.id);
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
-    const member = await store.updateMember(task.key, existing.id, {
+    let member = await store.updateMember(task.key, existing.id, {
       phone: sanitizeText(body.phone, 32),
       callSign: sanitizeText(body.callSign, 32),
       aliasName: sanitizeText(body.aliasName, 80)
     });
-    return sendJson(res, 200, { member: publicMember(member) });
+    const nicknameResult = await applyDsiNicknameIfNeeded(task, member, member.status);
+    member = nicknameResult.member;
+    return sendJson(res, 200, { member: publicMember(member), warning: nicknameResult.warning });
   }
 
   if (url.pathname === "/api/side-tasks/me/status" && req.method === "POST") {
     const body = await readBody(req);
-    const status = validateStatus(body.status);
+    const status = validateStatus(task, body.status);
     let member = await store.findMemberByDiscordId(task.key, session.user.id);
     if (!member) return jsonError(res, 404, "Lid niet gevonden.");
-    member = await store.updateMember(task.key, member.id, {
-      status,
-      statusDetail: statusOption(status).label,
-      specialties: specialtiesForRoles(task, session.roles || [])
-    });
+    if (task.key === "DSI" && status === "1") {
+      member = await store.assignDsiUnit(task.key, member.id);
+    } else {
+      member = await store.updateMember(task.key, member.id, {
+        status,
+        statusDetail: statusOption(status).label,
+        unitNumber: task.key === "DSI" && ["0", "8"].includes(status) ? "" : member.unitNumber,
+        specialties: specialtiesForRoles(task, session.roles || [])
+      });
+    }
     const nicknameResult = await applyDsiNicknameIfNeeded(task, member, status);
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
@@ -529,8 +545,44 @@ async function handleApi(req, res, task, url) {
     const discordId = sanitizeText(body.discordId, 32);
     if (!discordId) return jsonError(res, 400, "Discord ID ontbreekt.");
     const botMember = await fetchBotGuildMember(discordId);
-    const member = await store.upsertMember(task.key, memberFromBotOrBody(task, body, botMember, session.user.id));
+    let member = await store.upsertMember(task.key, memberFromBotOrBody(task, body, botMember, session.user.id));
+    if (task.key === "DSI" && member.status === "1") {
+      member = await store.assignDsiUnit(task.key, member.id);
+    }
     return sendJson(res, 201, { member: publicMember(member) });
+  }
+
+  const dsiUnitMatch = url.pathname.match(/^\/api\/side-tasks\/dsi\/members\/([^/]+)\/unit$/);
+  if (dsiUnitMatch && req.method === "POST") {
+    if (task.key !== "DSI") return jsonError(res, 404, "Niet gevonden.");
+    const member = await store.findMemberById(task.key, decodeURIComponent(dsiUnitMatch[1]));
+    if (!member) return jsonError(res, 404, "DSI-lid niet gevonden.");
+    const isOwnProfile = member.discordId === session.user.id;
+    if (!isOwnProfile && !session.permissions.canManageDsiUnits) return jsonError(res, 403, "Alleen ACO, TCO of DSI-leiding kan andere leden indelen.");
+    const body = await readBody(req);
+    const updated = await store.assignDsiUnit(task.key, member.id, sanitizeText(body.unitNumber, 16));
+    const nicknameResult = await applyDsiNicknameIfNeeded(task, updated, updated.status);
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
+  }
+
+  const dsiCommandMatch = url.pathname.match(/^\/api\/side-tasks\/dsi\/members\/([^/]+)\/command-role$/);
+  if (dsiCommandMatch && req.method === "POST") {
+    if (task.key !== "DSI") return jsonError(res, 404, "Niet gevonden.");
+    if (!session.permissions.canAssignDsiCommand) return jsonError(res, 403, "Alleen DSI-leiding kan ACO/TCO toewijzen.");
+    const body = await readBody(req);
+    const commandRole = ["", "ACO", "TCO"].includes(String(body.commandRole || "").trim()) ? String(body.commandRole || "").trim() : null;
+    if (commandRole === null) return jsonError(res, 400, "Ongeldige ACO/TCO-keuze.");
+    const member = await store.findMemberById(task.key, decodeURIComponent(dsiCommandMatch[1]));
+    if (!member) return jsonError(res, 404, "DSI-lid niet gevonden.");
+    if (commandRole) {
+      const discordMember = await fetchBotGuildMember(member.discordId);
+      const eligibleRoleIds = commandRole === "ACO" ? task.roleIds.aco : task.roleIds.tco;
+      const hasEligibleRole = (discordMember?.roles || []).map(String).some((roleId) => eligibleRoleIds.includes(roleId));
+      if (!hasEligibleRole) return jsonError(res, 403, `Dit lid heeft niet de vereiste ${commandRole}-Discordrol.`);
+    }
+    const updated = await store.updateMember(task.key, member.id, { commandRole });
+    const nicknameResult = await applyDsiNicknameIfNeeded(task, updated, updated.status);
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
 
   const memberMatch = url.pathname.match(/^\/api\/side-tasks\/members\/([^/]+)$/);
@@ -539,15 +591,19 @@ async function handleApi(req, res, task, url) {
     const body = await readBody(req);
     const existing = await store.findMemberById(task.key, decodeURIComponent(memberMatch[1]));
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
-    const status = body.status ? validateStatus(body.status) : existing.status;
+    const status = body.status ? validateStatus(task, body.status) : existing.status;
     let member = await store.updateMember(task.key, existing.id, {
       displayName: body.displayName !== undefined ? sanitizeText(body.displayName, 120) : existing.displayName,
       phone: body.phone !== undefined ? sanitizeText(body.phone, 32) : existing.phone,
       callSign: body.callSign !== undefined ? sanitizeText(body.callSign, 32) : existing.callSign,
       aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
       status,
-      statusDetail: statusOption(status).label
+      statusDetail: statusOption(status).label,
+      unitNumber: task.key === "DSI" && ["0", "8"].includes(status) ? "" : existing.unitNumber
     });
+    if (task.key === "DSI" && status === "1") {
+      member = await store.assignDsiUnit(task.key, member.id);
+    }
     const nicknameResult = await applyDsiNicknameIfNeeded(task, member, status);
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }

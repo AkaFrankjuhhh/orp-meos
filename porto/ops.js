@@ -360,9 +360,9 @@ function renderOpsUnitsSummary(units) {
     const key = vehicleSummaryKey(unit);
     if (key) vehicleCounts.set(key, (vehicleCounts.get(key) || 0) + 1);
   }
-  const statusItems = ["1", "4", "2", "3"].map((code) => {
+  const statusItems = ["1", "4"].map((code) => {
     const status = portoStatuses.find((entry) => entry.code === code);
-    const summaryLabels = { "2": "Onderweg", "3": "Op locatie", "4": "Afwezig" };
+    const summaryLabels = { "4": "Afwezig" };
     const fake = { status: code };
     return `
       <article class="porto-ops-summary-item status-${escapeHtml(status?.className || code)}">
@@ -459,9 +459,34 @@ function renderOpsUnits() {
   renderSideTaskOverview();
 }
 
+function captureActiveDiscordChannelStatusInput() {
+  const activeInput = document.activeElement;
+  if (!activeInput?.matches?.("[data-discord-channel-status]")) return null;
+  return {
+    channelKey: activeInput.dataset.discordChannelStatus,
+    value: activeInput.value,
+    selectionStart: activeInput.selectionStart,
+    selectionEnd: activeInput.selectionEnd
+  };
+}
+
+function restoreActiveDiscordChannelStatusInput(draft) {
+  if (!draft?.channelKey) return;
+  const input = [...document.querySelectorAll("[data-discord-channel-status]")]
+    .find((entry) => entry.dataset.discordChannelStatus === draft.channelKey);
+  if (!input) return;
+  input.value = draft.value;
+  input.focus({ preventScroll: true });
+  if (Number.isInteger(draft.selectionStart) && Number.isInteger(draft.selectionEnd)) {
+    input.setSelectionRange(draft.selectionStart, draft.selectionEnd);
+  }
+}
+
 function renderDiscordChannels() {
   const container = $("#portoDiscordChannels");
   if (!container) return;
+  // Live updates rebuild the cards. Keep an OPS' active channel-status draft intact while typing.
+  const activeStatusDraft = captureActiveDiscordChannelStatusInput();
   const channels = portoDiscordChannels || [];
   const channelsByKey = new Map(channels.map((channel) => [channel.key, channel]));
   const visibleGroups = (portoDiscordChannelGroups || []).filter((group) => (group.units || []).length > 0);
@@ -490,6 +515,7 @@ function renderDiscordChannels() {
         </div>
       </article>`;
   }).join("");
+  restoreActiveDiscordChannelStatusInput(activeStatusDraft);
 }
 
 async function chooseOpsVehicleUpdate(unitId, anchorEvent) {
@@ -625,7 +651,12 @@ function renderOpsPanel() {
   const mapCard = $("#portoMapCard");
   document.body.classList.toggle("porto-map-disabled", !portoMapEnabled);
   if (mapCard) mapCard.hidden = !portoMapEnabled;
-  if (portoMapEnabled) renderOpsMap();
+  if (portoMapEnabled) {
+    renderOpsMap();
+  } else {
+    const map = $("#portoOpsMap");
+    if (map) map.replaceChildren();
+  }
 }
 
 async function runPortoOpsDevTest() {

@@ -354,6 +354,10 @@ select:focus {
   background: var(--green);
 }
 
+.status-button[data-status="0"] {
+  background: var(--blue);
+}
+
 .status-button[data-status="4"] {
   background: var(--amber);
 }
@@ -387,6 +391,118 @@ select:focus {
   margin-top: 18px;
 }
 
+.dsi-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.dsi-unit-card {
+  padding: 14px;
+  border: 1px solid var(--line-bright);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(12, 32, 54, 0.96), rgba(13, 24, 43, 0.96));
+}
+
+.dsi-unit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dsi-unit-head strong {
+  font-size: 1.45rem;
+}
+
+.dsi-unit-head span,
+.dsi-unit-member small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.dsi-unit-member {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  width: 100%;
+  gap: 9px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(153, 190, 239, 0.12);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-weight: 900;
+}
+
+.dsi-unit-member:last-child {
+  border-bottom: 0;
+}
+
+.dsi-context-menu {
+  position: fixed;
+  z-index: 20;
+  width: min(290px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid var(--line-bright);
+  border-radius: 10px;
+  background: #0b1729;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+}
+
+.dsi-context-title {
+  margin-bottom: 10px;
+  color: var(--text);
+  font-weight: 900;
+}
+
+.dsi-context-menu > button,
+.dsi-context-menu label {
+  display: block;
+  width: 100%;
+}
+
+.dsi-context-menu > button {
+  padding: 10px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-weight: 800;
+}
+
+.dsi-context-menu > button:hover {
+  background: rgba(255, 141, 0, 0.15);
+}
+
+.dsi-context-menu select {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.dsi-context-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dsi-context-close {
+  margin-top: 6px;
+  color: var(--muted) !important;
+}
+
+.dsi-unit-member .avatar {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+}
+
 .member-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -402,6 +518,10 @@ select:focus {
 
 .member-card.inactive {
   border-color: rgba(245, 166, 35, 0.5);
+}
+
+.member-card.pending {
+  border-color: rgba(90, 160, 240, 0.55);
 }
 
 .member-main {
@@ -439,6 +559,12 @@ select:focus {
   border-color: rgba(245, 166, 35, 0.65);
   background: rgba(245, 166, 35, 0.16);
   color: #ffd487;
+}
+
+.status-pill.pending {
+  border-color: rgba(90, 160, 240, 0.65);
+  background: rgba(90, 160, 240, 0.16);
+  color: #cde5ff;
 }
 
 .chips {

@@ -1,4 +1,5 @@
 const SIDE_TASK_STATUS_OPTIONS = [
+  { value: "0", label: "Aanmelden", active: false, color: "blue" },
   { value: "1", label: "Aanwezig", active: true, color: "green" },
   { value: "4", label: "Afwezig", active: false, color: "amber" },
   { value: "8", label: "Uit dienst melden", active: false, color: "gray" }
@@ -12,6 +13,11 @@ const SIDE_TASK_DEFINITIONS = {
     displayName: "Dienst Speciale Interventies",
     logoUrl: "/assets/dsi-logo.png",
     allowAlias: true,
+    dsiUnits: { prefix: "24", min: 1, max: 99, capacity: 2 },
+    commandRoleDefaults: {
+      ACO: "1517546277913628695",
+      TCO: "1517546225715380494"
+    },
     specialties: [
       { label: "CLS", roleId: "1446494955718709338" },
       { label: "Breacher", roleId: "1446495161482874880" },
@@ -88,6 +94,8 @@ function hostnameForTask(task) {
 
 function sideTaskWithRuntimeConfig(task) {
   const specialtyRoleIds = task.specialties.map((specialty) => specialty.roleId);
+  const acoRoleIds = roleEnv(task.key, "ACO");
+  const tcoRoleIds = roleEnv(task.key, "TCO");
   return {
     ...task,
     hostname: hostnameForTask(task),
@@ -95,6 +103,8 @@ function sideTaskWithRuntimeConfig(task) {
       members: roleEnv(task.key, "MEMBER"),
       leadership: roleEnv(task.key, "LEADERSHIP"),
       subleadership: roleEnv(task.key, "SUBLEADERSHIP"),
+      aco: acoRoleIds.length ? acoRoleIds : [task.commandRoleDefaults?.ACO].filter(Boolean),
+      tco: tcoRoleIds.length ? tcoRoleIds : [task.commandRoleDefaults?.TCO].filter(Boolean),
       specialties: specialtyRoleIds
     }
   };
@@ -132,17 +142,24 @@ function permissionsForTask(task, memberRoles, discordId) {
   const hasMemberRole = hasAnyRole(memberRoles, roleIds.members);
   const hasLeadershipRole = hasAnyRole(memberRoles, roleIds.leadership);
   const hasSubleadershipRole = hasAnyRole(memberRoles, roleIds.subleadership);
+  const hasAcoRole = hasAnyRole(memberRoles, roleIds.aco);
+  const hasTcoRole = hasAnyRole(memberRoles, roleIds.tco);
   const hasSpecialtyRole = hasAnyRole(memberRoles, roleIds.specialties);
   const canManageMembers = isDev || hasLeadershipRole || hasSubleadershipRole;
+  const canManageDsiUnits = task.key === "DSI" && (canManageMembers || hasAcoRole || hasTcoRole);
   return {
     isDev,
-    hasAccess: isDev || canManageMembers || hasMemberRole || hasSpecialtyRole,
+    hasAccess: isDev || canManageMembers || hasAcoRole || hasTcoRole || hasMemberRole || hasSpecialtyRole,
     canManageMembers,
+    canManageDsiUnits,
+    canAssignDsiCommand: task.key === "DSI" && canManageMembers,
     canUseAlias: task.allowAlias,
     roles: {
       member: hasMemberRole,
       leadership: hasLeadershipRole,
       subleadership: hasSubleadershipRole,
+      aco: hasAcoRole,
+      tco: hasTcoRole,
       specialty: hasSpecialtyRole
     }
   };
@@ -150,6 +167,12 @@ function permissionsForTask(task, memberRoles, discordId) {
 
 function statusOption(value) {
   return SIDE_TASK_STATUS_OPTIONS.find((option) => option.value === String(value)) || SIDE_TASK_STATUS_OPTIONS[1];
+}
+
+function statusOptionsForTask(task) {
+  return task?.key === "DSI"
+    ? SIDE_TASK_STATUS_OPTIONS
+    : SIDE_TASK_STATUS_OPTIONS.filter((option) => option.value !== "0");
 }
 
 module.exports = {
@@ -162,5 +185,6 @@ module.exports = {
   specialtiesForRoles,
   permissionsForTask,
   statusOption,
+  statusOptionsForTask,
   devDiscordIds
 };

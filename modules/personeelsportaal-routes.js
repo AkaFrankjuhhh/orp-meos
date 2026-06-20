@@ -411,9 +411,14 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (typeof enqueuePersonDiscordSync !== "function" || !person?.discordId) return;
     if (!person.rank || !person.serviceNumber) return;
     try {
-      await enqueuePersonDiscordSync(person, reason);
+      const isNewHire = ["recruitment_hire", "person_created"].includes(reason);
+      const roleWaitMaxAttempts = Number(process.env.DISCORD_REQUIRED_ROLE_MAX_ATTEMPTS || 288);
+      await enqueuePersonDiscordSync(person, reason, {
+        // New recruits often receive their organization role shortly after their portal profile.
+        maxAttempts: isNewHire && Number.isFinite(roleWaitMaxAttempts) ? Math.max(1, Math.floor(roleWaitMaxAttempts)) : undefined
+      });
       state.activity = state.activity || [];
-      state.activity.push(`Discord profielsync ingepland voor ${person.name}.`);
+      state.activity.push(`Discord profielsync ingepland voor ${person.name}${isNewHire ? "; wacht indien nodig op de organisatie-rol" : ""}.`);
     } catch (error) {
       state.activity = state.activity || [];
       state.activity.push(`Discord profielsync inplannen mislukt voor ${person.name}: ${error.message || "onbekende fout"}.`);

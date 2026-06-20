@@ -121,7 +121,11 @@ function memberHasRequiredDefensieRole(memberResult) {
 
 function missingDefensieRoleResult() {
   const organization = activeOrganization();
-  return { skipped: true, reason: `${organization.requiredRoleLabel || organization.label} rol ontbreekt; Discord naam en rangrollen worden niet aangepast.` };
+  return {
+    skipped: true,
+    retryable: true,
+    reason: `${organization.requiredRoleLabel || organization.label} rol ontbreekt; Discord naam en rangrollen worden nog niet aangepast.`
+  };
 }
 
 function compactRoleIds(roleIds) {

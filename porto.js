@@ -388,9 +388,13 @@ $("#portoOpsRequests").addEventListener("contextmenu", async (event) => {
   if (!request?.dataset.opsRequest) return;
   await openPortoRequestContextMenu(event, request.dataset.opsRequest);
 });
-$("#portoDiscordChannels")?.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-save-discord-channel-status]");
+let portoDiscordChannelStatusSavePending = false;
+
+async function saveDiscordChannelStatus(button) {
   if (!button?.dataset.saveDiscordChannelStatus) return;
+  if (portoDiscordChannelStatusSavePending) return;
+  portoDiscordChannelStatusSavePending = true;
+  button.disabled = true;
   const channelKey = button.dataset.saveDiscordChannelStatus;
   const input = [...document.querySelectorAll("[data-discord-channel-status]")]
     .find((entry) => entry.dataset.discordChannelStatus === channelKey);
@@ -398,9 +402,29 @@ $("#portoDiscordChannels")?.addEventListener("click", async (event) => {
   const unitId = unit ? primaryOpsMemberId(unit) : "";
   if (!unitId) {
     await showPortoNotice("Dit kanaal heeft geen actieve eenheden om status aan te koppelen.", "Kanaalstatus");
+    portoDiscordChannelStatusSavePending = false;
+    button.disabled = false;
     return;
   }
-  await reassignPortoUnit(unitId, { discordChannelKey: channelKey, discordChannelStatus: input?.value || "" });
+  try {
+    await reassignPortoUnit(unitId, { discordChannelKey: channelKey, discordChannelStatus: input?.value || "" });
+  } finally {
+    portoDiscordChannelStatusSavePending = false;
+    button.disabled = false;
+  }
+}
+
+$("#portoDiscordChannels")?.addEventListener("pointerdown", (event) => {
+  const button = event.target.closest("[data-save-discord-channel-status]");
+  if (!button) return;
+  event.preventDefault();
+  void saveDiscordChannelStatus(button);
+});
+$("#portoDiscordChannels")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-save-discord-channel-status]");
+  if (!button) return;
+  event.preventDefault();
+  void saveDiscordChannelStatus(button);
 });
 function handleOpsUnitClick(event) {
   const menuButton = event.target.closest("[data-ops-open-menu]");

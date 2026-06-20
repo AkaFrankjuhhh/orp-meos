@@ -70,6 +70,8 @@ function memberFromRow(row) {
     callSign: row.call_sign || "",
     aliasName: row.alias_name || "",
     originalNickname: row.original_nickname || "",
+    unitNumber: row.unit_number || "",
+    commandRole: row.command_role || "",
     status: row.status || "8",
     statusLabel: statusOption(row.status).label,
     statusDetail: row.status_detail || "",
@@ -123,6 +125,9 @@ async function ensureSideTaskSchema() {
       on side_task_members(task_key, status, updated_at desc)
     `);
     await client.query("alter table side_task_members add column if not exists phone text not null default ''");
+    await client.query("alter table side_task_members add column if not exists unit_number text not null default ''");
+    await client.query("alter table side_task_members add column if not exists command_role text not null default ''");
+    await client.query("create index if not exists side_task_members_task_unit_idx on side_task_members(task_key, unit_number) where unit_number <> ''");
   });
   schemaReady = true;
 }
@@ -140,6 +145,8 @@ function normalizeMember(taskKey, member) {
     callSign: String(member.callSign || "").trim(),
     aliasName: String(member.aliasName || "").trim(),
     originalNickname: String(member.originalNickname || "").trim(),
+    unitNumber: String(member.unitNumber || "").trim(),
+    commandRole: ["ACO", "TCO"].includes(String(member.commandRole || "").trim()) ? String(member.commandRole).trim() : "",
     status,
     statusDetail: String(member.statusDetail || statusOption(status).label).trim(),
     specialties: Array.isArray(member.specialties) ? member.specialties : [],
@@ -196,10 +203,10 @@ function createSideTasksStore() {
       const result = await client.query(
         `insert into side_task_members (
           id, task_key, discord_id, discord_username, display_name, avatar_url,
-          phone, call_sign, alias_name, original_nickname, status, status_detail,
+          phone, call_sign, alias_name, original_nickname, unit_number, command_role, status, status_detail,
           specialties, added_by_discord_id, raw, updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15::jsonb, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16, $17::jsonb, now())
         on conflict (task_key, discord_id) do update set
           discord_username = excluded.discord_username,
           display_name = excluded.display_name,
@@ -211,6 +218,8 @@ function createSideTasksStore() {
             when excluded.original_nickname <> '' then excluded.original_nickname
             else side_task_members.original_nickname
           end,
+          unit_number = excluded.unit_number,
+          command_role = excluded.command_role,
           status = excluded.status,
           status_detail = excluded.status_detail,
           specialties = excluded.specialties,
@@ -228,6 +237,8 @@ function createSideTasksStore() {
           normalized.callSign,
           normalized.aliasName,
           normalized.originalNickname,
+          normalized.unitNumber,
+          normalized.commandRole,
           normalized.status,
           normalized.statusDetail,
           JSON.stringify(normalized.specialties),
@@ -260,6 +271,80 @@ function createSideTasksStore() {
     });
   }
 
+  function dsiUnitNumber(number) {
+    const match = /^24-(\d{1,2})$/.exec(String(number || "").trim());
+    if (!match) return "";
+    const suffix = Number(match[1]);
+    return suffix >= 1 && suffix <= 99 ? `24-${String(suffix).padStart(2, "0")}` : "";
+  }
+
+  async function assignDsiUnit(taskKey, memberId, requestedUnitNumber = "") {
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query("select pg_advisory_xact_lock(hashtext($1))", [`side-task-dsi-units:${taskKey}`]);
+        const memberResult = await client.query("select * from side_task_members where task_key = $1 and id = $2 for update", [taskKey, String(memberId)]);
+        const member = memberFromRow(memberResult.rows[0]);
+        if (!member) {
+          const error = new Error("DSI-lid niet gevonden.");
+          error.status = 404;
+          throw error;
+        }
+        let unitNumber = dsiUnitNumber(requestedUnitNumber);
+        if (requestedUnitNumber && !unitNumber) {
+          const error = new Error("Kies een geldig 24-nummer.");
+          error.status = 400;
+          throw error;
+        }
+        const activeUnits = await client.query(
+          "select unit_number, count(*)::int as count from side_task_members where task_key = $1 and status <> '8' and unit_number <> '' group by unit_number",
+          [taskKey]
+        );
+        const counts = new Map(activeUnits.rows.map((row) => [row.unit_number, Number(row.count || 0)]));
+        if (!unitNumber && !requestedUnitNumber && member.status !== "8" && member.unitNumber) {
+          unitNumber = member.unitNumber;
+        }
+        if (unitNumber) {
+          const ownUnit = member.status !== "8" ? member.unitNumber : "";
+          const existingCount = counts.get(unitNumber) || 0;
+          if (unitNumber !== ownUnit && existingCount >= 2) {
+            const error = new Error("Deze 24-eenheid heeft al maximaal twee leden.");
+            error.status = 409;
+            throw error;
+          }
+          if (!counts.has(unitNumber) && requestedUnitNumber) {
+            const error = new Error("Koppel aan een bestaande 24-eenheid.");
+            error.status = 404;
+            throw error;
+          }
+        } else {
+          for (let index = 1; index <= 99; index += 1) {
+            const candidate = `24-${String(index).padStart(2, "0")}`;
+            if (!counts.has(candidate)) {
+              unitNumber = candidate;
+              break;
+            }
+          }
+          if (!unitNumber) {
+            const error = new Error("Geen vrij 24-nummer beschikbaar.");
+            error.status = 409;
+            throw error;
+          }
+        }
+        const result = await client.query(
+          "update side_task_members set unit_number = $3, status = '1', status_detail = 'Beschikbaar', updated_at = now() where task_key = $1 and id = $2 returning *",
+          [taskKey, String(memberId), unitNumber]
+        );
+        await client.query("commit");
+        return memberFromRow(result.rows[0]);
+      } catch (error) {
+        await client.query("rollback").catch(() => {});
+        throw error;
+      }
+    });
+  }
+
   return {
     ensureSideTaskSchema,
     listMembers,
@@ -267,6 +352,7 @@ function createSideTasksStore() {
     findMemberById,
     upsertMember,
     updateMember,
+    assignDsiUnit,
     deleteMember
   };
 }

@@ -2119,7 +2119,8 @@ body.porto-ops-workspace .porto-ops-empty {
 #portoOpenOpsLogBtn[hidden],
 #portoOpsClaimBtn[hidden],
 #portoOpsReleaseBtn[hidden],
-#portoDevBypassBtn[hidden] {
+#portoDevBypassBtn[hidden],
+#portoMapCard[hidden] {
   display: none !important;
 }
 /* Porto status header: voorkom overlap tussen titel en huidige-status pill. */

@@ -4,7 +4,8 @@ let appState = {
   me: null,
   members: [],
   statuses: [],
-  profileOpen: false
+  profileOpen: false,
+  dsiContextMenu: null
 };
 
 function escapeHtml(value) {
@@ -45,7 +46,13 @@ function loginView(message = "") {
 }
 
 function displayMemberName(member, task) {
-  if (task.allowAlias && member.callSign && member.aliasName) return `[${member.callSign}] ${member.aliasName}`;
+  if (task.allowAlias && member.aliasName) {
+    const number = (member.status === "1" || member.status === "4") && member.unitNumber
+      ? member.unitNumber
+      : member.callSign;
+    const prefix = ["ACO", "TCO"].includes(member.commandRole) ? `${member.commandRole} ` : "";
+    if (number) return `${prefix}[${number}] ${member.aliasName}`;
+  }
   return member.displayName || member.discordId;
 }
 
@@ -151,23 +158,97 @@ function summaryRow() {
 
 function memberCard(member) {
   const { task } = appState.me;
-  const statusClass = member.status === "1" ? "active" : "inactive";
+  const statusClass = member.status === "1" ? "active" : member.status === "0" ? "pending" : "inactive";
   const specialties = member.specialties?.length
     ? member.specialties.map((label) => `<span class="specialty-chip">${escapeHtml(label)}</span>`).join("")
     : `<span class="specialty-chip">Geen specialisatie</span>`;
   return `
-    <article class="member-card ${member.status === "1" ? "" : "inactive"}">
+    <article class="member-card ${statusClass === "active" ? "" : statusClass}"${task.key === "DSI" ? ` data-dsi-member="${escapeHtml(member.id)}"` : ""}>
       <div class="member-main">
         ${memberAvatar(member)}
         <div>
           <p class="member-name">${escapeHtml(displayMemberName(member, task))}</p>
-          <p class="muted">${escapeHtml(member.displayName)}${member.callSign ? ` / ${escapeHtml(member.callSign)}` : ""}</p>
+          <p class="muted">${escapeHtml(member.displayName)}${member.commandRole ? ` / ${escapeHtml(member.commandRole)}` : ""}</p>
           ${member.phone ? `<p class="muted">${escapeHtml(member.phone)}</p>` : ""}
         </div>
         <span class="status-pill ${statusClass}">${escapeHtml(member.statusLabel)}</span>
       </div>
       <div class="chips">${specialties}</div>
     </article>
+  `;
+}
+
+function dsiUnitSection() {
+  const units = new Map();
+  appState.members
+    .filter((member) => member.status !== "8" && member.unitNumber)
+    .forEach((member) => {
+      const group = units.get(member.unitNumber) || [];
+      group.push(member);
+      units.set(member.unitNumber, group);
+    });
+  const cards = [...units.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, "nl", { numeric: true }))
+    .map(([unitNumber, members]) => `
+      <article class="dsi-unit-card">
+        <div class="dsi-unit-head"><strong>${escapeHtml(unitNumber)}</strong><span>${members.length}/2 personen</span></div>
+        ${members.map((member) => `
+          <button class="dsi-unit-member" type="button" data-dsi-member="${escapeHtml(member.id)}">
+            ${memberAvatar(member)}
+            <span>${escapeHtml(displayMemberName(member, appState.me.task))}</span>
+            <small>${escapeHtml(member.statusLabel)}</small>
+          </button>
+        `).join("")}
+      </article>`)
+    .join("");
+  return `
+    <section class="member-section dsi-units">
+      <h2>DSI-eenheden</h2>
+      <div class="dsi-unit-grid">${cards || `<p class="muted">Nog geen actieve 24-eenheden.</p>`}</div>
+    </section>
+  `;
+}
+
+function dsiContextMenu() {
+  const context = appState.dsiContextMenu;
+  if (!context || appState.me?.task?.key !== "DSI") return "";
+  const member = appState.members.find((entry) => entry.id === context.memberId);
+  if (!member) return "";
+  const permissions = appState.me.permissions || {};
+  const isOwnProfile = member.discordId === appState.me.user.id;
+  if (!isOwnProfile && !permissions.canManageDsiUnits) return "";
+  const unitCounts = new Map();
+  appState.members
+    .filter((entry) => entry.status !== "8" && entry.unitNumber)
+    .forEach((entry) => unitCounts.set(entry.unitNumber, (unitCounts.get(entry.unitNumber) || 0) + 1));
+  const units = [...unitCounts.entries()]
+    .filter(([unitNumber, count]) => unitNumber !== member.unitNumber && count < 2)
+    .map(([unitNumber]) => unitNumber)
+    .sort((left, right) => left.localeCompare(right, "nl", { numeric: true }));
+  const style = `left:${context.x}px;top:${context.y}px;`;
+  return `
+    <div class="dsi-context-menu" data-dsi-context-menu style="${style}">
+      <div class="dsi-context-title">${escapeHtml(displayMemberName(member, appState.me.task))}</div>
+      ${context.mode === "link" ? `
+        <label>Koppel aan bestaande 24-eenheid
+          <select data-dsi-unit-select ${units.length ? "" : "disabled"}>
+            ${units.length ? units.map((unitNumber) => `<option value="${escapeHtml(unitNumber)}">${escapeHtml(unitNumber)}</option>`).join("") : `<option>Geen vrije 24-eenheid</option>`}
+          </select>
+        </label>
+        <div class="dsi-context-actions">
+          <button class="secondary-button" type="button" data-action="dsi-close-menu">Annuleren</button>
+          <button class="primary-button" type="button" data-action="dsi-confirm-link" ${units.length ? "" : "disabled"}>Koppelen</button>
+        </div>
+      ` : `
+        <button type="button" data-action="dsi-open-link-menu">Koppel aan bestaand 24-nummer</button>
+        ${permissions.canAssignDsiCommand ? `
+          <button type="button" data-action="dsi-set-command-role" data-command-role="ACO">ACO toewijzen</button>
+          <button type="button" data-action="dsi-set-command-role" data-command-role="TCO">TCO toewijzen</button>
+          ${member.commandRole ? `<button type="button" data-action="dsi-set-command-role" data-command-role="">ACO/TCO verwijderen</button>` : ""}
+        ` : ""}
+        <button class="dsi-context-close" type="button" data-action="dsi-close-menu">Sluiten</button>
+      `}
+    </div>
   `;
 }
 
@@ -266,6 +347,7 @@ function memberAdminPage() {
 
 function renderDashboard() {
   const task = appState.me.task;
+  const waiting = appState.members.filter((member) => member.status === "0");
   const active = appState.members.filter((member) => member.status === "1");
   const inactive = appState.members.filter((member) => member.status === "4");
   return `
@@ -274,6 +356,8 @@ function renderDashboard() {
       ${statusPanel()}
       <section class="panel">
         ${summaryRow()}
+        ${task.key === "DSI" ? dsiUnitSection() : ""}
+        ${task.key === "DSI" ? memberSection("Aangemelde DSI leden", waiting) : ""}
         ${memberSection(`Aanwezige ${task.label} leden`, active)}
         ${memberSection(`Afwezige ${task.label} leden`, inactive)}
       </section>
@@ -283,7 +367,7 @@ function renderDashboard() {
 
 function renderApp() {
   const page = location.hash === "#ledenbeheer" ? "ledenbeheer" : "dashboard";
-  app.innerHTML = page === "ledenbeheer" ? memberAdminPage() : renderDashboard();
+  app.innerHTML = `${page === "ledenbeheer" ? memberAdminPage() : renderDashboard()}${dsiContextMenu()}`;
 }
 
 async function refresh() {
@@ -348,6 +432,41 @@ app.addEventListener("click", async (event) => {
       if (result.warning) alert(result.warning);
       return;
     }
+    if (action === "dsi-close-menu") {
+      appState.dsiContextMenu = null;
+      renderApp();
+      return;
+    }
+    if (action === "dsi-open-link-menu") {
+      appState.dsiContextMenu = { ...appState.dsiContextMenu, mode: "link" };
+      renderApp();
+      return;
+    }
+    if (action === "dsi-confirm-link") {
+      const context = appState.dsiContextMenu;
+      const select = app.querySelector("[data-dsi-unit-select]");
+      if (!context || !select?.value) return;
+      const result = await api(`/api/side-tasks/dsi/members/${encodeURIComponent(context.memberId)}/unit`, {
+        method: "POST",
+        body: JSON.stringify({ unitNumber: select.value })
+      });
+      appState.dsiContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
+    if (action === "dsi-set-command-role") {
+      const context = appState.dsiContextMenu;
+      if (!context) return;
+      const result = await api(`/api/side-tasks/dsi/members/${encodeURIComponent(context.memberId)}/command-role`, {
+        method: "POST",
+        body: JSON.stringify({ commandRole: button.dataset.commandRole || "" })
+      });
+      appState.dsiContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
     if (action === "delete-member") {
       if (!confirm("Weet je zeker dat je dit lid wil verwijderen?")) return;
       await api(`/api/side-tasks/members/${encodeURIComponent(button.dataset.id)}`, { method: "DELETE" });
@@ -356,6 +475,32 @@ app.addEventListener("click", async (event) => {
   } catch (error) {
     alert(error.message);
   }
+});
+
+app.addEventListener("contextmenu", (event) => {
+  const target = event.target.closest("[data-dsi-member]");
+  if (!target || appState.me?.task?.key !== "DSI") return;
+  event.preventDefault();
+  const member = appState.members.find((entry) => entry.id === target.dataset.dsiMember);
+  if (!member) return;
+  const permissions = appState.me.permissions || {};
+  const isOwnProfile = member.discordId === appState.me.user.id;
+  if (!isOwnProfile && !permissions.canManageDsiUnits) return;
+  const menuWidth = 300;
+  const menuHeight = 260;
+  appState.dsiContextMenu = {
+    memberId: member.id,
+    mode: "actions",
+    x: Math.min(event.clientX, window.innerWidth - menuWidth - 12),
+    y: Math.min(event.clientY, window.innerHeight - menuHeight - 12)
+  };
+  renderApp();
+});
+
+document.addEventListener("click", (event) => {
+  if (!appState.dsiContextMenu || event.target.closest("[data-dsi-context-menu]")) return;
+  appState.dsiContextMenu = null;
+  renderApp();
 });
 
 app.addEventListener("submit", async (event) => {

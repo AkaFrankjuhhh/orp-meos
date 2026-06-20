@@ -54,13 +54,17 @@ async function enqueueDiscordSyncJob(type, payload = {}, options = {}) {
   return job;
 }
 
-async function enqueuePersonDiscordSync(person, reason = "person_updated") {
+async function enqueuePersonDiscordSync(person, reason = "person_updated", options = {}) {
   if (!person?.id && !person?.discordId) return null;
   return enqueueDiscordSyncJob("sync_person", {
     personId: person.id || "",
     discordId: person.discordId || "",
     reason
-  }, { personId: person.id || null, discordId: person.discordId || null });
+  }, {
+    personId: person.id || null,
+    discordId: person.discordId || null,
+    maxAttempts: options.maxAttempts
+  });
 }
 
 async function enqueueAllDiscordSync(reason = "state_changed") {

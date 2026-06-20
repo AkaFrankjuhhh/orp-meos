@@ -21,6 +21,7 @@ const legacyIntervalSyncEnabled = String(process.env.DISCORD_LEGACY_INTERVAL_SYN
 const syncIntervalMs = legacyIntervalSyncEnabled ? Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 0) : 0;
 const jobPollMs = Number(process.env.DISCORD_JOB_POLL_INTERVAL_MS || 5000);
 const jobBatchSize = Number(process.env.DISCORD_JOB_BATCH_SIZE || 5);
+const requiredRoleRetryMs = Math.max(60000, Number(process.env.DISCORD_REQUIRED_ROLE_RETRY_MS || 300000));
 const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toLowerCase() !== "false";
 const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true";
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
@@ -287,6 +288,13 @@ async function processJobs() {
   for (const job of jobs) {
     try {
       const result = await syncByJob(job);
+      const roleWaitResult = [result, result?.nickname, result?.rankRole, result?.qualificationRoles]
+        .find((entry) => entry?.retryable);
+      if (roleWaitResult) {
+        await failDiscordSyncJob(job.id, new Error(roleWaitResult.reason), { retryDelayMs: requiredRoleRetryMs });
+        console.log(`[discord-bot] job ${job.id} wacht op organisatie-rol (${job.attempts}/${job.maxAttempts}) - ${roleWaitResult.reason}`);
+        continue;
+      }
       await completeDiscordSyncJob(job.id, result);
       const resultText = result?.skipped
         ? `overgeslagen: ${result.reason || "geen reden"}`

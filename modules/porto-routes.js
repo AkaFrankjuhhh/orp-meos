@@ -620,11 +620,6 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         if (releasedVehicleNumber) syncPortoLinkedNames(state, releasedVehicleNumber);
         await enqueueNormalDiscordNicknames(state, endedUnits);
       } else {
-        if (status === "4" && unit.vehicleNumber && detail && detail !== "Staandehouding" && configuredPortoChannelKeys().has("stilte-porto")) {
-          group.forEach((entry) => {
-            entry.discordChannelKey = "stilte-porto";
-          });
-        }
         closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
         await enqueuePortoDiscordNicknames(state, [unit], "Porto status aangepast");
       }
@@ -827,6 +822,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const linkToVehicleNumber = String(body.linkToVehicleNumber || "").trim();
       const exactVehicleNumber = String(body.vehicleNumber || "").trim();
       const discordChannelKey = String(body.discordChannelKey || "").trim();
+      const hasDiscordChannelStatus = Object.prototype.hasOwnProperty.call(body, "discordChannelStatus");
       const discordChannelStatus = String(body.discordChannelStatus || "").trim().slice(0, 120);
       const newStatus = String(body.status || "").trim();
       const newStatusDetail = String(body.statusDetail || "").trim();
@@ -901,7 +897,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         await sendPortoState(res, state, person, unit);
         return true;
       }
-      if (discordChannelKey || body.discordChannelStatus !== undefined) {
+      if (discordChannelKey || hasDiscordChannelStatus) {
         const validChannelKeys = configuredPortoChannelKeys();
         const key = discordChannelKey || String(unit.discordChannelKey || "").trim();
         if (!key) {
@@ -913,23 +909,48 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           return true;
         }
         const group = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber);
-        const statusTargets = body.discordChannelStatus !== undefined
+        const statusTargets = hasDiscordChannelStatus
           ? state.portoUnits.filter((entry) => entry.active !== false && String(entry.discordChannelKey || "").trim() === key)
           : group;
         const entriesToUpdate = statusTargets.length ? statusTargets : group;
         const now = new Date().toISOString();
-        for (const entry of entriesToUpdate) {
-          if (body.discordChannelStatus === undefined) entry.discordChannelKey = key;
-          else if (!entry.discordChannelKey) entry.discordChannelKey = key;
-          if (body.discordChannelStatus !== undefined) entry.discordChannelStatus = discordChannelStatus;
-          entry.updatedAt = now;
-          entry.discordChannelUpdatedById = person.id;
-          entry.discordChannelUpdatedByName = person.name;
-        }
-        await persistPortoState(state, { units: entriesToUpdate });
-        if (body.discordChannelStatus !== undefined) await enqueuePortoChannelStatus(key, discordChannelStatus);
-        if (discordChannelKey && body.discordChannelStatus === undefined) {
+        if (hasDiscordChannelStatus) {
+          for (const entry of entriesToUpdate) {
+            if (!entry.discordChannelKey) entry.discordChannelKey = key;
+            entry.discordChannelStatus = discordChannelStatus;
+            entry.updatedAt = now;
+            entry.discordChannelUpdatedById = person.id;
+            entry.discordChannelUpdatedByName = person.name;
+          }
+          await persistPortoState(state, { units: entriesToUpdate });
+          await enqueuePortoChannelStatus(key, discordChannelStatus);
+        } else {
+          const previousChannelKeys = new Set(group.map((entry) => String(entry.discordChannelKey || "").trim()).filter(Boolean));
+          const carriedChannelStatus = group.map((entry) => String(entry.discordChannelStatus || "").trim()).find(Boolean) || "";
+          const targetEntries = state.portoUnits.filter((entry) => entry.active !== false && String(entry.discordChannelKey || "").trim() === key && !group.includes(entry));
+          for (const entry of group) {
+            entry.discordChannelKey = key;
+            if (carriedChannelStatus) entry.discordChannelStatus = carriedChannelStatus;
+            entry.updatedAt = now;
+            entry.discordChannelUpdatedById = person.id;
+            entry.discordChannelUpdatedByName = person.name;
+          }
+          if (carriedChannelStatus) {
+            for (const entry of targetEntries) {
+              entry.discordChannelStatus = carriedChannelStatus;
+              entry.updatedAt = now;
+              entry.discordChannelUpdatedById = person.id;
+              entry.discordChannelUpdatedByName = person.name;
+            }
+          }
+          await persistPortoState(state, { units: [...new Set([...group, ...targetEntries])] });
           await enqueuePortoVoiceMove(state, group, key, `Porto kanaal handmatig gezet door ${person.name || operatorLabel}`);
+          if (carriedChannelStatus) await enqueuePortoChannelStatus(key, carriedChannelStatus);
+          for (const previousKey of previousChannelKeys) {
+            if (previousKey !== key && !state.portoUnits.some((entry) => entry.active !== false && String(entry.discordChannelKey || "").trim() === previousKey)) {
+              await enqueuePortoChannelStatus(previousKey, "", "Porto kanaal leeggemaakt");
+            }
+          }
         }
         await sendPortoState(res, state, person, unit);
         return true;
@@ -947,11 +968,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         const statusDefinition = { "1": "Beschikbaar", "2": "Aanrijdend", "3": "Ter plaatse", "4": "Niet beschikbaar", "5": "Transport aanvraag", "6": "Spraak aanvraag", "7": "Spraak aanvraag urgent" };
         const now = new Date().toISOString();
         const group = state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber);
-        const canUseSilenceChannel = configuredPortoChannelKeys().has("stilte-porto");
         for (const entry of group) {
           entry.status = newStatus;
           entry.statusDetail = newStatus === "4" ? (newStatusDetail || "Niet beschikbaar") : statusDefinition[newStatus];
-          if (newStatus === "4" && newStatusDetail && newStatusDetail !== "Staandehouding" && canUseSilenceChannel) entry.discordChannelKey = "stilte-porto";
           entry.updatedAt = now;
           entry.statusUpdatedById = person.id;
           entry.statusUpdatedByName = person.name;
