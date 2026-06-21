@@ -17,7 +17,7 @@ const SIDE_TASK_DEFINITIONS = {
       prefix: "24",
       min: 3,
       max: 99,
-      capacity: 2,
+      capacity: 3,
       commandUnits: { TCO: "24-01", ACO: "24-02" }
     },
     commandRoleDefaults: {

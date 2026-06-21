@@ -1,11 +1,12 @@
 const crypto = require("node:crypto");
 const { withClient } = require("./db");
-const { statusOption } = require("./side-tasks-config");
+const { sideTaskForKey, statusOption } = require("./side-tasks-config");
 
 let schemaReady = false;
 let sideTaskPool = null;
 const DSI_COMMAND_UNITS = Object.freeze({ TCO: "24-01", ACO: "24-02" });
 const DSI_FIRST_REGULAR_UNIT = 3;
+const DSI_UNIT_CAPACITY = Number(sideTaskForKey("DSI")?.dsiUnits?.capacity || 3);
 
 function sideTaskDatabaseUrl() {
   return String(process.env.SIDE_TASK_DATABASE_URL || "").trim();
@@ -482,8 +483,8 @@ function createSideTasksStore() {
         if (unitNumber) {
           const ownUnit = member.status !== "8" ? member.unitNumber : "";
           const existingCount = counts.get(unitNumber) || 0;
-          if (unitNumber !== ownUnit && existingCount >= 2) {
-            const error = new Error("Deze 24-eenheid heeft al maximaal twee leden.");
+          if (unitNumber !== ownUnit && existingCount >= DSI_UNIT_CAPACITY) {
+            const error = new Error(`Deze 24-eenheid heeft al maximaal ${DSI_UNIT_CAPACITY} leden.`);
             error.status = 409;
             throw error;
           }

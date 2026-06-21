@@ -185,6 +185,7 @@ function memberCard(member) {
 function dsiUnitSection() {
   const units = new Map();
   const pendingMembers = appState.members.filter((member) => member.status === "0");
+  const capacity = Number(appState.me.task?.dsiUnits?.capacity || 3);
   appState.members
     .filter((member) => member.status !== "8" && member.unitNumber)
     .forEach((member) => {
@@ -196,7 +197,7 @@ function dsiUnitSection() {
     .sort(([left], [right]) => left.localeCompare(right, "nl", { numeric: true }))
     .map(([unitNumber, members]) => `
       <article class="dsi-unit-card">
-        <div class="dsi-unit-head"><strong>${escapeHtml(unitNumber)}</strong><span>${members.length}/2 personen</span></div>
+        <div class="dsi-unit-head"><strong>${escapeHtml(unitNumber)}</strong><span>${members.length}/${capacity} personen</span></div>
         ${members.map((member) => `
           <button class="dsi-unit-member" type="button" data-dsi-member="${escapeHtml(member.id)}">
             ${memberAvatar(member)}
@@ -238,8 +239,9 @@ function dsiContextMenu() {
     .filter((entry) => entry.status !== "8" && entry.unitNumber)
     .forEach((entry) => unitCounts.set(entry.unitNumber, (unitCounts.get(entry.unitNumber) || 0) + 1));
   const firstRegularUnit = Number(appState.me.task?.dsiUnits?.min || 3);
+  const capacity = Number(appState.me.task?.dsiUnits?.capacity || 3);
   const units = [...unitCounts.entries()]
-    .filter(([unitNumber, count]) => Number(unitNumber.slice(3)) >= firstRegularUnit && unitNumber !== member.unitNumber && count < 2)
+    .filter(([unitNumber, count]) => Number(unitNumber.slice(3)) >= firstRegularUnit && unitNumber !== member.unitNumber && count < capacity)
     .map(([unitNumber]) => unitNumber)
     .sort((left, right) => left.localeCompare(right, "nl", { numeric: true }));
   const style = `left:${context.x}px;top:${context.y}px;`;
