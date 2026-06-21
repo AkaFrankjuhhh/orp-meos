@@ -579,8 +579,7 @@ async function handleApi(req, res, task, url) {
     const body = await readBody(req);
     const existing = await ensureSessionMember(task, session);
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
-    let member = await store.updateMember(task.key, existing.id, {
-      phone: sanitizeText(body.phone, 32),
+    let member = await store.updateMemberProfile(task.key, existing.id, {
       callSign: sanitizeText(body.callSign, 32),
       aliasName: sanitizeText(body.aliasName, 80)
     });

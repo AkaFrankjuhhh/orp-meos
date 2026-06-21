@@ -240,9 +240,20 @@ function createSideTasksStore() {
           discord_username = excluded.discord_username,
           display_name = excluded.display_name,
           avatar_url = excluded.avatar_url,
-          phone = excluded.phone,
-          call_sign = excluded.call_sign,
-          alias_name = excluded.alias_name,
+          -- Discord synchronisaties kennen deze handmatig beheerde profielvelden
+          -- niet altijd. Bewaar bestaande waarden wanneer de sync niets aanlevert.
+          phone = case
+            when excluded.phone <> '' then excluded.phone
+            else side_task_members.phone
+          end,
+          call_sign = case
+            when excluded.call_sign <> '' then excluded.call_sign
+            else side_task_members.call_sign
+          end,
+          alias_name = case
+            when excluded.alias_name <> '' then excluded.alias_name
+            else side_task_members.alias_name
+          end,
           original_nickname = case
             when excluded.original_nickname <> '' then excluded.original_nickname
             else side_task_members.original_nickname
@@ -287,6 +298,31 @@ function createSideTasksStore() {
       throw error;
     }
     return upsertMember(taskKey, { ...existing, ...patch, id: existing.id, discordId: existing.discordId });
+  }
+
+  async function updateMemberProfile(taskKey, id, patch) {
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        `update side_task_members
+         set call_sign = $3,
+             alias_name = $4,
+             updated_at = now()
+         where task_key = $1 and id = $2
+         returning *`,
+        [
+          taskKey,
+          String(id),
+          String(patch.callSign || "").trim(),
+          String(patch.aliasName || "").trim()
+        ]
+      );
+      const member = memberFromRow(result.rows[0]);
+      if (member) return member;
+      const error = new Error("Lid niet gevonden.");
+      error.status = 404;
+      throw error;
+    });
   }
 
   async function deleteMember(taskKey, id) {
@@ -602,6 +638,7 @@ function createSideTasksStore() {
     findMemberById,
     upsertMember,
     updateMember,
+    updateMemberProfile,
     assignDsiUnit,
     assignDsiCommandRole,
     deleteMember,

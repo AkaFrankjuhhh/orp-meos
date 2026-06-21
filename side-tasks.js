@@ -91,9 +91,6 @@ function profileMenu() {
             <input name="aliasName" value="${escapeHtml(member?.aliasName || "")}" placeholder="Schuilnaam" />
           </label>
         ` : ""}
-        <label>Telefoonnummer
-          <input name="phone" value="${escapeHtml(member?.phone || "")}" placeholder="06-12345678" />
-        </label>
         <button class="secondary-button" type="submit">Profiel opslaan</button>
       </form>
       </div>
