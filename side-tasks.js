@@ -182,6 +182,7 @@ function memberCard(member) {
 
 function dsiUnitSection() {
   const units = new Map();
+  const pendingMembers = appState.members.filter((member) => member.status === "0");
   appState.members
     .filter((member) => member.status !== "8" && member.unitNumber)
     .forEach((member) => {
@@ -207,6 +208,17 @@ function dsiUnitSection() {
     <section class="member-section dsi-units">
       <h2>DSI-eenheden</h2>
       <div class="dsi-unit-grid">${cards || `<p class="muted">Nog geen actieve 24-eenheden.</p>`}</div>
+      ${pendingMembers.length ? `
+        <div class="dsi-pending-members">
+          ${pendingMembers.map((member) => `
+            <button class="dsi-unit-member" type="button" data-dsi-member="${escapeHtml(member.id)}">
+              ${memberAvatar(member)}
+              <span>${escapeHtml(displayMemberName(member, appState.me.task))}</span>
+              <small>Nog in te delen</small>
+            </button>
+          `).join("")}
+        </div>
+      ` : ""}
     </section>
   `;
 }
@@ -387,8 +399,6 @@ function memberAdminPage() {
 
 function renderDashboard() {
   const task = appState.me.task;
-  const waiting = appState.members.filter((member) => member.status === "0");
-  const active = appState.members.filter((member) => member.status === "1");
   const inactive = appState.members.filter((member) => member.status === "4");
   return `
     ${topbar()}
@@ -397,8 +407,7 @@ function renderDashboard() {
       <section class="panel">
         ${summaryRow()}
         ${task.key === "DSI" ? dsiUnitSection() : ""}
-        ${task.key === "DSI" ? memberSection("Aangemelde DSI leden", waiting) : ""}
-        ${memberSection(`Aanwezige ${task.label} leden`, active)}
+        ${task.key === "DSI" ? "" : memberSection(`Aanwezige ${task.label} leden`, appState.members.filter((member) => member.status === "1"))}
         ${memberSection(`Afwezige ${task.label} leden`, inactive)}
       </section>
     </div>

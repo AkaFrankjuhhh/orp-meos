@@ -306,6 +306,14 @@ h2 {
   margin: 0;
 }
 
+.dsi-pending-members {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
 .archive-reason-form {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto;
