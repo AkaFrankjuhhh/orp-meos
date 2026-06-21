@@ -7,6 +7,7 @@ const { loadEnv } = require("./modules/db");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 const {
   sideTaskForHost,
+  hasMembershipRole,
   specialtiesForRoles,
   permissionsForTask,
   statusOption,
@@ -269,6 +270,16 @@ async function syncLoginMember(sessionUser, task) {
   return member;
 }
 
+async function ensureSessionMember(task, session) {
+  const existing = await store.findMemberByDiscordId(task.key, session.user.id);
+  if (existing) return existing;
+  if (!hasMembershipRole(task, session.roles || [])) return null;
+  return syncLoginMember({
+    ...session.user,
+    roles: session.roles || []
+  }, task);
+}
+
 function sessionForRequest(req, task) {
   const id = parseCookies(req)[COOKIE_NAME];
   if (!id) return null;
@@ -529,7 +540,7 @@ async function handleApi(req, res, task, url) {
   if (!session) return;
 
   if (url.pathname === "/api/auth/me" && req.method === "GET") {
-    const member = await store.findMemberByDiscordId(task.key, session.user.id);
+    const member = await ensureSessionMember(task, session);
     return sendJson(res, 200, {
       user: session.user,
       task: publicTask(task),
@@ -566,7 +577,7 @@ async function handleApi(req, res, task, url) {
 
   if (url.pathname === "/api/side-tasks/me/profile" && req.method === "POST") {
     const body = await readBody(req);
-    const existing = await store.findMemberByDiscordId(task.key, session.user.id);
+    const existing = await ensureSessionMember(task, session);
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
     let member = await store.updateMember(task.key, existing.id, {
       phone: sanitizeText(body.phone, 32),
@@ -581,7 +592,7 @@ async function handleApi(req, res, task, url) {
   if (url.pathname === "/api/side-tasks/me/status" && req.method === "POST") {
     const body = await readBody(req);
     const status = validateStatus(task, body.status);
-    let member = await store.findMemberByDiscordId(task.key, session.user.id);
+    let member = await ensureSessionMember(task, session);
     if (!member) return jsonError(res, 404, "Lid niet gevonden.");
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
