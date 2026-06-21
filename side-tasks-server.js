@@ -13,6 +13,7 @@ const {
   statusOptionsForTask
 } = require("./modules/side-tasks-config");
 const { createSideTasksStore } = require("./modules/side-tasks-store");
+const { portalIdentityForDiscordId, hasPortalIdentityDatabase } = require("./modules/side-tasks-portal-identity");
 const {
   createHttpResponder,
   createJsonBodyReader,
@@ -257,7 +258,10 @@ async function syncLoginMember(sessionUser, task) {
     status: existing?.status || "8",
     statusDetail: existing?.statusDetail || statusOption(existing?.status || "8").label,
     specialties: specialtiesForRoles(task, sessionUser.roles),
-    raw: { lastLoginAt: new Date().toISOString() }
+    raw: {
+      lastLoginAt: new Date().toISOString(),
+      lastKnownRoleIds: sessionUser.roles || []
+    }
   });
 }
 
@@ -297,7 +301,7 @@ function validateStatus(task, value) {
 async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
   if (!task.allowAlias) return { member };
   if (nextStatus !== "8") {
-    const displayNumber = (nextStatus === "1" || nextStatus === "4") && member.unitNumber
+    const displayNumber = (member.commandRole && member.unitNumber) || ((nextStatus === "1" || nextStatus === "4") && member.unitNumber)
       ? member.unitNumber
       : member.callSign;
     if (!displayNumber || !member.aliasName) {
@@ -319,9 +323,16 @@ async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
       return { member, warning: nicknameSyncWarning(error) };
     }
   }
-  if (member.originalNickname) {
+  const portalIdentity = await portalIdentityForDiscordId(member.discordId);
+  if (!portalIdentity?.nickname) {
+    const configurationHint = hasPortalIdentityDatabase()
+      ? "Er is geen actief gekoppeld profiel gevonden in het personeelsportaal."
+      : "De koppeling met de personeelsportaal-database is nog niet ingesteld.";
+    return { member, warning: `Status is opgeslagen, maar Discordnaam is niet hersteld. ${configurationHint}` };
+  }
+  if (portalIdentity.nickname) {
     try {
-      await patchMainGuildNickname(member.discordId, member.originalNickname);
+      await patchMainGuildNickname(member.discordId, portalIdentity.nickname);
     } catch (error) {
       return { member, warning: nicknameSyncWarning(error) };
     }
@@ -378,7 +389,10 @@ function memberFromBotOrBody(task, body, botMember, actorId) {
     statusDetail: statusOption(body.status || "8").label,
     specialties: roles.length ? specialtiesForRoles(task, roles) : [],
     addedByDiscordId: actorId,
-    raw: { addedAt: new Date().toISOString() }
+    raw: {
+      addedAt: new Date().toISOString(),
+      lastKnownRoleIds: roles
+    }
   };
 }
 
@@ -531,7 +545,7 @@ async function handleApi(req, res, task, url) {
       member = await store.updateMember(task.key, member.id, {
         status,
         statusDetail: statusOption(status).label,
-        unitNumber: task.key === "DSI" && ["0", "8"].includes(status) ? "" : member.unitNumber,
+        unitNumber: task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole ? "" : member.unitNumber,
         specialties: specialtiesForRoles(task, session.roles || [])
       });
     }
@@ -577,10 +591,16 @@ async function handleApi(req, res, task, url) {
     if (commandRole) {
       const discordMember = await fetchBotGuildMember(member.discordId);
       const eligibleRoleIds = commandRole === "ACO" ? task.roleIds.aco : task.roleIds.tco;
-      const hasEligibleRole = (discordMember?.roles || []).map(String).some((roleId) => eligibleRoleIds.includes(roleId));
-      if (!hasEligibleRole) return jsonError(res, 403, `Dit lid heeft niet de vereiste ${commandRole}-Discordrol.`);
+      const liveRoleIds = Array.isArray(discordMember?.roles) ? discordMember.roles.map(String) : [];
+      const storedRoleIds = Array.isArray(member.raw?.lastKnownRoleIds) ? member.raw.lastKnownRoleIds.map(String) : [];
+      const verifiedRoleIds = liveRoleIds.length ? liveRoleIds : storedRoleIds;
+      const hasEligibleRole = verifiedRoleIds.some((roleId) => eligibleRoleIds.includes(roleId));
+      if (!hasEligibleRole) {
+        const source = liveRoleIds.length ? "Discord" : "de laatste DSI-login";
+        return jsonError(res, 403, `Dit lid heeft volgens ${source} niet de vereiste ${commandRole}-Discordrol. Laat het lid opnieuw inloggen nadat de rol is gegeven.`);
+      }
     }
-    const updated = await store.updateMember(task.key, member.id, { commandRole });
+    const updated = await store.assignDsiCommandRole(task.key, member.id, commandRole);
     const nicknameResult = await applyDsiNicknameIfNeeded(task, updated, updated.status);
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
@@ -599,7 +619,7 @@ async function handleApi(req, res, task, url) {
       aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
       status,
       statusDetail: statusOption(status).label,
-      unitNumber: task.key === "DSI" && ["0", "8"].includes(status) ? "" : existing.unitNumber
+      unitNumber: task.key === "DSI" && ["0", "8"].includes(status) && !existing.commandRole ? "" : existing.unitNumber
     });
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);

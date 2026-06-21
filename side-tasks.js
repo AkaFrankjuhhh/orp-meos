@@ -47,7 +47,7 @@ function loginView(message = "") {
 
 function displayMemberName(member, task) {
   if (task.allowAlias && member.aliasName) {
-    const number = (member.status === "1" || member.status === "4") && member.unitNumber
+    const number = (member.commandRole && member.unitNumber) || ((member.status === "1" || member.status === "4") && member.unitNumber)
       ? member.unitNumber
       : member.callSign;
     const prefix = ["ACO", "TCO"].includes(member.commandRole) ? `${member.commandRole} ` : "";
@@ -222,7 +222,7 @@ function dsiContextMenu() {
     .filter((entry) => entry.status !== "8" && entry.unitNumber)
     .forEach((entry) => unitCounts.set(entry.unitNumber, (unitCounts.get(entry.unitNumber) || 0) + 1));
   const units = [...unitCounts.entries()]
-    .filter(([unitNumber, count]) => unitNumber !== member.unitNumber && count < 2)
+    .filter(([unitNumber, count]) => Number(unitNumber.slice(3)) >= 4 && unitNumber !== member.unitNumber && count < 2)
     .map(([unitNumber]) => unitNumber)
     .sort((left, right) => left.localeCompare(right, "nl", { numeric: true }));
   const style = `left:${context.x}px;top:${context.y}px;`;

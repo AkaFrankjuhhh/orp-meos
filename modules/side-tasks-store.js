@@ -4,6 +4,8 @@ const { statusOption } = require("./side-tasks-config");
 
 let schemaReady = false;
 let sideTaskPool = null;
+const DSI_COMMAND_UNITS = Object.freeze({ TCO: "24-01", ACO: "24-02" });
+const DSI_FIRST_REGULAR_UNIT = 4;
 
 function sideTaskDatabaseUrl() {
   return String(process.env.SIDE_TASK_DATABASE_URL || "").trim();
@@ -76,6 +78,7 @@ function memberFromRow(row) {
     statusLabel: statusOption(row.status).label,
     statusDetail: row.status_detail || "",
     specialties: jsonArray(row.specialties),
+    raw: row.raw && typeof row.raw === "object" ? row.raw : {},
     addedByDiscordId: row.added_by_discord_id || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -128,6 +131,7 @@ async function ensureSideTaskSchema() {
     await client.query("alter table side_task_members add column if not exists unit_number text not null default ''");
     await client.query("alter table side_task_members add column if not exists command_role text not null default ''");
     await client.query("create index if not exists side_task_members_task_unit_idx on side_task_members(task_key, unit_number) where unit_number <> ''");
+    await client.query("create unique index if not exists side_task_members_task_command_role_uidx on side_task_members(task_key, command_role) where command_role <> ''");
   });
   schemaReady = true;
 }
@@ -278,6 +282,10 @@ function createSideTasksStore() {
     return suffix >= 1 && suffix <= 99 ? `24-${String(suffix).padStart(2, "0")}` : "";
   }
 
+  function isReservedDsiUnit(unitNumber) {
+    return Object.values(DSI_COMMAND_UNITS).includes(unitNumber) || unitNumber === "24-03";
+  }
+
   async function assignDsiUnit(taskKey, memberId, requestedUnitNumber = "") {
     await ensureSideTaskSchema();
     return withSideTaskClient(async (client) => {
@@ -291,10 +299,16 @@ function createSideTasksStore() {
           error.status = 404;
           throw error;
         }
-        let unitNumber = dsiUnitNumber(requestedUnitNumber);
+        const commandUnit = DSI_COMMAND_UNITS[member.commandRole] || "";
+        let unitNumber = commandUnit || dsiUnitNumber(requestedUnitNumber);
         if (requestedUnitNumber && !unitNumber) {
           const error = new Error("Kies een geldig 24-nummer.");
           error.status = 400;
+          throw error;
+        }
+        if (requestedUnitNumber && isReservedDsiUnit(unitNumber) && !commandUnit) {
+          const error = new Error("24-01 en 24-02 zijn gereserveerd voor TCO/ACO. Reguliere DSI-nummers beginnen bij 24-04.");
+          error.status = 403;
           throw error;
         }
         const activeUnits = await client.query(
@@ -319,7 +333,7 @@ function createSideTasksStore() {
             throw error;
           }
         } else {
-          for (let index = 1; index <= 99; index += 1) {
+          for (let index = DSI_FIRST_REGULAR_UNIT; index <= 99; index += 1) {
             const candidate = `24-${String(index).padStart(2, "0")}`;
             if (!counts.has(candidate)) {
               unitNumber = candidate;
@@ -345,6 +359,59 @@ function createSideTasksStore() {
     });
   }
 
+  async function assignDsiCommandRole(taskKey, memberId, commandRole) {
+    const normalizedRole = ["ACO", "TCO"].includes(String(commandRole || "").trim()) ? String(commandRole).trim() : "";
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query("select pg_advisory_xact_lock(hashtext($1))", [`side-task-dsi-command:${taskKey}`]);
+        const memberResult = await client.query("select * from side_task_members where task_key = $1 and id = $2 for update", [taskKey, String(memberId)]);
+        const member = memberFromRow(memberResult.rows[0]);
+        if (!member) {
+          const error = new Error("DSI-lid niet gevonden.");
+          error.status = 404;
+          throw error;
+        }
+
+        if (!normalizedRole) {
+          const result = await client.query(
+            `update side_task_members
+             set command_role = '', unit_number = '',
+                 status = case when status = '8' then '8' else '0' end,
+                 status_detail = case when status = '8' then 'Uit dienst melden' else 'Aanmelden' end,
+                 updated_at = now()
+             where task_key = $1 and id = $2
+             returning *`,
+            [taskKey, String(memberId)]
+          );
+          await client.query("commit");
+          return memberFromRow(result.rows[0]);
+        }
+
+        const occupied = await client.query(
+          "select id from side_task_members where task_key = $1 and command_role = $2 and id <> $3 limit 1 for update",
+          [taskKey, normalizedRole, String(memberId)]
+        );
+        if (occupied.rows.length) {
+          const error = new Error(`${normalizedRole} is al toegewezen. Verwijder eerst de huidige ${normalizedRole}.`);
+          error.status = 409;
+          throw error;
+        }
+
+        const result = await client.query(
+          "update side_task_members set command_role = $3, unit_number = $4, updated_at = now() where task_key = $1 and id = $2 returning *",
+          [taskKey, String(memberId), normalizedRole, DSI_COMMAND_UNITS[normalizedRole]]
+        );
+        await client.query("commit");
+        return memberFromRow(result.rows[0]);
+      } catch (error) {
+        await client.query("rollback").catch(() => {});
+        throw error;
+      }
+    });
+  }
+
   return {
     ensureSideTaskSchema,
     listMembers,
@@ -353,6 +420,7 @@ function createSideTasksStore() {
     upsertMember,
     updateMember,
     assignDsiUnit,
+    assignDsiCommandRole,
     deleteMember
   };
 }

@@ -13,7 +13,13 @@ const SIDE_TASK_DEFINITIONS = {
     displayName: "Dienst Speciale Interventies",
     logoUrl: "/assets/dsi-logo.png",
     allowAlias: true,
-    dsiUnits: { prefix: "24", min: 1, max: 99, capacity: 2 },
+    dsiUnits: {
+      prefix: "24",
+      min: 4,
+      max: 99,
+      capacity: 2,
+      commandUnits: { TCO: "24-01", ACO: "24-02" }
+    },
     commandRoleDefaults: {
       ACO: "1517546277913628695",
       TCO: "1517546225715380494"
