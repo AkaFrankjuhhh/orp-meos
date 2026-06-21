@@ -5,7 +5,9 @@ let appState = {
   members: [],
   statuses: [],
   profileOpen: false,
-  dsiContextMenu: null
+  dsiContextMenu: null,
+  archives: [],
+  memberEditId: ""
 };
 
 function escapeHtml(value) {
@@ -222,7 +224,7 @@ function dsiContextMenu() {
     .filter((entry) => entry.status !== "8" && entry.unitNumber)
     .forEach((entry) => unitCounts.set(entry.unitNumber, (unitCounts.get(entry.unitNumber) || 0) + 1));
   const units = [...unitCounts.entries()]
-    .filter(([unitNumber, count]) => Number(unitNumber.slice(3)) >= 4 && unitNumber !== member.unitNumber && count < 2)
+    .filter(([unitNumber, count]) => Number(unitNumber.slice(3)) >= 3 && unitNumber !== member.unitNumber && count < 2)
     .map(([unitNumber]) => unitNumber)
     .sort((left, right) => left.localeCompare(right, "nl", { numeric: true }));
   const style = `left:${context.x}px;top:${context.y}px;`;
@@ -268,13 +270,60 @@ function memberAdminRow(member) {
   const alias = member.aliasName || "-";
   const specialties = member.specialties?.length ? member.specialties.join(", ") : "Geen specialisaties";
   return `
-    <tr>
+    <tr class="member-admin-row" data-admin-member="${escapeHtml(member.id)}">
       <td>${escapeHtml(name)}</td>
       <td>${escapeHtml(alias)}</td>
       <td>${escapeHtml(member.callSign || "-")}</td>
       <td>${escapeHtml(specialties)}</td>
       <td>${escapeHtml(member.statusLabel || "-")}</td>
     </tr>
+  `;
+}
+
+function archiveAdminRows() {
+  return appState.archives.map((archive) => `
+    <tr>
+      <td>${escapeHtml(archive.displayName)}</td>
+      <td>${escapeHtml(archive.aliasName || "-")}</td>
+      <td>${escapeHtml(archive.callSign || "-")}</td>
+      <td>${escapeHtml(archive.archivedAt ? new Date(archive.archivedAt).toLocaleString("nl-NL") : "-")}</td>
+      <td>
+        <form class="archive-reason-form" data-form="archive-reason" data-id="${escapeHtml(archive.id)}">
+          <input name="reason" value="${escapeHtml(archive.reason || "")}" placeholder="Reden van vertrek" maxlength="400" />
+          <button class="secondary-button" type="submit">Opslaan</button>
+        </form>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function memberEditModal() {
+  const member = appState.members.find((entry) => entry.id === appState.memberEditId);
+  if (!member || !appState.me?.permissions?.canManageMembers) return "";
+  return `
+    <div class="member-edit-backdrop">
+      <section class="member-edit-modal" role="dialog" aria-modal="true" aria-label="Lid aanpassen">
+        <div class="page-heading">
+          <div><p class="eyebrow">DSI ledenbeheer</p><h2>${escapeHtml(member.aliasName || member.displayName)}</h2></div>
+          <button class="secondary-button" type="button" data-action="close-member-edit">Sluiten</button>
+        </div>
+        <form class="edit-grid" data-form="edit-member" data-id="${escapeHtml(member.id)}">
+          <label>Naam
+            <input name="displayName" value="${escapeHtml(member.displayName)}" maxlength="120" required />
+          </label>
+          <label>Telefoonnummer
+            <input name="phone" value="${escapeHtml(member.phone || "")}" maxlength="32" />
+          </label>
+          <label>DSI roepnummer
+            <input name="callSign" value="${escapeHtml(member.callSign || "")}" maxlength="32" />
+          </label>
+          <label>Schuilnaam
+            <input name="aliasName" value="${escapeHtml(member.aliasName || "")}" maxlength="80" />
+          </label>
+          <button class="primary-button" type="submit">Wijzigingen opslaan</button>
+        </form>
+      </section>
+    </div>
   `;
 }
 
@@ -320,27 +369,18 @@ function memberAdminPage() {
           </tbody>
         </table>
       </div>
-      <form class="manager-form" data-form="add-member">
-        <h3>Lid toevoegen</h3>
-        <label>Discord ID
-          <input name="discordId" placeholder="Discord ID" required />
-        </label>
-        <label>Naam
-          <input name="displayName" placeholder="Optioneel, wordt anders via Discord gevuld" />
-        </label>
-        <label>Telefoonnummer
-          <input name="phone" placeholder="06-12345678" />
-        </label>
-        ${task.allowAlias ? `
-          <label>DSI roepnummer
-            <input name="callSign" placeholder="A-01" />
-          </label>
-          <label>Schuilnaam
-            <input name="aliasName" placeholder="Schuilnaam" />
-          </label>
-        ` : ""}
-        <button class="primary-button" type="submit">Lid toevoegen</button>
-      </form>
+      ${task.key === "DSI" ? `
+        <section class="archive-section">
+          <h3>DSI ledenarchief</h3>
+          <p class="muted">Leden waarvan de DSI-rol is verwijderd. Pas hier de vertrekreden aan.</p>
+          <div class="member-admin-list">
+            <table>
+              <thead><tr><th>Naam</th><th>Schuilnaam</th><th>Roepnummer</th><th>Gearchiveerd op</th><th>Vertrekreden</th></tr></thead>
+              <tbody>${archiveAdminRows() || `<tr><td colspan="5">Geen gearchiveerde DSI-leden.</td></tr>`}</tbody>
+            </table>
+          </div>
+        </section>
+      ` : ""}
     </section>
   `;
 }
@@ -367,17 +407,21 @@ function renderDashboard() {
 
 function renderApp() {
   const page = location.hash === "#ledenbeheer" ? "ledenbeheer" : "dashboard";
-  app.innerHTML = `${page === "ledenbeheer" ? memberAdminPage() : renderDashboard()}${dsiContextMenu()}`;
+  app.innerHTML = `${page === "ledenbeheer" ? memberAdminPage() : renderDashboard()}${dsiContextMenu()}${memberEditModal()}`;
 }
 
 async function refresh() {
-  const [me, members] = await Promise.all([
-    api("/api/auth/me"),
-    api("/api/side-tasks/members")
+  const me = await api("/api/auth/me");
+  const [members, archives] = await Promise.all([
+    api("/api/side-tasks/members"),
+    me.permissions?.canManageMembers && me.task?.key === "DSI"
+      ? api("/api/side-tasks/archive")
+      : Promise.resolve({ archives: [] })
   ]);
   appState.me = me;
   appState.members = members.members;
   appState.statuses = me.statuses || members.statuses || [];
+  appState.archives = archives.archives || [];
   renderApp();
 }
 
@@ -414,6 +458,11 @@ app.addEventListener("click", async (event) => {
     if (action === "open-member-admin") {
       appState.profileOpen = false;
       location.hash = "ledenbeheer";
+      renderApp();
+      return;
+    }
+    if (action === "close-member-edit") {
+      appState.memberEditId = "";
       renderApp();
       return;
     }
@@ -522,11 +571,26 @@ app.addEventListener("submit", async (event) => {
         body: JSON.stringify(data)
       });
       if (result.warning) alert(result.warning);
+      appState.memberEditId = "";
+    }
+    if (form.dataset.form === "archive-reason") {
+      await api(`/api/side-tasks/archive/${encodeURIComponent(form.dataset.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(data)
+      });
     }
     await refresh();
   } catch (error) {
     alert(error.message);
   }
+});
+
+app.addEventListener("contextmenu", (event) => {
+  const row = event.target.closest("[data-admin-member]");
+  if (!row || !appState.me?.permissions?.canManageMembers) return;
+  event.preventDefault();
+  appState.memberEditId = row.dataset.adminMember;
+  renderApp();
 });
 
 window.addEventListener("hashchange", () => {

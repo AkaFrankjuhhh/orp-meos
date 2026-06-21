@@ -1,0 +1,15 @@
+[Unit]
+Description=ORP Neventaken Discord rolworker
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=defensie
+WorkingDirectory=/home/defensie/defensie-personeelsportaal
+EnvironmentFile=/home/defensie/defensie-personeelsportaal/.env.side-tasks
+ExecStart=/usr/bin/node /home/defensie/defensie-personeelsportaal/scripts/side-tasks-discord-worker.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -135,6 +135,16 @@ function hasAnyRole(memberRoles, roleIds) {
   return (roleIds || []).some((roleId) => roles.has(String(roleId)));
 }
 
+function hasMembershipRole(task, memberRoles) {
+  const roleIds = task?.roleIds || {};
+  return hasAnyRole(memberRoles, [
+    ...(roleIds.members || []),
+    ...(roleIds.specialties || []),
+    ...(roleIds.aco || []),
+    ...(roleIds.tco || [])
+  ]);
+}
+
 function specialtiesForRoles(task, memberRoles) {
   const roles = new Set((memberRoles || []).map(String));
   return (task.specialties || [])
@@ -188,6 +198,7 @@ module.exports = {
   sideTaskForHost,
   splitIds,
   hasAnyRole,
+  hasMembershipRole,
   specialtiesForRoles,
   permissionsForTask,
   statusOption,

@@ -243,7 +243,7 @@ function buildSessionUser(user, guildMember, task, permissions) {
 
 async function syncLoginMember(sessionUser, task) {
   const existing = await store.findMemberByDiscordId(task.key, sessionUser.id);
-  return store.upsertMember(task.key, {
+  const memberPatch = {
     id: existing?.id,
     discordId: sessionUser.id,
     discordUsername: sessionUser.username,
@@ -262,7 +262,11 @@ async function syncLoginMember(sessionUser, task) {
       lastLoginAt: new Date().toISOString(),
       lastKnownRoleIds: sessionUser.roles || []
     }
-  });
+  };
+  if (!existing) return store.restoreArchivedMember(task.key, sessionUser.id, memberPatch);
+  const member = await store.upsertMember(task.key, memberPatch);
+  await store.clearAccessRevocation(task.key, sessionUser.id);
+  return member;
 }
 
 function sessionForRequest(req, task) {
@@ -275,10 +279,15 @@ function sessionForRequest(req, task) {
   return { id, ...session, permissions };
 }
 
-function requireSession(req, res, task) {
+async function requireSession(req, res, task) {
   const session = sessionForRequest(req, task);
   if (!session) {
     jsonError(res, 401, "Niet ingelogd.");
+    return null;
+  }
+  if (await store.isAccessRevoked(task.key, session.user.id)) {
+    sessions.delete(session.id);
+    jsonError(res, 401, "Je toegang tot deze neventaak is ingetrokken.");
     return null;
   }
   return session;
@@ -358,6 +367,21 @@ function publicMember(member) {
     statusDetail: member.statusDetail,
     specialties: member.specialties,
     updatedAt: member.updatedAt
+  };
+}
+
+function publicArchive(archive) {
+  const snapshot = archive.snapshot || {};
+  return {
+    id: archive.id,
+    discordId: archive.discordId,
+    displayName: snapshot.displayName || snapshot.discordUsername || archive.discordId,
+    aliasName: snapshot.aliasName || "",
+    callSign: snapshot.callSign || "",
+    specialties: Array.isArray(snapshot.specialties) ? snapshot.specialties : [],
+    reason: archive.reason || "",
+    archivedAt: archive.archivedAt,
+    restoredAt: archive.restoredAt
   };
 }
 
@@ -501,7 +525,7 @@ async function handleApi(req, res, task, url) {
     return sendJson(res, 200, { ok: true });
   }
 
-  const session = requireSession(req, res, task);
+  const session = await requireSession(req, res, task);
   if (!session) return;
 
   if (url.pathname === "/api/auth/me" && req.method === "GET") {
@@ -518,6 +542,26 @@ async function handleApi(req, res, task, url) {
   if (url.pathname === "/api/side-tasks/members" && req.method === "GET") {
     const members = await store.listMembers(task.key);
     return sendJson(res, 200, { members: members.map(publicMember), statuses: statusOptionsForTask(task) });
+  }
+
+  if (url.pathname === "/api/side-tasks/archive" && req.method === "GET") {
+    if (!session.permissions.canManageMembers) return jsonError(res, 403, "Geen beheerrechten.");
+    const archives = await store.listArchives(task.key);
+    return sendJson(res, 200, { archives: archives.map(publicArchive) });
+  }
+
+  const archiveMatch = url.pathname.match(/^\/api\/side-tasks\/archive\/([^/]+)$/);
+  if (archiveMatch && req.method === "PATCH") {
+    if (!session.permissions.canManageMembers) return jsonError(res, 403, "Geen beheerrechten.");
+    const body = await readBody(req);
+    const archive = await store.updateArchiveReason(
+      task.key,
+      decodeURIComponent(archiveMatch[1]),
+      sanitizeText(body.reason, 400),
+      session.user.id
+    );
+    if (!archive) return jsonError(res, 404, "Archiefrecord niet gevonden.");
+    return sendJson(res, 200, { archive: publicArchive(archive) });
   }
 
   if (url.pathname === "/api/side-tasks/me/profile" && req.method === "POST") {
@@ -554,16 +598,7 @@ async function handleApi(req, res, task, url) {
   }
 
   if (url.pathname === "/api/side-tasks/members" && req.method === "POST") {
-    if (!session.permissions.canManageMembers) return jsonError(res, 403, "Geen beheerrechten.");
-    const body = await readBody(req);
-    const discordId = sanitizeText(body.discordId, 32);
-    if (!discordId) return jsonError(res, 400, "Discord ID ontbreekt.");
-    const botMember = await fetchBotGuildMember(discordId);
-    let member = await store.upsertMember(task.key, memberFromBotOrBody(task, body, botMember, session.user.id));
-    if (task.key === "DSI" && member.status === "1") {
-      member = await store.assignDsiUnit(task.key, member.id);
-    }
-    return sendJson(res, 201, { member: publicMember(member) });
+    return jsonError(res, 405, "Leden worden automatisch vanuit Discord-rollen gesynchroniseerd.");
   }
 
   const dsiUnitMatch = url.pathname.match(/^\/api\/side-tasks\/dsi\/members\/([^/]+)\/unit$/);

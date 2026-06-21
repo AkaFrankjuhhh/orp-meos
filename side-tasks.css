@@ -289,6 +289,49 @@ h2 {
   border-bottom: 0;
 }
 
+.member-admin-row {
+  cursor: context-menu;
+}
+
+.member-admin-row:hover td {
+  background: rgba(90, 160, 240, 0.08);
+}
+
+.archive-section {
+  display: grid;
+  gap: 8px;
+}
+
+.archive-section h3 {
+  margin: 0;
+}
+
+.archive-reason-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 8px;
+  min-width: 300px;
+}
+
+.member-edit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.member-edit-modal {
+  width: min(620px, 100%);
+  padding: 20px;
+  border: 1px solid var(--line-bright);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+}
+
 .member-admin-page {
   display: grid;
   gap: 16px;

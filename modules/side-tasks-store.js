@@ -132,6 +132,30 @@ async function ensureSideTaskSchema() {
     await client.query("alter table side_task_members add column if not exists command_role text not null default ''");
     await client.query("create index if not exists side_task_members_task_unit_idx on side_task_members(task_key, unit_number) where unit_number <> ''");
     await client.query("create unique index if not exists side_task_members_task_command_role_uidx on side_task_members(task_key, command_role) where command_role <> ''");
+    await client.query(`
+      create table if not exists side_task_member_archive (
+        id text primary key,
+        task_key text not null,
+        member_id text not null,
+        discord_id text not null,
+        snapshot jsonb not null default '{}'::jsonb,
+        reason text not null default '',
+        archived_by_discord_id text not null default '',
+        archived_at timestamptz not null default now(),
+        restored_at timestamptz
+      )
+    `);
+    await client.query("create index if not exists side_task_member_archive_task_archived_idx on side_task_member_archive(task_key, archived_at desc)");
+    await client.query("create index if not exists side_task_member_archive_task_discord_idx on side_task_member_archive(task_key, discord_id, archived_at desc)");
+    await client.query(`
+      create table if not exists side_task_access_revocations (
+        task_key text not null,
+        discord_id text not null,
+        reason text not null default '',
+        revoked_at timestamptz not null default now(),
+        primary key (task_key, discord_id)
+      )
+    `);
   });
   schemaReady = true;
 }
@@ -275,6 +299,142 @@ function createSideTasksStore() {
     });
   }
 
+  function archiveFromRow(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      taskKey: row.task_key,
+      memberId: row.member_id,
+      discordId: row.discord_id,
+      snapshot: row.snapshot && typeof row.snapshot === "object" ? row.snapshot : {},
+      reason: row.reason || "",
+      archivedByDiscordId: row.archived_by_discord_id || "",
+      archivedAt: row.archived_at,
+      restoredAt: row.restored_at
+    };
+  }
+
+  async function listArchives(taskKey) {
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        "select * from side_task_member_archive where task_key = $1 order by archived_at desc",
+        [taskKey]
+      );
+      return result.rows.map(archiveFromRow);
+    });
+  }
+
+  async function archiveMemberByDiscordId(taskKey, discordId, reason = "", archivedByDiscordId = "") {
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      await client.query("begin");
+      try {
+        const memberResult = await client.query(
+          "select * from side_task_members where task_key = $1 and discord_id = $2 for update",
+          [taskKey, String(discordId)]
+        );
+        const member = memberFromRow(memberResult.rows[0]);
+        if (!member) {
+          await client.query("commit");
+          return null;
+        }
+        await client.query("delete from side_task_members where task_key = $1 and discord_id = $2", [taskKey, String(discordId)]);
+        const archiveResult = await client.query(
+          `insert into side_task_member_archive (
+            id, task_key, member_id, discord_id, snapshot, reason, archived_by_discord_id
+          ) values ($1, $2, $3, $4, $5::jsonb, $6, $7)
+          returning *`,
+          [crypto.randomUUID(), taskKey, member.id, member.discordId, JSON.stringify(member), String(reason || ""), String(archivedByDiscordId || "")]
+        );
+        await client.query("delete from app_sessions where payload->>'taskKey' = $1 and payload->'user'->>'id' = $2", [taskKey, member.discordId]);
+        await client.query(
+          `insert into side_task_access_revocations (task_key, discord_id, reason)
+           values ($1, $2, $3)
+           on conflict (task_key, discord_id) do update set reason = excluded.reason, revoked_at = now()`,
+          [taskKey, member.discordId, String(reason || "")]
+        );
+        await client.query("commit");
+        return archiveFromRow(archiveResult.rows[0]);
+      } catch (error) {
+        await client.query("rollback").catch(() => {});
+        throw error;
+      }
+    });
+  }
+
+  async function restoreArchivedMember(taskKey, discordId, patch = {}) {
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      const archiveResult = await client.query(
+        `select * from side_task_member_archive
+         where task_key = $1 and discord_id = $2
+         order by archived_at desc limit 1`,
+        [taskKey, String(discordId)]
+      );
+      const archive = archiveFromRow(archiveResult.rows[0]);
+      const snapshot = archive?.snapshot || {};
+      const member = await upsertMember(taskKey, {
+        ...snapshot,
+        ...patch,
+        id: snapshot.id || crypto.randomUUID(),
+        discordId: String(discordId),
+        status: "8",
+        statusDetail: statusOption("8").label,
+        unitNumber: "",
+        commandRole: ""
+      });
+      if (archive) {
+        await client.query("update side_task_member_archive set restored_at = now() where id = $1", [archive.id]);
+      }
+      await client.query("delete from side_task_access_revocations where task_key = $1 and discord_id = $2", [taskKey, String(discordId)]);
+      return member;
+    });
+  }
+
+  async function updateArchiveReason(taskKey, archiveId, reason, actorDiscordId = "") {
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        `update side_task_member_archive
+         set reason = $3, archived_by_discord_id = case when $4 <> '' then $4 else archived_by_discord_id end
+         where task_key = $1 and id = $2
+         returning *`,
+        [taskKey, String(archiveId), String(reason || "").trim(), String(actorDiscordId || "")]
+      );
+      return archiveFromRow(result.rows[0]);
+    });
+  }
+
+  async function revokeAccess(taskKey, discordId, reason = "") {
+    await ensureSideTaskSchema();
+    return withSideTaskClient((client) => client.query(
+      `insert into side_task_access_revocations (task_key, discord_id, reason)
+       values ($1, $2, $3)
+       on conflict (task_key, discord_id) do update set reason = excluded.reason, revoked_at = now()`,
+      [taskKey, String(discordId), String(reason || "")]
+    ));
+  }
+
+  async function clearAccessRevocation(taskKey, discordId) {
+    await ensureSideTaskSchema();
+    return withSideTaskClient((client) => client.query(
+      "delete from side_task_access_revocations where task_key = $1 and discord_id = $2",
+      [taskKey, String(discordId)]
+    ));
+  }
+
+  async function isAccessRevoked(taskKey, discordId) {
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        "select 1 from side_task_access_revocations where task_key = $1 and discord_id = $2 limit 1",
+        [taskKey, String(discordId)]
+      );
+      return result.rows.length > 0;
+    });
+  }
+
   function dsiUnitNumber(number) {
     const match = /^24-(\d{1,2})$/.exec(String(number || "").trim());
     if (!match) return "";
@@ -307,7 +467,7 @@ function createSideTasksStore() {
           throw error;
         }
         if (requestedUnitNumber && isReservedDsiUnit(unitNumber) && !commandUnit) {
-          const error = new Error("24-01 en 24-02 zijn gereserveerd voor TCO/ACO. Reguliere DSI-nummers beginnen bij 24-04.");
+          const error = new Error("24-01 en 24-02 zijn gereserveerd voor TCO/ACO. Reguliere DSI-nummers beginnen bij 24-03.");
           error.status = 403;
           throw error;
         }
@@ -375,15 +535,37 @@ function createSideTasksStore() {
         }
 
         if (!normalizedRole) {
+          let replacementUnitNumber = "";
+          const remainsInService = !["0", "8"].includes(member.status);
+          if (remainsInService) {
+            const activeUnits = await client.query(
+              `select unit_number, count(*)::int as count
+               from side_task_members
+               where task_key = $1 and id <> $2 and status <> '8' and unit_number <> ''
+               group by unit_number`,
+              [taskKey, String(memberId)]
+            );
+            const usedUnits = new Set(activeUnits.rows.map((row) => row.unit_number));
+            for (let index = DSI_FIRST_REGULAR_UNIT; index <= 99; index += 1) {
+              const candidate = `24-${String(index).padStart(2, "0")}`;
+              if (!usedUnits.has(candidate)) {
+                replacementUnitNumber = candidate;
+                break;
+              }
+            }
+            if (!replacementUnitNumber) {
+              const error = new Error("Geen vrij regulier 24-nummer beschikbaar.");
+              error.status = 409;
+              throw error;
+            }
+          }
           const result = await client.query(
             `update side_task_members
-             set command_role = '', unit_number = '',
-                 status = case when status = '8' then '8' else '0' end,
-                 status_detail = case when status = '8' then 'Uit dienst melden' else 'Aanmelden' end,
+             set command_role = '', unit_number = $3,
                  updated_at = now()
              where task_key = $1 and id = $2
              returning *`,
-            [taskKey, String(memberId)]
+            [taskKey, String(memberId), replacementUnitNumber]
           );
           await client.query("commit");
           return memberFromRow(result.rows[0]);
@@ -421,7 +603,14 @@ function createSideTasksStore() {
     updateMember,
     assignDsiUnit,
     assignDsiCommandRole,
-    deleteMember
+    deleteMember,
+    listArchives,
+    archiveMemberByDiscordId,
+    restoreArchivedMember,
+    updateArchiveReason,
+    revokeAccess,
+    clearAccessRevocation,
+    isAccessRevoked
   };
 }
 
