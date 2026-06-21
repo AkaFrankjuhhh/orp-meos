@@ -9,6 +9,7 @@ const {
   organizationMainRoleId,
   envOrDefault
 } = require("./organizations");
+const { createSideTasksStore } = require("./side-tasks-store");
 
 const defaultDefensieRankNicknameSymbols = {
   "Marechaussee 4de Klasser": "\u276F",
@@ -205,6 +206,8 @@ function normalizeNicknameTemplateForOrganization(template) {
 }
 
 function createDiscordBotServices(options = {}) {
+  const sideTasksStore = createSideTasksStore();
+  let dsiNicknameGuardWarningShown = false;
   const organization = currentOrganization();
   const portalAuditLabel = organization.portalTitle || "Personeelsportaal";
   const tokenProvider = typeof options.tokenProvider === "function" ? options.tokenProvider : () => process.env.DISCORD_BOT_TOKEN || "";
@@ -353,6 +356,26 @@ function createDiscordBotServices(options = {}) {
     return discordBotFetch(`/guilds/${guildId()}/members/${memberId}`);
   }
 
+  function looksLikeActiveDsiNickname(nickname) {
+    return /^(?:(?:ACO|TCO)\s+)?\[(?:24-\d{2}|[A-Za-z]{1,10}-\d{1,3})\]\s+\S/.test(String(nickname || "").trim());
+  }
+
+  async function activeDsiNicknameProtection(discordId, currentNickname) {
+    try {
+      const member = await sideTasksStore.findActiveDsiNicknameMember(discordId);
+      if (member) return { source: "DSI-status", member };
+    } catch (error) {
+      // De herkenning hieronder blijft een veilige terugval wanneer een oudere
+      // service nog geen centrale neventakendatabase kent.
+      if (!dsiNicknameGuardWarningShown) {
+        dsiNicknameGuardWarningShown = true;
+        console.warn(`DSI nickname-bescherming kon de neventakendatabase niet lezen: ${error.message}`);
+      }
+    }
+    if (looksLikeActiveDsiNickname(currentNickname)) return { source: "bestaande DSI-naam" };
+    return null;
+  }
+
   async function addRole(discordId, roleId, auditReason = `${portalAuditLabel} rol toegevoegd`) {
     const memberId = normalizeDiscordId(discordId);
     const targetRole = String(roleId || "").trim();
@@ -480,6 +503,10 @@ function createDiscordBotServices(options = {}) {
     const memberResult = await getGuildMember(memberId);
     if (memberResult.skipped) return memberResult;
     if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
+    const dsiProtection = await activeDsiNicknameProtection(memberId, memberResult.data?.nick);
+    if (dsiProtection) {
+      return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
+    }
     return setNickname(memberId, buildServiceNickname(person), auditReason);
   }
 
@@ -492,6 +519,10 @@ function createDiscordBotServices(options = {}) {
     if (memberResult.skipped) return memberResult;
     if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
     const currentNickname = memberResult.data?.nick || "";
+    const dsiProtection = await activeDsiNicknameProtection(memberId, currentNickname);
+    if (dsiProtection) {
+      return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
+    }
     if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
     return setNickname(memberId, desiredNickname, auditReason);
   }
@@ -505,6 +536,10 @@ function createDiscordBotServices(options = {}) {
     if (memberResult.skipped) return memberResult;
     if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
     const currentNickname = memberResult.data?.nick || "";
+    const dsiProtection = await activeDsiNicknameProtection(memberId, currentNickname);
+    if (dsiProtection) {
+      return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
+    }
     if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
     return setNickname(memberId, desiredNickname, auditReason);
   }

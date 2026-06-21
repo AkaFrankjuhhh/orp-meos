@@ -220,6 +220,22 @@ function createSideTasksStore() {
     });
   }
 
+  async function findActiveDsiNicknameMember(discordId) {
+    const normalizedDiscordId = String(discordId || "").trim();
+    if (!normalizedDiscordId) return null;
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        `select * from side_task_members
+         where task_key = 'DSI'
+           and discord_id = $1
+           and status in ('0', '1', '4')
+         limit 1`,
+        [normalizedDiscordId]
+      );
+      return memberFromRow(result.rows[0]);
+    });
+  }
+
   async function upsertMember(taskKey, member) {
     await ensureSideTaskSchema();
     const normalized = normalizeMember(taskKey, member);
@@ -636,6 +652,7 @@ function createSideTasksStore() {
     listMembers,
     findMemberByDiscordId,
     findMemberById,
+    findActiveDsiNicknameMember,
     upsertMember,
     updateMember,
     updateMemberProfile,
