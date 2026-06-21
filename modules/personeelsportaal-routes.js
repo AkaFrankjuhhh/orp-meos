@@ -1950,14 +1950,14 @@ function createPersoneelsportaalRouteHandler(deps) {
       }
     }
     if (action === "promote") {
-      const result = promotePerson(state, person, { serviceNumber: body.serviceNumber });
+      const result = promotePerson(state, person, { serviceNumber: body.serviceNumber, actor });
       if (!result.ok) {
         sendJson(res, 400, { error: result.error || "Promotie is niet mogelijk voor deze rang." });
         return;
       }
     }
     if (action === "demote") {
-      const result = demotePerson(state, person, { serviceNumber: body.serviceNumber });
+      const result = demotePerson(state, person, { serviceNumber: body.serviceNumber, actor });
       if (!result.ok) {
         sendJson(res, 400, { error: result.error || "Degradatie is niet mogelijk voor deze rang." });
         return;

@@ -306,7 +306,12 @@ function renderPersonnelCard(person) {
         <details>
           <summary>Rang geschiedenis</summary>
           <div class="feed">
-            ${(person.rankHistory || []).map((item) => `<div class="feed-item">${escapeHtml(formatDate(item.date))}: ${escapeHtml(item.rank)} (${escapeHtml(item.serviceNumber || "-")})</div>`).join("")}
+            ${(person.rankHistory || []).map((item) => `
+              <div class="feed-item">
+                <strong>${escapeHtml(formatDate(item.date))}: ${escapeHtml(item.rank)} (${escapeHtml(item.serviceNumber || "-")})</strong>
+                ${item.changedByName ? `<span>Door: ${escapeHtml(item.changedByName)}</span>` : ""}
+              </div>
+            `).join("")}
           </div>
         </details>
         <div class="person-actions">

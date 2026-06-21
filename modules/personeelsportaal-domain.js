@@ -279,7 +279,14 @@ function promotePerson(state, person, options = {}) {
   }
 
   person.rankHistory = person.rankHistory || [];
-  person.rankHistory.push({ rank: person.rank, date: todayValue, serviceNumber: person.serviceNumber });
+  person.rankHistory.push({
+    rank: person.rank,
+    date: todayValue,
+    serviceNumber: person.serviceNumber,
+    action: "promote",
+    changedById: String(options.actor?.id || ""),
+    changedByName: String(options.actor?.name || options.actor?.displayName || "")
+  });
   state.activity = state.activity || [];
   state.activity.push(`${person.name} gepromoveerd van ${previousRank} naar ${nextRank}.`);
   autoSortServiceNumbers(state);
@@ -316,7 +323,14 @@ function demotePerson(state, person, options = {}) {
   }
 
   person.rankHistory = person.rankHistory || [];
-  person.rankHistory.push({ rank: person.rank, date: todayValue, serviceNumber: person.serviceNumber });
+  person.rankHistory.push({
+    rank: person.rank,
+    date: todayValue,
+    serviceNumber: person.serviceNumber,
+    action: "demote",
+    changedById: String(options.actor?.id || ""),
+    changedByName: String(options.actor?.name || options.actor?.displayName || "")
+  });
   state.activity = state.activity || [];
   state.activity.push(`${person.name} gedegradeerd van ${previousRank} naar ${nextRank}.`);
   autoSortServiceNumbers(state);
