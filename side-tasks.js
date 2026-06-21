@@ -9,6 +9,8 @@ let appState = {
   archives: [],
   memberEditId: ""
 };
+const LIVE_REFRESH_INTERVAL_MS = 10000;
+let liveRefreshInFlight = false;
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -235,8 +237,9 @@ function dsiContextMenu() {
   appState.members
     .filter((entry) => entry.status !== "8" && entry.unitNumber)
     .forEach((entry) => unitCounts.set(entry.unitNumber, (unitCounts.get(entry.unitNumber) || 0) + 1));
+  const firstRegularUnit = Number(appState.me.task?.dsiUnits?.min || 3);
   const units = [...unitCounts.entries()]
-    .filter(([unitNumber, count]) => Number(unitNumber.slice(3)) >= 3 && unitNumber !== member.unitNumber && count < 2)
+    .filter(([unitNumber, count]) => Number(unitNumber.slice(3)) >= firstRegularUnit && unitNumber !== member.unitNumber && count < 2)
     .map(([unitNumber]) => unitNumber)
     .sort((left, right) => left.localeCompare(right, "nl", { numeric: true }));
   const style = `left:${context.x}px;top:${context.y}px;`;
@@ -434,6 +437,25 @@ async function refresh() {
   renderApp();
 }
 
+function isEditingOrManaging() {
+  if (appState.profileOpen || appState.dsiContextMenu || appState.memberEditId) return true;
+  const activeElement = document.activeElement;
+  return Boolean(activeElement?.matches?.("input, textarea, select"));
+}
+
+async function refreshLiveState() {
+  if (liveRefreshInFlight || document.hidden || isEditingOrManaging()) return;
+  liveRefreshInFlight = true;
+  try {
+    await refresh();
+  } catch (error) {
+    // Een tijdelijke netwerkfout mag een bestaande DSI-pagina niet naar het loginscherm sturen.
+    console.warn("DSI live update mislukt:", error.message);
+  } finally {
+    liveRefreshInFlight = false;
+  }
+}
+
 async function init() {
   try {
     await refresh();
@@ -607,3 +629,7 @@ window.addEventListener("hashchange", () => {
 });
 
 init();
+setInterval(refreshLiveState, LIVE_REFRESH_INTERVAL_MS);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshLiveState();
+});
