@@ -5,7 +5,7 @@ const { statusOption } = require("./side-tasks-config");
 let schemaReady = false;
 let sideTaskPool = null;
 const DSI_COMMAND_UNITS = Object.freeze({ TCO: "24-01", ACO: "24-02" });
-const DSI_FIRST_REGULAR_UNIT = 4;
+const DSI_FIRST_REGULAR_UNIT = 3;
 
 function sideTaskDatabaseUrl() {
   return String(process.env.SIDE_TASK_DATABASE_URL || "").trim();
@@ -283,7 +283,7 @@ function createSideTasksStore() {
   }
 
   function isReservedDsiUnit(unitNumber) {
-    return Object.values(DSI_COMMAND_UNITS).includes(unitNumber) || unitNumber === "24-03";
+    return Object.values(DSI_COMMAND_UNITS).includes(unitNumber);
   }
 
   async function assignDsiUnit(taskKey, memberId, requestedUnitNumber = "") {
