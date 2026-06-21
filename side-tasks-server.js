@@ -318,6 +318,12 @@ function validateStatus(task, value) {
   return status;
 }
 
+function shouldSyncDsiNicknameForStatus(status) {
+  // Alleen deze overgangen hebben een eigen Discord-naam:
+  // aanmelden (eigen DSI-nummer), inzetbaar (24-nummer) en uit dienst (portaalnaam).
+  return ["0", "1", "8"].includes(String(status));
+}
+
 async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
   if (!task.allowAlias) return { member };
   if (nextStatus !== "8") {
@@ -583,12 +589,9 @@ async function handleApi(req, res, task, url) {
       callSign: sanitizeText(body.callSign, 32),
       aliasName: sanitizeText(body.aliasName, 80)
     });
-    if (task.key !== "DSI" || member.status === "8") {
-      return sendJson(res, 200, { member: publicMember(member) });
-    }
-    const nicknameResult = await applyDsiNicknameIfNeeded(task, member, member.status);
-    member = nicknameResult.member;
-    return sendJson(res, 200, { member: publicMember(member), warning: nicknameResult.warning });
+    // Een profielbewerking slaat uitsluitend profielgegevens op. De Discord-naam
+    // verandert alleen tijdens de expliciete statusovergangen hieronder.
+    return sendJson(res, 200, { member: publicMember(member) });
   }
 
   if (url.pathname === "/api/side-tasks/me/status" && req.method === "POST") {
@@ -605,6 +608,9 @@ async function handleApi(req, res, task, url) {
         unitNumber: task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole ? "" : member.unitNumber,
         specialties: specialtiesForRoles(task, session.roles || [])
       });
+    }
+    if (task.key !== "DSI" || !shouldSyncDsiNicknameForStatus(status)) {
+      return sendJson(res, 200, { member: publicMember(member) });
     }
     const nicknameResult = await applyDsiNicknameIfNeeded(task, member, status);
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
@@ -671,6 +677,9 @@ async function handleApi(req, res, task, url) {
     });
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
+    }
+    if (task.key !== "DSI" || !shouldSyncDsiNicknameForStatus(status)) {
+      return sendJson(res, 200, { member: publicMember(member) });
     }
     const nicknameResult = await applyDsiNicknameIfNeeded(task, member, status);
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
