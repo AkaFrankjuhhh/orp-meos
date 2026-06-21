@@ -584,6 +584,9 @@ async function handleApi(req, res, task, url) {
       callSign: sanitizeText(body.callSign, 32),
       aliasName: sanitizeText(body.aliasName, 80)
     });
+    if (task.key !== "DSI" || member.status === "8") {
+      return sendJson(res, 200, { member: publicMember(member) });
+    }
     const nicknameResult = await applyDsiNicknameIfNeeded(task, member, member.status);
     member = nicknameResult.member;
     return sendJson(res, 200, { member: publicMember(member), warning: nicknameResult.warning });

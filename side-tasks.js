@@ -592,7 +592,8 @@ app.addEventListener("submit", async (event) => {
   const data = Object.fromEntries(new FormData(form).entries());
   try {
     if (form.dataset.form === "profile") {
-      await api("/api/side-tasks/me/profile", { method: "POST", body: JSON.stringify(data) });
+      const result = await api("/api/side-tasks/me/profile", { method: "POST", body: JSON.stringify(data) });
+      if (result.warning) alert(result.warning);
     }
     if (form.dataset.form === "add-member") {
       await api("/api/side-tasks/members", { method: "POST", body: JSON.stringify(data) });
