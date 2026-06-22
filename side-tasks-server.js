@@ -610,6 +610,18 @@ async function handleApi(req, res, task, url) {
     const status = validateStatus(task, body.status);
     let member = await ensureSessionMember(task, session);
     if (!member) return jsonError(res, 404, "Lid niet gevonden.");
+    const dsiActivation = task.key === "DSI" && ["0", "1"].includes(status);
+    if (dsiActivation && (body.callSign !== undefined || body.aliasName !== undefined)) {
+      const profilePatch = {
+        ...member,
+        callSign: body.callSign !== undefined ? sanitizeText(body.callSign, 32) : member.callSign,
+        aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : member.aliasName
+      };
+      // Valideer voordat we opslaan: een incomplete browserdraft mag nooit
+      // reeds opgeslagen DSI-gegevens leegmaken.
+      requireDsiIdentityForStatus(profilePatch, status);
+      member = await store.updateMemberProfile(task.key, member.id, profilePatch);
+    }
     if (task.key === "DSI") requireDsiIdentityForStatus(member, status);
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);

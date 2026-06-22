@@ -74,6 +74,16 @@ function statusButton(status, currentStatus) {
   `;
 }
 
+function openProfileDraft() {
+  const form = app.querySelector('form[data-form="profile"]');
+  if (!form) return {};
+  const fields = Object.fromEntries(new FormData(form).entries());
+  return {
+    callSign: String(fields.callSign || ""),
+    aliasName: String(fields.aliasName || "")
+  };
+}
+
 function profileMenu() {
   const { member, task } = appState.me;
   if (!appState.profileOpen) return "";
@@ -503,9 +513,15 @@ app.addEventListener("click", async (event) => {
       return;
     }
     if (action === "set-status") {
+      // Een open profielvenster bevat mogelijk nog niet opgeslagen invoer.
+      // Stuur die samen met de status mee, zodat Status 0/1 nooit tegen een
+      // oudere databaseversie van roepnummer of schuilnaam aanloopt.
+      const nextStatus = String(button.dataset.status || "");
+      const shouldIncludeDsiProfile = appState.me?.task?.key === "DSI" && ["0", "1"].includes(nextStatus);
+      const payload = { status: nextStatus, ...(shouldIncludeDsiProfile ? openProfileDraft() : {}) };
       const result = await api("/api/side-tasks/me/status", {
         method: "POST",
-        body: JSON.stringify({ status: button.dataset.status })
+        body: JSON.stringify(payload)
       });
       await refresh();
       if (result.warning) alert(result.warning);
