@@ -475,9 +475,19 @@ function createSideTasksStore() {
       );
       const archive = archiveFromRow(archiveResult.rows[0]);
       const snapshot = archive?.snapshot || {};
+      // Een Discord-sync bevat geen DSI-roepnummer of schuilnaam. Bewaar deze
+      // profielvelden altijd uit het archief wanneer een lid wordt hersteld.
+      // Zonder dit expliciete behoud kon een onterechte archivering een profiel
+      // terugbrengen als een leeg record.
+      const restoredProfile = {
+        callSign: String(snapshot.callSign || patch.callSign || "").trim(),
+        aliasName: String(snapshot.aliasName || patch.aliasName || "").trim(),
+        originalNickname: String(snapshot.originalNickname || patch.originalNickname || "").trim()
+      };
       const member = await upsertMember(taskKey, {
         ...snapshot,
         ...patch,
+        ...restoredProfile,
         id: snapshot.id || crypto.randomUUID(),
         discordId: String(discordId),
         status: "8",
