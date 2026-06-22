@@ -83,9 +83,17 @@ function memberPatch(task, discordMember, existing) {
   };
 }
 
+function previouslyHadMembershipRole(task, member) {
+  const previousRoles = Array.isArray(member?.raw?.lastKnownRoleIds)
+    ? member.raw.lastKnownRoleIds.map(String)
+    : [];
+  return previousRoles.length > 0 && hasMembershipRole(task, previousRoles);
+}
+
 async function syncDiscordMember(discordMember) {
   const discordId = String(discordMember?.user?.id || "").trim();
   if (!discordId) return;
+  const hasRoleSnapshot = Array.isArray(discordMember.roles);
   const roles = Array.isArray(discordMember.roles) ? discordMember.roles.map(String) : [];
   for (const task of allSideTasks()) {
     const existing = await store.findMemberByDiscordId(task.key, discordId);
@@ -108,7 +116,7 @@ async function syncDiscordMember(discordMember) {
       }
       continue;
     }
-    if (existing) {
+    if (existing && hasRoleSnapshot && previouslyHadMembershipRole(task, existing)) {
       await store.archiveMemberByDiscordId(task.key, discordId, "Discordrol voor deze neventaak verwijderd.");
       if (permissions.hasAccess) await store.clearAccessRevocation(task.key, discordId);
       if (task.key === "DSI") {
@@ -118,7 +126,11 @@ async function syncDiscordMember(discordMember) {
           console.warn(`[${workerId}] DSI hoofdnaam herstellen mislukt voor ${discordId}: ${error.message}`);
         }
       }
-      console.log(`[${workerId}] ${task.key}: ${discordId} gearchiveerd wegens rolverlies.`);
+      console.log(`[${workerId}] ${task.key}: ${discordId} gearchiveerd wegens bevestigd rolverlies.`);
+    } else if (existing) {
+      // Zonder een eerdere positieve rolwaarneming mag een tijdelijke of
+      // onvolledige Discord-reactie nooit een bestaand lid verwijderen.
+      console.warn(`[${workerId}] ${task.key}: ${discordId} heeft nu geen herkende rol; bestaand lid blijft behouden tot rolverlies is bevestigd.`);
     } else if (permissions.hasAccess) {
       await store.clearAccessRevocation(task.key, discordId);
     } else {
@@ -156,17 +168,9 @@ async function fetchAllGuildMembers() {
 
 async function reconcileGuildMembers() {
   const members = await fetchAllGuildMembers();
-  const byDiscordId = new Map(members.map((member) => [String(member.user?.id || ""), member]).filter(([id]) => id));
   for (const member of members) await syncDiscordMember(member);
-  for (const task of allSideTasks()) {
-    const activeMembers = await store.listMembers(task.key);
-    for (const member of activeMembers) {
-      if (!byDiscordId.has(member.discordId)) {
-        await store.archiveMemberByDiscordId(task.key, member.discordId, "Lid is niet meer aanwezig in de Neventaken Discord.");
-        console.log(`[${workerId}] ${task.key}: ${member.discordId} gearchiveerd wegens vertrek uit Discord.`);
-      }
-    }
-  }
+  // Een REST-lijst kan tijdelijk onvolledig zijn. Vertrek uit Discord wordt
+  // uitsluitend op het expliciete GUILD_MEMBER_REMOVE Gateway-event verwerkt.
   console.log(`[${workerId}] rolcontrole voltooid voor ${members.length} Discord-leden.`);
 }
 

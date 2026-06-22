@@ -371,7 +371,7 @@ function createSideTasksStore() {
     await ensureSideTaskSchema();
     return withSideTaskClient(async (client) => {
       const result = await client.query(
-        "select * from side_task_member_archive where task_key = $1 order by archived_at desc",
+        "select * from side_task_member_archive where task_key = $1 and restored_at is null order by archived_at desc",
         [taskKey]
       );
       return result.rows.map(archiveFromRow);

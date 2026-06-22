@@ -139,6 +139,8 @@ function hasMembershipRole(task, memberRoles) {
   const roleIds = task?.roleIds || {};
   return hasAnyRole(memberRoles, [
     ...(roleIds.members || []),
+    ...(roleIds.leadership || []),
+    ...(roleIds.subleadership || []),
     ...(roleIds.specialties || []),
     ...(roleIds.aco || []),
     ...(roleIds.tco || [])
