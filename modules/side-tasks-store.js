@@ -306,6 +306,54 @@ function createSideTasksStore() {
     });
   }
 
+  async function syncMemberFromDiscord(taskKey, member) {
+    await ensureSideTaskSchema();
+    const normalized = normalizeMember(taskKey, member);
+    if (!normalized.discordId) {
+      const error = new Error("Discord ID ontbreekt.");
+      error.status = 400;
+      throw error;
+    }
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        `insert into side_task_members (
+          id, task_key, discord_id, discord_username, display_name, avatar_url,
+          phone, call_sign, alias_name, original_nickname, unit_number, command_role, status, status_detail,
+          specialties, added_by_discord_id, raw, updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16, $17::jsonb, now())
+        on conflict (task_key, discord_id) do update set
+          discord_username = excluded.discord_username,
+          display_name = excluded.display_name,
+          avatar_url = excluded.avatar_url,
+          specialties = excluded.specialties,
+          raw = side_task_members.raw || excluded.raw,
+          updated_at = now()
+        returning *`,
+        [
+          normalized.id,
+          normalized.taskKey,
+          normalized.discordId,
+          normalized.discordUsername,
+          normalized.displayName,
+          normalized.avatarUrl,
+          normalized.phone,
+          normalized.callSign,
+          normalized.aliasName,
+          normalized.originalNickname,
+          normalized.unitNumber,
+          normalized.commandRole,
+          normalized.status,
+          normalized.statusDetail,
+          JSON.stringify(normalized.specialties),
+          normalized.addedByDiscordId,
+          JSON.stringify(normalized.raw)
+        ]
+      );
+      return memberFromRow(result.rows[0]);
+    });
+  }
+
   async function updateMember(taskKey, id, patch) {
     const existing = await findMemberById(taskKey, id);
     if (!existing) {
@@ -654,6 +702,7 @@ function createSideTasksStore() {
     findMemberById,
     findActiveDsiNicknameMember,
     upsertMember,
+    syncMemberFromDiscord,
     updateMember,
     updateMemberProfile,
     assignDsiUnit,

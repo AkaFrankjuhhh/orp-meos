@@ -265,7 +265,7 @@ async function syncLoginMember(sessionUser, task) {
     }
   };
   if (!existing) return store.restoreArchivedMember(task.key, sessionUser.id, memberPatch);
-  const member = await store.upsertMember(task.key, memberPatch);
+  const member = await store.syncMemberFromDiscord(task.key, memberPatch);
   await store.clearAccessRevocation(task.key, sessionUser.id);
   return member;
 }
@@ -324,6 +324,14 @@ function shouldSyncDsiNicknameForStatus(status) {
   return ["0", "1", "8"].includes(String(status));
 }
 
+function requireDsiIdentityForStatus(member, nextStatus) {
+  if (!member || !["0", "1"].includes(String(nextStatus))) return;
+  if (String(member.callSign || "").trim() && String(member.aliasName || "").trim()) return;
+  const error = new Error("Vul eerst je DSI roepnummer en schuilnaam in en sla je profiel op.");
+  error.status = 400;
+  throw error;
+}
+
 async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
   if (!task.allowAlias) return { member };
   if (nextStatus !== "8") {
@@ -335,13 +343,13 @@ async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
       error.status = 400;
       throw error;
     }
-    let originalNickname = member.originalNickname || "";
-    if (!originalNickname) {
-      const mainMember = await fetchMainGuildMember(member.discordId);
-      originalNickname = mainMember?.nick || mainMember?.user?.global_name || mainMember?.user?.username || "";
-      member = await store.updateMember(task.key, member.id, { originalNickname });
-    }
     try {
+      let originalNickname = member.originalNickname || "";
+      if (!originalNickname) {
+        const mainMember = await fetchMainGuildMember(member.discordId);
+        originalNickname = mainMember?.nick || mainMember?.user?.global_name || mainMember?.user?.username || "";
+        member = await store.updateMember(task.key, member.id, { originalNickname });
+      }
       const commandPrefix = ["ACO", "TCO"].includes(member.commandRole) ? `${member.commandRole} ` : "";
       await patchMainGuildNickname(member.discordId, `${commandPrefix}[${displayNumber}] ${member.aliasName}`);
       return { member };
@@ -589,6 +597,9 @@ async function handleApi(req, res, task, url) {
       callSign: sanitizeText(body.callSign, 32),
       aliasName: sanitizeText(body.aliasName, 80)
     });
+    if (task.key === "DSI") {
+      console.log(`[side-tasks] DSI-profiel opgeslagen voor ${member.discordId}: roepnummer=${member.callSign ? "ingesteld" : "leeg"}, schuilnaam=${member.aliasName ? "ingesteld" : "leeg"}.`);
+    }
     // Een profielbewerking slaat uitsluitend profielgegevens op. De Discord-naam
     // verandert alleen tijdens de expliciete statusovergangen hieronder.
     return sendJson(res, 200, { member: publicMember(member) });
@@ -599,6 +610,7 @@ async function handleApi(req, res, task, url) {
     const status = validateStatus(task, body.status);
     let member = await ensureSessionMember(task, session);
     if (!member) return jsonError(res, 404, "Lid niet gevonden.");
+    if (task.key === "DSI") requireDsiIdentityForStatus(member, status);
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
     } else {
@@ -608,6 +620,9 @@ async function handleApi(req, res, task, url) {
         unitNumber: task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole ? "" : member.unitNumber,
         specialties: specialtiesForRoles(task, session.roles || [])
       });
+    }
+    if (task.key === "DSI") {
+      console.log(`[side-tasks] DSI-status ${status} opgeslagen voor ${member.discordId}: roepnummer=${member.callSign ? "ingesteld" : "leeg"}, schuilnaam=${member.aliasName ? "ingesteld" : "leeg"}, eenheid=${member.unitNumber || "geen"}.`);
     }
     if (task.key !== "DSI" || !shouldSyncDsiNicknameForStatus(status)) {
       return sendJson(res, 200, { member: publicMember(member) });
@@ -627,6 +642,7 @@ async function handleApi(req, res, task, url) {
     if (!member) return jsonError(res, 404, "DSI-lid niet gevonden.");
     const isOwnProfile = member.discordId === session.user.id;
     if (!isOwnProfile && !session.permissions.canManageDsiUnits) return jsonError(res, 403, "Alleen ACO, TCO of DSI-leiding kan andere leden indelen.");
+    requireDsiIdentityForStatus(member, "1");
     const body = await readBody(req);
     const updated = await store.assignDsiUnit(task.key, member.id, sanitizeText(body.unitNumber, 16));
     const nicknameResult = await applyDsiNicknameIfNeeded(task, updated, updated.status);
@@ -642,6 +658,7 @@ async function handleApi(req, res, task, url) {
     if (commandRole === null) return jsonError(res, 400, "Ongeldige ACO/TCO-keuze.");
     const member = await store.findMemberById(task.key, decodeURIComponent(dsiCommandMatch[1]));
     if (!member) return jsonError(res, 404, "DSI-lid niet gevonden.");
+    if (["0", "1"].includes(String(member.status))) requireDsiIdentityForStatus(member, member.status);
     if (commandRole) {
       const discordMember = await fetchBotGuildMember(member.discordId);
       const eligibleRoleIds = commandRole === "ACO" ? task.roleIds.aco : task.roleIds.tco;
@@ -666,6 +683,12 @@ async function handleApi(req, res, task, url) {
     const existing = await store.findMemberById(task.key, decodeURIComponent(memberMatch[1]));
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
     const status = body.status ? validateStatus(task, body.status) : existing.status;
+    const nextMemberProfile = {
+      ...existing,
+      callSign: body.callSign !== undefined ? sanitizeText(body.callSign, 32) : existing.callSign,
+      aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName
+    };
+    if (task.key === "DSI") requireDsiIdentityForStatus(nextMemberProfile, status);
     let member = await store.updateMember(task.key, existing.id, {
       displayName: body.displayName !== undefined ? sanitizeText(body.displayName, 120) : existing.displayName,
       phone: body.phone !== undefined ? sanitizeText(body.phone, 32) : existing.phone,

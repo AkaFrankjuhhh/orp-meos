@@ -90,7 +90,7 @@ function previouslyHadMembershipRole(task, member) {
   return previousRoles.length > 0 && hasMembershipRole(task, previousRoles);
 }
 
-async function syncDiscordMember(discordMember) {
+async function syncDiscordMember(discordMember, { allowArchive = false } = {}) {
   const discordId = String(discordMember?.user?.id || "").trim();
   if (!discordId) return;
   const hasRoleSnapshot = Array.isArray(discordMember.roles);
@@ -102,7 +102,11 @@ async function syncDiscordMember(discordMember) {
     if (hasMemberAccess) {
       const patch = memberPatch(task, discordMember, existing);
       if (existing) {
-        let updated = await store.upsertMember(task.key, patch);
+        // De rolworker bezit alleen gegevens die uit de Neventaken Discord
+        // komen. Status, DSI-nummer, schuilnaam en ACO/TCO blijven exclusief
+        // eigendom van het neventakenportaal en mogen nooit door een oudere
+        // Discord-snapshot teruggedraaid worden.
+        let updated = await store.syncMemberFromDiscord(task.key, patch);
         if (task.key === "DSI" && updated.commandRole) {
           const commandRoleIds = updated.commandRole === "ACO" ? task.roleIds.aco : task.roleIds.tco;
           if (!hasAnyRole(roles, commandRoleIds)) {
@@ -116,7 +120,7 @@ async function syncDiscordMember(discordMember) {
       }
       continue;
     }
-    if (existing && hasRoleSnapshot && previouslyHadMembershipRole(task, existing)) {
+    if (allowArchive && existing && hasRoleSnapshot && previouslyHadMembershipRole(task, existing)) {
       await store.archiveMemberByDiscordId(task.key, discordId, "Discordrol voor deze neventaak verwijderd.");
       if (permissions.hasAccess) await store.clearAccessRevocation(task.key, discordId);
       if (task.key === "DSI") {
@@ -129,12 +133,12 @@ async function syncDiscordMember(discordMember) {
       console.log(`[${workerId}] ${task.key}: ${discordId} gearchiveerd wegens bevestigd rolverlies.`);
     } else if (existing) {
       // Zonder een eerdere positieve rolwaarneming mag een tijdelijke of
-      // onvolledige Discord-reactie nooit een bestaand lid verwijderen.
-      console.warn(`[${workerId}] ${task.key}: ${discordId} heeft nu geen herkende rol; bestaand lid blijft behouden tot rolverlies is bevestigd.`);
-    } else if (permissions.hasAccess) {
-      await store.clearAccessRevocation(task.key, discordId);
-    } else {
-      await store.revokeAccess(task.key, discordId, "Discordrol voor deze neventaak ontbreekt.");
+      // onvolledige Discord-reactie nooit een bestaand lid verwijderen. De
+      // periodieke controle mag uitsluitend aanvullen/herstellen; archiveren
+      // gebeurt alleen na een echt Gateway rolverlies- of vertrek-event.
+      if (allowArchive) {
+        console.warn(`[${workerId}] ${task.key}: ${discordId} heeft nu geen herkende rol; bestaand lid blijft behouden tot rolverlies is bevestigd.`);
+      }
     }
   }
 }
@@ -168,7 +172,7 @@ async function fetchAllGuildMembers() {
 
 async function reconcileGuildMembers() {
   const members = await fetchAllGuildMembers();
-  for (const member of members) await syncDiscordMember(member);
+  for (const member of members) await syncDiscordMember(member, { allowArchive: false });
   // Een REST-lijst kan tijdelijk onvolledig zijn. Vertrek uit Discord wordt
   // uitsluitend op het expliciete GUILD_MEMBER_REMOVE Gateway-event verwerkt.
   console.log(`[${workerId}] rolcontrole voltooid voor ${members.length} Discord-leden.`);
@@ -230,7 +234,9 @@ function connectGateway() {
         return;
       }
       if (["GUILD_MEMBER_ADD", "GUILD_MEMBER_UPDATE"].includes(packet.t)) {
-        await syncDiscordMember(packet.d || {});
+        // Alleen een concrete Gateway member-update mag een bevestigd
+        // rolverlies verwerken. De vijfminutencontrole vult uitsluitend aan.
+        await syncDiscordMember(packet.d || {}, { allowArchive: packet.t === "GUILD_MEMBER_UPDATE" });
       }
     } catch (error) {
       console.error(`[${workerId}] Gateway-event mislukt: ${error.message}`);
