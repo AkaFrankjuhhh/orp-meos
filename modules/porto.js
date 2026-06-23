@@ -82,56 +82,57 @@ const defensiePortoVehicleRangeDefinitions = [
   }
 ];
 
+const politiePortoVehicleChoices = [
+  { name: "SIV - Obey Argento", vehicleCode: "SIV", vehicleType: "SIV" },
+  { name: "OFR - Karin Everon", vehicleCode: "OFF-ROAD", vehicleType: "Off-Road" },
+  { name: "OFR - Karin Everon Strand", vehicleCode: "OFF-ROAD", vehicleType: "Off-Road" },
+  { name: "OFR - Rebla", vehicleCode: "OFF-ROAD", vehicleType: "Off-Road" },
+  { name: "ZULU", vehicleCode: "ZULU", vehicleType: "Zulu" },
+  { name: "TMO-L - Ubermacht", vehicleCode: "TMO", vehicleType: "Motoren" },
+  { name: "TMO-Z - Guardian", vehicleCode: "TMO", vehicleType: "Motoren" },
+  { name: "OGM - Wolf", vehicleCode: "OGM", vehicleType: "Ongemarkeerd" },
+  { name: "OGM - Wolf R", vehicleCode: "OGM", vehicleType: "Ongemarkeerd" },
+  { name: "OGM - BF Kanzler", vehicleCode: "OGM", vehicleType: "Ongemarkeerd" },
+  { name: "OGM - BF Kanzler SRT", vehicleCode: "OGM", vehicleType: "Ongemarkeerd" },
+  { name: "OGM - Schlagen SB", vehicleCode: "OGM", vehicleType: "Ongemarkeerd" },
+  { name: "OGM - Zware Motor", vehicleCode: "OGM", vehicleType: "Ongemarkeerd" },
+  { name: "OGM - Offroad Motor", vehicleCode: "OGM", vehicleType: "Ongemarkeerd" }
+];
+
 const politiePortoVehicleRangeDefinitions = [
   {
     prefix: "OC",
-    from: "30-00",
-    to: "30-00",
+    from: "20-00",
+    to: "20-00",
     vehicleCode: "OC",
     vehicleType: "OC",
     vehicles: ["OC"],
-    numbers: ["30-00"]
+    numbers: ["20-00"]
   },
   {
-    prefix: "31",
-    vehicleCode: "OFR",
-    vehicleType: "Off-Road",
-    vehicles: ["OFR - Karin Everon", "OFR - Karin Everon Strand", "OFR - Rebla"]
-  },
-  {
-    prefix: "32",
-    vehicleCode: "SIV",
-    vehicleType: "SIV",
-    vehicles: ["SIV - Obey Argento"]
-  },
-  {
-    prefix: "33",
-    vehicleCode: "ZULU",
-    vehicleType: "Zulu",
-    vehicles: ["ZULU"]
-  },
-  {
-    prefix: "34",
-    vehicleCode: "TMO",
-    vehicleType: "Motoren",
-    vehicles: ["TMO-L - Ubermacht", "TMO-Z - Guardian"]
-  },
-  {
-    prefix: "35",
-    vehicleCode: "OGM",
-    vehicleType: "Ongemarkeerd",
-    vehicles: ["OGM - Wolf", "OGM - Wolf R", "OGM - BF Kanzler", "OGM - BF Kanzler SRT", "OGM - Schlagen SB", "OGM - Zware Motor", "OGM - Offroad Motor"]
+    prefix: "20",
+    from: "20-01",
+    to: "20-99",
+    vehicleCode: "",
+    vehicleType: "Politie-eenheid",
+    vehicles: politiePortoVehicleChoices.map((vehicle) => vehicle.name),
+    vehicleDetails: Object.fromEntries(politiePortoVehicleChoices.map((vehicle) => [vehicle.name, {
+      vehicleCode: vehicle.vehicleCode,
+      vehicleType: vehicle.vehicleType
+    }])),
+    numbers: Array.from({ length: 99 }, (_, index) => `20-${String(index + 1).padStart(2, "0")}`)
   }
 ];
 
 function expandPortoVehicleRanges(definitions) {
-  return definitions.map(({ prefix, from, to, vehicleCode, vehicleType, vehicles, numbers }) => ({
+  return definitions.map(({ prefix, from, to, vehicleCode, vehicleType, vehicles, vehicleDetails, numbers }) => ({
     prefix,
     from: from || `${prefix}-01`,
     to: to || `${prefix}-10`,
     vehicleCode,
     vehicleType,
     vehicles: [...vehicles],
+    vehicleDetails: vehicleDetails ? { ...vehicleDetails } : undefined,
     numbers: numbers ? [...numbers] : Array.from({ length: 10 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, "0")}`)
   }));
 }
@@ -181,9 +182,55 @@ function createPortoServices() {
     }));
     const current = JSON.stringify(state.portoVehicleRanges || null);
     const next = JSON.stringify(desired);
-    if (current === next) return false;
+    const rangesChanged = current !== next;
     state.portoVehicleRanges = desired;
-    return true;
+    const unitsMigrated = migrateLegacyPolitiePortoUnits(state);
+    return rangesChanged || unitsMigrated;
+  }
+
+  function migrateLegacyPolitiePortoUnits(state) {
+    if (organization.key !== "politie") return false;
+    const activeUnits = (state.portoUnits || []).filter((unit) => unit.active !== false && unit.vehicleNumber);
+    if (!activeUnits.some((unit) => !/^20-\d{2}$/.test(String(unit.vehicleNumber || "")))) return false;
+
+    const groups = new Map();
+    for (const unit of activeUnits) {
+      const key = String(unit.vehicleNumber || "");
+      const group = groups.get(key) || [];
+      group.push(unit);
+      groups.set(key, group);
+    }
+
+    const currentOcId = String(state.portoCurrentOps?.active === false ? "" : state.portoCurrentOps?.memberId || "");
+    const remappedNumbers = new Map();
+    let nextRegularNumber = 1;
+    const nextRegular = () => {
+      while (nextRegularNumber <= 99) {
+        const candidate = `20-${String(nextRegularNumber++).padStart(2, "0")}`;
+        if (![...remappedNumbers.values()].includes(candidate)) return candidate;
+      }
+      return "";
+    };
+
+    for (const [oldNumber, group] of groups.entries()) {
+      if (/^20-\d{2}$/.test(oldNumber)) continue;
+      const isCurrentOc = oldNumber === "30-00" || group.some((unit) => String(unit.memberId || "") === currentOcId);
+      const nextNumber = isCurrentOc ? "20-00" : nextRegular();
+      if (!nextNumber) continue;
+      remappedNumbers.set(oldNumber, nextNumber);
+      for (const unit of group) {
+        unit.vehicleNumber = nextNumber;
+        if (nextNumber === "20-00") {
+          unit.vehicleCode = "OC";
+          unit.vehicleType = "OC";
+          unit.vehicleName = "OC";
+        }
+        unit.updatedAt = new Date().toISOString();
+      }
+    }
+
+    for (const number of new Set(remappedNumbers.values())) syncPortoLinkedNames(state, number);
+    return remappedNumbers.size > 0;
   }
 
   function defaultDiscordChannelForUnit(unit) {
@@ -305,6 +352,14 @@ function createPortoServices() {
   function vehicleRangeForNumber(state, number) {
     const value = String(number || "").trim();
     return (state.portoVehicleRanges || []).find((range) => (range.numbers || []).includes(value)) || null;
+  }
+
+  function vehicleDetailsForSelection(range, vehicleName) {
+    const details = range?.vehicleDetails?.[String(vehicleName || "").trim()];
+    return {
+      vehicleCode: details?.vehicleCode ?? range?.vehicleCode ?? "",
+      vehicleType: details?.vehicleType ?? range?.vehicleType ?? ""
+    };
   }
 
   function availablePortoVehicleNumbers(state) {
@@ -683,6 +738,7 @@ function createPortoServices() {
     configuredPortoDiscordChannels,
     portoDiscordChannelGroups,
     vehicleRangeForNumber,
+    vehicleDetailsForSelection,
     availablePortoVehicleNumbers,
     linkablePortoUnits,
     firstAvailableVehicleNumber,

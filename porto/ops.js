@@ -519,6 +519,22 @@ function renderDiscordChannels() {
 }
 
 async function chooseOpsVehicleUpdate(unitId, anchorEvent) {
+  const context = findOpsMember(unitId);
+  const currentNumber = context?.member?.vehicleNumber || context?.unit?.vehicleNumber || "";
+  const currentRange = (portoVehicleRanges || []).find((range) => (range.numbers || []).includes(currentNumber));
+  const vehicleChoices = currentRange?.vehicles || [];
+
+  // Politie gebruikt een gedeelde 20-xx-reeks. Daar kiest de OC het voertuig
+  // binnen het bestaande roepnummer, in plaats van een andere nummerreeks.
+  if (vehicleChoices.length && currentRange?.prefix === "20") {
+    const selected = await showPortoContextChoice(anchorEvent, "Voertuig wijzigen", vehicleChoices.map((vehicleName) => ({
+      value: vehicleName,
+      label: vehicleName
+    })));
+    if (selected) await reassignPortoUnit(unitId, { vehicleNumber: currentNumber, vehicleName: selected.value });
+    return;
+  }
+
   const options = portoAvailableVehicleRanges
     .filter((range) => (range.numbers || []).length)
     .map((range) => ({ value: range.prefix, label: `${range.vehicleCode ? `${range.vehicleCode} - ` : ""}${range.vehicleType} (${range.from} t/m ${range.to})` }));
@@ -572,7 +588,7 @@ async function chooseOpsDiscordChannelUpdate(unitId, anchorEvent) {
 }
 
 async function reassignPortoUnit(unitId, assignment) {
-  if (!assignment?.vehiclePrefix && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.unlink && !assignment?.status && !assignment?.discordChannelKey && assignment?.discordChannelStatus === undefined) {
+  if (!assignment?.vehiclePrefix && !assignment?.vehicleName && !assignment?.linkToVehicleNumber && !assignment?.vehicleNumber && !assignment?.offDuty && !assignment?.unlink && !assignment?.status && !assignment?.discordChannelKey && assignment?.discordChannelStatus === undefined) {
     await showPortoNotice("Kies eerst een voertuigcategorie, koppel-eenheid, roepnummer, status of actie.", "Geen actie gekozen");
     return;
   }

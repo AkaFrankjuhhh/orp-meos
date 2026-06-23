@@ -30,6 +30,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     canOperatePortoOps,
     activePortoOps,
     vehicleRangeForNumber,
+    vehicleDetailsForSelection,
     availablePortoVehicleNumbers,
     firstAvailableVehicleNumber,
     syncPortoLinkedNames,
@@ -534,9 +535,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const context = await requireActivePerson(req, res);
       if (!context) return true;
       const { state, person } = context;
-      ensurePortoVehicleRanges(state);
+      const rangesChanged = ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
       await maintainPortoPresence(state, person, { touch: false });
+      if (rangesChanged) await persistPortoState(state, { units: state.portoUnits, settings: true });
       const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
       await sendPortoState(res, state, person, unit);
       return true;
@@ -733,11 +735,12 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         return true;
       }
       const now = new Date().toISOString();
+      const vehicleDetails = vehicleDetailsForSelection(range, vehicleName);
       touchPortoPresence(state, person, new Date(now));
       for (const entry of state.portoUnits || []) {
         if (entry.active !== false && entry.vehicleNumber === unit.vehicleNumber) {
-          entry.vehicleCode = range.vehicleCode;
-          entry.vehicleType = range.vehicleType;
+          entry.vehicleCode = vehicleDetails.vehicleCode;
+          entry.vehicleType = vehicleDetails.vehicleType;
           entry.vehicleName = vehicleName;
           entry.updatedAt = now;
         }
@@ -818,7 +821,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const cleanedOpsEligibility = closeIneligiblePortoOpsUnits(state);
       const body = await readBody(req);
       const unitId = String(body.unitId || "").trim();
-      const vehiclePrefix = String(body.vehiclePrefix || "").trim();
+      let vehiclePrefix = String(body.vehiclePrefix || "").trim();
+      const selectedVehicleName = String(body.vehicleName || "").trim();
       const linkToVehicleNumber = String(body.linkToVehicleNumber || "").trim();
       const exactVehicleNumber = String(body.vehicleNumber || "").trim();
       const discordChannelKey = String(body.discordChannelKey || "").trim();
@@ -836,6 +840,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 404, { error: "Actieve eenheid niet gevonden." });
         return true;
       }
+      const selectedVehicleRange = selectedVehicleName
+        ? (state.portoVehicleRanges || []).find((candidate) => (candidate.vehicles || []).includes(selectedVehicleName))
+        : null;
+      if (selectedVehicleName && !selectedVehicleRange) {
+        sendJson(res, 400, { error: "Kies een geldig voertuig." });
+        return true;
+      }
+      if (selectedVehicleRange && !vehiclePrefix) vehiclePrefix = selectedVehicleRange.prefix;
       if (unlink) {
         const oldVehicleNumber = unit.vehicleNumber;
         const currentRange = vehicleRangeForNumber(state, oldVehicleNumber);
@@ -986,7 +998,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       let range = null;
       let targetDiscordChannelKey = unit.discordChannelKey || "";
       if (exactVehicleNumber) {
-        if (exactVehicleNumber === unit.vehicleNumber) {
+        if (exactVehicleNumber === unit.vehicleNumber && !selectedVehicleName) {
           await sendPortoState(res, state, person, unit);
           return true;
         }
@@ -1001,8 +1013,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           return true;
         }
         vehicleNumber = exactVehicleNumber;
-        unit.vehicleName = "";
-        unit.reviewStatus = "number-changed";
+        unit.vehicleName = selectedVehicleName || "";
+        unit.reviewStatus = selectedVehicleName ? "vehicle-changed" : "number-changed";
       } else if (linkToVehicleNumber) {
         if (linkToVehicleNumber === unit.vehicleNumber) {
           await sendPortoState(res, state, person, unit);
@@ -1036,16 +1048,23 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 400, { error: "Kies een geldige voertuigcategorie of koppeling." });
         return true;
       }
+      if (selectedVehicleName && !(range.vehicles || []).includes(selectedVehicleName)) {
+        sendJson(res, 400, { error: "Dit voertuig hoort niet bij dit roepnummer." });
+        return true;
+      }
       const now = new Date().toISOString();
       const unitsToMove = linkToVehicleNumber ? [unit] : (currentVehicleGroup.length ? currentVehicleGroup : [unit]);
       const operatorLeadUnitId = vehicleNumber === operatorVehicleNumber && !linkToVehicleNumber ? unit.id : "";
       if (operatorLeadUnitId && !assertCanAssignOpsNumber(state, [unit], res)) return true;
+      const vehicleDetails = selectedVehicleName
+        ? vehicleDetailsForSelection(range, selectedVehicleName)
+        : { vehicleCode: range.vehicleCode, vehicleType: range.vehicleType };
       unitsToMove.forEach((entry) => {
         Object.assign(entry, {
           vehicleNumber,
-          vehicleCode: range.vehicleCode,
-          vehicleType: range.vehicleType,
-          vehicleName: linkToVehicleNumber ? entry.vehicleName : "",
+          vehicleCode: vehicleDetails.vehicleCode,
+          vehicleType: vehicleDetails.vehicleType,
+          vehicleName: selectedVehicleName || (linkToVehicleNumber ? entry.vehicleName : ""),
           operatorSlot: operatorSlotForTarget(entry, vehicleNumber, operatorLeadUnitId),
           discordChannelKey: targetDiscordChannelKey,
           reviewStatus: unit.reviewStatus,
