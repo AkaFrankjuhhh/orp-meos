@@ -312,6 +312,30 @@ CREATE INDEX IF NOT EXISTS discord_sync_jobs_status_run_idx ON discord_sync_jobs
 CREATE INDEX IF NOT EXISTS discord_sync_jobs_person_idx ON discord_sync_jobs(person_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS discord_sync_jobs_discord_idx ON discord_sync_jobs(discord_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS mentor_tests (
+  id uuid PRIMARY KEY,
+  organization text NOT NULL DEFAULT 'defensie',
+  person_id text NOT NULL,
+  person_name text NOT NULL DEFAULT '',
+  service_number text NOT NULL DEFAULT '',
+  rank text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'sent',
+  answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+  sent_by_id text NOT NULL DEFAULT '',
+  sent_by_name text NOT NULL DEFAULT '',
+  sent_at timestamptz NOT NULL DEFAULT now(),
+  submitted_at timestamptz,
+  reviewed_by_id text NOT NULL DEFAULT '',
+  reviewed_by_name text NOT NULL DEFAULT '',
+  reviewed_at timestamptz,
+  review_note text NOT NULL DEFAULT '',
+  raw jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS mentor_tests_org_person_idx ON mentor_tests(organization, person_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS mentor_tests_org_status_idx ON mentor_tests(organization, status, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS side_task_members (
   id text PRIMARY KEY,
   task_key text NOT NULL,

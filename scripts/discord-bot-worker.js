@@ -272,13 +272,19 @@ async function syncByJob(job) {
     if (job.discordId && String(entry.discordId || "") === String(job.discordId)) return true;
     return false;
   });
-  if (!person || person.status !== "Actief") return { skipped: true, reason: "Geen actief portaalprofiel gevonden" };
   if (job.type === "porto_nickname") {
-    const unit = (state.portoUnits || []).find((entry) => entry.id === job.payload?.unitId)
+    if (!person) return { skipped: true, reason: "Geen portaalprofiel gevonden" };
+    const unit = (state.portoUnits || []).find((entry) => (
+      entry.id === job.payload?.unitId
+      && entry.active !== false
+      && entry.memberId === person.id
+      && entry.vehicleNumber
+    ))
       || activePortoUnitForPerson(state, person);
     if (!unit) return syncPerson(person, `Discord bot job ${job.id}: Porto dienst beeindigd`);
     return bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, unit), `Discord bot job ${job.id}: Porto roepnummer`);
   }
+  if (!person || person.status !== "Actief") return { skipped: true, reason: "Geen actief portaalprofiel gevonden" };
   return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
 }
 

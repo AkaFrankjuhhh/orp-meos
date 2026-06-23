@@ -10,6 +10,7 @@ const { createDiscordWebhookServices } = require("./modules/discord-webhooks");
 const { createDiscordBotServices } = require("./modules/discord-bot");
 const { createPostgresFormsStore } = require("./modules/personeelsportaal-postgres-forms-store");
 const { createPostgresPeopleStore } = require("./modules/personeelsportaal-postgres-people-store");
+const { createMentorTestsStore } = require("./modules/mentor-tests-store");
 const { createPersoneelsportaalRouteHandler } = require("./modules/personeelsportaal-routes");
 const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-domain");
 const { withClient, closePool, databaseNameFromConnectionString } = require("./modules/db");
@@ -235,6 +236,49 @@ const {
 // Discord bot-acties blijven centraal: rollen, nicknames en Porto voice verplaatsingen.
 const discordBot = createDiscordBotServices();
 
+function mentorTestWebhookUrl() {
+  const orgKey = String(organization?.key || "").toUpperCase();
+  return process.env[`DISCORD_${orgKey}_MENTOR_TOETS_WEBHOOK_URL`] || process.env.DISCORD_MENTOR_TOETS_WEBHOOK_URL || "";
+}
+
+function buildMentorTestWebhookPayload(event, { person, actor, test } = {}) {
+  const labels = {
+    sent: "Toets klaargezet",
+    submitted: "Toets ingediend",
+    approved: "Toets goedgekeurd",
+    rejected: "Toets afgekeurd"
+  };
+  const colors = {
+    sent: 0xf59e0b,
+    submitted: 0x3b82f6,
+    approved: 0x22c55e,
+    rejected: 0xef4444
+  };
+  const label = labels[event] || "Mentor-toets";
+  const serviceNumber = person?.serviceNumber || test?.serviceNumber || "";
+  const fields = [
+    {
+      name: "Medewerker",
+      value: `${person?.name || test?.personName || "Onbekend"}${serviceNumber ? ` (${serviceNumber})` : ""}`,
+      inline: false
+    },
+    { name: "Status", value: label, inline: true },
+    { name: "Door", value: actor?.name || test?.reviewedByName || test?.sentByName || "-", inline: true }
+  ];
+  if (test?.submittedAt) fields.push({ name: "Ingediend op", value: formatDate(test.submittedAt), inline: true });
+  return {
+    username: "Mentor-Toets",
+    embeds: [
+      {
+        title: `Mentor-Toets - ${label}`,
+        color: colors[event] || 0x94a3b8,
+        fields,
+        timestamp: new Date().toISOString()
+      }
+    ]
+  };
+}
+
 function sendStateAfterMutation(req, res, auth, state) {
   writeState(state);
   const permissions = permissionsForAuth(auth, state);
@@ -399,6 +443,7 @@ const formsStorage = storageMode === "postgres" ? createPostgresFormsStore({ aft
 // Personeel/profielen krijgen in database-modus ook hun eigen directe PostgreSQL-pad.
 const peopleStorage = storageMode === "postgres" ? createPostgresPeopleStore({ afterWrite: () => afterStorageWrite("people") }) : { readState, writeState };
 const publicFormsStore = createPublicFormsStore({ storageMode, readState, writeState, afterWrite: () => afterStorageWrite("public-forms") });
+const mentorTestsStore = storageMode === "postgres" ? createMentorTestsStore() : null;
 const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   peopleStorage,
   formsStorage,
@@ -441,6 +486,9 @@ const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   buildDismissalWebhookPayload,
   buildResignationFormWebhookPayload,
   buildBlacklistWebhookPayload,
+  mentorTestsStore,
+  mentorTestWebhookUrl,
+  buildMentorTestWebhookPayload,
   discordBot,
   enqueuePersonDiscordSync: storageMode === "postgres" ? enqueuePersonDiscordSync : null
 });
@@ -894,8 +942,9 @@ function serveStatic(req, res, url) {
     return;
   }
   const publicFormConfig = publicFormForRequest(req, url);
-  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
-  const requested = publicFormConfig ? (["/public-forms.css", "/public-forms.js"].includes(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
+  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
+  const publicFormAssets = new Set(["/public-forms.css", "/public-forms.js", "/client-guard.js"]);
+  const requested = publicFormConfig ? (publicFormAssets.has(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
   if (requested === "/personeelsportaal-data.js") {
     writeHeadSecure(res, 200, {
       "Content-Type": "text/javascript; charset=utf-8",
@@ -912,7 +961,7 @@ function serveStatic(req, res, url) {
     res.end(portoClientDataScript(organization));
     return;
   }
-  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
+  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "client-guard.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
   serveWhitelistedStatic({
     root,
     requested,

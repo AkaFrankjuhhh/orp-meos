@@ -60,6 +60,8 @@ const pageRouteMap = {
   "i8-archief": "/i8-archief",
   "mentor-overzicht": "/mentor-overzicht",
   "mentor-traject": "/mentor-traject",
+  "mentor-toets": "/mentor-toets",
+  "mentor-toetsen": "/mentor-toetsen",
   "mentor-checklist": "/mentor-checklist",
   "mentor-logboek": "/mentor-logboek",
   "ovj-logboek": "/hovj-logboek",
@@ -552,6 +554,7 @@ async function loadState() {
 function applyServerState(payload) {
   if (!payload?.state) return;
   state = { ...structuredClone(defaultState), ...payload.state };
+  if (typeof resetMentorTestCaches === "function") resetMentorTestCaches();
   if ("canViewLogbook" in payload) {
     canViewLogbook = Boolean(payload.canViewLogbook);
   }
@@ -774,6 +777,8 @@ function pageTitle(page) {
     personeel: "Personeel",
     "mentor-overzicht": "Mentor-Overzicht",
     "mentor-traject": "Mentor-Traject",
+    "mentor-toets": "Mentor-Toets",
+    "mentor-toetsen": "Mentor-Toetsen",
     "mentor-checklist": "Mentor-Checklist",
     "mentor-logboek": "Mentor-Logboek",
     afwezigheid: "Afwezigheid",
@@ -793,7 +798,7 @@ function pageTitle(page) {
 }
 
 function validPage(page) {
-  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
   return visiblePages.has(page) ? page : "dashboard";
 }
 
@@ -897,6 +902,12 @@ function setPage(page) {
     page = "dashboard";
   }
   if (page === "mentor-traject" && !canViewOwnMentorTrajectory()) {
+    page = canViewMentorOverview() ? "mentor-overzicht" : "dashboard";
+  }
+  if (page === "mentor-toets" && !canViewOwnMentorTrajectory()) {
+    page = canViewMentorOverview() ? "mentor-overzicht" : "dashboard";
+  }
+  if (page === "mentor-toetsen" && !canViewMentorLeadershipLog()) {
     page = canViewMentorOverview() ? "mentor-overzicht" : "dashboard";
   }
   if (page === "mentor-logboek" && !canViewMentorLeadershipLog()) {
@@ -1134,10 +1145,10 @@ function renderKaderNavigation() {
   if (!showMentorOverview && ($("#mentor-overzicht").classList.contains("active") || $("#mentor-checklist").classList.contains("active"))) {
     setPage("dashboard");
   }
-  if (!showMentorTrajectory && $("#mentor-traject").classList.contains("active")) {
+  if (!showMentorTrajectory && ($("#mentor-traject").classList.contains("active") || $("#mentor-toets")?.classList.contains("active"))) {
     setPage(showMentorOverview ? "mentor-overzicht" : "dashboard");
   }
-  if (!showMentorLeadership && $("#mentor-logboek")?.classList.contains("active")) {
+  if (!showMentorLeadership && ($("#mentor-logboek")?.classList.contains("active") || $("#mentor-toetsen")?.classList.contains("active"))) {
     setPage(showMentorOverview ? "mentor-overzicht" : "dashboard");
   }
   if (!showRecruitment && $("#personeel-aannemen")?.classList.contains("active")) {
@@ -1212,6 +1223,8 @@ function renderLiveScope(scope = "state") {
     renderMentorOverview();
     renderMentorChecklist();
     renderMentorTrajectory();
+    renderMentorTestPage();
+    renderMentorTestsOverview();
     renderMentorLeadershipLog();
     renderRecruitment();
     renderPeople();
@@ -1439,6 +1452,8 @@ function render() {
   renderMentorOverview();
   renderMentorChecklist();
   renderMentorTrajectory();
+  renderMentorTestPage();
+  renderMentorTestsOverview();
   renderMentorLeadershipLog();
   renderRecruitment();
   renderPeople();
@@ -1813,6 +1828,13 @@ function wireEvents() {
   });
   $("#mentorSearchInput").addEventListener("input", renderMentorOverview);
   $("#mentorOverviewList").addEventListener("click", (event) => {
+    const sendButton = event.target.closest("[data-send-mentor-test]");
+    if (sendButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      sendMentorTest(sendButton.dataset.sendMentorTest);
+      return;
+    }
     if (event.target.closest(".mentor-test-overview")) return;
     const row = event.target.closest("[data-open-mentor]");
     if (!row) return;
@@ -1826,32 +1848,15 @@ function wireEvents() {
     selectMentorAuditPerson(event.target.dataset.openMentor);
     openMentorChecklist(event.target.dataset.openMentor);
   });
-  $("#mentorOverviewList").addEventListener("change", async (event) => {
-    const input = event.target.closest("[data-mentor-test]");
-    if (!input) return;
-    event.stopPropagation();
-    const person = state.people.find((entry) => entry.id === input.dataset.mentorTestPerson);
-    if (!person) return;
-    const checklist = mentorChecklistFor(person);
-    if (!checklist.allItemsCompleted) {
-      input.checked = false;
-      return;
-    }
-    const row = input.closest("[data-open-mentor]");
-    const sentInput = row?.querySelector('[data-mentor-test="sent"]');
-    const approvedInput = row?.querySelector('[data-mentor-test="approved"]');
-    let testSent = Boolean(sentInput?.checked);
-    let testApproved = Boolean(approvedInput?.checked);
-    if (input.dataset.mentorTest === "approved" && testApproved) {
-      const confirmed = await showSiteConfirm(`${person.name} heeft de toets goedgekeurd. Mentor-Traject afronden?`, "Mentor-Traject afronden");
-      if (!confirmed) {
-        input.checked = false;
-        return;
-      }
-    }
-    if (!testSent) testApproved = false;
-    const saved = await saveMentorChecklist(person.id, { items: checklist.items, testSent, testApproved });
-    if (saved) render();
+  $("#mentorTestSelf")?.addEventListener("submit", (event) => {
+    if (!event.target.matches("[data-mentor-test-self-form]")) return;
+    event.preventDefault();
+    submitOwnMentorTest();
+  });
+  $("#mentorTestsList")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-review-mentor-test]");
+    if (!button) return;
+    reviewMentorTest(button.dataset.reviewMentorTest, button.dataset.reviewStatus);
   });
   $("#mentorBackBtn").addEventListener("click", () => setPage("mentor-overzicht"));
   $("#mentorChecklistItems").addEventListener("change", async (event) => {

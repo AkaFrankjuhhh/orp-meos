@@ -141,68 +141,7 @@ const defaultState = {
     hoofdofficierRoleId: "",
     officiersraadRoleId: ""
   },
-  people: [
-    {
-      id: crypto.randomUUID(),
-      name: "Kader Commandant",
-      discordId: "100000000000000001",
-      avatar: "",
-      rank: "Luitenant-Generaal",
-      serviceNumber: "70-01",
-      permRole: "Kader",
-      extraFunctions: [],
-      hiredDate: "2026-01-01",
-      rankDate: "2026-01-01",
-      promotionDate: "2026-01-01",
-      tasks: "Leiding, personeelszaken",
-      completedTrainings: [],
-      completedOperational: [],
-      status: "Actief",
-      rankHistory: [
-        { rank: "Luitenant-Generaal", date: "2026-01-01", serviceNumber: "70-01" }
-      ]
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Hoofdofficier Jansen",
-      discordId: "100000000000000002",
-      avatar: "",
-      rank: "Kolonel",
-      serviceNumber: "71-01",
-      permRole: "Hoofdofficier",
-      extraFunctions: [],
-      hiredDate: "2026-02-10",
-      rankDate: "2026-02-10",
-      promotionDate: "2026-02-10",
-      tasks: "Operationele leiding",
-      completedTrainings: [],
-      completedOperational: [],
-      status: "Actief",
-      rankHistory: [
-        { rank: "Kolonel", date: "2026-02-10", serviceNumber: "71-01" }
-      ]
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Kapitein De Vries",
-      discordId: "100000000000000003",
-      avatar: "",
-      rank: "Kapitein",
-      serviceNumber: "72-01",
-      permRole: "Officiersraad",
-      extraFunctions: [],
-      hiredDate: "2026-03-15",
-      rankDate: "2026-03-15",
-      promotionDate: "2026-03-15",
-      tasks: "Training, beoordelingsraad",
-      completedTrainings: [],
-      completedOperational: [],
-      status: "Actief",
-      rankHistory: [
-        { rank: "Kapitein", date: "2026-03-15", serviceNumber: "72-01" }
-      ]
-    }
-  ],
+  people: [],
   hours: [],
   trainings: [],
   absences: [],
@@ -210,11 +149,7 @@ const defaultState = {
   resignationForms: [],
   blacklist: [],
   mentorChecklistGroups,
-  activity: [
-    "Personeelsbeheer omgeving aangemaakt.",
-    "Dienstnummer reeksen 70 t/m 74 ingericht.",
-    "Perm rollen Kader, Hoofdofficier en Officiersraad toegevoegd."
-  ]
+  activity: []
 };
 // Exporteer statische Defensie Personeelsportaal configuratie naar app.js zonder alles in ÃƒÂ©ÃƒÂ©n bestand te houden.
 window.DefensiePortalData = {

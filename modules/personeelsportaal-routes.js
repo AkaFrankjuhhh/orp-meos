@@ -1,6 +1,7 @@
 // Defensie Personeelsportaal API-routes staan los van Porto, zodat beide websites apart kunnen groeien.
 const crypto = require("node:crypto");
 const { currentOrganization } = require("./organizations");
+const { questionsForClient } = require("./mentor-tests-store");
 const {
   OVC_FUNCTION_BADGE,
   hasOvcFunctionBadge,
@@ -53,6 +54,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     buildDismissalWebhookPayload,
     buildResignationFormWebhookPayload,
     buildBlacklistWebhookPayload,
+    mentorTestsStore,
+    mentorTestWebhookUrl,
+    buildMentorTestWebhookPayload,
     discordBot,
     enqueuePersonDiscordSync
   } = deps;
@@ -326,6 +330,81 @@ function createPersoneelsportaalRouteHandler(deps) {
       }
     } catch (error) {
       state.activity.push(`Blacklist webhook kon niet verzonden worden voor ${entry.name}.`);
+    }
+  }
+
+  function mentorTestsEnabledForOrganization() {
+    return organization.key === "defensie" && Boolean(mentorTestsStore);
+  }
+
+  function canReviewMentorTests(permissions) {
+    return Boolean(
+      permissions.canManageMentorOverview ||
+      permissions.canViewMentorLeadershipLog ||
+      permissions.canManageMentorChecklistTemplate ||
+      permissions.canUseDevTools
+    );
+  }
+
+  function mentorTestForClient(test, { includeAnswers = true } = {}) {
+    if (!test) return null;
+    const result = {
+      id: test.id,
+      organization: test.organization,
+      personId: test.personId,
+      personName: test.personName,
+      serviceNumber: test.serviceNumber,
+      rank: test.rank,
+      status: test.status,
+      sentByName: test.sentByName,
+      sentAt: test.sentAt,
+      submittedAt: test.submittedAt,
+      reviewedByName: test.reviewedByName,
+      reviewedAt: test.reviewedAt,
+      reviewNote: test.reviewNote
+    };
+    if (includeAnswers) result.answers = test.answers || {};
+    return result;
+  }
+
+  function setMentorTrainingCompletion(person, completed) {
+    const shouldSyncMentorTraining = Boolean(mentorTrainingName && profileTrainings.includes(mentorTrainingName));
+    if (!shouldSyncMentorTraining) return;
+    person.completedTrainings = Array.isArray(person.completedTrainings) ? person.completedTrainings : [];
+    if (completed && !person.completedTrainings.includes(mentorTrainingName)) {
+      person.completedTrainings.push(mentorTrainingName);
+    }
+    if (!completed) {
+      person.completedTrainings = person.completedTrainings.filter((item) => item !== mentorTrainingName);
+    }
+  }
+
+  function setMentorTestChecklistState(person, state, { testSent, testApproved, completed, actor }) {
+    const existing = normalizeMentorChecklistForState(person, state);
+    const now = new Date().toISOString();
+    person.mentorChecklist = {
+      ...existing,
+      completed: Boolean(completed),
+      testSent: Boolean(testSent),
+      testApproved: Boolean(testApproved),
+      items: Array.isArray(existing.items) ? existing.items : [],
+      notes: normalizeMentorNotes(existing),
+      audit: Array.isArray(existing.audit) ? existing.audit : [],
+      updatedAt: now,
+      updatedById: actor?.id || "",
+      updatedByName: actor?.name || ""
+    };
+    setMentorTrainingCompletion(person, Boolean(completed));
+  }
+
+  async function sendMentorTestWebhook(event, payload = {}) {
+    if (typeof sendDiscordWebhook !== "function" || typeof mentorTestWebhookUrl !== "function" || typeof buildMentorTestWebhookPayload !== "function") return;
+    const url = mentorTestWebhookUrl();
+    if (!url) return;
+    try {
+      await sendDiscordWebhook(url, buildMentorTestWebhookPayload(event, payload));
+    } catch (error) {
+      // Webhookmeldingen mogen de toetsflow niet blokkeren.
     }
   }
 
@@ -1763,6 +1842,187 @@ function createPersoneelsportaalRouteHandler(deps) {
     return;
   }
 
+  if (url.pathname === "/api/mentor-tests/my" && req.method === "GET") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const discordId = normalizeDiscordId(auth.profile.discordId);
+    const person = (state.people || []).find((entry) =>
+      entry.status === "Actief" &&
+      (entry.id === auth.profile.id || normalizeDiscordId(entry.discordId) === discordId)
+    );
+    if (!person || !mentorRanks.includes(person.rank)) {
+      sendJson(res, 404, { error: "Geen actief mentor-traject gevonden." });
+      return;
+    }
+    const test = await mentorTestsStore.latestOpenForPerson(organization.key, person.id);
+    sendJson(res, 200, {
+      ok: true,
+      questions: test ? questionsForClient() : [],
+      test: mentorTestForClient(test)
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/mentor-tests/my/submit" && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const discordId = normalizeDiscordId(auth.profile.discordId);
+    const person = (state.people || []).find((entry) =>
+      entry.status === "Actief" &&
+      (entry.id === auth.profile.id || normalizeDiscordId(entry.discordId) === discordId)
+    );
+    if (!person || !mentorRanks.includes(person.rank)) {
+      sendJson(res, 404, { error: "Geen actief mentor-traject gevonden." });
+      return;
+    }
+    const body = await readBody(req);
+    try {
+      const test = await mentorTestsStore.submit({
+        organization: organization.key,
+        personId: person.id,
+        answers: body.answers || {}
+      });
+      await sendMentorTestWebhook("submitted", { person, actor: auth.profile, test });
+      sendJson(res, 200, {
+        ok: true,
+        questions: questionsForClient(),
+        test: mentorTestForClient(test)
+      });
+    } catch (error) {
+      sendJson(res, error.status || 500, { error: error.message || "Mentor-toets indienen is mislukt.", missing: error.missing || [] });
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/mentor-tests" && req.method === "GET") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!canReviewMentorTests(permissions)) {
+      sendJson(res, 403, { error: "Geen toegang tot mentor-toetsen." });
+      return;
+    }
+    const tests = await mentorTestsStore.list(organization.key, 100);
+    sendJson(res, 200, {
+      ok: true,
+      questions: questionsForClient(),
+      tests: tests.map((test) => mentorTestForClient(test))
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/mentor-tests/send" && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!canReviewMentorTests(permissions)) {
+      sendJson(res, 403, { error: "Geen toegang om mentor-toetsen te sturen." });
+      return;
+    }
+    const body = await readBody(req);
+    const personId = String(body.personId || "").trim();
+    const person = (state.people || []).find((entry) => entry.id === personId && entry.status === "Actief");
+    if (!person || !mentorRanks.includes(person.rank)) {
+      sendJson(res, 404, { error: "Mentor-traject niet gevonden." });
+      return;
+    }
+    const checklist = normalizeMentorChecklistForState(person, state);
+    const allItemsCompleted = Array.isArray(checklist.items) && checklist.items.length > 0 && checklist.items.every((item) => item.checked);
+    if (!allItemsCompleted) {
+      sendJson(res, 400, { error: "Rond eerst de mentor-checklist af voordat je de toets stuurt." });
+      return;
+    }
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    try {
+      const test = await mentorTestsStore.createOrReset({ organization: organization.key, person, actor });
+      setMentorTestChecklistState(person, state, { testSent: true, testApproved: false, completed: false, actor });
+      state.activity = state.activity || [];
+      state.activity.push(`${actor.name || auth.profile.name} heeft een mentor-toets klaargezet voor ${person.name}.`);
+      addProfileLog(person, {
+        actor,
+        type: "mentor",
+        action: "Mentor-toets klaargezet",
+        details: "Toets is beschikbaar voor de medewerker."
+      });
+      await sendMentorTestWebhook("sent", { person, actor, test });
+      await sendPeopleStateAfterMutation(res, auth, state);
+    } catch (error) {
+      sendJson(res, error.status || 500, { error: error.message || "Mentor-toets sturen is mislukt." });
+    }
+    return;
+  }
+
+  const mentorTestReviewMatch = url.pathname.match(/^\/api\/mentor-tests\/([^/]+)\/review$/);
+  if (mentorTestReviewMatch && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!canReviewMentorTests(permissions)) {
+      sendJson(res, 403, { error: "Geen toegang om mentor-toetsen te beoordelen." });
+      return;
+    }
+    const body = await readBody(req);
+    const status = String(body.status || "").trim();
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    try {
+      const test = await mentorTestsStore.review({
+        organization: organization.key,
+        id: decodeURIComponent(mentorTestReviewMatch[1]),
+        status,
+        actor,
+        reviewNote: body.reviewNote || ""
+      });
+      const person = (state.people || []).find((entry) => entry.id === test.personId);
+      if (person) {
+        const approved = status === "approved";
+        setMentorTestChecklistState(person, state, {
+          testSent: approved,
+          testApproved: approved,
+          completed: approved,
+          actor
+        });
+        state.activity = state.activity || [];
+        state.activity.push(`${actor.name || auth.profile.name} heeft de mentor-toets van ${person.name} ${approved ? "goedgekeurd" : "afgekeurd"}.`);
+        addProfileLog(person, {
+          actor,
+          type: "mentor",
+          action: approved ? "Mentor-toets goedgekeurd" : "Mentor-toets afgekeurd",
+          details: approved ? "Mentor-traject afgerond." : "Nieuwe poging nodig."
+        });
+      }
+      await sendMentorTestWebhook(status, { person, actor, test });
+      await sendPeopleStateAfterMutation(res, auth, state);
+    } catch (error) {
+      sendJson(res, error.status || 500, { error: error.message || "Mentor-toets beoordelen is mislukt." });
+    }
+    return;
+  }
+
   const mentorMatch = url.pathname.match(/^\/api\/people\/([^/]+)\/mentor$/);
   if (mentorMatch && req.method === "POST") {
     const auth = requireAuth(req, res);
@@ -1801,8 +2061,8 @@ function createPersoneelsportaalRouteHandler(deps) {
       checked: incomingById.has(item.id) ? Boolean(incomingById.get(item.id)) : Boolean(previousById.get(item.id))
     }));
     const allItemsCompleted = items.length > 0 && items.every((item) => item.checked);
-    const testSent = allItemsCompleted ? Boolean(body.testSent ?? existing.testSent) : false;
-    const testApproved = allItemsCompleted && testSent ? Boolean(body.testApproved ?? existing.testApproved) : false;
+    const testSent = allItemsCompleted ? Boolean(existing.testSent) : false;
+    const testApproved = allItemsCompleted && testSent ? Boolean(existing.testApproved) : false;
     const completed = allItemsCompleted && testSent && testApproved;
     const updatedAt = new Date().toISOString();
     const notes = normalizeMentorNotes(existing);

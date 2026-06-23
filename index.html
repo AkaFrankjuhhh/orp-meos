@@ -50,6 +50,8 @@
         <div class="nav-section" data-mentor-section="true">Mentor</div>
         <button class="nav-item" data-page="mentor-overzicht" data-mentor-overview-only="true" type="button">Mentor-Overzicht</button>
         <button class="nav-item" data-page="mentor-traject" data-mentor-traject-only="true" type="button">Mentor-Traject</button>
+        <button class="nav-item" data-page="mentor-toets" data-mentor-traject-only="true" type="button">Mentor-Toets</button>
+        <button class="nav-item" data-page="mentor-toetsen" data-mentor-leadership-only="true" type="button">Mentor-Toetsen</button>
         <button class="nav-item" data-page="mentor-logboek" data-mentor-leadership-only="true" type="button">Mentor-Logboek</button>
         <div class="nav-divider" data-ws-only="true" aria-hidden="true"></div>
         <div class="nav-section" data-ws-only="true">W&S</div>
@@ -338,6 +340,30 @@
             </div>
           </div>
           <div id="mentorTrajectoryProgress" class="mentor-checklist"></div>
+        </section>
+      </section>
+
+      <section id="mentor-toets" class="page">
+        <section class="panel mentor-detail-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Mentor-Toets</h2>
+              <p class="muted">Beantwoord de mentor-toets die door Mentor-Leiding is klaargezet.</p>
+            </div>
+          </div>
+          <div id="mentorTestSelf"></div>
+        </section>
+      </section>
+
+      <section id="mentor-toetsen" class="page">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Mentor-Toetsen</h2>
+              <p class="muted">Controleer ingediende mentor-toetsen.</p>
+            </div>
+          </div>
+          <div id="mentorTestsList"></div>
         </section>
       </section>
 
@@ -902,7 +928,9 @@
           body: JSON.stringify({ message: reason, source: "unhandledrejection", line: "", page: location.href })
         }).catch(function () {});
       });
-    </script>    <script src="shared-ui.js?v=20260602-autogrow-textareas"></script>
+    </script>
+    <script src="client-guard.js?v=20260623-devtools-guard"></script>
+    <script src="shared-ui.js?v=20260602-autogrow-textareas"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
     <script src="personeelsportaal/profile.js?v=20260613-shared-profile-branding"></script>
     <script src="personeelsportaal/hours.js?v=20260610-operator-hours-label"></script>

@@ -2,12 +2,19 @@
 
 let mentorLogDetailContext = null;
 let mentorAuditDetailPersonId = "";
+let mentorSelfTestCache = null;
+let mentorTestsReviewCache = null;
 const leadershipPeriodLabels = {
   week: "Afgelopen week",
   month: "Afgelopen maand",
   quarter: "Afgelopen 3 maanden",
   halfyear: "Afgelopen 6 maanden"
 };
+
+function resetMentorTestCaches() {
+  mentorSelfTestCache = null;
+  mentorTestsReviewCache = null;
+}
 
 function openMentorChecklist(profileId) {
   selectedMentorProfileId = profileId;
@@ -143,19 +150,30 @@ function renderMentorProgressBars(completed, total) {
 }
 
 function renderMentorTestOverview(person, checklist) {
-  const locked = !checklist.allItemsCompleted;
-  const sentDisabled = locked ? "disabled" : "";
-  const approvedDisabled = locked || !checklist.testSent ? "disabled" : "";
+  if (checklist.testApproved) {
+    return `
+      <span class="mentor-test-overview" aria-label="Toetsstatus">
+        <span class="mentor-test-status is-approved">Toets goedgekeurd</span>
+      </span>
+    `;
+  }
+  if (checklist.testSent) {
+    return `
+      <span class="mentor-test-overview" aria-label="Toetsstatus">
+        <span class="mentor-test-status is-sent">Toets gestuurd</span>
+      </span>
+    `;
+  }
+  if (!checklist.allItemsCompleted) {
+    return `
+      <span class="mentor-test-overview is-locked" aria-label="Toetsstatus">
+        <span class="mentor-test-status">Checklist eerst afronden</span>
+      </span>
+    `;
+  }
   return `
-    <span class="mentor-test-overview ${locked ? "is-locked" : ""}" aria-label="Toetsstatus">
-      <label class="mentor-test-mini ${checklist.testSent ? "is-completed" : ""}">
-        <input type="checkbox" data-mentor-test="sent" data-mentor-test-person="${escapeHtml(person.id)}" ${checklist.testSent ? "checked" : ""} ${sentDisabled} />
-        <span>Toets gestuurd</span>
-      </label>
-      <label class="mentor-test-mini ${checklist.testApproved ? "is-completed" : ""}">
-        <input type="checkbox" data-mentor-test="approved" data-mentor-test-person="${escapeHtml(person.id)}" ${checklist.testApproved ? "checked" : ""} ${approvedDisabled} />
-        <span>Toets goedgekeurd</span>
-      </label>
+    <span class="mentor-test-overview" aria-label="Toetsstatus">
+      <button class="ghost small mentor-test-action" type="button" data-send-mentor-test="${escapeHtml(person.id)}">Toets sturen</button>
     </span>
   `;
 }
@@ -360,12 +378,247 @@ async function saveMentorChecklist(personId, patch = {}) {
   if (!person || !canManageMentorOverview()) return false;
   const checklist = mentorChecklistFor(person);
   const body = {
-    items: patch.items || checklist.items,
-    testSent: "testSent" in patch ? patch.testSent : checklist.testSent,
-    testApproved: "testApproved" in patch ? patch.testApproved : checklist.testApproved
+    items: patch.items || checklist.items
   };
   if ("newNote" in patch) body.newNote = patch.newNote;
   return runAction(`/api/people/${encodeURIComponent(personId)}/mentor`, body);
+}
+
+async function fetchMentorTestSelf() {
+  const response = await fetch("/api/mentor-tests/my");
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Mentor-toets laden is mislukt.");
+  mentorSelfTestCache = payload;
+  return payload;
+}
+
+async function fetchMentorTestsOverview() {
+  const response = await fetch("/api/mentor-tests");
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Mentor-toetsen laden is mislukt.");
+  mentorTestsReviewCache = payload;
+  return payload;
+}
+
+function renderMentorQuestionInput(question, answers = {}) {
+  const current = answers?.[question.id];
+  if (question.type === "checkbox") {
+    const selected = new Set(Array.isArray(current) ? current : []);
+    return `
+      <div class="mentor-test-options">
+        ${(question.options || [])
+          .map((option) => `
+            <label class="mentor-test-option">
+              <input type="checkbox" data-mentor-question="${escapeHtml(question.id)}" value="${escapeHtml(option)}" ${selected.has(option) ? "checked" : ""} />
+              <span>${escapeHtml(option)}</span>
+            </label>
+          `)
+          .join("")}
+      </div>
+    `;
+  }
+  return `<textarea data-mentor-question="${escapeHtml(question.id)}">${escapeHtml(String(current || ""))}</textarea>`;
+}
+
+function renderMentorTestPage() {
+  const container = $("#mentorTestSelf");
+  if (!container) return;
+  if (!canViewOwnMentorTrajectory()) {
+    container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
+    return;
+  }
+  if (mentorSelfTestCache === null) {
+    container.innerHTML = '<div class="feed-item">Mentor-toets laden...</div>';
+    fetchMentorTestSelf()
+      .then(renderMentorTestPage)
+      .catch((error) => {
+        container.innerHTML = `<div class="feed-item">${escapeHtml(error.message || "Mentor-toets laden is mislukt.")}</div>`;
+      });
+    return;
+  }
+
+  const test = mentorSelfTestCache.test;
+  if (!test) {
+    container.innerHTML = '<div class="feed-item">Er staat nog geen mentor-toets klaar.</div>';
+    return;
+  }
+  const questions = mentorSelfTestCache.questions || [];
+  if (test.status === "submitted") {
+    container.innerHTML = '<div class="feed-item">Je mentor-toets is ingediend. Mentor-Leiding beoordeelt je antwoorden.</div>';
+    return;
+  }
+  if (test.status === "approved") {
+    container.innerHTML = '<div class="feed-item">Je mentor-toets is goedgekeurd.</div>';
+    return;
+  }
+  if (test.status === "rejected") {
+    container.innerHTML = '<div class="feed-item">Je mentor-toets is afgekeurd. Mentor-Leiding kan een nieuwe poging klaarzetten.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <form class="mentor-test-form" data-mentor-test-self-form>
+      ${questions
+        .map((question) => `
+          <section class="mentor-test-question">
+            <label>${escapeHtml(question.label)}</label>
+            ${renderMentorQuestionInput(question, test.answers || {})}
+          </section>
+        `)
+        .join("")}
+      <div class="person-actions">
+        <button class="primary" type="submit">Mentor-Toets indienen</button>
+      </div>
+    </form>
+  `;
+}
+
+async function submitOwnMentorTest() {
+  const answers = {};
+  $$("[data-mentor-question]").forEach((input) => {
+    const id = input.dataset.mentorQuestion;
+    if (!id) return;
+    if (input.type === "checkbox") {
+      if (!answers[id]) answers[id] = [];
+      if (input.checked) answers[id].push(input.value);
+      return;
+    }
+    answers[id] = input.value.trim();
+  });
+  const response = await fetch("/api/mentor-tests/my/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ answers })
+  }).catch(() => null);
+  if (!response) {
+    await showSiteNotice("Verbinding met de server mislukt.", "Mentor-Toets");
+    return;
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    await showSiteNotice(payload.error || "Mentor-Toets indienen is mislukt.", "Mentor-Toets");
+    return;
+  }
+  mentorSelfTestCache = payload;
+  await showSiteNotice("Mentor-Toets ingediend.", "Mentor-Toets");
+  renderMentorTestPage();
+  mentorTestsReviewCache = null;
+  renderMentorTestsOverview();
+}
+
+function mentorTestStatusLabel(status) {
+  if (status === "sent") return "Verstuurd";
+  if (status === "submitted") return "Ingediend";
+  if (status === "approved") return "Goedgekeurd";
+  if (status === "rejected") return "Afgekeurd";
+  if (status === "cancelled") return "Vervangen";
+  return status || "-";
+}
+
+function formatMentorTestAnswer(question, answers = {}) {
+  const answer = answers?.[question.id];
+  if (Array.isArray(answer)) return answer.length ? answer.join(", ") : "-";
+  return String(answer || "-");
+}
+
+function renderMentorTestsOverview() {
+  const container = $("#mentorTestsList");
+  if (!container) return;
+  if (!canViewMentorLeadershipLog()) {
+    container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
+    return;
+  }
+  if (mentorTestsReviewCache === null) {
+    container.innerHTML = '<div class="feed-item">Mentor-toetsen laden...</div>';
+    fetchMentorTestsOverview()
+      .then(renderMentorTestsOverview)
+      .catch((error) => {
+        container.innerHTML = `<div class="feed-item">${escapeHtml(error.message || "Mentor-toetsen laden is mislukt.")}</div>`;
+      });
+    return;
+  }
+
+  const tests = mentorTestsReviewCache.tests || [];
+  const defaultQuestions = mentorTestsReviewCache.questions || [];
+  container.innerHTML = tests.length
+    ? `
+      <div class="mentor-test-cards">
+        ${tests
+          .map((test) => {
+            const questions = Array.isArray(test.questions) && test.questions.length ? test.questions : defaultQuestions;
+            return `
+              <article class="mentor-test-card">
+                <div class="mentor-test-card-header">
+                  <div>
+                    <strong>${escapeHtml(test.personName || "Onbekend")}</strong>
+                    <p>${escapeHtml(test.rank || "-")} - ${escapeHtml(test.serviceNumber || "-")}</p>
+                  </div>
+                  <span class="mentor-test-status ${test.status === "approved" ? "is-approved" : test.status === "submitted" || test.status === "sent" ? "is-sent" : ""}">${escapeHtml(mentorTestStatusLabel(test.status))}</span>
+                </div>
+                <div class="mentor-test-meta">
+                  <span>Verstuurd: ${escapeHtml(formatDateTime(test.sentAt))}</span>
+                  ${test.submittedAt ? `<span>Ingediend: ${escapeHtml(formatDateTime(test.submittedAt))}</span>` : ""}
+                  ${test.reviewedAt ? `<span>Beoordeeld: ${escapeHtml(formatDateTime(test.reviewedAt))}</span>` : ""}
+                </div>
+                ${test.answers && Object.keys(test.answers).length
+                  ? `
+                    <div class="mentor-test-answers">
+                      ${questions
+                        .map((question) => `
+                          <div class="mentor-test-answer">
+                            <strong>${escapeHtml(question.label)}</strong>
+                            <p>${escapeHtml(formatMentorTestAnswer(question, test.answers))}</p>
+                          </div>
+                        `)
+                        .join("")}
+                    </div>
+                  `
+                  : '<p class="muted">Nog niet ingediend.</p>'}
+                ${test.status === "submitted"
+                  ? `
+                    <div class="mentor-test-actions">
+                      <button class="primary small" type="button" data-review-mentor-test="${escapeHtml(test.id)}" data-review-status="approved">Goedkeuren</button>
+                      <button class="danger small" type="button" data-review-mentor-test="${escapeHtml(test.id)}" data-review-status="rejected">Afkeuren</button>
+                    </div>
+                  `
+                  : ""}
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `
+    : '<div class="feed-item">Geen mentor-toetsen gevonden.</div>';
+}
+
+async function reviewMentorTest(testId, status) {
+  const approved = status === "approved";
+  const confirmed = await showSiteConfirm(
+    approved ? "Mentor-toets goedkeuren en mentor-traject afronden?" : "Mentor-toets afkeuren en nieuwe poging nodig maken?",
+    approved ? "Mentor-Toets goedkeuren" : "Mentor-Toets afkeuren"
+  );
+  if (!confirmed) return;
+  const ok = await runAction(`/api/mentor-tests/${encodeURIComponent(testId)}/review`, { status });
+  if (!ok) return;
+  mentorTestsReviewCache = null;
+  mentorSelfTestCache = null;
+  renderMentorOverview();
+  renderMentorTrajectory();
+  renderMentorTestPage();
+  renderMentorTestsOverview();
+}
+
+async function sendMentorTest(personId) {
+  const person = state.people.find((entry) => entry.id === personId);
+  if (!person) return;
+  const confirmed = await showSiteConfirm(`Mentor-toets klaarzetten voor ${person.name}?`, "Mentor-Toets sturen");
+  if (!confirmed) return;
+  const ok = await runAction("/api/mentor-tests/send", { personId });
+  if (!ok) return;
+  mentorTestsReviewCache = null;
+  mentorSelfTestCache = null;
+  renderMentorOverview();
+  renderMentorTestsOverview();
 }
 
 function mentorTemplateDraftGroupsFromEditor() {

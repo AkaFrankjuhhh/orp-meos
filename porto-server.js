@@ -431,7 +431,7 @@ function serveStatic(req, res, url) {
     res.end(portoClientDataScript(organization));
     return;
   }
-  const publicRootFiles = new Set(["porto.html", "porto.css", "porto.js", "porto-config.js", "shared.css", "shared-ui.js"]);
+  const publicRootFiles = new Set(["porto.html", "porto.css", "porto.js", "porto-config.js", "shared.css", "shared-ui.js", "client-guard.js"]);
   serveWhitelistedStatic({
     root,
     requested,

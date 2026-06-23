@@ -451,6 +451,7 @@ async function serveStatic(req, res, pathname) {
     ["/side-tasks.html", "side-tasks.html"],
     ["/side-tasks.css", "side-tasks.css"],
     ["/side-tasks.js", "side-tasks.js"],
+    ["/client-guard.js", "client-guard.js"],
     ["/assets/dsi-logo.png", "assets/dsi-logo.png"],
     ["/assets/hrb-logo.png", "assets/hrb-logo.png"],
     ["/assets/klu-logo.png", "assets/klu-logo.png"],
