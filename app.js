@@ -325,6 +325,10 @@ function canViewOvJChannels() {
   return Boolean(permissions.canViewOvJChannels || canViewKaderPages());
 }
 
+function canViewOvJLeadershipLog() {
+  return Boolean(permissions.canViewOvJLeadershipLog || canViewKaderPages());
+}
+
 function canLeadOvJ() {
   return Boolean(permissions.canLeadOvJ || hasKaderAccess());
 }
@@ -343,6 +347,10 @@ function canViewMentorOverview() {
 
 function canManageMentorOverview() {
   return Boolean(permissions.canManageMentorOverview || hasKaderAccess());
+}
+
+function canViewMentorLeadershipLog() {
+  return Boolean(permissions.canViewMentorLeadershipLog || hasKaderAccess());
 }
 
 function canViewOwnMentorTrajectory() {
