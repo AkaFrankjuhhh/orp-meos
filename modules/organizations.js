@@ -351,25 +351,25 @@ const organizationConfigs = {
       { title: "Eerste hoofdcommissaris", serviceRange: "21-01", ranks: ["Eerste hoofdcommissaris"], ranges: [{ prefix: "21", min: 1, max: 1 }] },
       { title: "Hoofdcommissaris", serviceRange: "21-02 t/m 21-05", ranks: ["Hoofdcommissaris"], ranges: [{ prefix: "21", min: 2, max: 5 }] },
       { title: "Commissaris", serviceRange: "22-06 t/m 22-13", ranks: ["Commissaris"], ranges: [{ prefix: "22", min: 6, max: 13 }] },
-      { title: "Hoofdinspecteur", serviceRange: "23-14 t/m 23-23", ranks: ["Hoofdinspecteur"], ranges: [{ prefix: "23", min: 14, max: 23 }] },
+      { title: "Hoofdinspecteur", serviceRange: "23-13 t/m 23-23", ranks: ["Hoofdinspecteur"], ranges: [{ prefix: "23", min: 13, max: 23 }] },
       { title: "Inspecteur", serviceRange: "24-24 t/m 24-33", ranks: ["Inspecteur"], ranges: [{ prefix: "24", min: 24, max: 33 }] },
-      { title: "Brigadier", serviceRange: "25-34 t/m 25-52", ranks: ["Brigadier"], ranges: [{ prefix: "25", min: 34, max: 52 }] },
+      { title: "Brigadier", serviceRange: "25-33 t/m 25-52", ranks: ["Brigadier"], ranges: [{ prefix: "25", min: 33, max: 52 }] },
       { title: "Hoofdagent", serviceRange: "26-53 t/m 26-81", ranks: ["Hoofdagent"], ranges: [{ prefix: "26", min: 53, max: 81 }] },
       { title: "Agent", serviceRange: "27-27 t/m 27-81", ranks: ["Agent"], ranges: [{ prefix: "27", min: 27, max: 81 }] },
       { title: "Surveillant", serviceRange: "28-39 t/m 28-90", ranks: ["Surveillant"], ranges: [{ prefix: "28", min: 39, max: 90 }] },
-      { title: "Aspirant", serviceRange: "29-41 t/m 29-99", ranks: ["Aspirant"], ranges: [{ prefix: "29", min: 41, max: 99 }] }
+      { title: "Aspirant", serviceRange: "29-40 t/m 29-99", ranks: ["Aspirant"], ranges: [{ prefix: "29", min: 40, max: 99 }] }
     ],
     serviceNumberGroups: [
       { prefix: "21", min: 1, max: 1, ranks: ["Eerste hoofdcommissaris"] },
       { prefix: "21", min: 2, max: 5, ranks: ["Hoofdcommissaris"] },
       { prefix: "22", min: 6, max: 13, ranks: ["Commissaris"] },
-      { prefix: "23", min: 14, max: 23, ranks: ["Hoofdinspecteur"] },
+      { prefix: "23", min: 13, max: 23, ranks: ["Hoofdinspecteur"] },
       { prefix: "24", min: 24, max: 33, ranks: ["Inspecteur"] },
-      { prefix: "25", min: 34, max: 52, ranks: ["Brigadier"] },
+      { prefix: "25", min: 33, max: 52, ranks: ["Brigadier"] },
       { prefix: "26", min: 53, max: 81, ranks: ["Hoofdagent"] },
       { prefix: "27", min: 27, max: 81, ranks: ["Agent"] },
       { prefix: "28", min: 39, max: 90, ranks: ["Surveillant"] },
-      { prefix: "29", min: 41, max: 99, ranks: ["Aspirant"] }
+      { prefix: "29", min: 40, max: 99, ranks: ["Aspirant"] }
     ],
     autoSortRanks: [],
     profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME"],
