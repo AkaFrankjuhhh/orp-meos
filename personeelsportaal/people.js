@@ -29,6 +29,7 @@ function formatService(prefix, number) {
 
 function personMatchesRankCategory(person, category) {
   if (!(category.ranks || []).includes(person.rank)) return false;
+  if (organizationConfig?.manualRankChangeServiceNumberForAllRanks) return true;
   if (!Array.isArray(category.ranges) || !category.ranges.length) return true;
   const match = /^(\d{2})-(\d{2,3})$/.exec(String(person.serviceNumber || "").trim());
   if (!match) return false;
