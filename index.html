@@ -362,6 +362,7 @@
               <h2>Mentor-Toetsen</h2>
               <p class="muted">Controleer ingediende mentor-toetsen.</p>
             </div>
+            <button id="editMentorTestTemplateBtn" class="ghost" type="button" data-mentor-test-template-only="true" hidden>Toets aanpassen</button>
           </div>
           <div id="mentorTestsList"></div>
         </section>
@@ -668,6 +669,22 @@
         <menu>
           <button id="addMentorTemplateItemBtn" class="ghost" type="button">Regel toevoegen</button>
           <button id="cancelMentorTemplateDialog" class="ghost" type="button">Annuleren</button>
+          <button class="primary" type="submit">Opslaan</button>
+        </menu>
+      </form>
+    </dialog>
+    <dialog id="mentorTestTemplateDialog">
+      <form id="mentorTestTemplateForm" method="dialog" class="dialog-form">
+        <div class="panel-head">
+          <div>
+            <h2>Mentor-Toets aanpassen</h2>
+            <p class="muted">Beheer de vragen die nieuwe mentor-toetsen krijgen.</p>
+          </div>
+          <button class="ghost icon" type="button" id="closeMentorTestTemplateDialog">&times;</button>
+        </div>
+        <div id="mentorTestTemplateEditor" class="mentor-template-editor"></div>
+        <menu>
+          <button id="cancelMentorTestTemplateDialog" class="ghost" type="button">Annuleren</button>
           <button class="primary" type="submit">Opslaan</button>
         </menu>
       </form>

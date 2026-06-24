@@ -254,6 +254,13 @@ async function syncAllActive(reason = "Discord bot periodieke sync") {
 }
 
 async function syncByJob(job) {
+  if (job.type === "send_dm") {
+    return bot.sendDirectMessage(
+      job.discordId || job.payload?.discordId,
+      job.payload?.content || job.payload?.message || ""
+    );
+  }
+
   const state = await readPostgresState();
   if (job.type === "sync_all_active") {
     return syncAllActive(`Discord bot job ${job.id}: ${job.payload?.reason || "sync_all_active"}`);

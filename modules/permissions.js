@@ -112,6 +112,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewMentorOverview: canViewAsKader || isMentor || isMentorLeadership || isOtcLeadership,
       canManageMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
       canManageMentorChecklistTemplate: isKader || isMentorLeadership || isOtcLeadership,
+      canManageMentorTestTemplate: isMentorLeadership || isDevOverride,
       canViewRecruitment: canViewAsKader || isWs,
       canRecruitPeople: isKader || isWs,
       canViewBlacklist: canViewAsKader || isWs,

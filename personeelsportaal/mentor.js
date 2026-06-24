@@ -4,6 +4,7 @@ let mentorLogDetailContext = null;
 let mentorAuditDetailPersonId = "";
 let mentorSelfTestCache = null;
 let mentorTestsReviewCache = null;
+let mentorTestTemplateCache = null;
 const leadershipPeriodLabels = {
   week: "Afgelopen week",
   month: "Afgelopen maand",
@@ -14,6 +15,7 @@ const leadershipPeriodLabels = {
 function resetMentorTestCaches() {
   mentorSelfTestCache = null;
   mentorTestsReviewCache = null;
+  mentorTestTemplateCache = null;
 }
 
 function openMentorChecklist(profileId) {
@@ -28,6 +30,10 @@ function canViewMentorLeadershipLog() {
 
 function canManageMentorChecklistTemplate() {
   return Boolean(permissions.canManageMentorChecklistTemplate || hasKaderAccess());
+}
+
+function canManageMentorTestTemplate() {
+  return Boolean(permissions.canManageMentorTestTemplate || permissions.canUseDevTools);
 }
 
 function mentorItemId(label, fallback) {
@@ -524,6 +530,8 @@ function formatMentorTestAnswer(question, answers = {}) {
 function renderMentorTestsOverview() {
   const container = $("#mentorTestsList");
   if (!container) return;
+  const editButton = $("#editMentorTestTemplateBtn");
+  if (editButton) editButton.hidden = !canManageMentorTestTemplate();
   if (!canViewMentorLeadershipLog()) {
     container.innerHTML = '<div class="feed-item">Geen toegang.</div>';
     return;
@@ -619,6 +627,145 @@ async function sendMentorTest(personId) {
   mentorSelfTestCache = null;
   renderMentorOverview();
   renderMentorTestsOverview();
+}
+
+async function fetchMentorTestTemplate() {
+  const response = await fetch("/api/mentor-tests/template");
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Mentor-toets template laden is mislukt.");
+  mentorTestTemplateCache = Array.isArray(payload.questions) ? payload.questions : [];
+  return mentorTestTemplateCache;
+}
+
+function mentorTestTemplateDraftFromEditor() {
+  return $$("#mentorTestTemplateEditor [data-mentor-test-question]")
+    .map((row, index) => {
+      const label = row.querySelector("[data-mentor-test-question-label]")?.value.trim() || "";
+      const type = row.querySelector("[data-mentor-test-question-type]")?.value === "checkbox" ? "checkbox" : "textarea";
+      const options = type === "checkbox"
+        ? (row.querySelector("[data-mentor-test-question-options]")?.value || "")
+            .split("\n")
+            .map((value) => value.trim())
+            .filter((value, optionIndex, list) => value && list.indexOf(value) === optionIndex)
+        : [];
+      if (!label) return null;
+      return {
+        id: row.dataset.mentorTestQuestionId || mentorItemId(label, `vraag-${index + 1}`),
+        type,
+        label,
+        options
+      };
+    })
+    .filter(Boolean);
+}
+
+function syncMentorTestTemplateOptions(row) {
+  const isCheckbox = row.querySelector("[data-mentor-test-question-type]")?.value === "checkbox";
+  const optionsWrap = row.querySelector("[data-mentor-test-options-wrap]");
+  if (optionsWrap) optionsWrap.hidden = !isCheckbox;
+}
+
+function renderMentorTestTemplateEditor(questions = mentorTestTemplateCache || []) {
+  const editor = $("#mentorTestTemplateEditor");
+  if (!editor) return;
+  const editable = questions.length
+    ? questions
+    : [{ id: "vraag-1", type: "textarea", label: "", options: [] }];
+  editor.innerHTML = `
+    ${editable
+      .map((question, index) => `
+        <section class="mentor-template-group" data-mentor-test-question data-mentor-test-question-id="${escapeHtml(question.id || `vraag-${index + 1}`)}">
+          <div class="mentor-template-item-row">
+            <strong>Vraag ${index + 1}</strong>
+            <button class="ghost" type="button" data-remove-mentor-test-question>Verwijderen</button>
+          </div>
+          <label class="full">
+            <span>Vraag</span>
+            <textarea data-mentor-test-question-label rows="2">${escapeHtml(question.label || "")}</textarea>
+          </label>
+          <label>
+            <span>Type</span>
+            <select data-mentor-test-question-type>
+              <option value="textarea" ${question.type === "checkbox" ? "" : "selected"}>Open tekst</option>
+              <option value="checkbox" ${question.type === "checkbox" ? "selected" : ""}>Meerkeuze</option>
+            </select>
+          </label>
+          <label class="full" data-mentor-test-options-wrap>
+            <span>Meerkeuze-opties (1 per regel)</span>
+            <textarea data-mentor-test-question-options rows="4">${escapeHtml((question.options || []).join("\n"))}</textarea>
+          </label>
+        </section>
+      `)
+      .join("")}
+    <button class="ghost" type="button" data-add-mentor-test-question>Vraag toevoegen</button>
+  `;
+  $$("#mentorTestTemplateEditor [data-mentor-test-question]").forEach(syncMentorTestTemplateOptions);
+}
+
+async function openMentorTestTemplateDialog() {
+  if (!canManageMentorTestTemplate()) return;
+  try {
+    if (mentorTestTemplateCache === null) await fetchMentorTestTemplate();
+    renderMentorTestTemplateEditor();
+    $("#mentorTestTemplateDialog")?.showModal();
+  } catch (error) {
+    await showSiteNotice(error.message || "Mentor-toets template laden is mislukt.", "Mentor-Toets");
+  }
+}
+
+function handleMentorTestTemplateEditorClick(event) {
+  if (event.target.closest("[data-add-mentor-test-question]")) {
+    const questions = mentorTestTemplateDraftFromEditor();
+    questions.push({ id: `vraag-${Date.now()}`, type: "textarea", label: "", options: [] });
+    renderMentorTestTemplateEditor(questions);
+    return;
+  }
+  const removeButton = event.target.closest("[data-remove-mentor-test-question]");
+  if (!removeButton) return;
+  const questions = mentorTestTemplateDraftFromEditor();
+  const row = removeButton.closest("[data-mentor-test-question]");
+  const rows = $$("#mentorTestTemplateEditor [data-mentor-test-question]");
+  const index = rows.indexOf(row);
+  if (index >= 0) questions.splice(index, 1);
+  renderMentorTestTemplateEditor(questions.length ? questions : [{ id: "vraag-1", type: "textarea", label: "", options: [] }]);
+}
+
+function handleMentorTestTemplateEditorChange(event) {
+  const row = event.target.closest("[data-mentor-test-question]");
+  if (row && event.target.closest("[data-mentor-test-question-type]")) {
+    syncMentorTestTemplateOptions(row);
+  }
+}
+
+async function saveMentorTestTemplate() {
+  if (!canManageMentorTestTemplate()) return;
+  const questions = mentorTestTemplateDraftFromEditor();
+  if (!questions.length) {
+    await showSiteNotice("Laat minimaal een toetsvraag staan.", "Toets leeg");
+    return;
+  }
+  const checkboxWithoutOptions = questions.find((question) => question.type === "checkbox" && !question.options.length);
+  if (checkboxWithoutOptions) {
+    await showSiteNotice("Vul bij elke meerkeuzevraag minimaal 1 antwoordoptie in.", "Meerkeuzevraag incompleet");
+    return;
+  }
+  const response = await fetch("/api/mentor-tests/template", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ questions })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    await showSiteNotice(payload.error || "Mentor-toets opslaan is mislukt.", "Actie mislukt");
+    return;
+  }
+  mentorTestTemplateCache = Array.isArray(payload.questions) ? payload.questions : questions;
+  mentorTestsReviewCache = null;
+  mentorSelfTestCache = null;
+  $("#mentorTestTemplateDialog")?.close();
+  await showSiteNotice("Mentor-toets is opgeslagen.", "Opgeslagen");
+  renderMentorTestsOverview();
+  renderMentorTestPage();
 }
 
 function mentorTemplateDraftGroupsFromEditor() {

@@ -1,7 +1,6 @@
 // Defensie Personeelsportaal API-routes staan los van Porto, zodat beide websites apart kunnen groeien.
 const crypto = require("node:crypto");
 const { currentOrganization } = require("./organizations");
-const { questionsForClient } = require("./mentor-tests-store");
 const {
   OVC_FUNCTION_BADGE,
   hasOvcFunctionBadge,
@@ -58,7 +57,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     mentorTestWebhookUrl,
     buildMentorTestWebhookPayload,
     discordBot,
-    enqueuePersonDiscordSync
+    enqueuePersonDiscordSync,
+    enqueueDiscordSyncJob
   } = deps;
 
   const formsStorage = deps.formsStorage || { readState, writeState };
@@ -190,12 +190,15 @@ function createPersoneelsportaalRouteHandler(deps) {
     return Promise.resolve(formsStorage.readState());
   }
 
-  async function sendFormsStateAfterMutation(res, auth, state, targetedWrite) {
+  async function persistFormsStateMutation(state, targetedWrite) {
     if (typeof targetedWrite === "function") {
       await Promise.resolve(targetedWrite());
     } else {
       await Promise.resolve(formsStorage.writeState(state));
     }
+  }
+
+  function sendFormsStateResponse(res, auth, state) {
     const permissions = permissionsForAuth(auth, state);
     sendJson(res, 200, {
       ok: true,
@@ -203,6 +206,20 @@ function createPersoneelsportaalRouteHandler(deps) {
       canViewLogbook: permissions.canViewLogbook,
       permissions
     });
+  }
+
+  async function sendFormsStateAfterMutation(res, auth, state, targetedWrite) {
+    await persistFormsStateMutation(state, targetedWrite);
+    sendFormsStateResponse(res, auth, state);
+  }
+
+  async function persistFormsActivityBestEffort(state, targetedWrite) {
+    try {
+      await persistFormsStateMutation(state, targetedWrite);
+    } catch (error) {
+      state.activity = state.activity || [];
+      state.activity.push(`Activiteitlog bijwerken mislukt: ${error.message || "onbekende fout"}.`);
+    }
   }
 
   async function readPeopleState() {
@@ -346,6 +363,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     );
   }
 
+  function canManageMentorTestTemplate(permissions) {
+    return Boolean(permissions.canManageMentorTestTemplate || permissions.canUseDevTools);
+  }
+
   function mentorTestForClient(test, { includeAnswers = true } = {}) {
     if (!test) return null;
     const result = {
@@ -361,7 +382,8 @@ function createPersoneelsportaalRouteHandler(deps) {
       submittedAt: test.submittedAt,
       reviewedByName: test.reviewedByName,
       reviewedAt: test.reviewedAt,
-      reviewNote: test.reviewNote
+      reviewNote: test.reviewNote,
+      questions: Array.isArray(test.questions) ? test.questions : []
     };
     if (includeAnswers) result.answers = test.answers || {};
     return result;
@@ -501,6 +523,49 @@ function createPersoneelsportaalRouteHandler(deps) {
     } catch (error) {
       state.activity = state.activity || [];
       state.activity.push(`Discord profielsync inplannen mislukt voor ${person.name}: ${error.message || "onbekende fout"}.`);
+    }
+  }
+
+  function absencePeriodText(absence) {
+    return `${absence?.from || "-"} t/m ${absence?.to || "-"}`;
+  }
+
+  function buildAbsenceRegisteredDm(member, absence) {
+    return [
+      "Je afwezigheid is geregistreerd.",
+      `Personeelslid: ${member?.serviceNumber || "-"} - ${member?.name || "Onbekend"}`,
+      `Periode: ${absencePeriodText(absence)}`,
+      `Status: ${absence?.status || "In afwachting"}`,
+      absence?.reason ? `Reden: ${absence.reason}` : ""
+    ].filter(Boolean).join("\n");
+  }
+
+  function buildAbsenceReviewedDm(member, absence, reviewer) {
+    const statusText = String(absence?.status || "verwerkt").toLowerCase();
+    return [
+      `Je afwezigheid is ${statusText}.`,
+      `Personeelslid: ${member?.serviceNumber || "-"} - ${member?.name || "Onbekend"}`,
+      `Periode: ${absencePeriodText(absence)}`,
+      reviewer?.name ? `Beoordeeld door: ${reviewer.name}` : ""
+    ].filter(Boolean).join("\n");
+  }
+
+  async function queueDiscordDmForPerson(state, person, content, reason, activityMessages = null) {
+    const discordId = normalizeDiscordId(person?.discordId || "");
+    if (typeof enqueueDiscordSyncJob !== "function" || !discordId || !content) return false;
+    try {
+      await enqueueDiscordSyncJob("send_dm", { discordId, content, reason }, { discordId, maxAttempts: 3 });
+      const message = `Discord DM ingepland voor ${person.name || discordId}.`;
+      state.activity = state.activity || [];
+      state.activity.push(message);
+      if (Array.isArray(activityMessages)) activityMessages.push(message);
+      return true;
+    } catch (error) {
+      const message = `Discord DM inplannen mislukt voor ${person.name || discordId}: ${error.message || "onbekende fout"}.`;
+      state.activity = state.activity || [];
+      state.activity.push(message);
+      if (Array.isArray(activityMessages)) activityMessages.push(message);
+      return false;
     }
   }
 
@@ -912,10 +977,15 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     state.absences = state.absences || [];
     state.activity = state.activity || [];
-    const activityMessages = [];
-    const pushActivity = (message) => {
+    const primaryActivityMessages = [];
+    const pushPrimaryActivity = (message) => {
       state.activity.push(message);
-      activityMessages.push(message);
+      primaryActivityMessages.push(message);
+    };
+    const sideEffectMessages = [];
+    const pushSideEffectActivity = (message) => {
+      state.activity.push(message);
+      sideEffectMessages.push(message);
     };
     const absence = {
       id: crypto.randomUUID(),
@@ -930,25 +1000,42 @@ function createPersoneelsportaalRouteHandler(deps) {
       requestedAt: new Date().toISOString()
     };
     state.absences.push(absence);
-    pushActivity(`Afwezigheid geregistreerd voor ${member.name}.`);
+    pushPrimaryActivity(`Afwezigheid geregistreerd voor ${member.name}.`);
+    await persistFormsStateMutation(
+      state,
+      typeof formsStorage.createAbsence === "function" ? () => formsStorage.createAbsence(absence, primaryActivityMessages) : null
+    );
+
     try {
       const webhookResult = await sendDiscordWebhook(
         absenceWebhookUrl(),
         buildAbsenceWebhookPayload(member, absence, auth.profile)
       );
       if (webhookResult.ok) {
-        pushActivity(`Afwezigheid webhook verzonden voor ${member.name}.`);
+        pushSideEffectActivity(`Afwezigheid webhook verzonden voor ${member.name}.`);
       } else if (!webhookResult.skipped) {
-        pushActivity(`Afwezigheid webhook kon niet verzonden worden voor ${member.name}.`);
+        pushSideEffectActivity(`Afwezigheid webhook kon niet verzonden worden voor ${member.name}.`);
       }
     } catch (error) {
-      pushActivity(`Afwezigheid webhook kon niet verzonden worden voor ${member.name}.`);
+      pushSideEffectActivity(`Afwezigheid webhook kon niet verzonden worden voor ${member.name}.`);
     }
-    await sendFormsStateAfterMutation(
+    await queueDiscordDmForPerson(
+      state,
+      member,
+      buildAbsenceRegisteredDm(member, absence),
+      "absence_registered",
+      sideEffectMessages
+    );
+    if (sideEffectMessages.length) {
+      await persistFormsActivityBestEffort(
+        state,
+        typeof formsStorage.updateAbsence === "function" ? () => formsStorage.updateAbsence(absence, sideEffectMessages) : null
+      );
+    }
+    sendFormsStateResponse(
       res,
       auth,
-      state,
-      typeof formsStorage.createAbsence === "function" ? () => formsStorage.createAbsence(absence, activityMessages) : null
+      state
     );
     return;
   }
@@ -986,8 +1073,20 @@ function createPersoneelsportaalRouteHandler(deps) {
     absence.reviewedByName = reviewer.name;
     const member = (state.people || []).find((entry) => entry.id === absence.memberId);
     const activityMessage = `${reviewer.name} heeft afwezigheid van ${member?.name || "Onbekend"} ${status.toLowerCase()}.`;
+    const primaryActivityMessages = [activityMessage];
+    const sideEffectMessages = [];
+    const pushSideEffectActivity = (message) => {
+      state.activity = state.activity || [];
+      state.activity.push(message);
+      sideEffectMessages.push(message);
+    };
     state.activity = state.activity || [];
     state.activity.push(activityMessage);
+    await persistFormsStateMutation(
+      state,
+      typeof formsStorage.updateAbsence === "function" ? () => formsStorage.updateAbsence(absence, primaryActivityMessages) : null
+    );
+
     if (member) {
       addPersonNotification(member, {
         type: "absence",
@@ -995,14 +1094,26 @@ function createPersoneelsportaalRouteHandler(deps) {
         message: `Je verlof van ${absence.from || "-"} t/m ${absence.to || "-"} is ${status.toLowerCase()} door ${reviewer.name}.`,
         meta: { absenceId: absence.id, status }
       });
-      await persistPersonNotifications(member, state);
+      try {
+        await persistPersonNotifications(member, state);
+      } catch (error) {
+        pushSideEffectActivity(`Notificatie opslaan mislukt voor ${member.name}: ${error.message || "onbekende fout"}.`);
+      }
+      await queueDiscordDmForPerson(
+        state,
+        member,
+        buildAbsenceReviewedDm(member, absence, reviewer),
+        "absence_reviewed",
+        sideEffectMessages
+      );
     }
-    await sendFormsStateAfterMutation(
-      res,
-      auth,
-      state,
-      typeof formsStorage.updateAbsence === "function" ? () => formsStorage.updateAbsence(absence, [activityMessage]) : null
-    );
+    if (sideEffectMessages.length) {
+      await persistFormsActivityBestEffort(
+        state,
+        typeof formsStorage.updateAbsence === "function" ? () => formsStorage.updateAbsence(absence, sideEffectMessages) : null
+      );
+    }
+    sendFormsStateResponse(res, auth, state);
     return;
   }
 
@@ -1862,7 +1973,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const test = await mentorTestsStore.latestOpenForPerson(organization.key, person.id);
     sendJson(res, 200, {
       ok: true,
-      questions: test ? questionsForClient() : [],
+      questions: test ? test.questions || [] : [],
       test: mentorTestForClient(test)
     });
     return;
@@ -1895,7 +2006,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       await sendMentorTestWebhook("submitted", { person, actor: auth.profile, test });
       sendJson(res, 200, {
         ok: true,
-        questions: questionsForClient(),
+        questions: test.questions || [],
         test: mentorTestForClient(test)
       });
     } catch (error) {
@@ -1918,11 +2029,56 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     const tests = await mentorTestsStore.list(organization.key, 100);
+    const questions = await mentorTestsStore.questionsForOrganization(organization.key);
     sendJson(res, 200, {
       ok: true,
-      questions: questionsForClient(),
+      questions,
       tests: tests.map((test) => mentorTestForClient(test))
     });
+    return;
+  }
+
+  if (url.pathname === "/api/mentor-tests/template" && req.method === "GET") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!canManageMentorTestTemplate(permissions)) {
+      sendJson(res, 403, { error: "Geen toegang om mentor-toetsen aan te passen." });
+      return;
+    }
+    const questions = await mentorTestsStore.questionsForOrganization(organization.key);
+    sendJson(res, 200, { ok: true, questions });
+    return;
+  }
+
+  if (url.pathname === "/api/mentor-tests/template" && ["POST", "PUT"].includes(req.method)) {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!canManageMentorTestTemplate(permissions)) {
+      sendJson(res, 403, { error: "Geen toegang om mentor-toetsen aan te passen." });
+      return;
+    }
+    const body = await readBody(req);
+    try {
+      const questions = await mentorTestsStore.saveQuestions({
+        organization: organization.key,
+        questions: body.questions || []
+      });
+      sendJson(res, 200, { ok: true, questions });
+    } catch (error) {
+      sendJson(res, error.status || 500, { error: error.message || "Mentor-toets opslaan is mislukt." });
+    }
     return;
   }
 

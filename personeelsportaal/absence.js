@@ -1,7 +1,7 @@
 ﻿/* Defensie Personeelsportaal afwezigheidsmodule: statussen, overzicht en verwijdercontext. */
 
 function openAbsenceRequestCount() {
-  return (state.absences || []).filter((entry) => absenceStatus(entry) === "In afwachting").length;
+  return (state.absences || []).filter(absenceNeedsReview).length;
 }
 
 function absenceStatus(entry) {
@@ -12,16 +12,40 @@ function absenceIsApproved(entry) {
   return absenceStatus(entry) === "Goedgekeurd";
 }
 
-function absenceIsActive(entry) {
-  return absenceIsApproved(entry) && new Date(entry.to) >= new Date(today);
+function absenceDateOnly(value) {
+  const dateText = String(value || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) return null;
+  return dateText;
 }
 
-function absenceVisibleInOverview(entry) {
-  if (absenceStatus(entry) === "In afwachting") return true;
-  const end = new Date(`${entry.to || ""}T23:59:59`);
-  if (Number.isNaN(end.getTime())) return true;
-  end.setDate(end.getDate() + 7);
-  return end >= new Date();
+function absenceIsActive(entry) {
+  return absenceIsApproved(entry) && absencePeriodIncludesToday(entry);
+}
+
+function absencePeriodIncludesToday(entry) {
+  const from = absenceDateOnly(entry?.from);
+  const to = absenceDateOnly(entry?.to);
+  const current = absenceDateOnly(today) || new Date().toISOString().slice(0, 10);
+  if (!from || !to) return false;
+  return from <= current && current <= to;
+}
+
+function absenceMember(entry) {
+  const member = (state.people || []).find((person) => person.id === entry.memberId);
+  return member || null;
+}
+
+function absenceMemberIsActive(entry) {
+  const member = absenceMember(entry);
+  return Boolean(member && member.status === "Actief");
+}
+
+function absenceNeedsReview(entry) {
+  return absenceStatus(entry) === "In afwachting" && absenceMemberIsActive(entry);
+}
+
+function absenceVisibleInCurrentOverview(entry) {
+  return absenceIsActive(entry) && absenceMemberIsActive(entry);
 }
 
 function personHasActiveAbsence(person) {
@@ -57,23 +81,28 @@ function renderAbsenceOverview() {
     return;
   }
   const canReview = canReviewAbsences();
-  const absences = (state.absences || [])
-    .map((entry, originalIndex) => ({ ...entry, originalIndex }))
-    .filter(absenceVisibleInOverview)
+  const allAbsences = (state.absences || [])
+    .map((entry, originalIndex) => ({ ...entry, originalIndex }));
+  const reviewAbsences = canReview
+    ? allAbsences.filter(absenceNeedsReview).sort((a, b) => new Date(a.from) - new Date(b.from))
+    : [];
+  const currentAbsences = allAbsences
+    .filter(absenceVisibleInCurrentOverview)
     .sort((a, b) => new Date(a.from) - new Date(b.from));
-  container.innerHTML = absences.length
-    ? `
-      <div class="table-row table-row-head absence-overview-row">
+
+  const renderAbsenceRows = (absences) => `
+      <div class="table-row table-row-head absence-overview-row${canReview ? "" : " absence-overview-row--readonly"}">
         <span>Personeelslid</span>
         <span>Vanaf</span>
         <span>Tot en met</span>
         <span>Status</span>
         <span>Reden</span>
+        ${canReview ? "<span>Acties</span>" : ""}
       </div>
       ${absences.map((entry) => {
         const absenceKey = entry.id || String(entry.originalIndex);
         return `
-          <div class="table-row absence-overview-row" data-absence-id="${escapeHtml(absenceKey)}">
+          <div class="table-row absence-overview-row${canReview ? "" : " absence-overview-row--readonly"}" data-absence-id="${escapeHtml(absenceKey)}">
             <strong>${escapeHtml(memberName(entry.memberId))}</strong>
             <span>${escapeHtml(formatDate(entry.from))}</span>
             <span>${escapeHtml(formatDate(entry.to))}</span>
@@ -86,8 +115,19 @@ function renderAbsenceOverview() {
           </div>
         `;
       }).join("")}
-    `
-    : '<div class="feed-item">Geen openstaande of recente afwezigheden.</div>';
+    `;
+
+  const renderAbsenceSection = (title, absences, emptyText) => `
+    <section class="absence-overview-section">
+      <h3>${escapeHtml(title)}</h3>
+      ${absences.length ? renderAbsenceRows(absences) : `<div class="feed-item">${escapeHtml(emptyText)}</div>`}
+    </section>
+  `;
+
+  container.innerHTML = [
+    canReview ? renderAbsenceSection("Aanvragen in afwachting", reviewAbsences, "Geen openstaande afwezigheidsaanvragen.") : "",
+    renderAbsenceSection("Huidige afwezigheden", currentAbsences, "Geen huidige afwezigheden.")
+  ].join("");
 }
 
 function hideAbsenceContextMenu() {

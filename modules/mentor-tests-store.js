@@ -1,7 +1,7 @@
 const crypto = require("node:crypto");
 const { withTransaction, withClient } = require("./db");
 
-const MENTOR_TEST_QUESTIONS = [
+const DEFAULT_MENTOR_TEST_QUESTIONS = [
   { id: "douane_gebieden", type: "textarea", label: "Wat zijn de douane gebieden?" },
   {
     id: "fouilleren",
@@ -28,13 +28,89 @@ const MENTOR_TEST_QUESTIONS = [
   { id: "wanneer_i8", type: "textarea", label: "Wanneer vul je een I8 in?" }
 ];
 
-function questionsForClient() {
-  return MENTOR_TEST_QUESTIONS.map((question) => ({
+function templateSettingsKey(organization) {
+  return `mentor_test_template:${organization || "defensie"}`;
+}
+
+function normalizeQuestionId(value, fallback) {
+  const slug = String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || fallback;
+}
+
+function normalizeQuestion(question, index) {
+  const label = String(question?.label || "").trim().slice(0, 500);
+  if (!label) return null;
+  const type = question?.type === "checkbox" ? "checkbox" : "textarea";
+  const normalized = {
+    id: normalizeQuestionId(question?.id || label, `vraag-${index + 1}`),
+    type,
+    label
+  };
+  if (type === "checkbox") {
+    const seen = new Set();
+    normalized.options = (Array.isArray(question?.options) ? question.options : [])
+      .map((option) => String(option || "").trim().slice(0, 300))
+      .filter((option) => {
+        if (!option || seen.has(option)) return false;
+        seen.add(option);
+        return true;
+      });
+    if (!normalized.options.length) return null;
+  } else {
+    normalized.options = [];
+  }
+  return normalized;
+}
+
+function normalizeQuestions(rawQuestions) {
+  const normalized = (Array.isArray(rawQuestions) ? rawQuestions : [])
+    .map((question, index) => normalizeQuestion(question, index))
+    .filter(Boolean);
+  return normalized.length ? normalized : DEFAULT_MENTOR_TEST_QUESTIONS.map((question, index) => normalizeQuestion(question, index));
+}
+
+function questionsForClient(questions = DEFAULT_MENTOR_TEST_QUESTIONS) {
+  return normalizeQuestions(questions).map((question) => ({
     id: question.id,
     type: question.type,
     label: question.label,
     options: Array.isArray(question.options) ? [...question.options] : []
   }));
+}
+
+function questionsFromRaw(raw) {
+  const value = raw && typeof raw === "object" ? raw : {};
+  return questionsForClient(value.questions || value.mentorTestQuestions || DEFAULT_MENTOR_TEST_QUESTIONS);
+}
+
+async function loadQuestionTemplate(organization, client = null) {
+  const runner = client
+    ? (callback) => callback(client)
+    : (callback) => withClient(callback);
+  const result = await runner((activeClient) => activeClient.query(
+    "select value from app_settings where key = $1 limit 1",
+    [templateSettingsKey(organization)]
+  ));
+  return questionsForClient(result.rows[0]?.value?.questions || DEFAULT_MENTOR_TEST_QUESTIONS);
+}
+
+async function saveQuestionTemplate({ organization, questions }) {
+  const normalized = questionsForClient(questions);
+  await withClient((client) => client.query(
+    `insert into app_settings(key, value, updated_at)
+     values($1, $2::jsonb, now())
+     on conflict (key) do update
+     set value = excluded.value,
+         updated_at = excluded.updated_at`,
+    [templateSettingsKey(organization), JSON.stringify({ questions: normalized })]
+  ));
+  return normalized;
 }
 
 function rowToTest(row) {
@@ -56,6 +132,7 @@ function rowToTest(row) {
     reviewedByName: row.reviewed_by_name || "",
     reviewedAt: row.reviewed_at,
     reviewNote: row.review_note || "",
+    questions: questionsFromRaw(row.raw),
     updatedAt: row.updated_at
   };
 }
@@ -64,9 +141,9 @@ function normalizeTextAnswer(value) {
   return String(value || "").trim().slice(0, 4000);
 }
 
-function normalizeAnswers(rawAnswers = {}) {
+function normalizeAnswers(rawAnswers = {}, questions = DEFAULT_MENTOR_TEST_QUESTIONS) {
   const answers = {};
-  for (const question of MENTOR_TEST_QUESTIONS) {
+  for (const question of questionsForClient(questions)) {
     if (question.type === "checkbox") {
       const selected = Array.isArray(rawAnswers[question.id]) ? rawAnswers[question.id] : [];
       const allowed = new Set(question.options || []);
@@ -80,9 +157,10 @@ function normalizeAnswers(rawAnswers = {}) {
   return answers;
 }
 
-function validateAnswers(rawAnswers = {}) {
-  const answers = normalizeAnswers(rawAnswers);
-  const missing = MENTOR_TEST_QUESTIONS.filter((question) => {
+function validateAnswers(rawAnswers = {}, questions = DEFAULT_MENTOR_TEST_QUESTIONS) {
+  const normalizedQuestions = questionsForClient(questions);
+  const answers = normalizeAnswers(rawAnswers, normalizedQuestions);
+  const missing = normalizedQuestions.filter((question) => {
     const value = answers[question.id];
     return question.type === "checkbox" ? !Array.isArray(value) || value.length === 0 : !value;
   });
@@ -132,6 +210,7 @@ function createMentorTestsStore() {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
     return withTransaction(async (client) => {
+      const questions = await loadQuestionTemplate(organization, client);
       await client.query(
         `update mentor_tests
          set status = 'cancelled',
@@ -162,7 +241,7 @@ function createMentorTestsStore() {
           actor.id || "",
           actor.name || "",
           now,
-          JSON.stringify({ questionVersion: 1 })
+          JSON.stringify({ questionVersion: 1, questions })
         ]
       );
       return rowToTest(result.rows[0]);
@@ -170,39 +249,44 @@ function createMentorTestsStore() {
   }
 
   async function submit({ organization, personId, answers }) {
-    const validation = validateAnswers(answers);
-    if (!validation.ok) {
-      const error = new Error("Niet alle verplichte vragen zijn ingevuld.");
-      error.status = 400;
-      error.missing = validation.missing.map((question) => question.id);
-      throw error;
-    }
     const now = new Date().toISOString();
-    const result = await withClient((client) => client.query(
-      `with picked as (
-         select id
+    return withTransaction(async (client) => {
+      const openResult = await client.query(
+        `select *
          from mentor_tests
          where organization = $1
            and person_id = $2
            and status = 'sent'
          order by sent_at desc
-         limit 1
-       )
-       update mentor_tests
-       set status = 'submitted',
-           answers = $3::jsonb,
-           submitted_at = $4,
-           updated_at = $4
-       where id in (select id from picked)
-       returning *`,
-      [organization, personId, JSON.stringify(validation.answers), now]
-    ));
-    if (!result.rows[0]) {
-      const error = new Error("Er staat geen open mentor-toets klaar.");
-      error.status = 404;
-      throw error;
-    }
-    return rowToTest(result.rows[0]);
+         limit 1`,
+        [organization, personId]
+      );
+      const openTest = openResult.rows[0];
+      if (!openTest) {
+        const error = new Error("Er staat geen open mentor-toets klaar.");
+        error.status = 404;
+        throw error;
+      }
+      const questions = questionsFromRaw(openTest.raw);
+      const validation = validateAnswers(answers, questions);
+      if (!validation.ok) {
+        const error = new Error("Niet alle verplichte vragen zijn ingevuld.");
+        error.status = 400;
+        error.missing = validation.missing.map((question) => question.id);
+        throw error;
+      }
+      const result = await client.query(
+        `update mentor_tests
+         set status = 'submitted',
+             answers = $2::jsonb,
+             submitted_at = $3,
+             updated_at = $3
+         where id = $1
+         returning *`,
+        [openTest.id, JSON.stringify(validation.answers), now]
+      );
+      return rowToTest(result.rows[0]);
+    });
   }
 
   async function review({ organization, id, status, actor, reviewNote = "" }) {
@@ -236,6 +320,8 @@ function createMentorTestsStore() {
 
   return {
     questionsForClient,
+    questionsForOrganization: loadQuestionTemplate,
+    saveQuestions: saveQuestionTemplate,
     validateAnswers,
     latestForPerson,
     latestOpenForPerson,

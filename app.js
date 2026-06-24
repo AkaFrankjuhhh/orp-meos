@@ -353,6 +353,10 @@ function canViewMentorLeadershipLog() {
   return Boolean(permissions.canViewMentorLeadershipLog || hasKaderAccess());
 }
 
+function canManageMentorTestTemplate() {
+  return Boolean(permissions.canManageMentorTestTemplate || permissions.canUseDevTools);
+}
+
 function canViewOwnMentorTrajectory() {
   const current = currentProfile();
   return Boolean(current && current.status === "Actief" && mentorRanks.includes(current.rank));
@@ -1128,6 +1132,9 @@ function renderKaderNavigation() {
   $$('[data-mentor-leadership-only="true"]').forEach((element) => {
     element.hidden = !showMentorLeadership;
   });
+  $$('[data-mentor-test-template-only="true"]').forEach((element) => {
+    element.hidden = !canManageMentorTestTemplate();
+  });
   $$('[data-restricted-divider="true"]').forEach((element) => {
     element.hidden = !(showKaderPages || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOpsTimes || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
   });
@@ -1510,13 +1517,10 @@ function wireEvents() {
     if (await runAction("/api/notifications/read", {})) render();
   });
   $("#notificationClearAll")?.addEventListener("click", async () => {
-    const confirmed = await showSiteConfirm({
-      title: "Meldingen leegmaken",
-      message: "Weet je zeker dat je al je meldingen wil verwijderen?",
-      confirmText: "Leegmaken",
-      cancelText: "Annuleren",
-      danger: true
-    });
+    const confirmed = await showSiteConfirm(
+      "Weet je zeker dat je al je meldingen wil verwijderen?",
+      "Meldingen leegmaken"
+    );
     if (confirmed && await runAction("/api/notifications/clear", {})) render();
   });
   $("#notificationPanel")?.addEventListener("keydown", (event) => {
@@ -1943,6 +1947,15 @@ function wireEvents() {
       $("#mentorTemplateDialog")?.close();
       render();
     }
+  });
+  $("#editMentorTestTemplateBtn")?.addEventListener("click", openMentorTestTemplateDialog);
+  $("#closeMentorTestTemplateDialog")?.addEventListener("click", () => $("#mentorTestTemplateDialog")?.close());
+  $("#cancelMentorTestTemplateDialog")?.addEventListener("click", () => $("#mentorTestTemplateDialog")?.close());
+  $("#mentorTestTemplateEditor")?.addEventListener("click", handleMentorTestTemplateEditorClick);
+  $("#mentorTestTemplateEditor")?.addEventListener("change", handleMentorTestTemplateEditorChange);
+  $("#mentorTestTemplateForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await saveMentorTestTemplate();
   });
   $("#mentorLeadershipLogList")?.addEventListener("click", (event) => {
     const row = event.target.closest("[data-mentor-log-person]");

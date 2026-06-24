@@ -19,7 +19,7 @@ const { createEventBus } = require("./modules/event-bus");
 const { createHttpResponder, createJsonBodyReader, readRawBody, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
 const { createPublicFormsStore } = require("./modules/public-forms-store");
-const { enqueuePersonDiscordSync } = require("./modules/discord-sync-jobs");
+const { enqueuePersonDiscordSync, enqueueDiscordSyncJob } = require("./modules/discord-sync-jobs");
 const { normalizeDiscordId, isDevDiscordId } = require("./modules/ovc");
 const {
   currentOrganization,
@@ -490,7 +490,8 @@ const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   mentorTestWebhookUrl,
   buildMentorTestWebhookPayload,
   discordBot,
-  enqueuePersonDiscordSync: storageMode === "postgres" ? enqueuePersonDiscordSync : null
+  enqueuePersonDiscordSync: storageMode === "postgres" ? enqueuePersonDiscordSync : null,
+  enqueueDiscordSyncJob: storageMode === "postgres" ? enqueueDiscordSyncJob : null
 });
 function errorPage(title, message) {
   return `<!doctype html>

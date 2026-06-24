@@ -350,10 +350,46 @@ function createDiscordBotServices(options = {}) {
     }
   }
 
+  function truncateDiscordMessage(value) {
+    const text = String(value || "").trim();
+    if (text.length <= 2000) return text;
+    return `${text.slice(0, 1990).trim()}\n...`;
+  }
+
   async function getGuildMember(discordId) {
     const memberId = normalizeDiscordId(discordId);
     if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
     return discordBotFetch(`/guilds/${guildId()}/members/${memberId}`);
+  }
+
+  async function sendDirectMessage(discordId, content) {
+    const memberId = normalizeDiscordId(discordId);
+    const message = truncateDiscordMessage(content);
+    if (!memberId || !message) return { skipped: true, reason: "Discord ID of bericht ontbreekt." };
+    try {
+      const channelResult = await discordBotFetch("/users/@me/channels", {
+        method: "POST",
+        body: { recipient_id: memberId }
+      });
+      const channelId = channelResult?.data?.id;
+      if (!channelId) return { skipped: true, reason: "Discord DM-kanaal kon niet worden aangemaakt." };
+      await discordBotFetch(`/channels/${channelId}/messages`, {
+        method: "POST",
+        body: {
+          content: message,
+          allowed_mentions: { parse: [] }
+        }
+      });
+      return { ok: true, discordId: memberId };
+    } catch (error) {
+      if (error.status === 403 || error.discord?.code === 50007) {
+        return {
+          skipped: true,
+          reason: "Discord DM kon niet worden gestuurd; gebruiker blokkeert DMs of deelt geen DM-rechten met de bot."
+        };
+      }
+      throw error;
+    }
   }
 
   function looksLikeActiveDsiNickname(nickname) {
@@ -607,6 +643,7 @@ function createDiscordBotServices(options = {}) {
     configuredVoiceChannels,
     resolveVoiceChannelId,
     getGuildMember,
+    sendDirectMessage,
     addRole,
     removeRole,
     syncRoleSet,

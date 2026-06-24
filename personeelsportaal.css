@@ -564,8 +564,29 @@ label {
   justify-content: flex-start;
 }
 
+.absence-overview-section {
+  display: grid;
+  gap: 12px;
+}
+
+.absence-overview-section + .absence-overview-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.absence-overview-section h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
 .absence-overview-row {
   grid-template-columns: minmax(180px, 1.2fr) 0.75fr 0.75fr 0.75fr minmax(220px, 1.4fr) minmax(170px, 0.9fr);
+}
+
+.absence-overview-row--readonly {
+  grid-template-columns: minmax(180px, 1.2fr) 0.75fr 0.75fr 0.75fr minmax(220px, 1.4fr);
 }
 
 dialog {
