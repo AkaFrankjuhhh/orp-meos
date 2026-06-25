@@ -24,7 +24,8 @@
     "discord:profiles:sync": "node scripts/discord-sync-nicknames.js --apply",
     "discord:roles:check": "node scripts/check-discord-role-config.js",
     "discord:bot": "node scripts/discord-bot-worker.js",
-    "forms:webhooks:retry": "node scripts/retry-public-form-webhooks.js"
+    "forms:webhooks:retry": "node scripts/retry-public-form-webhooks.js",
+    "test": "node --test tests/*.test.js"
   },
   "engines": {
     "node": ">=18"

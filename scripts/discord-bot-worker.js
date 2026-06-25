@@ -4,7 +4,17 @@ loadEnv();
 
 const { readPostgresState } = require("../modules/postgres-state");
 const { createDiscordBotServices } = require("../modules/discord-bot");
+const { currentOrganization } = require("../modules/organizations");
 const { nonRegularPortoDiscordChannel } = require("../modules/porto-discord-channels");
+const {
+  buildDiscordLeaveLogPayload,
+  collectDefensieLeaveLogRoleIds,
+  discordLeaveLogWebhookUrl,
+  discordMemberDisplayName,
+  discordUserTag,
+  memberHasAnyTrackedRole,
+  sendDiscordLeaveLog
+} = require("../modules/discord-leave-log");
 const {
   ensureDiscordSyncJobsTable,
   enqueueAllDiscordSync,
@@ -23,7 +33,8 @@ const jobPollMs = Number(process.env.DISCORD_JOB_POLL_INTERVAL_MS || 5000);
 const jobBatchSize = Number(process.env.DISCORD_JOB_BATCH_SIZE || 5);
 const requiredRoleRetryMs = Math.max(60000, Number(process.env.DISCORD_REQUIRED_ROLE_RETRY_MS || 300000));
 const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toLowerCase() !== "false";
-const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true";
+const leaveLogWebhookConfigured = Boolean(discordLeaveLogWebhookUrl(currentOrganization()));
+const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true" || leaveLogWebhookConfigured;
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
 const nonRegularPortoDiscordChannelKey = nonRegularPortoDiscordChannel.key;
@@ -33,6 +44,17 @@ let heartbeatTimer = null;
 let reconnectTimer = null;
 let hasGatewayVoiceSnapshot = false;
 const gatewayVoiceStatesByUser = new Map();
+const gatewayMemberRolesByUser = new Map();
+
+function parseJsonValue(value, fallback) {
+  if (value == null) return fallback;
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
 
 function portoChannelKeyForDiscordChannelId(channelId) {
   const value = String(channelId || "");
@@ -48,6 +70,34 @@ function captureGatewayVoiceState(voiceState = {}) {
   const discordId = String(voiceState.user_id || "").trim();
   if (!discordId) return;
   gatewayVoiceStatesByUser.set(discordId, String(voiceState.channel_id || "").trim());
+}
+
+function captureGatewayMemberRoles(member = {}) {
+  const discordId = String(member.user?.id || member.user_id || "").trim();
+  if (!discordId || !Array.isArray(member.roles)) return;
+  gatewayMemberRolesByUser.set(discordId, member.roles.map((roleId) => String(roleId || "").trim()).filter(Boolean));
+}
+
+async function findPortalPersonByDiscordId(discordId) {
+  const normalizedDiscordId = String(discordId || "").trim();
+  if (!normalizedDiscordId) return null;
+  try {
+    return await withClient(async (client) => {
+      const result = await client.query(
+        "select id, name, rank, service_number, status, discord_roles from people where discord_id = $1 limit 1",
+        [normalizedDiscordId]
+      );
+      const row = result.rows[0];
+      if (!row) return null;
+      return {
+        ...row,
+        discordRoles: parseJsonValue(row.discord_roles, [])
+      };
+    });
+  } catch (error) {
+    console.error(`[discord-bot] leave-log personeelscheck mislukt: ${error.message}`);
+    return null;
+  }
 }
 
 async function reconcilePortoVoiceChannelsFromGatewaySnapshot() {
@@ -364,6 +414,40 @@ async function runPeriodicSyncLoop() {
   }
 }
 
+async function handleGuildMemberRemove(member = {}) {
+  const organization = currentOrganization();
+  if (organization.key !== "defensie") return;
+  const webhookUrl = discordLeaveLogWebhookUrl(organization);
+  if (!webhookUrl) return;
+
+  const discordId = String(member.user?.id || member.user_id || "").trim();
+  const trackedRoleIds = collectDefensieLeaveLogRoleIds(organization);
+  if (!trackedRoleIds.size) {
+    console.warn("[discord-bot] leave-log overgeslagen: DISCORD_DEFENSIE_ROLE_ID ontbreekt of organisatie is geen defensie.");
+    return;
+  }
+  const eventRoles = Array.isArray(member.roles) ? member.roles : [];
+  const cachedRoles = discordId ? gatewayMemberRolesByUser.get(discordId) || [] : [];
+  const portalPerson = discordId ? await findPortalPersonByDiscordId(discordId) : null;
+  const storedRoles = Array.isArray(portalPerson?.discordRoles) ? portalPerson.discordRoles : [];
+  const rolesToCheck = eventRoles.length ? eventRoles : (cachedRoles.length ? cachedRoles : storedRoles);
+  const hadTrackedRole = memberHasAnyTrackedRole(rolesToCheck, trackedRoleIds);
+  if (!hadTrackedRole) return;
+
+  if (discordId) {
+    gatewayMemberRolesByUser.delete(discordId);
+    gatewayVoiceStatesByUser.delete(discordId);
+  }
+
+  const payloadMember = portalPerson?.name ? { ...member, nick: portalPerson.name } : member;
+  const result = await sendDiscordLeaveLog(webhookUrl, buildDiscordLeaveLogPayload(payloadMember));
+  if (result?.ok) {
+    console.log(`[discord-bot] leave-log verstuurd voor ${discordMemberDisplayName(payloadMember)} (${discordUserTag(member.user || {})}).`);
+    return;
+  }
+  console.error(`[discord-bot] leave-log mislukt voor ${discordMemberDisplayName(payloadMember)}: ${result?.status || "onbekend"} ${result?.body || ""}`.trim());
+}
+
 function identifyPayload() {
   const intents = 1 | (guildMembersIntent ? 2 : 0) | (voiceStatesIntent ? 128 : 0);
   return {
@@ -424,12 +508,20 @@ function connectGateway() {
       return;
     }
     if (packet.t === "GUILD_CREATE") {
+      for (const member of packet.d?.members || []) captureGatewayMemberRoles(member);
       await updatePortoVoiceSnapshotFromGuild(packet.d || {});
       return;
     }
     if (packet.t === "GUILD_MEMBER_ADD") {
+      captureGatewayMemberRoles(packet.d || {});
       const discordId = packet.d?.user?.id;
       if (discordId) await enqueueDiscordSyncJob("sync_person", { discordId, reason: "guild_member_add" }, { discordId });
+    }
+    if (packet.t === "GUILD_MEMBER_UPDATE") {
+      captureGatewayMemberRoles(packet.d || {});
+    }
+    if (packet.t === "GUILD_MEMBER_REMOVE") {
+      await handleGuildMemberRemove(packet.d || {});
     }
     if (["CHANNEL_UPDATE", "VOICE_CHANNEL_STATUS_UPDATE"].includes(packet.t)) {
       const channelId = packet.d?.id || packet.d?.channel_id;
