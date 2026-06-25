@@ -198,7 +198,7 @@ function createPostgresPeopleStore(options = {}) {
   }
 
   async function upsertHourEntry(client, entry) {
-    const hoursValue = Number(entry.hours || 0);
+    const hoursValue = Number(entry.hours ?? entry.hoursValue ?? 0);
     const minutes = Number(entry.minutes || entry.durationMinutes || Math.round(hoursValue * 60) || 0);
     await client.query(`
       insert into hours(
@@ -417,7 +417,11 @@ function createPostgresPeopleStore(options = {}) {
   }
 
   async function writeManualHoursEntries(entries, activityMessages = []) {
-    // Handmatige weekuren zijn losse rijen per profiel/week, zodat bulk invoer niet de rest van de state overschrijft.
+    return writeHourEntries(entries, activityMessages);
+  }
+
+  async function writeHourEntries(entries, activityMessages = []) {
+    // Weekuren zijn losse rijen per bron, zodat klokregistratie en handmatige correcties elkaar niet overschrijven.
     await withClient(async (client) => {
       await client.query("begin");
       try {
@@ -439,7 +443,7 @@ function createPostgresPeopleStore(options = {}) {
     if (afterWrite) afterWrite();
     return entries;
   }
-  return { readState, writeState, writePersonQualifications, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeMentorChecklistGroups };
+  return { readState, writeState, writePersonQualifications, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
 }
 
 module.exports = { createPostgresPeopleStore };

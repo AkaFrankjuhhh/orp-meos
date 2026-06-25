@@ -4,6 +4,7 @@ const { enqueueDiscordSyncJob } = require("./discord-sync-jobs");
 const { currentOrganization } = require("./organizations");
 const { allSideTasks } = require("./side-tasks-config");
 const { createSideTasksStore } = require("./side-tasks-store");
+const { portoPhonebookPeople } = require("./porto-phonebook");
 
 function activePersonForAuth(state, auth) {
   return (state.people || []).find((entry) => entry.id === auth.profile.id && entry.status === "Actief");
@@ -488,6 +489,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       unit: decoratePortoUnit(state, unit),
       profile: person,
       vehicleRanges: state.portoVehicleRanges,
+      phonebook: portoPhonebookPeople(state),
       ...portoOpsPayload(state, person)
     };
     sendJson(res, 200, await attachSideTaskOverview(payload));

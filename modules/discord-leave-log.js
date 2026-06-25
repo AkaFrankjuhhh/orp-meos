@@ -53,15 +53,58 @@ function discordUserTag(user = {}) {
   return username.startsWith("@") ? username : `@${username}`;
 }
 
+function discordUserId(user = {}) {
+  return String(user.id || "").trim();
+}
+
 function discordMemberDisplayName(member = {}) {
   return String(member.nick || member.user?.global_name || member.user?.username || member.user?.id || "Onbekend").trim();
 }
 
-function buildDiscordLeaveLogPayload(member = {}) {
+const LEAVE_LOG_REASON_TEXT = {
+  leave: "Is de discord verlaten",
+  kick: "Is uit de discord gekickt",
+  ban: "Is verbannen uit de discord"
+};
+
+const LEAVE_LOG_REASON_COLOR = {
+  leave: 0xf59e0b,
+  kick: 0xef4444,
+  ban: 0x7f1d1d
+};
+
+function normalizeLeaveLogReason(reason) {
+  const value = String(reason || "").trim().toLowerCase();
+  if (value === "kick" || value === "kicked") return "kick";
+  if (value === "ban" || value === "banned") return "ban";
+  return "leave";
+}
+
+function leaveLogReasonText(reason) {
+  return LEAVE_LOG_REASON_TEXT[normalizeLeaveLogReason(reason)];
+}
+
+function buildDiscordLeaveLogPayload(member = {}, options = {}) {
   const name = discordMemberDisplayName(member);
   const tag = discordUserTag(member.user || {});
+  const discordId = discordUserId(member.user || {});
+  const mention = discordId ? `<@${discordId}>` : "Discord profiel onbekend";
+  const normalizedReason = normalizeLeaveLogReason(options.reason);
+  const reasonText = leaveLogReasonText(normalizedReason);
   return {
-    content: [`**${name}**`, tag, "Is de discord verlaten."].join("\n"),
+    embeds: [
+      {
+        title: "Leave-log",
+        color: LEAVE_LOG_REASON_COLOR[normalizedReason],
+        fields: [
+          { name: "Naam medewerker", value: name || "Onbekend", inline: false },
+          { name: "Discord-tag", value: mention || tag || "Onbekend", inline: false },
+          { name: "Discord ID", value: discordId || "Onbekend", inline: false },
+          { name: "Reden", value: reasonText, inline: false }
+        ],
+        timestamp: new Date().toISOString()
+      }
+    ],
     allowed_mentions: { parse: [] }
   };
 }
@@ -84,7 +127,10 @@ module.exports = {
   collectOrganizationDiscordRoleIds,
   discordLeaveLogWebhookUrl,
   discordMemberDisplayName,
+  discordUserId,
   discordUserTag,
+  leaveLogReasonText,
   memberHasAnyTrackedRole,
+  normalizeLeaveLogReason,
   sendDiscordLeaveLog
 };

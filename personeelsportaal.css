@@ -2778,7 +2778,7 @@ summary {
 #personeel .person-status-line {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 7px;
   margin-top: 10px;
   min-width: 0;
@@ -2809,6 +2809,38 @@ summary {
   border: 1px solid rgba(250, 204, 21, 0.62);
   background: rgba(250, 204, 21, 0.2);
   color: #fef08a;
+}
+
+#personeel .training-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+  gap: 6px;
+}
+
+#personeel .training-status-pill strong {
+  font-size: 14px;
+  line-height: 1;
+}
+
+#personeel .training-status-pill.is-complete {
+  border: 1px solid rgba(74, 222, 128, 0.48);
+  background: rgba(22, 163, 74, 0.18);
+  color: #86efac;
+}
+
+#personeel .training-status-pill.is-missing {
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
 }
 
 #personeel .person-status.active {
@@ -4848,6 +4880,27 @@ body[data-device="mobile"] .notification-panel {
 .profile-audit-log {
   display: grid;
   gap: 10px;
+}
+
+.profile-log-more-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.profile-log-more-btn {
+  min-height: 36px;
+  padding: 8px 14px;
+}
+
+.profile-log-dialog {
+  width: min(860px, calc(100vw - 32px));
+  max-height: min(82vh, 760px);
+}
+
+.profile-log-dialog-rows {
+  max-height: min(58vh, 540px);
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .profile-audit-item {

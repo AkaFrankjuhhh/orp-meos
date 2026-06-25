@@ -226,12 +226,24 @@ const publicFormConfigs = {
     accent: "#f59e0b",
     internalOnly: true,
     webhookEnv: "DISCORD_FORM_WS_WEBHOOK_URL",
+    pages: [
+      { id: "motivatie", title: "Motivatie" },
+      { id: "ervaring", title: "Ervaring" },
+      { id: "overig", title: "Overige informatie" }
+    ],
     questions: [
-      { id: "fullName", label: "Naam + achternaam (in-game)", type: "text", required: true },
-      { id: "discord", label: "Discord naam + ID", type: "text", required: true },
-      { id: "rank", label: "Huidige rang", type: "text", required: true },
-      { id: "motivation", label: "Waarom wil je bij W&S?", type: "textarea", required: true },
-      { id: "experience", label: "Welke ervaring heb je met aannames of gesprekken?", type: "textarea", required: false }
+      { id: "fullName", page: "motivatie", label: "Naam + achternaam (in-game)", type: "text", required: true },
+      { id: "discord", page: "motivatie", label: "Discord naam + ID", type: "text", required: true },
+      { id: "rank", page: "motivatie", label: "Huidige rang", type: "select", options: [...organization.ranks], required: true },
+      { id: "motivationIntro", page: "motivatie", label: "Motivatie", type: "section" },
+      { id: "motivation", page: "motivatie", label: "Waarom wil je deel uitmaken van Werving & Selectie?", type: "textarea", required: true },
+      { id: "suitability", page: "motivatie", label: "Waarom denk jij dat jij geschikt bent voor deze functie? (Minimaal 100 woorden)", type: "textarea", required: true },
+      { id: "appeal", page: "motivatie", label: "Wat spreekt jou het meeste aan binnen deze functie?", type: "textarea", required: true },
+      { id: "experienceIntro", page: "ervaring", label: "Ervaring", type: "section" },
+      { id: "organizationExperience", page: "ervaring", label: "Welke ervaring heb je binnen de organisatie die relevant is voor Werving & Selectie?", type: "textarea", required: true },
+      { id: "selectionExperience", page: "ervaring", label: "Heb je eerder ervaring gehad met werving of selectie? Zo ja, beschrijf dit.", type: "textarea", required: true },
+      { id: "otherInfoIntro", page: "overig", label: "Overige informatie", type: "section" },
+      { id: "otherRemarks", page: "overig", label: "Nog overige opmerkingen?", type: "textarea", required: true }
     ]
   },
   hovj: {

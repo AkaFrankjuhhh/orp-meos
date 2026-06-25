@@ -220,7 +220,7 @@ function openI8DetailDialog(formId, options = {}) {
       </div>
       <div class="i8-card-grid">
         ${renderI8DetailField("Locatie", form.location)}
-        ${renderI8DetailField("OPCO/OVD", form.opcoOvdName)}
+        ${renderI8DetailField("OPS - OVD/OPCO", form.opcoOvdName)}
         ${renderI8DetailField("Geweldsmiddel", form.forceUsed)}
         ${renderI8DetailField("Voertuig", form.vehicleViolence)}
         ${renderI8DetailField("Letsel derden", form.thirdPartyInjury)}

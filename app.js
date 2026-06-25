@@ -397,6 +397,71 @@ const showSiteChoice = siteNotice.showChoice;
 const escapeHtml = DefensiePortalUI.escapeHtml;
 const formatDate = DefensiePortalUI.formatDate;
 const formatDateTime = DefensiePortalUI.formatDateTime;
+
+async function showSiteTextInput({
+  title = "Invoer",
+  message = "",
+  label = "Tekst",
+  placeholder = "",
+  required = false
+} = {}) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "site-notice-dialog";
+    dialog.innerHTML = `
+      <form method="dialog" class="site-notice-card">
+        <div class="panel-head">
+          <h2>${escapeHtml(title)}</h2>
+          <button class="ghost icon" type="button" data-close>&times;</button>
+        </div>
+        ${message ? `<p class="muted">${escapeHtml(message)}</p>` : ""}
+        <label class="field">
+          <span>${escapeHtml(label)}</span>
+          <textarea rows="4" ${required ? "required" : ""} placeholder="${escapeHtml(placeholder)}"></textarea>
+        </label>
+        <menu>
+          <button class="ghost" value="cancel" type="submit">Annuleren</button>
+          <button class="primary" value="confirm" type="submit">Opslaan</button>
+        </menu>
+      </form>
+    `;
+    document.body.appendChild(dialog);
+    const textarea = dialog.querySelector("textarea");
+    DefensiePortalUI.bindAutoGrowingTextareas?.(dialog);
+    dialog.querySelector("[data-close]")?.addEventListener("click", () => dialog.close("cancel"));
+    bindDialogBackdropClose(dialog);
+    dialog.addEventListener(
+      "close",
+      () => {
+        const value = dialog.returnValue === "confirm" ? textarea.value.trim() : null;
+        dialog.remove();
+        resolve(value);
+      },
+      { once: true }
+    );
+    dialog.showModal();
+    textarea?.focus();
+  });
+}
+
+function bindDialogBackdropClose(root = document) {
+  const dialogs = root instanceof HTMLDialogElement ? [root] : [...root.querySelectorAll("dialog")];
+  dialogs.forEach((dialog) => {
+    if (dialog.dataset.backdropCloseBound === "true") return;
+    dialog.dataset.backdropCloseBound = "true";
+    dialog.addEventListener("click", (event) => {
+      if (event.target !== dialog) return;
+      const rect = dialog.getBoundingClientRect();
+      const clickedOutsideDialog =
+        event.clientX < rect.left ||
+        event.clientX > rect.right ||
+        event.clientY < rect.top ||
+        event.clientY > rect.bottom;
+      if (clickedOutsideDialog) dialog.close();
+    });
+  });
+}
+
 function formatMinutes(minutes) {
   const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
   const hours = Math.floor(safeMinutes / 60);
@@ -619,7 +684,7 @@ async function validateI8FormFields() {
     { selector: "#i8Date", label: "Datum geweldsaanwending" },
     { selector: "#i8Time", label: "Tijd geweldsaanwending" },
     { selector: "#i8Location", label: "Locatie" },
-    { selector: "#i8OpcoOvd", label: "Naam OPCO/OVD" },
+    { selector: "#i8OpcoOvd", label: "Naam: OPS - OVD/OPCO" },
     { selector: "#i8Description", label: "Beschrijving" },
     { selector: "#i8ForceUsed", label: "Gebruikte geweldsmiddel" },
     { selector: "#i8Vehicle", label: "Geweld tegen voertuig" },
@@ -1136,7 +1201,7 @@ function renderKaderNavigation() {
     element.hidden = !canManageMentorTestTemplate();
   });
   $$('[data-restricted-divider="true"]').forEach((element) => {
-    element.hidden = !(showKaderPages || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOpsTimes || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
+    element.hidden = !(showKaderPages || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
   });
   renderNavigationCounters();
   if (!showKaderPages && $("#logboek").classList.contains("active")) {
@@ -1206,7 +1271,8 @@ function hasOpenTransientMenu() {
     $(".card-menu-panel.is-context-open") ||
     $("#disciplineContextMenu:not([hidden])") ||
     $("#absenceContextMenu:not([hidden])") ||
-    $("#i8ArchiveContextMenu:not([hidden])")
+    $("#i8ArchiveContextMenu:not([hidden])") ||
+    $("#mentorTestContextMenu:not([hidden])")
   );
 }
 
@@ -1482,6 +1548,7 @@ function render() {
 }
 
 function wireEvents() {
+  bindDialogBackdropClose();
   window.addEventListener("resize", updateDeviceMode);
   window.addEventListener("resize", () => DefensiePortalUI.resizeAutoGrowingTextareas?.());
   window.addEventListener("popstate", () => applyRouteState("replace"));
@@ -1626,6 +1693,15 @@ function wireEvents() {
     openProfileBadgeDialog(sideTarget ? "side" : "main");
   });
   $("#mijn-profiel").addEventListener("click", (event) => {
+    const logMoreTarget = event.target.closest("[data-profile-log-more]");
+    if (logMoreTarget) {
+      event.preventDefault();
+      if (typeof openProfileLogDialog === "function") {
+        openProfileLogDialog(logMoreTarget.dataset.profileLogMore || "");
+      }
+      return;
+    }
+
     const sideTarget = event.target.closest("[data-profile-side-badges-manage]");
     if (!sideTarget || !canManageProfileBadges()) return;
     event.preventDefault();
@@ -1822,12 +1898,23 @@ function wireEvents() {
   $("#absenceContextMenu").addEventListener("click", (event) => {
     if (event.target.dataset.absenceContext === "delete") openDeleteAbsenceDialog();
   });
+  const hideMentorTestContextMenuIfReady = () => {
+    if (typeof hideMentorTestContextMenu === "function") hideMentorTestContextMenu();
+  };
+  $("#mentorTestContextMenu")?.addEventListener("click", (event) => {
+    const action = event.target.closest("[data-mentor-test-context]")?.dataset.mentorTestContext;
+    if (!action) return;
+    if (typeof handleMentorTestContextAction === "function") handleMentorTestContextAction(action);
+  });
   document.addEventListener("click", (event) => {
     if (!event.target.closest("#absenceContextMenu")) hideAbsenceContextMenu();
     if (!event.target.closest("#i8ArchiveContextMenu")) hideI8ArchiveContextMenu();
+    if (!event.target.closest("#mentorTestContextMenu")) hideMentorTestContextMenuIfReady();
   });
   window.addEventListener("scroll", hideAbsenceContextMenu, true);
   window.addEventListener("scroll", hideI8ArchiveContextMenu, true);
+  window.addEventListener("scroll", hideMentorTestContextMenuIfReady, true);
+  window.addEventListener("resize", hideMentorTestContextMenuIfReady);
   $("#deleteAbsenceForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const absenceId = $("#deleteAbsenceId").value || pendingAbsenceId;
@@ -1839,6 +1926,13 @@ function wireEvents() {
     }
   });
   $("#mentorSearchInput").addEventListener("input", renderMentorOverview);
+  $("#mentorOverviewList").addEventListener("contextmenu", (event) => {
+    const row = event.target.closest("[data-mentor-test-open='true']");
+    if (!row) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof openMentorTestContextMenu === "function") openMentorTestContextMenu(event, row.dataset.openMentor);
+  });
   $("#mentorOverviewList").addEventListener("click", (event) => {
     const sendButton = event.target.closest("[data-send-mentor-test]");
     if (sendButton) {
@@ -1972,6 +2066,8 @@ function wireEvents() {
   $("#leadershipLogRows")?.addEventListener("click", openI8DetailFromEvent);
   $("#closeLeadershipLogDialog")?.addEventListener("click", () => $("#leadershipLogDialog").close());
   $("#closeLeadershipLogFooter")?.addEventListener("click", () => $("#leadershipLogDialog").close());
+  $("#closeProfileLogDialog")?.addEventListener("click", () => $("#profileLogDialog")?.close());
+  $("#closeProfileLogDialogFooter")?.addEventListener("click", () => $("#profileLogDialog")?.close());
   $("#bulkHoursBtn")?.addEventListener("click", openBulkHoursDialog);
   $("#closeHoursOverviewDialog")?.addEventListener("click", () => $("#hoursOverviewDialog").close());
   $("#closeHoursOverviewFooter")?.addEventListener("click", () => $("#hoursOverviewDialog").close());
@@ -2051,6 +2147,20 @@ function wireEvents() {
   $("#memberRank").addEventListener("change", () => fillServiceSelect());
 
   $("#peopleList").addEventListener("click", async (event) => {
+    const menuButton = event.target.closest(".card-menu");
+    if (menuButton) {
+      const menu = menuButton.closest(".card-menu-wrap")?.querySelector(".card-menu-panel");
+      if (!menu) return;
+      event.stopPropagation();
+      const shouldOpen = !menu.classList.contains("is-context-open");
+      $$(".card-menu-panel.is-context-open").forEach((panel) => {
+        panel.classList.remove("is-context-open");
+        panel.closest(".card-menu-wrap")?.querySelector(".card-menu")?.setAttribute("aria-expanded", "false");
+      });
+      menu.classList.toggle("is-context-open", shouldOpen);
+      menuButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+      return;
+    }
     const openPersonProfileId = event.target.dataset.openPersonProfile;
     const editId = event.target.dataset.edit;
     const clearHistoryId = event.target.dataset.clearHistory;
@@ -2068,8 +2178,20 @@ function wireEvents() {
     }
     if (ioMarkId) {
       const person = state.people.find((entry) => entry.id === ioMarkId);
-      if (!person || !(await showSiteConfirm(`${person.name} op I.O zetten?`, "I.O melden"))) return;
-      if (await runAction(`/api/people/${encodeURIComponent(ioMarkId)}/io`, { active: true })) render();
+      if (!person) return;
+      const reason = await showSiteTextInput({
+        title: "I.O melden",
+        message: `${person.name} op I.O zetten.`,
+        label: "Reden",
+        placeholder: "Bijvoorbeeld: Inactiviteit",
+        required: true
+      });
+      if (reason === null) return;
+      if (!reason) {
+        await showSiteNotice("Vul een reden in voor de I.O melding.", "Reden verplicht");
+        return;
+      }
+      if (await runAction(`/api/people/${encodeURIComponent(ioMarkId)}/io`, { active: true, reason })) render();
     }
     if (ioClearId) {
       const person = state.people.find((entry) => entry.id === ioClearId);
@@ -2080,6 +2202,17 @@ function wireEvents() {
       const person = state.people.find((entry) => entry.id === promoteId);
       if (!person) return;
       const body = {};
+      const nextRank = typeof targetRankForAction === "function" ? targetRankForAction(person, "promote") : "";
+      if (nextRank && typeof rankTrainingStatusFor === "function") {
+        const trainingStatus = rankTrainingStatusFor(person, nextRank);
+        if (!trainingStatus.ok) {
+          const confirmed = await showSiteConfirm(
+            `Medewerker mist: ${trainingStatus.missingLabels.join(", ")}. Wil je toch promoveren?`,
+            "Weet je het zeker, medewerker heeft niet alle trainingen"
+          );
+          if (!confirmed) return;
+        }
+      }
       if (typeof requiresManualRankChangeServiceNumber === "function" && requiresManualRankChangeServiceNumber(person, "promote")) {
         const choices = serviceNumberChoicesForRankAction(person, "promote");
         if (!choices.length) {
@@ -2120,13 +2253,20 @@ function wireEvents() {
     if (!menu) return;
     event.preventDefault();
     $$(".card-menu-panel.is-context-open").forEach((panel) => {
-      if (panel !== menu) panel.classList.remove("is-context-open");
+      if (panel !== menu) {
+        panel.classList.remove("is-context-open");
+        panel.closest(".card-menu-wrap")?.querySelector(".card-menu")?.setAttribute("aria-expanded", "false");
+      }
     });
     menu.classList.add("is-context-open");
+    card.querySelector(".card-menu")?.setAttribute("aria-expanded", "true");
   });
   document.addEventListener("click", (event) => {
     if (event.target.closest(".card-menu-wrap")) return;
-    $$(".card-menu-panel.is-context-open").forEach((panel) => panel.classList.remove("is-context-open"));
+    $$(".card-menu-panel.is-context-open").forEach((panel) => {
+      panel.classList.remove("is-context-open");
+      panel.closest(".card-menu-wrap")?.querySelector(".card-menu")?.setAttribute("aria-expanded", "false");
+    });
   });
 
   $("#dismissalForm").addEventListener("submit", async (event) => {
@@ -2196,10 +2336,10 @@ function wireEvents() {
       rank: $("#memberRank").value,
       serviceNumber: $("#memberService").value,
       hiredDate: $("#memberHiredDate").value,
-      rankDate: $("#memberRankDate").value,
       promotionDate: $("#memberPromotionDate").value,
       tasks: $("#memberTasks").value.trim()
     };
+    person.rankDate = person.promotionDate || person.hiredDate;
 
     const existing = state.people.find((entry) => entry.id === id);
     const path = existing ? `/api/people/${encodeURIComponent(id)}` : "/api/people";

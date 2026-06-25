@@ -701,8 +701,7 @@ button.employee-row:hover {
   box-shadow: var(--shadow);
 }
 
-.card-menu-wrap:hover .card-menu-panel,
-.card-menu-wrap:focus-within .card-menu-panel {
+.card-menu-panel.is-context-open {
   display: grid;
   gap: 4px;
 }
@@ -2794,6 +2793,46 @@ summary {
 #personeel .person-status.absent {
   background: rgba(56, 189, 248, 0.15);
   color: #38bdf8;
+}
+
+#personeel .discord-sync-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 3px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.42);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+#personeel .discord-sync-badge.synced {
+  border-color: rgba(34, 197, 94, 0.38);
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+}
+
+#personeel .discord-sync-badge.role_missing,
+#personeel .discord-sync-badge.retry_planned {
+  border-color: rgba(245, 158, 11, 0.42);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+}
+
+#personeel .discord-sync-badge.missing_permissions,
+#personeel .discord-sync-badge.hierarchy,
+#personeel .discord-sync-badge.failed {
+  border-color: rgba(239, 68, 68, 0.42);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+}
+
+#personeel .discord-sync-badge.skipped {
+  color: #cbd5e1;
 }
 
 #personeel .person-meta span {

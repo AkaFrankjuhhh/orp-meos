@@ -5,6 +5,7 @@ let mentorAuditDetailPersonId = "";
 let mentorSelfTestCache = null;
 let mentorTestsReviewCache = null;
 let mentorTestTemplateCache = null;
+let pendingMentorTestPersonId = "";
 const leadershipPeriodLabels = {
   week: "Afgelopen week",
   month: "Afgelopen maand",
@@ -210,7 +211,9 @@ function renderMentorOverview() {
           const checklist = mentorChecklistFor(person);
           const completedItems = checklist.items.filter((item) => item.checked).length;
           return `
-            <div class="mentor-row mentor-row-button" role="button" tabindex="0" data-open-mentor="${person.id}">
+            <div class="mentor-row mentor-row-button" role="button" tabindex="0" data-open-mentor="${person.id}" data-mentor-test-open="${
+              checklist.testSent && !checklist.testApproved ? "true" : "false"
+            }">
               <strong>${escapeHtml(person.name)}</strong>
               <span>${escapeHtml(person.rank)}</span>
               <span>${escapeHtml(formatDate(hiredDateFor(person)))}</span>
@@ -518,6 +521,7 @@ function mentorTestStatusLabel(status) {
   if (status === "approved") return "Goedgekeurd";
   if (status === "rejected") return "Afgekeurd";
   if (status === "cancelled") return "Vervangen";
+  if (status === "retracted") return "Teruggetrokken";
   return status || "-";
 }
 
@@ -623,10 +627,61 @@ async function sendMentorTest(personId) {
   if (!confirmed) return;
   const ok = await runAction("/api/mentor-tests/send", { personId });
   if (!ok) return;
+  refreshMentorTestViews();
+}
+
+function refreshMentorTestViews() {
   mentorTestsReviewCache = null;
   mentorSelfTestCache = null;
   renderMentorOverview();
   renderMentorTestsOverview();
+}
+
+function hideMentorTestContextMenu() {
+  const menu = $("#mentorTestContextMenu");
+  if (!menu) return;
+  menu.hidden = true;
+  pendingMentorTestPersonId = "";
+}
+
+function openMentorTestContextMenu(event, personId) {
+  const menu = $("#mentorTestContextMenu");
+  if (!menu || !personId || !canViewMentorLeadershipLog()) return;
+  pendingMentorTestPersonId = personId;
+  menu.hidden = false;
+  const width = menu.offsetWidth || 240;
+  const height = menu.offsetHeight || 120;
+  const left = Math.min(event.clientX, window.innerWidth - width - 12);
+  const top = Math.min(event.clientY, window.innerHeight - height - 12);
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+}
+
+async function resendMentorTest(personId = pendingMentorTestPersonId) {
+  const person = state.people.find((entry) => entry.id === personId);
+  if (!person) return;
+  const confirmed = await showSiteConfirm(`Mentor-toets opnieuw versturen naar ${person.name}?`, "Toets opnieuw versturen");
+  if (!confirmed) return;
+  const ok = await runAction("/api/mentor-tests/resend", { personId });
+  if (!ok) return;
+  refreshMentorTestViews();
+}
+
+async function retractMentorTest(personId = pendingMentorTestPersonId) {
+  const person = state.people.find((entry) => entry.id === personId);
+  if (!person) return;
+  const confirmed = await showSiteConfirm(`Mentor-toets van ${person.name} terugtrekken?`, "Toets terugtrekken");
+  if (!confirmed) return;
+  const ok = await runAction("/api/mentor-tests/retract", { personId });
+  if (!ok) return;
+  refreshMentorTestViews();
+}
+
+async function handleMentorTestContextAction(action) {
+  const personId = pendingMentorTestPersonId;
+  hideMentorTestContextMenu();
+  if (action === "resend") await resendMentorTest(personId);
+  if (action === "retract") await retractMentorTest(personId);
 }
 
 async function fetchMentorTestTemplate() {

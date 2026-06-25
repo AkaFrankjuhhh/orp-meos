@@ -226,6 +226,145 @@ function renderPersonnelHourBadges(person) {
   `;
 }
 
+const PROMOTION_TASK_REQUIREMENT_KEY = "__PROMOTION_TASK__";
+const PROMOTION_TASK_REQUIREMENT_LABEL = "Mentor/Trainer/Interne-Zaken/hOvJ/W&S";
+const MAJOR_LEADERSHIP_REQUIREMENT_KEY = "__MAJOR_LEADERSHIP__";
+const MAJOR_LEADERSHIP_REQUIREMENT_LABEL = "Directie/Teamchef/Coördinator/OVJ/leidingfunctie";
+const PROMOTION_TASK_BADGES = [
+  "Mentor",
+  "Mentor-Leiding",
+  "Trainer",
+  "Trainer-Leiding",
+  "Interne-Zaken",
+  "hOvJ",
+  "W&S",
+  "W&S-Leiding"
+];
+const MAJOR_LEADERSHIP_BADGES = [
+  "Directie",
+  "Teamchef",
+  "Coördinator",
+  "OvJ",
+  "OVJ",
+  "hOvJ",
+  "DSI-Leiding",
+  "HRB-Leiding",
+  "KLu-Leiding",
+  "DNR-Leiding",
+  "IZ-Leiding",
+  "Interne-Zaken-Leiding",
+  "Trainer-Leiding",
+  "Mentor-Leiding",
+  "W&S-Leiding",
+  "OTC-Leiding"
+];
+
+function requirementName(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function listRequirementValues(value) {
+  if (Array.isArray(value)) return value.flatMap(listRequirementValues);
+  if (typeof value === "string") {
+    return value.split(",").map((entry) => entry.trim()).filter(Boolean);
+  }
+  if (value && typeof value === "object") {
+    return Object.values(value)
+      .filter((entry) => typeof entry === "string" || Array.isArray(entry))
+      .flatMap(listRequirementValues);
+  }
+  return [];
+}
+
+function completedTrainingNamesFor(person) {
+  return new Set([
+    ...listRequirementValues(person?.completedTrainings),
+    ...listRequirementValues(person?.completedOperational)
+  ].map(requirementName));
+}
+
+function badgeNamesFor(person) {
+  return new Set([
+    ...listRequirementValues(person?.badges),
+    ...listRequirementValues(person?.extraTasks),
+    ...listRequirementValues(person?.extraFunctions),
+    ...listRequirementValues(person?.tasks)
+  ].map(requirementName));
+}
+
+function hasPromotionTaskBadge(person) {
+  const badges = badgeNamesFor(person);
+  return PROMOTION_TASK_BADGES.some((badge) => badges.has(requirementName(badge)));
+}
+
+function hasMajorLeadershipBadge(person) {
+  const badges = badgeNamesFor(person);
+  return MAJOR_LEADERSHIP_BADGES.some((badge) => badges.has(requirementName(badge)));
+}
+
+function trainingRequirementsForRank(rank) {
+  const requirements = window.DefensiePortalData?.rankTrainingRequirements?.[rank] || [];
+  return Array.isArray(requirements) ? requirements : [];
+}
+
+function trainingRequirementLabel(requirement) {
+  if (requirement === PROMOTION_TASK_REQUIREMENT_KEY) return PROMOTION_TASK_REQUIREMENT_LABEL;
+  if (requirement === MAJOR_LEADERSHIP_REQUIREMENT_KEY) return MAJOR_LEADERSHIP_REQUIREMENT_LABEL;
+  return String(requirement || "");
+}
+
+function rankTrainingStatusFor(person, rank = person?.rank) {
+  if ((organizationConfig?.key || "defensie") !== "defensie") return { ok: true, missingLabels: [], rank };
+  const completed = completedTrainingNamesFor(person);
+  const missingLabels = [];
+  for (const requirement of trainingRequirementsForRank(rank)) {
+    if (requirement === PROMOTION_TASK_REQUIREMENT_KEY) {
+      if (!hasPromotionTaskBadge(person)) missingLabels.push(PROMOTION_TASK_REQUIREMENT_LABEL);
+      continue;
+    }
+    if (requirement === MAJOR_LEADERSHIP_REQUIREMENT_KEY) {
+      if (!hasMajorLeadershipBadge(person)) missingLabels.push(MAJOR_LEADERSHIP_REQUIREMENT_LABEL);
+      continue;
+    }
+    if (!completed.has(requirementName(requirement))) {
+      missingLabels.push(trainingRequirementLabel(requirement));
+    }
+  }
+  return {
+    ok: missingLabels.length === 0,
+    missingLabels: [...new Set(missingLabels)],
+    rank
+  };
+}
+
+function renderTrainingRequirementBadge(person) {
+  if ((organizationConfig?.key || "defensie") !== "defensie") return "";
+  if (typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person)) return "";
+  const trainingStatus = rankTrainingStatusFor(person);
+  const title = trainingStatus.ok
+    ? "Alle verplichte trainingen en badges voor deze rang zijn behaald."
+    : `Mist: ${trainingStatus.missingLabels.join(", ")}`;
+  return `
+    <span class="training-status-pill ${trainingStatus.ok ? "is-complete" : "is-missing"}" title="${escapeHtml(title)}">
+      <span>Trainingen behaald:</span>
+      <strong aria-hidden="true">${trainingStatus.ok ? "&#10003;" : "&#10005;"}</strong>
+    </span>
+  `;
+}
+
+function renderDiscordSyncStatusBadge(person) {
+  const sync = person.discordSyncStatus;
+  if (!sync?.label) return "";
+  const state = String(sync.state || "failed").replace(/[^a-z0-9_-]/gi, "").toLowerCase() || "failed";
+  const updated = sync.updatedAt && typeof formatDateTime === "function" ? formatDateTime(sync.updatedAt) : "";
+  const title = [
+    sync.message || sync.label,
+    sync.reason ? `Reden: ${sync.reason}` : "",
+    updated ? `Bijgewerkt: ${updated}` : ""
+  ].filter(Boolean).join(" - ");
+  return `<span class="discord-sync-badge ${state}" title="${escapeHtml(title)}">Discord: ${escapeHtml(sync.label)}</span>`;
+}
+
 function personnelOpsHoursForTop(person) {
   return personnelOpsHoursLastWeeks(person, 2);
 }
@@ -275,7 +414,7 @@ function renderPersonnelCard(person) {
   return `
       <article class="person-card" data-person-card="${person.id}">
         <div class="card-menu-wrap">
-          <button class="card-menu" type="button" aria-label="Meer opties">...</button>
+          <button class="card-menu" type="button" aria-label="Meer opties" aria-expanded="false">...</button>
           <div class="card-menu-panel">
             <button type="button" data-open-person-profile="${person.id}">Profiel openen</button>
             ${canManageInvestigationStatus() && person.status === "Actief" ? (person.ioStatus?.active
@@ -297,6 +436,8 @@ function renderPersonnelCard(person) {
             <div class="person-status-line">
               <span class="person-status ${status.className}" title="${escapeHtml(statusTitle)}">${escapeHtml(status.label)}</span>
               ${renderPersonnelHourBadges(person)}
+              ${renderTrainingRequirementBadge(person)}
+              ${renderDiscordSyncStatusBadge(person)}
             </div>
           </div>
         </div>
@@ -361,7 +502,7 @@ function renderPeople() {
   const query = $("#searchInput")?.value.toLowerCase() || "";  const people = state.people
     .filter((person) => person.status === "Actief")
     .filter((person) => {
-      const haystack = `${person.name} ${person.rank} ${person.serviceNumber} ${person.permRole}`.toLowerCase();
+      const haystack = `${person.name} ${person.rank} ${person.serviceNumber} ${person.discordId} ${person.discord_id} ${person.permRole}`.toLowerCase();
       return haystack.includes(query);
     })
     .sort((a, b) => {
@@ -445,7 +586,7 @@ function renderEmployeeDirectory() {
   const people = state.people
     .filter((person) => person.status === "Actief")
     .filter((person) => {
-      const haystack = `${person.name} ${person.rank} ${person.serviceNumber}`.toLowerCase();
+      const haystack = `${person.name} ${person.rank} ${person.serviceNumber} ${person.discordId} ${person.discord_id}`.toLowerCase();
       return haystack.includes(query);
     })
     .sort((a, b) => {
@@ -529,8 +670,7 @@ function openMemberDialog(person = null) {
   $("#memberAvatar").value = person?.avatar || "";
   $("#memberRank").value = person?.rank || fallbackRank;
   $("#memberHiredDate").value = person?.hiredDate || person?.rankHistory?.[0]?.date || person?.rankDate || today;
-  $("#memberRankDate").value = person?.rankDate || today;
-  $("#memberPromotionDate").value = person?.promotionDate || today;
+  $("#memberPromotionDate").value = person?.promotionDate || person?.rankDate || today;
   $("#memberTasks").value = person?.tasks || "";
   fillServiceSelect(person?.serviceNumber || "");
   $("#memberDialog").showModal();

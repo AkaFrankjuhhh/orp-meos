@@ -168,6 +168,78 @@ function renderProfileDistinctions(person) {
     .join("");
 }
 
+const PROFILE_LOG_PREVIEW_LIMIT = 3;
+const profileLogDialogState = new Map();
+
+function profileAuditEntryHtml(entry) {
+  return `
+    <article class="profile-audit-item">
+      <div>
+        <strong>${escapeHtml(entry.action || "Profielactie")}</strong>
+        <span>${escapeHtml(formatDateTime(entry.createdAt))}</span>
+      </div>
+      <p>${escapeHtml(entry.details || "-")}</p>
+      <small>Door: ${escapeHtml(entry.actorName || "Onbekend")}</small>
+    </article>
+  `;
+}
+
+function profileAbsenceEntryHtml(entry) {
+  const status = typeof absenceStatus === "function" ? absenceStatus(entry) : (entry.status || "In afwachting");
+  const reviewedText = entry.reviewedAt
+    ? `Beoordeeld door: ${entry.reviewedByName || "Onbekend"} op ${formatDateTime(entry.reviewedAt)}`
+    : `Aangevraagd op: ${formatDateTime(entry.requestedAt)}`;
+  return `
+    <article class="profile-audit-item profile-absence-item">
+      <div>
+        <strong>${escapeHtml(status)}</strong>
+        <span>${escapeHtml(formatDate(entry.from))} t/m ${escapeHtml(formatDate(entry.to))}</span>
+      </div>
+      <p>${escapeHtml(entry.reason || "Geen reden opgegeven")}</p>
+      <small>${escapeHtml(reviewedText)}</small>
+    </article>
+  `;
+}
+
+function renderProfileLogPreview(container, key, options) {
+  const entries = options.entries || [];
+  if (!entries.length) {
+    container.innerHTML = `<div class="feed-item">${escapeHtml(options.emptyText)}</div>`;
+    profileLogDialogState.delete(key);
+    return;
+  }
+
+  profileLogDialogState.set(key, options);
+  const previewHtml = entries.slice(0, PROFILE_LOG_PREVIEW_LIMIT).map(options.renderEntry).join("");
+  const remainingCount = Math.max(0, entries.length - PROFILE_LOG_PREVIEW_LIMIT);
+  const moreButton = remainingCount > 0
+    ? `
+      <div class="profile-log-more-row">
+        <button class="ghost small profile-log-more-btn" type="button" data-profile-log-more="${escapeHtml(key)}">
+          Meer (${remainingCount})
+        </button>
+      </div>
+    `
+    : "";
+  container.innerHTML = `${previewHtml}${moreButton}`;
+}
+
+function openProfileLogDialog(key) {
+  const stateForDialog = profileLogDialogState.get(key);
+  const dialog = $("#profileLogDialog");
+  const title = $("#profileLogDialogTitle");
+  const subtitle = $("#profileLogDialogSubtitle");
+  const rows = $("#profileLogDialogRows");
+  if (!stateForDialog || !dialog || !title || !subtitle || !rows) return;
+
+  title.textContent = stateForDialog.title;
+  subtitle.textContent = stateForDialog.subtitle || "";
+  rows.innerHTML = stateForDialog.entries.length
+    ? stateForDialog.entries.map(stateForDialog.renderEntry).join("")
+    : `<div class="feed-item">${escapeHtml(stateForDialog.emptyText)}</div>`;
+  dialog.showModal();
+}
+
 function renderProfileAuditLog(person) {
   const panel = $("#profileAuditPanel");
   const list = $("#profileAuditLog");
@@ -176,43 +248,28 @@ function renderProfileAuditLog(person) {
   const canView = canViewProfileAuditLog();
   panel.hidden = !canView;
   if (!canView) return;
+  profileLogDialogState.clear();
   const entries = (Array.isArray(person.profileLog) ? [...person.profileLog] : [])
     .filter((entry) => ["qualification", "badges", "profile"].includes(entry.type || "profile"));
   entries.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  list.innerHTML = entries.length
-    ? entries.slice(0, 40).map((entry) => `
-      <article class="profile-audit-item">
-        <div>
-          <strong>${escapeHtml(entry.action || "Profielactie")}</strong>
-          <span>${escapeHtml(formatDateTime(entry.createdAt))}</span>
-        </div>
-        <p>${escapeHtml(entry.details || "-")}</p>
-        <small>Door: ${escapeHtml(entry.actorName || "Onbekend")}</small>
-      </article>
-    `).join("")
-    : '<div class="feed-item">Geen trainer- of badgeacties gevonden.</div>';
+  renderProfileLogPreview(list, "profile-audit", {
+    title: "Trainer/Badge Logboek",
+    subtitle: person ? `${person.name || "Onbekend"} - volledig overzicht` : "Volledig overzicht",
+    entries,
+    emptyText: "Geen trainer- of badgeacties gevonden.",
+    renderEntry: profileAuditEntryHtml
+  });
 
   const absenceEntries = (state.absences || [])
     .filter((entry) => entry.memberId === person.id)
     .sort((a, b) => Date.parse(b.reviewedAt || b.requestedAt || b.to || b.from || 0) - Date.parse(a.reviewedAt || a.requestedAt || a.to || a.from || 0));
-  absenceList.innerHTML = absenceEntries.length
-    ? absenceEntries.slice(0, 80).map((entry) => {
-      const status = typeof absenceStatus === "function" ? absenceStatus(entry) : (entry.status || "In afwachting");
-      const reviewedText = entry.reviewedAt
-        ? `Beoordeeld door: ${entry.reviewedByName || "Onbekend"} op ${formatDateTime(entry.reviewedAt)}`
-        : `Aangevraagd op: ${formatDateTime(entry.requestedAt)}`;
-      return `
-        <article class="profile-audit-item profile-absence-item">
-          <div>
-            <strong>${escapeHtml(status)}</strong>
-            <span>${escapeHtml(formatDate(entry.from))} t/m ${escapeHtml(formatDate(entry.to))}</span>
-          </div>
-          <p>${escapeHtml(entry.reason || "Geen reden opgegeven")}</p>
-          <small>${escapeHtml(reviewedText)}</small>
-        </article>
-      `;
-    }).join("")
-    : '<div class="feed-item">Geen afwezigheden gevonden.</div>';
+  renderProfileLogPreview(absenceList, "profile-absence", {
+    title: "Afwezigheid logboek",
+    subtitle: person ? `${person.name || "Onbekend"} - volledig overzicht` : "Volledig overzicht",
+    entries: absenceEntries,
+    emptyText: "Geen afwezigheden gevonden.",
+    renderEntry: profileAbsenceEntryHtml
+  });
 }
 
 function activeDisciplineEntries(person) {
@@ -438,7 +495,7 @@ function openProfileBadgeDialog(mode = "main") {
         </label>
       `)
       .join("")
-    : `<div class="muted">${isSideMode ? "Deze neventaken staan los van de standaard profielbadges." : "Alleen Kader kan Kader, Hoofdofficier en Officiersraad toewijzen."}</div>`;
+    : `<div class="muted">${isSideMode ? "Deze neventaken staan los van de standaard profielbadges." : "Alleen Kader kan functie-badges toewijzen."}</div>`;
   $("#profileBadgeTaskOptions").innerHTML = extraTasks
     .filter((task) => isSideMode ? sideTaskSet.has(task) : !sideTaskSet.has(task))
     .map((task) => `

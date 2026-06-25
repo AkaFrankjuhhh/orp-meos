@@ -37,11 +37,13 @@ function applyPortoPayload(payload, options = {}) {
   portoLinkableUnits = payload.linkableUnits || [];
   portoActiveUnits = payload.activeUnits || [];
   portoSideTaskOverview = payload.sideTaskOverview || [];
+  portoPhonebook = Array.isArray(payload.phonebook) ? payload.phonebook : portoPhonebook;
   portoDiscordChannels = payload.discordChannels || [];
   portoDiscordChannelGroups = payload.discordChannelGroups || [];
   portoMapEnabled = Boolean(payload.mapEnabled);
   portoOpsLog = payload.opsLog || [];
   portoVehicleRanges = payload.vehicleRanges || portoVehicleRanges;
+  if ($("#portoPhonebookDialog")?.open) renderPortoPhonebook();
 }
 
 function isCurrentOpsUser() {

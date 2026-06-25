@@ -248,6 +248,65 @@ function createMentorTestsStore() {
     });
   }
 
+  async function resendOpenForPerson({ organization, personId, actor }) {
+    const now = new Date().toISOString();
+    const result = await withClient((client) => client.query(
+      `update mentor_tests
+       set status = 'sent',
+           sent_by_id = $3,
+           sent_by_name = $4,
+           sent_at = $5,
+           updated_at = $5
+       where id = (
+         select id
+         from mentor_tests
+         where organization = $1
+           and person_id = $2
+           and status in ('sent', 'submitted')
+         order by updated_at desc, sent_at desc
+         limit 1
+       )
+       returning *`,
+      [organization, personId, actor?.id || "", actor?.name || "", now]
+    ));
+    if (!result.rows[0]) {
+      const error = new Error("Er staat geen open mentor-toets klaar.");
+      error.status = 404;
+      throw error;
+    }
+    return rowToTest(result.rows[0]);
+  }
+
+  async function retractOpenForPerson({ organization, personId, actor }) {
+    const now = new Date().toISOString();
+    const result = await withClient((client) => client.query(
+      `update mentor_tests
+       set status = 'retracted',
+           reviewed_by_id = $3,
+           reviewed_by_name = $4,
+           reviewed_at = $5,
+           review_note = 'Mentor-toets teruggetrokken.',
+           updated_at = $5
+       where id = (
+         select id
+         from mentor_tests
+         where organization = $1
+           and person_id = $2
+           and status in ('sent', 'submitted')
+         order by updated_at desc, sent_at desc
+         limit 1
+       )
+       returning *`,
+      [organization, personId, actor?.id || "", actor?.name || "", now]
+    ));
+    if (!result.rows[0]) {
+      const error = new Error("Er staat geen open mentor-toets klaar.");
+      error.status = 404;
+      throw error;
+    }
+    return rowToTest(result.rows[0]);
+  }
+
   async function submit({ organization, personId, answers }) {
     const now = new Date().toISOString();
     return withTransaction(async (client) => {
@@ -327,6 +386,8 @@ function createMentorTestsStore() {
     latestOpenForPerson,
     list,
     createOrReset,
+    resendOpenForPerson,
+    retractOpenForPerson,
     submit,
     review
   };

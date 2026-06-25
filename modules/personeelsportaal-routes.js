@@ -7,6 +7,15 @@ const {
   isOvcFunctionBadge,
   normalizeOvcFunctionBadges
 } = require("./ovc");
+const {
+  dateOnly,
+  absenceIsActiveOnDate,
+  normalizeAbsenceDrivenPeopleStatuses,
+  applyManualAbsenceStatusSource
+} = require("./absence-status");
+const { markNotificationsRead, clearNotifications } = require("./notifications");
+const { mentorReviewStateForStatus } = require("./mentor-tests-logic");
+const { setDiscordSyncStatus, syncStatusFromError } = require("./discord-sync-status");
 
 function createPersoneelsportaalRouteHandler(deps) {
   const organization = currentOrganization();
@@ -53,6 +62,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     buildDismissalWebhookPayload,
     buildResignationFormWebhookPayload,
     buildBlacklistWebhookPayload,
+    buildInvestigationWebhookPayload,
     mentorTestsStore,
     mentorTestWebhookUrl,
     buildMentorTestWebhookPayload,
@@ -186,8 +196,24 @@ function createPersoneelsportaalRouteHandler(deps) {
     return "";
   }
 
+  function currentDateOnly() {
+    return dateOnly(today()) || new Date().toISOString().slice(0, 10);
+  }
+
+  function absenceIsActiveToday(absence, current = currentDateOnly()) {
+    return absenceIsActiveOnDate(absence, current);
+  }
+
+  async function normalizeAbsenceDrivenPeopleStatusesIfNeeded(state) {
+    if (!Array.isArray(state?.people)) return;
+    if (!normalizeAbsenceDrivenPeopleStatuses(state, currentDateOnly())) return;
+    await Promise.resolve(peopleStorage.writeState(state));
+  }
+
   async function readFormsState() {
-    return Promise.resolve(formsStorage.readState());
+    const state = await Promise.resolve(formsStorage.readState());
+    await normalizeAbsenceDrivenPeopleStatusesIfNeeded(state);
+    return state;
   }
 
   async function persistFormsStateMutation(state, targetedWrite) {
@@ -210,6 +236,7 @@ function createPersoneelsportaalRouteHandler(deps) {
 
   async function sendFormsStateAfterMutation(res, auth, state, targetedWrite) {
     await persistFormsStateMutation(state, targetedWrite);
+    await normalizeAbsenceDrivenPeopleStatusesIfNeeded(state);
     sendFormsStateResponse(res, auth, state);
   }
 
@@ -223,10 +250,13 @@ function createPersoneelsportaalRouteHandler(deps) {
   }
 
   async function readPeopleState() {
-    return Promise.resolve(peopleStorage.readState());
+    const state = await Promise.resolve(peopleStorage.readState());
+    await normalizeAbsenceDrivenPeopleStatusesIfNeeded(state);
+    return state;
   }
 
   async function sendPeopleStateAfterMutation(res, auth, state) {
+    normalizeAbsenceDrivenPeopleStatuses(state, currentDateOnly());
     await Promise.resolve(peopleStorage.writeState(state));
     const permissions = permissionsForAuth(auth, state);
     sendJson(res, 200, {
@@ -347,6 +377,24 @@ function createPersoneelsportaalRouteHandler(deps) {
       }
     } catch (error) {
       state.activity.push(`Blacklist webhook kon niet verzonden worden voor ${entry.name}.`);
+    }
+  }
+
+  async function sendInvestigationWebhook(state, person, actor) {
+    if (typeof buildInvestigationWebhookPayload !== "function") return;
+    state.activity = state.activity || [];
+    try {
+      const webhookResult = await sendDiscordWebhook(
+        personnelWebhookUrl("io"),
+        buildInvestigationWebhookPayload(person, person.ioStatus, actor)
+      );
+      if (webhookResult.ok) {
+        state.activity.push(`I.O webhook verzonden voor ${person.name}.`);
+      } else if (!webhookResult.skipped) {
+        state.activity.push(`I.O webhook kon niet verzonden worden voor ${person.name}.`);
+      }
+    } catch (error) {
+      state.activity.push(`I.O webhook kon niet verzonden worden voor ${person.name}.`);
     }
   }
 
@@ -510,7 +558,10 @@ function createPersoneelsportaalRouteHandler(deps) {
 
   async function queuePersonDiscordSync(state, person, reason) {
     if (typeof enqueuePersonDiscordSync !== "function" || !person?.discordId) return;
-    if (!person.rank || !person.serviceNumber) return;
+    if (!person.rank || !person.serviceNumber) {
+      setDiscordSyncStatus(person, "skipped", "Rang of dienstnummer ontbreekt.", reason);
+      return;
+    }
     try {
       const isNewHire = ["recruitment_hire", "person_created"].includes(reason);
       const roleWaitMaxAttempts = Number(process.env.DISCORD_REQUIRED_ROLE_MAX_ATTEMPTS || 288);
@@ -518,9 +569,17 @@ function createPersoneelsportaalRouteHandler(deps) {
         // New recruits often receive their organization role shortly after their portal profile.
         maxAttempts: isNewHire && Number.isFinite(roleWaitMaxAttempts) ? Math.max(1, Math.floor(roleWaitMaxAttempts)) : undefined
       });
+      setDiscordSyncStatus(
+        person,
+        "retry_planned",
+        isNewHire ? "Wacht op organisatie-rol of eerstvolgende worker-run." : "Sync staat in wachtrij.",
+        reason
+      );
       state.activity = state.activity || [];
       state.activity.push(`Discord profielsync ingepland voor ${person.name}${isNewHire ? "; wacht indien nodig op de organisatie-rol" : ""}.`);
     } catch (error) {
+      const syncStatus = syncStatusFromError(error);
+      setDiscordSyncStatus(person, syncStatus.state, syncStatus.message, reason);
       state.activity = state.activity || [];
       state.activity.push(`Discord profielsync inplannen mislukt voor ${person.name}: ${error.message || "onbekende fout"}.`);
     }
@@ -547,6 +606,36 @@ function createPersoneelsportaalRouteHandler(deps) {
       `Personeelslid: ${member?.serviceNumber || "-"} - ${member?.name || "Onbekend"}`,
       `Periode: ${absencePeriodText(absence)}`,
       reviewer?.name ? `Beoordeeld door: ${reviewer.name}` : ""
+    ].filter(Boolean).join("\n");
+  }
+
+  function portalBaseUrl() {
+    const configuredUrl = String(process.env.APP_BASE_URL || process.env.PUBLIC_BASE_URL || "").trim();
+    if (configuredUrl) return configuredUrl.replace(/\/+$/, "");
+    return organization.key === "politie" ? "https://orppolitie.nl" : "https://orpdefensie.nl";
+  }
+
+  function buildI8StatusDm(form, formNumber, status, reviewer) {
+    const statusText = status === "approved"
+      ? "goedgekeurd"
+      : status === "rejected"
+        ? "afgekeurd"
+        : "in behandeling genomen";
+    return [
+      `Je I8 formulier ${formNumber} is ${statusText}.`,
+      `Personeelslid: ${form?.serviceNumber || "-"} - ${form?.personName || "Onbekend"}`,
+      reviewer?.name ? `Door: ${reviewer.name}` : "",
+      form?.location ? `Locatie: ${form.location}` : "",
+      status === "rejected" && form?.rejectionReason ? `Reden: ${form.rejectionReason}` : ""
+    ].filter(Boolean).join("\n");
+  }
+
+  function buildMentorTestSentDm(person, actor) {
+    return [
+      "Je mentor-toets staat klaar.",
+      `Personeelslid: ${person?.serviceNumber || "-"} - ${person?.name || "Onbekend"}`,
+      actor?.name ? `Verstuurd door: ${actor.name}` : "",
+      `Log in op ${portalBaseUrl()} en open Mentor-Toetsen om de toets te maken.`
     ].filter(Boolean).join("\n");
   }
 
@@ -772,10 +861,7 @@ function createPersoneelsportaalRouteHandler(deps) {
         return;
       }
       const now = new Date().toISOString();
-      person.notifications = (Array.isArray(person.notifications) ? person.notifications : []).map((notification) => ({
-        ...notification,
-        readAt: notification.readAt || now
-      }));
+      markNotificationsRead(person, now);
       await persistPersonNotifications(person, state);
       const permissions = permissionsForAuth(auth, state);
       sendJson(res, 200, {
@@ -795,7 +881,7 @@ function createPersoneelsportaalRouteHandler(deps) {
         sendJson(res, 404, { error: "Profiel niet gevonden." });
         return;
       }
-      person.notifications = [];
+      clearNotifications(person);
       await persistPersonNotifications(person, state);
       const permissions = permissionsForAuth(auth, state);
       sendJson(res, 200, {
@@ -882,6 +968,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const todayValue = today();
     const reason = String(form.reason || "Ontslagformulier verwerkt.").trim();
     person.status = "Ontslagen";
+    applyManualAbsenceStatusSource(person, person.status);
     person.dismissalDate = todayValue;
     person.dismissalReason = reason;
     person.archivedUntil = addMonths(todayValue, 6);
@@ -1329,6 +1416,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const actionLabel = status === "approved" ? "goedgekeurd" : status === "rejected" ? "afgekeurd" : "in behandeling gezet";
     const formNumber = i8NumberForServer(form, state.i8Forms);
     const activityMessage = `${reviewer.name} heeft I8 ${formNumber} van ${form.personName || "Onbekend"} ${actionLabel}.`;
+    const activityMessages = [activityMessage];
     state.activity.push(activityMessage);
     const formOwner = (state.people || []).find((entry) => entry.id === form.personId);
     if (formOwner) {
@@ -1339,12 +1427,19 @@ function createPersoneelsportaalRouteHandler(deps) {
         meta: { i8FormId: form.id, i8Number: formNumber, status }
       });
       await persistPersonNotifications(formOwner, state);
+      await queueDiscordDmForPerson(
+        state,
+        formOwner,
+        buildI8StatusDm(form, formNumber, status, reviewer),
+        `i8_${status}`,
+        activityMessages
+      );
     }
     await sendFormsStateAfterMutation(
       res,
       auth,
       state,
-      typeof formsStorage.updateI8Form === "function" ? () => formsStorage.updateI8Form(form, [activityMessage]) : null
+      typeof formsStorage.updateI8Form === "function" ? () => formsStorage.updateI8Form(form, activityMessages) : null
     );
     return;
   }
@@ -1534,6 +1629,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 400, { error: result.error });
       return;
     }
+    applyManualAbsenceStatusSource(result.person, result.person.status);
 
     const recruiter = (state.people || []).find((person) => person.id === auth.profile.id) || auth.profile;
     state.activity = state.activity || [];
@@ -1587,6 +1683,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 400, { error: result.error });
       return;
     }
+    applyManualAbsenceStatusSource(result.person, result.person.status);
     // Nieuwe Kader-aanmaak gebruikt dezelfde aanname-webhook als W&S, zonder Discord ID in de embed.
     if (!existingBeforeSave) {
       const recruiter = (state.people || []).find((person) => person.id === auth.profile.id) || auth.profile;
@@ -1633,6 +1730,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 400, { error: result.error });
       return;
     }
+    applyManualAbsenceStatusSource(result.person, result.person.status);
     await syncChangedDiscordNicknames(state, previousNicknames);
     await syncChangedDiscordRankRoles(state, previousRankRoles);
     await queuePersonDiscordSync(state, result.person, "person_updated");
@@ -2121,9 +2219,109 @@ function createPersoneelsportaalRouteHandler(deps) {
         details: "Toets is beschikbaar voor de medewerker."
       });
       await sendMentorTestWebhook("sent", { person, actor, test });
+      await queueDiscordDmForPerson(
+        state,
+        person,
+        buildMentorTestSentDm(person, actor),
+        "mentor_test_sent"
+      );
       await sendPeopleStateAfterMutation(res, auth, state);
     } catch (error) {
       sendJson(res, error.status || 500, { error: error.message || "Mentor-toets sturen is mislukt." });
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/mentor-tests/resend" && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!canReviewMentorTests(permissions)) {
+      sendJson(res, 403, { error: "Geen toegang om mentor-toetsen opnieuw te versturen." });
+      return;
+    }
+    const body = await readBody(req);
+    const personId = String(body.personId || "").trim();
+    const person = (state.people || []).find((entry) => entry.id === personId && entry.status === "Actief");
+    if (!person || !mentorRanks.includes(person.rank)) {
+      sendJson(res, 404, { error: "Mentor-traject niet gevonden." });
+      return;
+    }
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    try {
+      const test = await mentorTestsStore.resendOpenForPerson({
+        organization: organization.key,
+        personId: person.id,
+        actor
+      });
+      setMentorTestChecklistState(person, state, { testSent: true, testApproved: false, completed: false, actor });
+      state.activity = state.activity || [];
+      state.activity.push(`${actor.name || auth.profile.name} heeft de mentor-toets opnieuw verstuurd naar ${person.name}.`);
+      addProfileLog(person, {
+        actor,
+        type: "mentor",
+        action: "Mentor-toets opnieuw verstuurd",
+        details: "Toets is opnieuw naar de medewerker gestuurd."
+      });
+      await sendMentorTestWebhook("resent", { person, actor, test });
+      await queueDiscordDmForPerson(
+        state,
+        person,
+        buildMentorTestSentDm(person, actor),
+        "mentor_test_resent"
+      );
+      await sendPeopleStateAfterMutation(res, auth, state);
+    } catch (error) {
+      sendJson(res, error.status || 500, { error: error.message || "Mentor-toets opnieuw versturen is mislukt." });
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/mentor-tests/retract" && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!canReviewMentorTests(permissions)) {
+      sendJson(res, 403, { error: "Geen toegang om mentor-toetsen terug te trekken." });
+      return;
+    }
+    const body = await readBody(req);
+    const personId = String(body.personId || "").trim();
+    const person = (state.people || []).find((entry) => entry.id === personId && entry.status === "Actief");
+    if (!person || !mentorRanks.includes(person.rank)) {
+      sendJson(res, 404, { error: "Mentor-traject niet gevonden." });
+      return;
+    }
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    try {
+      const test = await mentorTestsStore.retractOpenForPerson({
+        organization: organization.key,
+        personId: person.id,
+        actor
+      });
+      setMentorTestChecklistState(person, state, { testSent: false, testApproved: false, completed: false, actor });
+      state.activity = state.activity || [];
+      state.activity.push(`${actor.name || auth.profile.name} heeft de mentor-toets van ${person.name} teruggetrokken.`);
+      addProfileLog(person, {
+        actor,
+        type: "mentor",
+        action: "Mentor-toets teruggetrokken",
+        details: "Toets kan opnieuw worden klaargezet."
+      });
+      await sendMentorTestWebhook("retracted", { person, actor, test });
+      await sendPeopleStateAfterMutation(res, auth, state);
+    } catch (error) {
+      sendJson(res, error.status || 500, { error: error.message || "Mentor-toets terugtrekken is mislukt." });
     }
     return;
   }
@@ -2155,11 +2353,10 @@ function createPersoneelsportaalRouteHandler(deps) {
       });
       const person = (state.people || []).find((entry) => entry.id === test.personId);
       if (person) {
-        const approved = status === "approved";
+        const reviewState = mentorReviewStateForStatus(status);
+        const approved = reviewState.testApproved;
         setMentorTestChecklistState(person, state, {
-          testSent: approved,
-          testApproved: approved,
-          completed: approved,
+          ...reviewState,
           actor
         });
         state.activity = state.activity || [];
@@ -2398,12 +2595,14 @@ function createPersoneelsportaalRouteHandler(deps) {
       person.serviceNumber = "";
       if (hasOvcBadge) {
         person.status = "Actief";
+        applyManualAbsenceStatusSource(person, person.status);
         person.rank = "";
         person.rankDate = "";
         person.promotionDate = "";
         person.extraFunctions = normalizeOvcFunctionBadges(person.extraFunctions || []);
       } else {
         person.status = "Ontslagen";
+        applyManualAbsenceStatusSource(person, person.status);
       }
       person.permRole = "Geen";
       state.activity = state.activity || [];
@@ -2443,6 +2642,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       person.rankDate = todayValue;
       person.promotionDate = todayValue;
       person.status = "Actief";
+      applyManualAbsenceStatusSource(person, person.status);
       person.reactivatedDate = todayValue;
       person.archivedUntil = "";
       person.dismissalReason = person.dismissalReason || "";
@@ -2482,19 +2682,26 @@ function createPersoneelsportaalRouteHandler(deps) {
           actor
         });
       } else {
+        const reason = String(body.reason || "").trim();
+        if (!reason) {
+          sendJson(res, 400, { error: "Vul een reden in voor de I.O melding." });
+          return;
+        }
         person.ioStatus = {
           active: true,
           setAt: now,
           setById: actorId,
-          setByName: actorName
+          setByName: actorName,
+          reason
         };
         state.activity.push(`${person.name} is op I.O gezet door ${actorName}.`);
         addProfileLog(person, {
           type: "profile",
           action: "I.O melding",
-          details: `Op I.O gezet door ${actorName}.`,
+          details: `Op I.O gezet door ${actorName}. Reden: ${reason}`,
           actor
         });
+        await sendInvestigationWebhook(state, person, actor);
       }
     }
     if (action === "delete-archive") {

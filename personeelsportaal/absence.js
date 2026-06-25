@@ -37,7 +37,7 @@ function absenceMember(entry) {
 
 function absenceMemberIsActive(entry) {
   const member = absenceMember(entry);
-  return Boolean(member && member.status === "Actief");
+  return Boolean(member && !["Ontslagen", "Gearchiveerd"].includes(member.status));
 }
 
 function absenceNeedsReview(entry) {
@@ -60,10 +60,11 @@ function statusInfoFor(person) {
   const investigation = activeInvestigationStatusFor(person);
   if (investigation) {
     const setBy = investigation.setByName || "Onbekend";
+    const reason = investigation.reason ? `\nReden: ${investigation.reason}` : "";
     return {
       label: "I.O",
       className: "io",
-      title: `I.O - In overleg / in onderzoek\nOp naam gezet door: ${setBy}`
+      title: `I.O - In overleg / in onderzoek\nOp naam gezet door: ${setBy}${reason}`
     };
   }
   if (personHasActiveAbsence(person)) return { label: "Afwezig", className: "absent", title: "Afwezig" };

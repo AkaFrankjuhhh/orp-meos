@@ -9,8 +9,10 @@ let appState = {
   archives: [],
   memberEditId: ""
 };
-const LIVE_REFRESH_INTERVAL_MS = 10000;
+const LIVE_REFRESH_INTERVAL_MS = 60000;
 let liveRefreshInFlight = false;
+let liveEventSource = null;
+let liveReconnectTimer = null;
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -267,6 +269,7 @@ function dsiContextMenu() {
         </div>
       ` : `
         <button type="button" data-action="dsi-open-link-menu">Koppel aan bestaand 24-nummer</button>
+        ${member.status !== "8" ? `<button type="button" data-action="dsi-sign-off-member">Uit dienst melden</button>` : ""}
         ${permissions.canAssignDsiCommand ? `
           <button type="button" data-action="dsi-set-command-role" data-command-role="ACO">ACO toewijzen</button>
           <button type="button" data-action="dsi-set-command-role" data-command-role="TCO">TCO toewijzen</button>
@@ -465,6 +468,29 @@ async function refreshLiveState() {
   }
 }
 
+function scheduleLiveReconnect() {
+  if (liveReconnectTimer) return;
+  liveReconnectTimer = setTimeout(() => {
+    liveReconnectTimer = null;
+    connectLiveEvents();
+  }, 5000);
+}
+
+function connectLiveEvents() {
+  if (!window.EventSource || liveEventSource) return;
+  liveEventSource = new EventSource("/api/events");
+  liveEventSource.addEventListener("side-task:update", () => {
+    refreshLiveState();
+  });
+  liveEventSource.onerror = () => {
+    if (liveEventSource) {
+      liveEventSource.close();
+      liveEventSource = null;
+    }
+    scheduleLiveReconnect();
+  };
+}
+
 async function init() {
   try {
     await refresh();
@@ -550,6 +576,21 @@ app.addEventListener("click", async (event) => {
       if (result.warning) alert(result.warning);
       return;
     }
+    if (action === "dsi-sign-off-member") {
+      const context = appState.dsiContextMenu;
+      if (!context) return;
+      const member = appState.members.find((entry) => entry.id === context.memberId);
+      const label = member ? displayMemberName(member, appState.me.task) : "dit DSI-lid";
+      if (!confirm(`${label} uit dienst melden?`)) return;
+      const result = await api(`/api/side-tasks/dsi/members/${encodeURIComponent(context.memberId)}/sign-off`, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      appState.dsiContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
     if (action === "dsi-set-command-role") {
       const context = appState.dsiContextMenu;
       if (!context) return;
@@ -582,7 +623,7 @@ app.addEventListener("contextmenu", (event) => {
   const isOwnProfile = member.discordId === appState.me.user.id;
   if (!isOwnProfile && !permissions.canManageDsiUnits) return;
   const menuWidth = 300;
-  const menuHeight = 260;
+  const menuHeight = 320;
   appState.dsiContextMenu = {
     memberId: member.id,
     mode: "actions",
@@ -645,6 +686,7 @@ window.addEventListener("hashchange", () => {
 });
 
 init();
+connectLiveEvents();
 setInterval(refreshLiveState, LIVE_REFRESH_INTERVAL_MS);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refreshLiveState();

@@ -108,7 +108,8 @@ function createDiscordWebhookServices({ formatDate }) {
     const map = {
       hire: "HIRE",
       dismissal: "DISMISSAL",
-      resignation: "RESIGNATION"
+      resignation: "RESIGNATION",
+      io: "IO"
     };
     const typeKey = map[type];
     if (!typeKey) {
@@ -250,6 +251,34 @@ function createDiscordWebhookServices({ formatDate }) {
     };
   }
 
+  function formatWebhookDateTime(value) {
+    const date = new Date(value || Date.now());
+    if (Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("nl-NL", {
+      timeZone: "Europe/Amsterdam",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date);
+  }
+
+  function buildInvestigationWebhookPayload(member, investigation, actor) {
+    const reporterName = actor?.name || investigation?.setByName || "Onbekend";
+    return {
+      content: [
+        `I.O Melding - ${reporterName}`,
+        "",
+        `Naam: ${member?.name || "-"}`,
+        `Datum: ${formatWebhookDateTime(investigation?.setAt)}`,
+        "",
+        `Reden: ${investigation?.reason || "-"}`
+      ].join("\n"),
+      allowed_mentions: { parse: [] }
+    };
+  }
+
   return {
     sendDiscordWebhook,
     sendDiscordWebhookWithMessageThread,
@@ -259,7 +288,8 @@ function createDiscordWebhookServices({ formatDate }) {
     buildRecruitmentWebhookPayload,
     buildDismissalWebhookPayload,
     buildResignationFormWebhookPayload,
-    buildBlacklistWebhookPayload
+    buildBlacklistWebhookPayload,
+    buildInvestigationWebhookPayload
   };
 }
 

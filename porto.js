@@ -43,6 +43,7 @@ let portoAvailableVehicleRanges = [];
 let portoLinkableUnits = [];
 let portoActiveUnits = [];
 let portoSideTaskOverview = [];
+let portoPhonebook = [];
 let portoDiscordChannels = [];
 let portoDiscordChannelGroups = [];
 let portoMapEnabled = false;
@@ -116,6 +117,96 @@ function portoStorageSet(key, value) {
   } catch {
     // Opslaan van voorkeuren is handig, maar mag de Porto nooit blokkeren.
   }
+}
+
+function portoRankSortIndex(rank) {
+  const ranks = Array.isArray(portoRuntimeConfig.ranks) ? portoRuntimeConfig.ranks : [];
+  const needle = String(rank || "").toLowerCase();
+  const index = ranks.findIndex((entry) => String(entry || "").toLowerCase() === needle);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function portoServiceNumberParts(serviceNumber) {
+  const text = String(serviceNumber || "");
+  const exact = text.match(/^(\d+)[-/](\d+)$/);
+  if (exact) return [Number(exact[1]), Number(exact[2])];
+  const parts = text.match(/\d+/g)?.map(Number) || [];
+  return [parts[0] ?? Number.MAX_SAFE_INTEGER, parts[1] ?? Number.MAX_SAFE_INTEGER];
+}
+
+function comparePortoPhonebookEntries(left, right) {
+  const rankDiff = portoRankSortIndex(left.rank) - portoRankSortIndex(right.rank);
+  if (rankDiff) return rankDiff;
+  const [leftMain, leftSub] = portoServiceNumberParts(left.serviceNumber);
+  const [rightMain, rightSub] = portoServiceNumberParts(right.serviceNumber);
+  if (leftMain !== rightMain) return leftMain - rightMain;
+  if (leftSub !== rightSub) return leftSub - rightSub;
+  return String(left.name || "").localeCompare(String(right.name || ""), "nl", { sensitivity: "base" });
+}
+
+function portoPhonebookSearchText(person) {
+  return [person.rank, person.name, person.serviceNumber, person.phone]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+}
+
+function appendPortoPhonebookCell(row, label, value, className = "") {
+  const cell = document.createElement("span");
+  cell.dataset.label = label;
+  cell.textContent = value;
+  if (className) cell.className = className;
+  row.append(cell);
+}
+
+function renderPortoPhonebook() {
+  const rows = $("#portoPhonebookRows");
+  if (!rows) return;
+  const query = ($("#portoPhonebookSearch")?.value || "").trim().toLowerCase();
+  const entries = (Array.isArray(portoPhonebook) ? portoPhonebook : [])
+    .filter((person) => !query || portoPhonebookSearchText(person).includes(query))
+    .sort(comparePortoPhonebookEntries);
+
+  rows.replaceChildren();
+  if (!entries.length) {
+    const empty = document.createElement("div");
+    empty.className = "porto-phonebook-empty";
+    empty.textContent = "Geen personen gevonden.";
+    rows.append(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  entries.forEach((person) => {
+    const row = document.createElement("div");
+    row.className = "porto-phonebook-row";
+    row.title = person.serviceNumber ? `Dienstnummer: ${person.serviceNumber}` : "";
+    appendPortoPhonebookCell(row, "Rang", person.rank || "-");
+    appendPortoPhonebookCell(row, "Naam", person.name || "-");
+    appendPortoPhonebookCell(
+      row,
+      "Telefoonnummer",
+      person.phone || "<Geen bekend nummer>",
+      person.phone ? "porto-phonebook-phone" : "porto-phonebook-phone missing"
+    );
+    fragment.append(row);
+  });
+  rows.append(fragment);
+}
+
+function openPortoPhonebook() {
+  const dialog = $("#portoPhonebookDialog");
+  if (!dialog) return;
+  renderPortoPhonebook();
+  if (typeof dialog.showModal === "function" && !dialog.open) dialog.showModal();
+  else dialog.setAttribute("open", "");
+  window.setTimeout(() => $("#portoPhonebookSearch")?.focus(), 0);
+}
+
+function closePortoPhonebook() {
+  const dialog = $("#portoPhonebookDialog");
+  if (!dialog) return;
+  if (typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
 }
 
 const storedOpsLayout = portoStorageGet(PORTO_OPS_LAYOUT_KEY, "grid");
@@ -305,6 +396,16 @@ $("#portoProfileOpenBtn").addEventListener("click", openPortoProfileDialog);
 $("#portoProfileOpenText").addEventListener("click", openPortoProfileDialog);
 $("#closePortoProfileDialog").addEventListener("click", () => $("#portoProfileDialog").close());
 $("#cancelPortoProfileDialog").addEventListener("click", () => $("#portoProfileDialog").close());
+document.addEventListener("click", (event) => {
+  const trigger = event.target instanceof Element ? event.target.closest("[data-phonebook-open]") : null;
+  if (trigger) openPortoPhonebook();
+});
+$("#portoPhonebookDialog")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+});
+$("#closePortoPhonebookDialog")?.addEventListener("click", closePortoPhonebook);
+$("#cancelPortoPhonebookDialog")?.addEventListener("click", closePortoPhonebook);
+$("#portoPhonebookSearch")?.addEventListener("input", renderPortoPhonebook);
 $("#portoProfileForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const response = await fetch("/api/porto/profile", {

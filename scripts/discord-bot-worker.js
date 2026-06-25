@@ -38,6 +38,10 @@ const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTE
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
 const nonRegularPortoDiscordChannelKey = nonRegularPortoDiscordChannel.key;
+const AUDIT_LOG_ACTION_MEMBER_KICK = 20;
+const AUDIT_LOG_ACTION_MEMBER_BAN_ADD = 22;
+const LEAVE_LOG_AUDIT_LOOKUP_DELAY_MS = 1200;
+const LEAVE_LOG_AUDIT_LOOKUP_WINDOW_MS = 15000;
 let stopping = false;
 let gatewaySocket = null;
 let heartbeatTimer = null;
@@ -76,6 +80,47 @@ function captureGatewayMemberRoles(member = {}) {
   const discordId = String(member.user?.id || member.user_id || "").trim();
   if (!discordId || !Array.isArray(member.roles)) return;
   gatewayMemberRolesByUser.set(discordId, member.roles.map((roleId) => String(roleId || "").trim()).filter(Boolean));
+}
+
+function discordSnowflakeTimestampMs(id) {
+  const value = String(id || "").trim();
+  if (!/^\d+$/.test(value)) return 0;
+  try {
+    return Number((BigInt(value) >> 22n) + 1420070400000n);
+  } catch {
+    return 0;
+  }
+}
+
+async function findRecentAuditLogEntryForTarget(discordId, actionType) {
+  if (!discordId || typeof bot.getGuildAuditLogs !== "function") return null;
+  try {
+    const result = await bot.getGuildAuditLogs({ actionType, limit: 6 });
+    const entries = Array.isArray(result?.data?.audit_log_entries) ? result.data.audit_log_entries : [];
+    const now = Date.now();
+    return entries.find((entry) => {
+      if (String(entry?.target_id || "") !== String(discordId)) return false;
+      const createdAt = discordSnowflakeTimestampMs(entry?.id);
+      return createdAt > 0 && now - createdAt <= LEAVE_LOG_AUDIT_LOOKUP_WINDOW_MS;
+    }) || null;
+  } catch (error) {
+    if (error?.status === 403) {
+      console.warn("[discord-bot] leave-log audit lookup overgeslagen: bot mist View Audit Log permissie.");
+      return null;
+    }
+    console.warn(`[discord-bot] leave-log audit lookup mislukt: ${error.message}`);
+    return null;
+  }
+}
+
+async function detectMemberRemovalReason(discordId) {
+  if (!discordId) return "leave";
+  await sleep(LEAVE_LOG_AUDIT_LOOKUP_DELAY_MS);
+  const banEntry = await findRecentAuditLogEntryForTarget(discordId, AUDIT_LOG_ACTION_MEMBER_BAN_ADD);
+  if (banEntry) return "ban";
+  const kickEntry = await findRecentAuditLogEntryForTarget(discordId, AUDIT_LOG_ACTION_MEMBER_KICK);
+  if (kickEntry) return "kick";
+  return "leave";
 }
 
 async function findPortalPersonByDiscordId(discordId) {
@@ -440,7 +485,8 @@ async function handleGuildMemberRemove(member = {}) {
   }
 
   const payloadMember = portalPerson?.name ? { ...member, nick: portalPerson.name } : member;
-  const result = await sendDiscordLeaveLog(webhookUrl, buildDiscordLeaveLogPayload(payloadMember));
+  const removalReason = await detectMemberRemovalReason(discordId);
+  const result = await sendDiscordLeaveLog(webhookUrl, buildDiscordLeaveLogPayload(payloadMember, { reason: removalReason }));
   if (result?.ok) {
     console.log(`[discord-bot] leave-log verstuurd voor ${discordMemberDisplayName(payloadMember)} (${discordUserTag(member.user || {})}).`);
     return;
@@ -449,7 +495,7 @@ async function handleGuildMemberRemove(member = {}) {
 }
 
 function identifyPayload() {
-  const intents = 1 | (guildMembersIntent ? 2 : 0) | (voiceStatesIntent ? 128 : 0);
+  const intents = 1 | (guildMembersIntent ? 2 : 0) | (leaveLogWebhookConfigured ? 4 : 0) | (voiceStatesIntent ? 128 : 0);
   return {
     op: 2,
     d: {

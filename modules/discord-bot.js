@@ -362,6 +362,14 @@ function createDiscordBotServices(options = {}) {
     return discordBotFetch(`/guilds/${guildId()}/members/${memberId}`);
   }
 
+  async function getGuildAuditLogs(options = {}) {
+    const actionType = Number(options.actionType || 0);
+    const limit = Math.min(100, Math.max(1, Number(options.limit || 10)));
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (Number.isFinite(actionType) && actionType > 0) query.set("action_type", String(actionType));
+    return discordBotFetch(`/guilds/${guildId()}/audit-logs?${query.toString()}`);
+  }
+
   async function sendDirectMessage(discordId, content) {
     const memberId = normalizeDiscordId(discordId);
     const message = truncateDiscordMessage(content);
@@ -643,6 +651,7 @@ function createDiscordBotServices(options = {}) {
     configuredVoiceChannels,
     resolveVoiceChannelId,
     getGuildMember,
+    getGuildAuditLogs,
     sendDirectMessage,
     addRole,
     removeRole,

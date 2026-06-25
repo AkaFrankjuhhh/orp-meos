@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
     <link rel="stylesheet" href="shared.css?v=20260524-sidebar-scroll" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260620-dashboard-total" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260625-profile-log-preview" />
   </head>
   <body class="locked">
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
@@ -62,7 +62,6 @@
         <button class="nav-item" data-page="personeel" data-personnel-only="true" type="button">Personeel</button>
         <button class="nav-item" data-page="afwezigheid-overzicht" data-absence-review-only="true" type="button"><span>Afwezigheid overzicht</span><span id="absenceOverviewCounter" class="nav-counter" hidden>0</span></button>
         <button class="nav-item" data-page="ontslag-overzicht" data-resignation-overview-only="true" type="button"><span>Ontslag-Overzicht</span><span id="resignationOverviewCounter" class="nav-counter" hidden>0</span></button>
-        <button class="nav-item" data-page="ops-tijden" data-ops-times-only="true" data-operator-times-label type="button">OPS tijden</button>
         <button class="nav-item" data-page="archief" data-personnel-archive-only="true" type="button">Personeels-Archief</button>
         <button class="nav-item" data-page="logboek" data-kader-only="true" type="button">Logboek</button>
       </nav>
@@ -487,7 +486,7 @@
               <label>Datum geweldsaanwending:<input id="i8Date" type="date" autocomplete="off" required /></label>
               <label>Tijd geweldsaanwending:<input id="i8Time" type="time" autocomplete="off" required /></label>
               <label class="full">Locatie:<input id="i8Location" type="text" autocomplete="off" placeholder="bv. Blokkenpark" required /></label>
-              <label class="full">Naam OPCO/OVD:<input id="i8OpcoOvd" type="text" autocomplete="off" placeholder="bv. Frank B." required /></label>
+              <label class="full">Naam: OPS - OVD/OPCO<input id="i8OpcoOvd" type="text" autocomplete="off" placeholder="bv. Frank B." required /></label>
               <label class="full">Beschrijving (mag ook clip):<textarea id="i8Description" autocomplete="off" placeholder="Beschrijf hier zo gedetailleerd mogelijk je geweldsaanwending" required></textarea></label>
               <label class="full">Gebruikte geweldsmiddel:<input id="i8ForceUsed" type="text" autocomplete="off" placeholder="bv. HK P2000" required /></label>
               <label>Geweld tegen voertuig?:<textarea id="i8Vehicle" autocomplete="off" placeholder="Zo ja, verklaar" required></textarea></label>
@@ -701,9 +700,8 @@
           <label>Discord ID<input id="memberDiscord" required /></label>
           <label>Avatar URL<input id="memberAvatar" placeholder="Discord avatar URL" /></label>
           <label>Rang<select id="memberRank" required></select></label>
-          <label>Dienstnummer<select id="memberService" required></select></label>
+          <label class="full">Dienstnummer<select id="memberService" required></select></label>
           <label>Datum aangenomen<input id="memberHiredDate" type="date" required /></label>
-          <label>Rang behaald op<input id="memberRankDate" type="date" required /></label>
           <label>Laatste promotie<input id="memberPromotionDate" type="date" required /></label>
           <label class="full">Taken<input id="memberTasks" placeholder="Trainer, HR, patrol lead..." /></label>
         </div>
@@ -900,6 +898,21 @@
         </menu>
       </div>
     </dialog>
+    <dialog id="profileLogDialog">
+      <div class="dialog-form profile-log-dialog">
+        <div class="panel-head">
+          <div>
+            <h2 id="profileLogDialogTitle">Logboek</h2>
+            <p id="profileLogDialogSubtitle" class="muted">-</p>
+          </div>
+          <button class="ghost icon" type="button" id="closeProfileLogDialog">&times;</button>
+        </div>
+        <div id="profileLogDialogRows" class="profile-audit-log profile-log-dialog-rows"></div>
+        <menu>
+          <button id="closeProfileLogDialogFooter" class="ghost" type="button">Sluiten</button>
+        </menu>
+      </div>
+    </dialog>
     <dialog id="deleteAbsenceDialog">
       <form id="deleteAbsenceForm" method="dialog" class="dialog-form">
         <div class="panel-head">
@@ -917,6 +930,10 @@
 
     <div id="absenceContextMenu" class="context-menu" hidden>
       <button type="button" class="danger-option" data-absence-context="delete">Verwijderen</button>
+    </div>
+    <div id="mentorTestContextMenu" class="context-menu" hidden>
+      <button type="button" data-mentor-test-context="resend">Toets opnieuw versturen</button>
+      <button type="button" class="danger-option" data-mentor-test-context="retract">Toets terugtrekken</button>
     </div>
     <script>
       window.addEventListener("error", function (event) {
@@ -949,7 +966,7 @@
     <script src="client-guard.js?v=20260623-devtools-guard"></script>
     <script src="shared-ui.js?v=20260602-autogrow-textareas"></script>
     <script src="personeelsportaal/module-registry.js?v=20260518-module-split"></script>
-    <script src="personeelsportaal/profile.js?v=20260613-shared-profile-branding"></script>
+    <script src="personeelsportaal/profile.js?v=20260625-profile-log-preview"></script>
     <script src="personeelsportaal/hours.js?v=20260610-operator-hours-label"></script>
     <script src="personeelsportaal/people.js?v=20260614-police-all-manual-rank-number"></script>
     <script src="personeelsportaal/i8.js?v=20260607-interne-zaken-i8"></script>
@@ -957,6 +974,6 @@
     <script src="personeelsportaal/absence.js?v=20260607-profile-absence-log"></script>
     <script src="personeelsportaal/archive.js?v=20260606-resignation-overview"></script>
     <script src="personeelsportaal-data.js?v=20260607-overheids-viewonly"></script>
-    <script src="app.js?v=20260620-dashboard-total"></script>
+    <script src="app.js?v=20260625-profile-log-preview"></script>
   </body>
 </html>

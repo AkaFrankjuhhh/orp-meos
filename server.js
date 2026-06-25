@@ -19,6 +19,7 @@ const { createEventBus } = require("./modules/event-bus");
 const { createHttpResponder, createJsonBodyReader, readRawBody, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
 const { createPublicFormsStore } = require("./modules/public-forms-store");
+const { startPortoDutyHoursJob } = require("./modules/porto-duty-hours-job");
 const { enqueuePersonDiscordSync, enqueueDiscordSyncJob } = require("./modules/discord-sync-jobs");
 const { normalizeDiscordId, isDevDiscordId } = require("./modules/ovc");
 const {
@@ -46,6 +47,16 @@ const {
 
 loadEnv();
 
+function enabledFromEnv(value, fallback = true) {
+  if (value == null || value === "") return fallback;
+  return !["0", "false", "nee", "no", "off"].includes(String(value).trim().toLowerCase());
+}
+
+function intervalMsFromEnv(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 60000 ? parsed : fallback;
+}
+
 const root = __dirname;
 const organization = currentOrganization();
 const dataPath = path.join(root, "data.json");
@@ -66,6 +77,7 @@ const postgresEventBridge = createPostgresEventBridge({
   publishLocal: publishScopedEvent,
   logError: logServerError
 });
+let portoDutyHoursJob = null;
 const publicFormRateLimit = new Map();
 const { writeHeadSecure, sendJson, sendHtml } = createHttpResponder({ appBaseUrl });
 const readBody = createJsonBodyReader(maxBodyBytes);
@@ -231,7 +243,8 @@ const {
   buildRecruitmentWebhookPayload,
   buildDismissalWebhookPayload,
   buildResignationFormWebhookPayload,
-  buildBlacklistWebhookPayload
+  buildBlacklistWebhookPayload,
+  buildInvestigationWebhookPayload
 } = createDiscordWebhookServices({ formatDate });
 // Discord bot-acties blijven centraal: rollen, nicknames en Porto voice verplaatsingen.
 const discordBot = createDiscordBotServices();
@@ -244,15 +257,19 @@ function mentorTestWebhookUrl() {
 function buildMentorTestWebhookPayload(event, { person, actor, test } = {}) {
   const labels = {
     sent: "Toets klaargezet",
+    resent: "Toets opnieuw verstuurd",
     submitted: "Toets ingediend",
     approved: "Toets goedgekeurd",
-    rejected: "Toets afgekeurd"
+    rejected: "Toets afgekeurd",
+    retracted: "Toets teruggetrokken"
   };
   const colors = {
     sent: 0xf59e0b,
+    resent: 0xf97316,
     submitted: 0x3b82f6,
     approved: 0x22c55e,
-    rejected: 0xef4444
+    rejected: 0xef4444,
+    retracted: 0x94a3b8
   };
   const label = labels[event] || "Mentor-toets";
   const serviceNumber = person?.serviceNumber || test?.serviceNumber || "";
@@ -486,6 +503,7 @@ const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   buildDismissalWebhookPayload,
   buildResignationFormWebhookPayload,
   buildBlacklistWebhookPayload,
+  buildInvestigationWebhookPayload,
   mentorTestsStore,
   mentorTestWebhookUrl,
   buildMentorTestWebhookPayload,
@@ -996,10 +1014,19 @@ async function startServer() {
   await sessions.cleanup?.();
   if (storageMode === "postgres") await publicFormsStore.ensurePublicFormsTable?.();
   await postgresEventBridge.start();
+  portoDutyHoursJob = startPortoDutyHoursJob({
+    enabled: storageMode === "postgres" && enabledFromEnv(process.env.PORTO_DUTY_HOURS_ENABLED, true),
+    readState: peopleStorage.readState,
+    writeHourEntries: peopleStorage.writeHourEntries,
+    intervalMs: intervalMsFromEnv(process.env.PORTO_DUTY_HOURS_INTERVAL_MS, 10 * 60 * 1000),
+    timeZone: process.env.PORTO_DUTY_HOURS_TIME_ZONE || "Europe/Amsterdam",
+    logError: (error) => logServerError("Porto diensturen klok mislukt", error)
+  });
   server.listen(port, () => {
     console.log(`${organization.portalTitle} draait op ${appBaseUrl}`);
     console.log(`Organisatie: ${organization.key}`);
     console.log(`Storage mode: ${storageMode}`);
+    console.log(`Porto diensturen klok: ${portoDutyHoursJob?.isEnabled?.() ? "aan" : "uit"}`);
     if (storageMode === "postgres") console.log(`Database: ${databaseNameFromConnectionString(process.env.DATABASE_URL) || "onbekend"}`);
     console.log(`Actieve sessies geladen: ${typeof sessions.size === "function" ? sessions.size() : "onbekend"}`);
     if (!discordConfigured()) {
@@ -1019,6 +1046,7 @@ startServer().catch((error) => {
 
 async function shutdown() {
   try {
+    portoDutyHoursJob?.stop?.();
     await postgresEventBridge.stop();
     await closePool();
   } finally {

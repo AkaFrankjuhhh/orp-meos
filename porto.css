@@ -2446,6 +2446,172 @@ body.porto-duty-workspace .porto-status-grid {
   }
 }
 
+.porto-phonebook-dialog {
+  width: min(920px, calc(100vw - 28px));
+  max-height: min(88dvh, 760px);
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.96));
+  color: var(--text);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.porto-phonebook-dialog::backdrop {
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(7px);
+}
+
+.porto-phonebook-form {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  max-height: inherit;
+  overflow-y: auto;
+}
+
+.porto-phonebook-form .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+}
+
+.porto-phonebook-form .panel-head h2 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.porto-phonebook-form .muted {
+  margin: 4px 0 0;
+  color: #bfdbfe;
+}
+
+.porto-phonebook-form .ghost.icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #e5e7eb;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.porto-phonebook-form label.full {
+  display: grid;
+  gap: 8px;
+  color: #dbeafe;
+  font-weight: 800;
+}
+
+.porto-phonebook-form input[type="search"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  outline: none;
+}
+
+.porto-phonebook-form input[type="search"]:focus {
+  border-color: rgba(245, 158, 11, 0.78);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+}
+
+.porto-phonebook-table {
+  display: grid;
+  gap: 8px;
+}
+
+.porto-phonebook-head,
+.porto-phonebook-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.25fr) minmax(160px, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.porto-phonebook-head {
+  padding: 0 14px;
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.porto-phonebook-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.porto-phonebook-row,
+.porto-phonebook-empty {
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.porto-phonebook-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 800;
+}
+
+.porto-phonebook-phone.missing {
+  color: #fbbf24;
+}
+
+.porto-phonebook-form menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.porto-phonebook-form menu button {
+  min-height: 44px;
+  border-radius: 10px;
+  font-weight: 900;
+}
+
+@media (max-width: 720px) {
+  .porto-phonebook-form {
+    padding: 16px;
+  }
+
+  .porto-phonebook-head {
+    display: none;
+  }
+
+  .porto-phonebook-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .porto-phonebook-row span::before {
+    content: attr(data-label) ": ";
+    color: #93c5fd;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .porto-phonebook-form menu button {
+    flex: 1 1 160px;
+  }
+}
+
 /* OPS-info en logboek blijven compact zichtbaar binnen het Porto werkblad. */
 .porto-duty-ops-info {
   display: flex;

@@ -5,7 +5,9 @@ const {
   collectDefensieLeaveLogRoleIds,
   collectOrganizationDiscordRoleIds,
   discordUserTag,
+  leaveLogReasonText,
   memberHasAnyTrackedRole,
+  normalizeLeaveLogReason,
   sendDiscordLeaveLog
 } = require("../modules/discord-leave-log");
 const { organizationConfigs } = require("../modules/organizations");
@@ -78,14 +80,42 @@ test("collectDefensieLeaveLogRoleIds ignores non-defensie organizations", () => 
   }
 });
 
-test("buildDiscordLeaveLogPayload formats name and Discord tag", () => {
+test("buildDiscordLeaveLogPayload formats leave log embed", () => {
   const payload = buildDiscordLeaveLogPayload({
     nick: "Frank Bright",
-    user: { username: "frank", discriminator: "0" }
+    user: { id: "254572157126967296", username: "frank", discriminator: "0" }
   });
 
   assert.deepEqual(payload.allowed_mentions, { parse: [] });
-  assert.equal(payload.content, "**Frank Bright**\n@frank\nIs de discord verlaten.");
+  assert.equal(payload.embeds.length, 1);
+  assert.equal(payload.embeds[0].title, "Leave-log");
+  assert.deepEqual(payload.embeds[0].fields.map((field) => [field.name, field.value]), [
+    ["Naam medewerker", "Frank Bright"],
+    ["Discord-tag", "<@254572157126967296>"],
+    ["Discord ID", "254572157126967296"],
+    ["Reden", "Is de discord verlaten"]
+  ]);
+});
+
+test("buildDiscordLeaveLogPayload supports kick and ban reasons", () => {
+  const kicked = buildDiscordLeaveLogPayload({
+    nick: "Frank Bright",
+    user: { id: "254572157126967296", username: "frank", discriminator: "0" }
+  }, { reason: "kick" });
+  const banned = buildDiscordLeaveLogPayload({
+    nick: "Frank Bright",
+    user: { id: "254572157126967296", username: "frank", discriminator: "0" }
+  }, { reason: "ban" });
+
+  assert.equal(kicked.embeds[0].fields.find((field) => field.name === "Reden").value, "Is uit de discord gekickt");
+  assert.equal(banned.embeds[0].fields.find((field) => field.name === "Reden").value, "Is verbannen uit de discord");
+});
+
+test("leave log reason helpers normalize known variants", () => {
+  assert.equal(normalizeLeaveLogReason("kicked"), "kick");
+  assert.equal(normalizeLeaveLogReason("banned"), "ban");
+  assert.equal(normalizeLeaveLogReason("iets anders"), "leave");
+  assert.equal(leaveLogReasonText("ban"), "Is verbannen uit de discord");
 });
 
 test("discordUserTag keeps legacy discriminator tags", () => {
