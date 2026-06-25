@@ -412,7 +412,6 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     const currentOps = activePortoOps(state);
     if (!currentOps) return false;
     const endedCurrentOps = (units || []).some((entry) =>
-      entry.active !== false &&
       entry.vehicleNumber === operatorVehicleNumber &&
       entry.memberId === currentOps.memberId
     );

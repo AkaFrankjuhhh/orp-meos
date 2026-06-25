@@ -29,38 +29,61 @@ function timestampMs(value) {
   return Number.isFinite(time) ? time : 0;
 }
 
+const PORTO_UNIT_FRESHNESS_FIELDS = ["updatedAt", "endedAt", "assignedAt", "requestedAt", "lastSeenAt"];
+
+function portoUnitFreshness(unit) {
+  return Math.max(0, ...PORTO_UNIT_FRESHNESS_FIELDS.map((field) => timestampMs(unit?.[field])));
+}
+
+function closeStalePortoUnit(unit, nowIso, reason = "Dubbele Porto-aanmelding gesloten") {
+  unit.active = false;
+  unit.status = "8";
+  unit.statusDetail = unit.statusDetail || reason;
+  unit.vehicleNumber = "";
+  unit.vehicleCode = "";
+  unit.vehicleType = "";
+  unit.vehicleName = "";
+  unit.operatorSlot = "";
+  unit.linkedWith = [];
+  unit.endedAt = unit.endedAt || nowIso;
+  unit.updatedAt = nowIso;
+  return unit;
+}
+
 function newerPortoUnit(a, b) {
-  const aAssigned = Boolean(a.vehicleNumber);
-  const bAssigned = Boolean(b.vehicleNumber);
-  if (aAssigned !== bAssigned) return aAssigned ? a : b;
-  const aTime = timestampMs(a.updatedAt || a.assignedAt || a.requestedAt || a.lastSeenAt);
-  const bTime = timestampMs(b.updatedAt || b.assignedAt || b.requestedAt || b.lastSeenAt);
+  const aTime = portoUnitFreshness(a);
+  const bTime = portoUnitFreshness(b);
   if (aTime !== bTime) return aTime > bTime ? a : b;
-  return String(a.id || "").localeCompare(String(b.id || "")) >= 0 ? a : b;
+  const aActive = a?.active !== false;
+  const bActive = b?.active !== false;
+  if (aActive !== bActive) return aActive ? a : b;
+  const aAssigned = Boolean(a?.vehicleNumber);
+  const bAssigned = Boolean(b?.vehicleNumber);
+  if (aAssigned !== bAssigned) return aAssigned ? a : b;
+  return String(a?.id || "").localeCompare(String(b?.id || "")) >= 0 ? a : b;
 }
 
 function normalizePortoUnitsForWrite(units) {
-  const uniqueUnits = [...new Map((units || []).filter((unit) => unit?.id).map((unit) => [unit.id, { ...unit }])).values()];
-  const activeByMember = new Map();
+  const nowIso = new Date().toISOString();
+  const unitsById = new Map();
+  for (const unit of units || []) {
+    if (!unit?.id) continue;
+    const copy = { ...unit };
+    const previous = unitsById.get(copy.id);
+    unitsById.set(copy.id, previous ? newerPortoUnit(previous, copy) : copy);
+  }
+  const uniqueUnits = [...unitsById.values()];
+  const newestByMember = new Map();
   for (const unit of uniqueUnits) {
-    if (unit.active === false || !unit.memberId) continue;
-    const previous = activeByMember.get(unit.memberId);
-    activeByMember.set(unit.memberId, previous ? newerPortoUnit(previous, unit) : unit);
+    if (!unit.memberId) continue;
+    const previous = newestByMember.get(unit.memberId);
+    newestByMember.set(unit.memberId, previous ? newerPortoUnit(previous, unit) : unit);
   }
   for (const unit of uniqueUnits) {
-    if (unit.active === false || !unit.memberId) continue;
-    const keeper = activeByMember.get(unit.memberId);
-    if (!keeper || keeper.id === unit.id) continue;
-    unit.active = false;
-    unit.status = "8";
-    unit.statusDetail = unit.statusDetail || "Dubbele Porto-aanmelding gesloten";
-    unit.vehicleNumber = "";
-    unit.vehicleCode = "";
-    unit.vehicleType = "";
-    unit.vehicleName = "";
-    unit.operatorSlot = "";
-    unit.linkedWith = [];
-    unit.endedAt = unit.endedAt || new Date().toISOString();
+    if (!unit.memberId || unit.active === false) continue;
+    const newest = newestByMember.get(unit.memberId);
+    if (!newest || newest.id === unit.id) continue;
+    closeStalePortoUnit(unit, nowIso);
   }
   return uniqueUnits;
 }
@@ -123,11 +146,36 @@ function portoUnitFromRow(row) {
     requestedAt: iso(row.requested_at),
     assignedAt: iso(row.assigned_at),
     endedAt: iso(row.ended_at),
-    lastSeenAt: iso(row.last_seen_at)
+    lastSeenAt: iso(row.last_seen_at),
+    updatedAt: iso(row.updated_at)
   };
 }
 
 async function upsertPortoUnit(client, unit) {
+  if (unit.active === false && unit.memberId) {
+    await client.query(
+      `update porto_units
+       set
+         active = false,
+         status = '8',
+         status_detail = case
+           when coalesce(status_detail, '') = '' then 'Dubbele Porto-aanmelding automatisch gesloten'
+           else status_detail
+         end,
+         vehicle_number = '',
+         vehicle_code = '',
+         vehicle_type = '',
+         vehicle_name = '',
+         raw = raw - 'operatorSlot',
+         linked_with = '[]'::jsonb,
+         ended_at = coalesce(ended_at, now()),
+         updated_at = now()
+       where member_id = $1
+         and id <> $2
+         and active = true`,
+      [unit.memberId, unit.id]
+    );
+  }
   if (unit.active !== false && unit.memberId) {
     if (unit.vehicleNumber) {
       await client.query(
@@ -238,10 +286,11 @@ function createPostgresPortoStore(options = {}) {
       const settings = settingsResult.rows[0]?.value || {};
       const peopleResult = await client.query("select * from people order by name asc");
       const unitsResult = await client.query("select * from porto_units order by requested_at nulls last, id asc");
+      const portoUnits = normalizePortoUnitsForWrite(unitsResult.rows.map(portoUnitFromRow));
 
       return {
         people: peopleResult.rows.map(personFromRow),
-        portoUnits: unitsResult.rows.map(portoUnitFromRow),
+        portoUnits,
         portoVehicleRanges: settings.portoVehicleRanges || [],
         portoCurrentOps: settings.portoCurrentOps || null,
         portoOpsLog: settings.portoOpsLog || []
