@@ -2,9 +2,20 @@ const crypto = require("node:crypto");
 const { withClient } = require("./db");
 
 let ensuredDiscordSyncJobsTable = false;
+let lastDiscordSyncCleanupAt = 0;
+
+const DEFAULT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const DEFAULT_RUNNING_RESET_MINUTES = 15;
+const DEFAULT_DONE_RETENTION_HOURS = 24;
+const DEFAULT_FAILED_RETENTION_DAYS = 14;
 
 function safeJson(value, fallback = {}) {
   return value == null ? fallback : value;
+}
+
+function positiveNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
 async function ensureDiscordSyncJobsTable() {
@@ -34,6 +45,40 @@ async function ensureDiscordSyncJobsTable() {
     await client.query("CREATE INDEX IF NOT EXISTS discord_sync_jobs_discord_idx ON discord_sync_jobs(discord_id, created_at DESC)");
   });
   ensuredDiscordSyncJobsTable = true;
+}
+
+async function cleanupDiscordSyncJobs(client, { force = false } = {}) {
+  const cleanupIntervalMs = positiveNumber(process.env.DISCORD_SYNC_CLEANUP_INTERVAL_MS, DEFAULT_CLEANUP_INTERVAL_MS);
+  const now = Date.now();
+  if (!force && now - lastDiscordSyncCleanupAt < cleanupIntervalMs) return;
+  lastDiscordSyncCleanupAt = now;
+
+  const runningResetMinutes = Math.max(1, positiveNumber(process.env.DISCORD_SYNC_RUNNING_RESET_MINUTES, DEFAULT_RUNNING_RESET_MINUTES));
+  const doneRetentionHours = Math.max(1, positiveNumber(process.env.DISCORD_SYNC_DONE_RETENTION_HOURS, DEFAULT_DONE_RETENTION_HOURS));
+  const failedRetentionDays = Math.max(1, positiveNumber(process.env.DISCORD_SYNC_FAILED_RETENTION_DAYS, DEFAULT_FAILED_RETENTION_DAYS));
+
+  await client.query(`
+    UPDATE discord_sync_jobs
+    SET status = 'pending',
+        locked_at = null,
+        locked_by = null,
+        run_after = now(),
+        updated_at = now()
+    WHERE status = 'running'
+      AND locked_at < now() - ($1::int * interval '1 minute')
+  `, [runningResetMinutes]);
+
+  await client.query(`
+    DELETE FROM discord_sync_jobs
+    WHERE status = 'done'
+      AND coalesce(completed_at, updated_at, created_at) < now() - ($1::int * interval '1 hour')
+  `, [doneRetentionHours]);
+
+  await client.query(`
+    DELETE FROM discord_sync_jobs
+    WHERE status = 'failed'
+      AND updated_at < now() - ($1::int * interval '1 day')
+  `, [failedRetentionDays]);
 }
 
 async function enqueueDiscordSyncJob(type, payload = {}, options = {}) {
@@ -74,6 +119,12 @@ async function enqueueAllDiscordSync(reason = "state_changed") {
 async function claimDiscordSyncJobs(workerId, limit = 5) {
   await ensureDiscordSyncJobsTable();
   return withClient(async (client) => {
+    try {
+      await cleanupDiscordSyncJobs(client);
+    } catch (error) {
+      console.warn("Discord sync cleanup mislukt:", error?.message || error);
+    }
+
     const result = await client.query(`
       WITH picked AS (
         SELECT id
@@ -146,5 +197,6 @@ module.exports = {
   enqueueAllDiscordSync,
   claimDiscordSyncJobs,
   completeDiscordSyncJob,
-  failDiscordSyncJob
+  failDiscordSyncJob,
+  cleanupDiscordSyncJobs
 };

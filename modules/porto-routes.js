@@ -615,11 +615,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (status === "8") {
         const releasedVehicleNumber = unit.vehicleNumber;
         const endedUnits = [unit];
-        settingsChanged = releaseOpsIfEnded(state, endedUnits, person, now, "Uit dienst");
-        if (!settingsChanged) {
-          unit.active = false;
-          unit.endedAt = now;
-        }
+        const opsReleased = releaseOpsIfEnded(state, endedUnits, person, now, "Uit dienst");
+        settingsChanged = settingsChanged || opsReleased;
+        Object.assign(unit, {
+          status: "8",
+          statusDetail: "Uit dienst",
+          active: false,
+          endedAt: now,
+          updatedAt: now
+        });
         if (releasedVehicleNumber) syncPortoLinkedNames(state, releasedVehicleNumber);
         await enqueueNormalDiscordNicknames(state, endedUnits);
       } else {
@@ -1160,6 +1164,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const linkedStatusSource = linkToVehicleNumber
         ? state.portoUnits.find((entry) => entry.active !== false && entry.vehicleNumber === linkToVehicleNumber)
         : null;
+      const statusDefinition = { "1": "Beschikbaar", "2": "Aanrijdend", "3": "Ter plaatse", "4": "Niet beschikbaar", "5": "Transport aanvraag", "6": "Spraak aanvraag", "7": "Spraak aanvraag urgent" };
+      const currentStatus = String(unit.status || "");
+      const unitHasActiveStatus = currentStatus && currentStatus !== "0" && currentStatus !== "8";
+      const linkedStatus = String(linkedStatusSource?.status || "1");
+      const targetStatus = unitHasActiveStatus ? currentStatus : linkedStatus;
+      const targetStatusDetail = unitHasActiveStatus
+        ? (unit.statusDetail || statusDefinition[targetStatus] || "Beschikbaar")
+        : (linkedStatusSource?.statusDetail || statusDefinition[targetStatus] || "Beschikbaar");
       const assignedAt = new Date().toISOString();
       const targetDiscordChannelKey = linkToVehicleNumber ? (linkedStatusSource?.discordChannelKey || "") : "";
       Object.assign(unit, {
@@ -1173,8 +1185,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         assignedById: person.id,
         assignedByName: person.name,
         assignedAt,
-        status: linkToVehicleNumber ? (linkedStatusSource?.status || "1") : "1",
-        statusDetail: linkToVehicleNumber ? (linkedStatusSource?.statusDetail || "Beschikbaar") : "Beschikbaar"
+        status: targetStatus,
+        statusDetail: targetStatusDetail
       });
       closePendingPortoRequestsForMember(state, unit.memberId, unit.id);
       closeDuplicateActiveUnitsForMember(state, unit.memberId, unit.id, assignedAt);

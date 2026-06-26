@@ -12,6 +12,19 @@
       .replaceAll("'", "&#039;");
   }
 
+  function normalizeDialogText(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (typeof value.message === "string") return value.message;
+    if (typeof value.error === "string") return value.error;
+    if (typeof value.body === "string") return value.body;
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+
   function formatDate(value) {
     if (!value) return "-";
     const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
@@ -67,8 +80,8 @@
       return new Promise((resolve) => {
         const dialog = ensureDialog();
         dialog.returnValue = "";
-        dialog.querySelector(`[${titleAttr}]`).textContent = title;
-        dialog.querySelector(`[${messageAttr}]`).textContent = message;
+        dialog.querySelector(`[${titleAttr}]`).textContent = normalizeDialogText(title);
+        dialog.querySelector(`[${messageAttr}]`).textContent = normalizeDialogText(message);
         dialog.querySelector(`[${choicesAttr}]`).hidden = true;
         dialog.querySelector(`[${actionsAttr}]`).innerHTML = '<button class="primary" value="ok" type="submit">Ok</button>';
         dialog.addEventListener("close", () => resolve(true), { once: true });
@@ -80,8 +93,8 @@
       return new Promise((resolve) => {
         const dialog = ensureDialog();
         dialog.returnValue = "";
-        dialog.querySelector(`[${titleAttr}]`).textContent = title;
-        dialog.querySelector(`[${messageAttr}]`).textContent = message;
+        dialog.querySelector(`[${titleAttr}]`).textContent = normalizeDialogText(title);
+        dialog.querySelector(`[${messageAttr}]`).textContent = normalizeDialogText(message);
         dialog.querySelector(`[${choicesAttr}]`).hidden = true;
         dialog.querySelector(`[${actionsAttr}]`).innerHTML = `
           <button class="ghost" value="cancel" type="submit">Annuleren</button>
