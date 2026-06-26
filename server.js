@@ -22,6 +22,7 @@ const { createPublicFormsStore } = require("./modules/public-forms-store");
 const { startPortoDutyHoursJob } = require("./modules/porto-duty-hours-job");
 const { enqueuePersonDiscordSync, enqueueDiscordSyncJob } = require("./modules/discord-sync-jobs");
 const { normalizeDiscordId, isDevDiscordId } = require("./modules/ovc");
+const { isPersonLoginEligible } = require("./modules/person-status");
 const {
   currentOrganization,
   organizationMainRoleId,
@@ -807,7 +808,7 @@ async function handleApi(req, res, url) {
       try {
         const state = await Promise.resolve(peopleStorage.readState());
         authState = state;
-        let profile = (state.people || []).find((person) => person.id === auth.profile.id && person.status === "Actief");
+        let profile = (state.people || []).find((person) => person.id === auth.profile.id && isPersonLoginEligible(person));
         if (!profile && isDevOverrideDiscordId(auth.profile.discordId)) profile = auth.profile;
         if (!profile) {
           clearSession(req, res);
@@ -918,7 +919,7 @@ async function handleApi(req, res, url) {
       }
 
       const state = await Promise.resolve(peopleStorage.readState());
-      const profile = state.people.find((person) => person.discordId === user.id && person.status === "Actief") || (isDevOverrideDiscordId(user.id) ? syntheticDevProfile(user) : null);
+      const profile = state.people.find((person) => person.discordId === user.id && isPersonLoginEligible(person)) || (isDevOverrideDiscordId(user.id) ? syntheticDevProfile(user) : null);
       if (!profile) {
         logAuthDebug("callback-no-profile", { userId: user.id });
         redirectWithAuthError(req, res, "no-profile");

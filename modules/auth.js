@@ -1,5 +1,6 @@
 const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
+const { isPersonLoginEligible } = require("./person-status");
 
 function parseCookies(req) {
   const cookie = req.headers.cookie || "";
@@ -99,19 +100,19 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
     if (session) {
       const state = readSynchronousState();
       if (state) {
-        const profile = state.people.find((person) => person.id === session.profileId && person.status === "Actief");
+        const profile = state.people.find((person) => person.id === session.profileId && isPersonLoginEligible(person));
         if (profile) {
           session.profile = { ...profile };
           return { profile, session };
         }
         return null;
       }
-      if (session.profile && session.profile.status === "Actief") return { profile: session.profile, session };
+      if (isPersonLoginEligible(session.profile)) return { profile: session.profile, session };
     }
     if (!discordConfigured() && allowDevUnauth()) {
       const state = readSynchronousState();
       if (state) {
-        const profile = state.people.find((person) => person.status === "Actief") || state.people[0];
+        const profile = state.people.find(isPersonLoginEligible) || state.people[0];
         if (profile) return { profile, session: { dev: true, profile: { ...profile } } };
       }
     }
