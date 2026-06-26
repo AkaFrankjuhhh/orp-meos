@@ -1082,9 +1082,16 @@ function renderDashboard() {
       .join("");
   }
 
+  function normalizeServiceNumberForRange(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[–—−]/g, "-")
+      .replace(/\s+/g, "");
+  }
+
   function personInServiceRange(person, category) {
     if (!Array.isArray(category.ranges) || !category.ranges.length) return category.ranks.includes(person.rank);
-    const match = /^(\d{2})-(\d{2,3})$/.exec(String(person.serviceNumber || "").trim());
+    const match = /^(\d{2})-(\d{2,3})$/.exec(normalizeServiceNumberForRange(person.serviceNumber));
     if (!match) return false;
     const prefix = match[1];
     const number = Number(match[2]);

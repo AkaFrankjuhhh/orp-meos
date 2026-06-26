@@ -29,10 +29,21 @@ function timestampMs(value) {
   return Number.isFinite(time) ? time : 0;
 }
 
-const PORTO_UNIT_FRESHNESS_FIELDS = ["updatedAt", "endedAt", "assignedAt", "requestedAt", "lastSeenAt"];
+const PORTO_UNIT_FRESHNESS_FIELDS = ["updatedAt", "endedAt", "assignedAt", "requestedAt"];
+const RUNTIME_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+
+let lastRuntimeCleanupAt = 0;
 
 function portoUnitFreshness(unit) {
   return Math.max(0, ...PORTO_UNIT_FRESHNESS_FIELDS.map((field) => timestampMs(unit?.[field])));
+}
+
+function portoUnitWriteTimestamp(unit, fallback = null) {
+  for (const field of PORTO_UNIT_FRESHNESS_FIELDS) {
+    const date = asDateTime(unit?.[field]);
+    if (date) return date;
+  }
+  return fallback;
 }
 
 function closeStalePortoUnit(unit, nowIso, reason = "Dubbele Porto-aanmelding gesloten") {
@@ -86,6 +97,28 @@ function normalizePortoUnitsForWrite(units) {
     closeStalePortoUnit(unit, nowIso);
   }
   return uniqueUnits;
+}
+
+async function cleanupRuntimePortoUnits(client, { force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - lastRuntimeCleanupAt < RUNTIME_CLEANUP_INTERVAL_MS) return;
+  lastRuntimeCleanupAt = now;
+  await client.query(
+    `delete from porto_units
+     where active is not true
+        or status = '8'
+        or ended_at is not null`
+  );
+}
+
+async function deletePortoUnitIfCurrent(client, unit) {
+  const incomingUpdatedAt = portoUnitWriteTimestamp(unit, new Date(0));
+  await client.query(
+    `delete from porto_units
+     where id = $1
+       and coalesce($2::timestamptz, 'epoch'::timestamptz) >= coalesce(updated_at, 'epoch'::timestamptz)`,
+    [unit.id, incomingUpdatedAt]
+  );
 }
 
 function personFromRow(row) {
@@ -152,30 +185,12 @@ function portoUnitFromRow(row) {
 }
 
 async function upsertPortoUnit(client, unit) {
-  if (unit.active === false && unit.memberId) {
-    await client.query(
-      `update porto_units
-       set
-         active = false,
-         status = '8',
-         status_detail = case
-           when coalesce(status_detail, '') = '' then 'Dubbele Porto-aanmelding automatisch gesloten'
-           else status_detail
-         end,
-         vehicle_number = '',
-         vehicle_code = '',
-         vehicle_type = '',
-         vehicle_name = '',
-         raw = raw - 'operatorSlot',
-         linked_with = '[]'::jsonb,
-         ended_at = coalesce(ended_at, now()),
-         updated_at = now()
-       where member_id = $1
-         and id <> $2
-         and active = true`,
-      [unit.memberId, unit.id]
-    );
+  if (unit.active === false || unit.status === "8" || unit.endedAt) {
+    await deletePortoUnitIfCurrent(client, unit);
+    return;
   }
+
+  const incomingUpdatedAt = portoUnitWriteTimestamp(unit, new Date());
   if (unit.active !== false && unit.memberId) {
     if (unit.vehicleNumber) {
       await client.query(
@@ -194,8 +209,9 @@ async function upsertPortoUnit(client, unit) {
            updated_at = now()
          where member_id = $1
            and id <> $2
-           and active = true`,
-        [unit.memberId, unit.id]
+           and active = true
+           and coalesce($3::timestamptz, 'epoch'::timestamptz) >= coalesce(updated_at, 'epoch'::timestamptz)`,
+        [unit.memberId, unit.id, incomingUpdatedAt]
       );
     } else {
       const assignedResult = await client.query(
@@ -221,27 +237,27 @@ async function upsertPortoUnit(client, unit) {
       id, member_id, name, rank, service_number, phone, status, status_detail,
       vehicle_number, vehicle_code, vehicle_type, vehicle_name, linked_with, active,
       requested_at, assigned_at, ended_at, last_seen_at, raw, updated_at
-    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18,$19::jsonb,now())
+    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18,$19::jsonb,$20)
     on conflict(id) do update set
-      member_id = excluded.member_id,
-      name = excluded.name,
-      rank = excluded.rank,
-      service_number = excluded.service_number,
-      phone = excluded.phone,
-      status = excluded.status,
-      status_detail = excluded.status_detail,
-      vehicle_number = excluded.vehicle_number,
-      vehicle_code = excluded.vehicle_code,
-      vehicle_type = excluded.vehicle_type,
-      vehicle_name = excluded.vehicle_name,
-      linked_with = excluded.linked_with,
-      active = excluded.active,
-      requested_at = excluded.requested_at,
-      assigned_at = excluded.assigned_at,
-      ended_at = excluded.ended_at,
-      last_seen_at = excluded.last_seen_at,
-      raw = excluded.raw,
-      updated_at = now()`,
+      member_id = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.member_id else porto_units.member_id end,
+      name = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.name else porto_units.name end,
+      rank = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.rank else porto_units.rank end,
+      service_number = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.service_number else porto_units.service_number end,
+      phone = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.phone else porto_units.phone end,
+      status = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.status else porto_units.status end,
+      status_detail = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.status_detail else porto_units.status_detail end,
+      vehicle_number = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.vehicle_number else porto_units.vehicle_number end,
+      vehicle_code = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.vehicle_code else porto_units.vehicle_code end,
+      vehicle_type = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.vehicle_type else porto_units.vehicle_type end,
+      vehicle_name = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.vehicle_name else porto_units.vehicle_name end,
+      linked_with = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.linked_with else porto_units.linked_with end,
+      active = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.active else porto_units.active end,
+      requested_at = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.requested_at else porto_units.requested_at end,
+      assigned_at = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.assigned_at else porto_units.assigned_at end,
+      ended_at = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.ended_at else porto_units.ended_at end,
+      last_seen_at = greatest(coalesce(porto_units.last_seen_at, 'epoch'::timestamptz), coalesce(excluded.last_seen_at, 'epoch'::timestamptz)),
+      raw = case when coalesce(excluded.updated_at, 'epoch'::timestamptz) >= coalesce(porto_units.updated_at, 'epoch'::timestamptz) then excluded.raw else porto_units.raw end,
+      updated_at = greatest(coalesce(porto_units.updated_at, 'epoch'::timestamptz), coalesce(excluded.updated_at, 'epoch'::timestamptz))`,
     [
       unit.id,
       unit.memberId || null,
@@ -261,7 +277,8 @@ async function upsertPortoUnit(client, unit) {
       asDateTime(unit.assignedAt),
       asDateTime(unit.endedAt),
       asDateTime(unit.lastSeenAt),
-      json(unit, {})
+      json(unit, {}),
+      incomingUpdatedAt
     ]
   );
 }
@@ -285,7 +302,8 @@ function createPostgresPortoStore(options = {}) {
       const settingsResult = await client.query("select value from app_settings where key = 'main'");
       const settings = settingsResult.rows[0]?.value || {};
       const peopleResult = await client.query("select * from people order by name asc");
-    const unitsResult = await client.query("select * from porto_units where active is true order by requested_at nulls last, id asc");
+      await cleanupRuntimePortoUnits(client);
+      const unitsResult = await client.query("select * from porto_units where active is true order by requested_at nulls last, id asc");
       const portoUnits = normalizePortoUnitsForWrite(unitsResult.rows.map(portoUnitFromRow));
 
       return {
@@ -350,6 +368,7 @@ function createPostgresPortoStore(options = {}) {
         for (const unit of uniqueUnits) {
           await upsertPortoUnit(client, unit);
         }
+        await cleanupRuntimePortoUnits(client, { force: true });
         await client.query("commit");
       } catch (error) {
         await client.query("rollback");
