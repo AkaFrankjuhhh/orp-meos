@@ -285,7 +285,7 @@ function createPostgresPortoStore(options = {}) {
       const settingsResult = await client.query("select value from app_settings where key = 'main'");
       const settings = settingsResult.rows[0]?.value || {};
       const peopleResult = await client.query("select * from people order by name asc");
-      const unitsResult = await client.query("select * from porto_units order by requested_at nulls last, id asc");
+    const unitsResult = await client.query("select * from porto_units where active is true order by requested_at nulls last, id asc");
       const portoUnits = normalizePortoUnitsForWrite(unitsResult.rows.map(portoUnitFromRow));
 
       return {

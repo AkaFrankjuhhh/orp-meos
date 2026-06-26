@@ -44,10 +44,14 @@ function mask(value) {
         (select count(*) from absences) as absences,
         (select count(*) from i8_forms) as i8_forms,
         (select count(*) from resignation_forms) as resignation_forms,
-        (select count(*) from porto_units) as porto_units,
+        (select count(*) from porto_units where active is true) as active_porto_units,
+        (select count(*) from porto_units where active is not true) as inactive_porto_units,
+        (select count(*) from porto_units) as porto_units_total,
         (select count(*) from app_sessions where expires_at > now()) as active_sessions,
         (select count(*) from hours) as hours,
-        (select count(*) from discord_sync_jobs) as discord_sync_jobs
+        (select count(*) from discord_sync_jobs where status in ('pending', 'running')) as open_discord_sync_jobs,
+        (select count(*) from discord_sync_jobs where status = 'done') as done_discord_sync_jobs,
+        (select count(*) from discord_sync_jobs) as discord_sync_jobs_total
     `);
     console.log(`Database: ${version.rows[0].version.split(' on ')[0]}`);
     console.log(`Aantallen: ${JSON.stringify(counts.rows[0])}`);

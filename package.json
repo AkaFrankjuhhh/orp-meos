@@ -9,6 +9,7 @@
     "start:side-tasks": "node side-tasks-server.js",
     "discord:side-tasks": "node scripts/side-tasks-discord-worker.js",
     "db:check": "node scripts/db-check.js",
+    "db:cleanup-runtime": "node scripts/cleanup-runtime-data.js",
     "db:init": "node scripts/db-init.js",
     "db:import-json": "node scripts/import-data-json.js --replace",
     "db:export-state": "node scripts/db-export-state.js",
