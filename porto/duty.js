@@ -226,6 +226,14 @@ async function updatePortoStatus(status, detail = "") {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (payload.code === "porto_recently_ended") {
+        portoDuty = null;
+        portoLastDutyLoadAt = Date.now();
+        applyPortoPayload({ unit: null, recentlyEnded: true });
+        renderVehicleRanges();
+        renderDutyPanel();
+        renderOpsPanel();
+      }
       showPortoInlineError(payload.error || "Porto status kon niet worden opgeslagen.");
       await showPortoNotice(payload.error || "Porto status kon niet worden opgeslagen.", "Status mislukt");
       return;

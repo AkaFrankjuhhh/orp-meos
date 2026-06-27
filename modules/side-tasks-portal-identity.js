@@ -85,7 +85,8 @@ async function portalIdentityForDiscordId(discordId) {
       const result = await pool.query(
         `select name, discord_username, rank, service_number, previous_service_number
          from people
-         where discord_id = $1 and status = 'Actief'
+         where discord_id = $1
+           and lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')
          order by updated_at desc
          limit 1`,
         [normalizedDiscordId]

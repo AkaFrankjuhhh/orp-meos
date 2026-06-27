@@ -1162,6 +1162,7 @@ body.porto-ops-workspace .porto-ops-choice select {
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.6);
   padding: 12px;
+  container-type: inline-size;
 }
 
 .porto-discord-channel.drag-over {
@@ -1203,8 +1204,9 @@ body.porto-ops-workspace .porto-ops-choice select {
 }
 
 .porto-discord-channel-units {
+  --porto-channel-unit-min: 420px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--porto-channel-unit-min)), 1fr));
   gap: 10px;
   margin-top: 10px;
 }
@@ -1874,7 +1876,9 @@ body.porto-ops-workspace .porto-ops-empty {
   font-size: 16px;
   font-weight: 850;
   text-align: left;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   cursor: context-menu;
 }
 
@@ -2049,6 +2053,53 @@ body.porto-ops-workspace .porto-ops-empty {
   background:
     linear-gradient(135deg, rgba(8, 112, 154, 0.1), rgba(15, 23, 42, 0.58)),
     rgba(8, 13, 22, 0.42);
+}
+
+.porto-discord-channel .porto-modern-vehicle,
+.porto-discord-channel .porto-modern-member strong,
+.porto-discord-channel .porto-modern-member-specs,
+.porto-discord-channel .porto-specialty-pill {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+@media (max-width: 1500px) {
+  .porto-discord-channel-units {
+    --porto-channel-unit-min: 460px;
+  }
+
+  .porto-discord-channel-head {
+    grid-template-columns: minmax(88px, auto) minmax(0, 1fr) auto;
+  }
+
+  .porto-discord-channel .porto-modern-unit-head {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .porto-discord-channel .porto-modern-status {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .porto-discord-channel .porto-modern-status .porto-status-pill {
+    min-height: 28px;
+  }
+}
+
+@media (max-width: 1120px) {
+  .porto-discord-channel-units {
+    grid-template-columns: 1fr;
+  }
+
+  .porto-discord-channel-head {
+    grid-template-columns: 1fr auto;
+  }
+
+  .porto-discord-channel-head strong,
+  .porto-discord-channel-note {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 920px) {

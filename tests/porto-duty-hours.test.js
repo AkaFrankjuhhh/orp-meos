@@ -2,7 +2,10 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { buildPortoDutyHourEntries } = require("../modules/porto-duty-hours");
+const {
+  buildPortoDutyHourEntries,
+  filterPortoDutyHourEntriesByStartWeek
+} = require("../modules/porto-duty-hours");
 
 test("porto diensturen splitsen over operationele weekgrens en nemen gekoppelde leden mee", () => {
   const state = {
@@ -68,4 +71,42 @@ test("porto diensturen gebruiken endedAt en slaan units zonder starttijd over", 
   assert.equal(entries[0].minutes, 75);
   assert.equal(entries[0].hours, 1.25);
   assert.equal(entries[0].job, "Porto dienst");
+});
+
+test("porto diensturen tellen pas vanaf ingestelde startweek", () => {
+  const state = {
+    people: [{ id: "p1", name: "Frank Bright", serviceNumber: "70-04", discordId: "1" }],
+    portoUnits: [
+      {
+        id: "unit-30-01",
+        memberId: "p1",
+        status: "1",
+        assignedAt: "2026-06-21T16:30:00.000Z"
+      }
+    ]
+  };
+
+  const entries = buildPortoDutyHourEntries(state, {
+    now: "2026-06-21T18:30:00.000Z",
+    timeZone: "Europe/Amsterdam",
+    startWeek: "2026-W26"
+  });
+
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].weekYear, 2026);
+  assert.equal(entries[0].weekNumber, 26);
+  assert.equal(entries[0].minutes, 90);
+});
+
+test("oude porto-klokuren worden gefilterd maar handmatige uren blijven", () => {
+  const entries = [
+    { id: "manual-week-25", weekYear: 2026, weekNumber: 25, hours: 12, source: "manual" },
+    { id: "porto-duty-old", weekYear: 2026, weekNumber: 25, hours: 3, source: "porto-duty-clock" },
+    { id: "porto-duty-new", weekYear: 2026, weekNumber: 26, hours: 1, source: "porto-duty-clock" }
+  ];
+
+  assert.deepEqual(
+    filterPortoDutyHourEntriesByStartWeek(entries, "2026-W26").map((entry) => entry.id),
+    ["manual-week-25", "porto-duty-new"]
+  );
 });

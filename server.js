@@ -1021,6 +1021,7 @@ async function startServer() {
     writeHourEntries: peopleStorage.writeHourEntries,
     intervalMs: intervalMsFromEnv(process.env.PORTO_DUTY_HOURS_INTERVAL_MS, 10 * 60 * 1000),
     timeZone: process.env.PORTO_DUTY_HOURS_TIME_ZONE || "Europe/Amsterdam",
+    startWeek: process.env.PORTO_DUTY_HOURS_START_WEEK || "2026-W26",
     logError: (error) => logServerError("Porto diensturen klok mislukt", error)
   });
   server.listen(port, () => {

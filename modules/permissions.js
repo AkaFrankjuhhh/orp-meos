@@ -6,9 +6,10 @@ const {
   canonicalizeFunctionBadge,
   normalizeFunctionBadge
 } = require("./ovc");
+const { isCurrentPerson } = require("./person-status");
 
 function isDevOverrideProfile(profile) {
-  return Boolean(profile?.status === "Actief" && isDevDiscordId(profile.discordId));
+  return Boolean(isCurrentPerson(profile) && isDevDiscordId(profile.discordId));
 }
 
 function automaticFunctionBadges(profile) {

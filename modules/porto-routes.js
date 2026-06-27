@@ -5,9 +5,10 @@ const { currentOrganization } = require("./organizations");
 const { allSideTasks } = require("./side-tasks-config");
 const { createSideTasksStore } = require("./side-tasks-store");
 const { portoPhonebookPeople } = require("./porto-phonebook");
+const { isCurrentPerson } = require("./person-status");
 
 function activePersonForAuth(state, auth) {
-  return (state.people || []).find((entry) => entry.id === auth.profile.id && entry.status === "Actief");
+  return (state.people || []).find((entry) => entry.id === auth.profile.id && isCurrentPerson(entry));
 }
 
 function createPortoRouteHandler({ requireAuth, readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits, readBody, sendJson, discordBot }) {
@@ -45,6 +46,45 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   } = createPortoServices();
   let mutationQueue = Promise.resolve();
   const status4Reasons = new Set(["Staandehouding", "Afhandeling", "In hoofd", "Overige"]);
+  const configuredStatus8RejoinGuardMs = Number(process.env.PORTO_STATUS8_REJOIN_GUARD_MS);
+  const status8RejoinGuardMs = Number.isFinite(configuredStatus8RejoinGuardMs)
+    ? Math.max(0, configuredStatus8RejoinGuardMs)
+    : 90000;
+  const recentlyEndedPortoMembers = new Map();
+
+  function portoMemberKey(memberId) {
+    return String(memberId || "").trim();
+  }
+
+  function markRecentlyEnded(memberId, nowMs = Date.now()) {
+    if (!status8RejoinGuardMs) return;
+    const key = portoMemberKey(memberId);
+    if (key) recentlyEndedPortoMembers.set(key, nowMs + status8RejoinGuardMs);
+  }
+
+  function markRecentlyEndedUnits(units = [], nowMs = Date.now()) {
+    for (const unit of units || []) markRecentlyEnded(unit?.memberId, nowMs);
+  }
+
+  function isRecentlyEnded(memberId, nowMs = Date.now()) {
+    if (!status8RejoinGuardMs) return false;
+    const key = portoMemberKey(memberId);
+    if (!key) return false;
+    const expiresAt = recentlyEndedPortoMembers.get(key);
+    if (!expiresAt) return false;
+    if (expiresAt <= nowMs) {
+      recentlyEndedPortoMembers.delete(key);
+      return false;
+    }
+    return true;
+  }
+
+  function recentlyEndedError() {
+    return {
+      error: "Uitdienstmelding wordt nog verwerkt. Wacht kort voordat je opnieuw aanmeldt.",
+      code: "porto_recently_ended"
+    };
+  }
 
   function timestampMs(value) {
     const time = Date.parse(value || "");
@@ -380,6 +420,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   function releaseCurrentOps(state, currentOps, endedBy, endedAt = new Date().toISOString(), statusDetail = `${operatorLabel} neergelegd`) {
     if (!currentOps) return false;
+    markRecentlyEnded(currentOps.memberId);
     if (memberHasOpsTraining(state, currentOps.memberId)) appendOpsLog(state, currentOps, endedBy, endedAt);
     state.portoCurrentOps = { ...currentOps, active: false, endedAt };
     const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === operatorVehicleNumber);
@@ -462,12 +503,17 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     let unitsChanged = changedBySweep || changedByTouch || changedByOpsEligibility;
     let settingsChanged = changedByOpsEligibility;
     const currentOps = activePortoOps(state);
-    if (currentOps?.recoveredFromUnit) {
+    const currentOpsRecentlyEnded = currentOps && isRecentlyEnded(currentOps.memberId);
+    if (currentOpsRecentlyEnded) {
+      state.portoCurrentOps = { ...currentOps, active: false, endedAt: currentOps.endedAt || new Date().toISOString() };
+      delete state.portoCurrentOps.recoveredFromUnit;
+      settingsChanged = true;
+    } else if (currentOps?.recoveredFromUnit) {
       state.portoCurrentOps = { ...currentOps };
       delete state.portoCurrentOps.recoveredFromUnit;
       settingsChanged = true;
     }
-    if (currentOps) {
+    if (currentOps && !currentOpsRecentlyEnded) {
       let opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === operatorVehicleNumber);
       if (!opsUnit) {
         const opsPerson = (state.people || []).find((entry) => entry.id === currentOps.memberId);
@@ -527,8 +573,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         units: unitsChanged ? state.portoUnits : null,
         settings: settingsChanged
       });
-      const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
-      await sendPortoState(res, state, person, unit);
+      const recentlyEnded = isRecentlyEnded(person.id);
+      const unit = recentlyEnded ? null : state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
+      await sendPortoState(res, state, person, unit, recentlyEnded ? { recentlyEnded: true } : {});
       return true;
     }
 
@@ -538,10 +585,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const { state, person } = context;
       const rangesChanged = ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
-      await maintainPortoPresence(state, person, { touch: false });
+      const skipPresenceMaintain = isRecentlyEnded(person.id);
+      if (!skipPresenceMaintain) await maintainPortoPresence(state, person, { touch: false });
       if (rangesChanged) await persistPortoState(state, { units: state.portoUnits, settings: true });
-      const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
-      await sendPortoState(res, state, person, unit);
+      const unit = skipPresenceMaintain ? null : state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
+      await sendPortoState(res, state, person, unit, skipPresenceMaintain ? { recentlyEnded: true } : {});
       return true;
     }
 
@@ -568,6 +616,18 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       sweepPortoPresence(state);
       const changedByOpsEligibility = closeIneligiblePortoOpsUnits(state, now);
       let unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
+      const recentlyEnded = isRecentlyEnded(person.id);
+      if (recentlyEnded && status !== "8") {
+        if (changedByOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
+        sendJson(res, 409, recentlyEndedError());
+        return true;
+      }
+      if (!unit && status === "8") {
+        markRecentlyEnded(person.id);
+        if (changedByOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
+        await sendPortoState(res, state, person, null, { recentlyEnded: true });
+        return true;
+      }
       if (!unit && status !== "0") {
         if (changedByOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 409, { error: `Je moet eerst Status 0 doen voordat ${operatorLabel} je kan indelen.` });
@@ -613,25 +673,32 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         unit.requestNote = requestNote;
       }
       if (status === "8") {
-        const releasedVehicleNumber = unit.vehicleNumber;
-        const endedUnits = [unit];
+        const personKey = portoMemberKey(person.id);
+        const endedUnits = state.portoUnits.filter((entry) => (
+          portoMemberKey(entry.memberId) === personKey && entry.active !== false
+        ));
+        if (!endedUnits.some((entry) => entry.id === unit.id)) endedUnits.push(unit);
+        const releasedVehicleNumbers = new Set(endedUnits.map((entry) => entry.vehicleNumber).filter(Boolean));
+        markRecentlyEndedUnits(endedUnits);
         const opsReleased = releaseOpsIfEnded(state, endedUnits, person, now, "Uit dienst");
         settingsChanged = settingsChanged || opsReleased;
-        Object.assign(unit, {
-          status: "8",
-          statusDetail: "Uit dienst",
-          active: false,
-          endedAt: now,
-          updatedAt: now
-        });
-        if (releasedVehicleNumber) syncPortoLinkedNames(state, releasedVehicleNumber);
+        for (const endedUnit of endedUnits) {
+          Object.assign(endedUnit, {
+            status: "8",
+            statusDetail: "Uit dienst",
+            active: false,
+            endedAt: now,
+            updatedAt: now
+          });
+        }
+        for (const releasedVehicleNumber of releasedVehicleNumbers) syncPortoLinkedNames(state, releasedVehicleNumber);
         await enqueueNormalDiscordNicknames(state, endedUnits);
       } else {
         closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
         await enqueuePortoDiscordNicknames(state, [unit], "Porto status aangepast");
       }
       await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
-      await sendPortoState(res, state, person, unit);
+      await sendPortoState(res, state, person, status === "8" ? null : unit, status === "8" ? { recentlyEnded: true } : {});
       return true;
     }
 
@@ -692,7 +759,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
       sweepPortoPresence(state);
       const activeMemberIds = new Set(state.portoUnits.filter((unit) => unit.active !== false).map((unit) => unit.memberId));
-      const candidates = (state.people || []).filter((entry) => entry.status === "Actief" && entry.id !== person.id && !activeMemberIds.has(entry.id));
+      const candidates = (state.people || []).filter((entry) => isCurrentPerson(entry) && entry.id !== person.id && !activeMemberIds.has(entry.id));
       if (!candidates.length) {
         sendJson(res, 409, { error: "Geen actieve medewerkers beschikbaar voor een testaanmelding." });
         return true;
@@ -764,6 +831,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const cleanedOpsEligibility = closeIneligiblePortoOpsUnits(state);
       const currentOps = activePortoOps(state);
       if (action === "claim") {
+        if (isRecentlyEnded(person.id)) {
+          if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
+          sendJson(res, 409, recentlyEndedError());
+          return true;
+        }
         if (!canServePortoOps(person)) {
           if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
           sendJson(res, 403, { error: `Alleen medewerkers met ${operatorTraining}-training mogen ${operatorLabel} oppakken.` });
@@ -845,6 +917,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 404, { error: "Actieve eenheid niet gevonden." });
         return true;
       }
+      if (!offDuty && isRecentlyEnded(unit.memberId)) {
+        if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
+        sendJson(res, 409, recentlyEndedError());
+        return true;
+      }
       const selectedVehicleRange = selectedVehicleName
         ? (state.portoVehicleRanges || []).find((candidate) => (candidate.vehicles || []).includes(selectedVehicleName))
         : null;
@@ -892,6 +969,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         const unitsToEnd = offDutyScope === "member" || oldVehicleNumber === operatorVehicleNumber
           ? [unit]
           : state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
+        markRecentlyEndedUnits(unitsToEnd);
         const settingsChanged = releaseOpsIfEnded(state, unitsToEnd, person, endedAt, "Uit dienst");
         unitsToEnd.forEach((entry) => Object.assign(entry, {
           status: "8",
@@ -911,7 +989,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         syncPortoLinkedNames(state, oldVehicleNumber);
         await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
         await enqueueNormalDiscordNicknames(state, unitsToEnd);
-        await sendPortoState(res, state, person, unit);
+        const endedCurrentPerson = unitsToEnd.some((entry) => entry.memberId === person.id);
+        const responseUnit = endedCurrentPerson ? null : state.portoUnits.find((entry) => entry.id === unit.id && entry.active !== false) || null;
+        await sendPortoState(res, state, person, responseUnit, endedCurrentPerson ? { recentlyEnded: true } : {});
         return true;
       }
       if (discordChannelKey || hasDiscordChannelStatus) {
@@ -1110,6 +1190,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (!unit) {
         if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 404, { error: "Aanmelding niet gevonden." });
+        return true;
+      }
+      if (!reject && isRecentlyEnded(unit.memberId)) {
+        if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
+        sendJson(res, 409, recentlyEndedError());
         return true;
       }
       if (reject) {

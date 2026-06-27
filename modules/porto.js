@@ -4,11 +4,12 @@ const {
 } = require("./porto-discord-channels");
 const { currentOrganization } = require("./organizations");
 const { isDevDiscordId } = require("./ovc");
+const { isCurrentPerson } = require("./person-status");
 
 const PORTO_HEARTBEAT_WRITE_MS = 60 * 1000;
 
 function isDevOverrideProfile(person) {
-  return Boolean(person?.status === "Actief" && isDevDiscordId(person.discordId));
+  return Boolean(isCurrentPerson(person) && isDevDiscordId(person.discordId));
 }
 
 function timestampMs(value) {
@@ -245,7 +246,7 @@ function createPortoServices() {
   function canUsePortoDevBypass(person) {
     return Boolean(
       person &&
-        person.status === "Actief" &&
+        isCurrentPerson(person) &&
         isDevOverrideProfile(person)
     );
   }
@@ -257,7 +258,7 @@ function createPortoServices() {
   function canServePortoOps(person) {
     return Boolean(
       person &&
-        person.status === "Actief" &&
+        isCurrentPerson(person) &&
         (hasCompletedOperational(person, operatorTraining) || isDevOverrideProfile(person))
     );
   }
@@ -273,7 +274,7 @@ function createPortoServices() {
     ]);
     return Boolean(
       person &&
-        person.status === "Actief" &&
+        isCurrentPerson(person) &&
         (opsValues.some((item) => allowedOpsValues.has(item)) || canManagePortoByFunction(person) || isDevOverrideProfile(person))
     );
   }

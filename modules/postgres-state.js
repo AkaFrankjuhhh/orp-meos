@@ -1,5 +1,9 @@
 const { withClient } = require("./db");
 const { currentOrganization } = require("./organizations");
+const {
+  DEFAULT_PORTO_DUTY_HOURS_START_WEEK,
+  filterPortoDutyHourEntriesByStartWeek
+} = require("./porto-duty-hours");
 
 const organization = currentOrganization();
 
@@ -156,7 +160,7 @@ async function readPostgresState() {
     }));
 
     const hoursResult = await client.query("select * from hours order by week_year desc nulls last, week_number desc nulls last, started_at nulls last, id asc");
-    const hours = hoursResult.rows.map((row) => {
+    const rawHours = hoursResult.rows.map((row) => {
       const raw = parseJson(row.raw, {});
       const hoursValue = row.hours_value != null ? Number(row.hours_value) : Number(raw.hours || row.minutes / 60 || 0);
       return {
@@ -176,6 +180,10 @@ async function readPostgresState() {
         enteredAt: iso(row.entered_at) || raw.enteredAt || ""
       };
     });
+    const hours = filterPortoDutyHourEntriesByStartWeek(
+      rawHours,
+      process.env.PORTO_DUTY_HOURS_START_WEEK || DEFAULT_PORTO_DUTY_HOURS_START_WEEK
+    );
 
     const portoResult = await client.query("select * from porto_units order by requested_at nulls last, id asc");
     const portoUnits = portoResult.rows.map((row) => ({

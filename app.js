@@ -162,8 +162,28 @@ function currentProfile() {
   );
 }
 
+const CURRENT_PROFILE_BLOCKED_STATUSES = new Set([
+  "inactief",
+  "ontslagen",
+  "gearchiveerd",
+  "archief",
+  "blacklist",
+  "geblacklist"
+]);
+
+function normalizedProfileStatus(person) {
+  return String(person?.status || "Actief").trim();
+}
+
+function isCurrentProfile(person) {
+  if (!person) return false;
+  const status = normalizedProfileStatus(person).toLowerCase();
+  if (!status) return true;
+  return !CURRENT_PROFILE_BLOCKED_STATUSES.has(status);
+}
+
 function visibleProfile() {
-  return state.people.find((person) => person.id === selectedProfileId && person.status === "Actief") || currentProfile();
+  return state.people.find((person) => person.id === selectedProfileId && isCurrentProfile(person)) || currentProfile();
 }
 
 function hasKaderAccess() {
@@ -359,7 +379,7 @@ function canManageMentorTestTemplate() {
 
 function canViewOwnMentorTrajectory() {
   const current = currentProfile();
-  return Boolean(current && current.status === "Actief" && mentorRanks.includes(current.rank));
+  return Boolean(current && isCurrentProfile(current) && mentorRanks.includes(current.rank));
 }
 
 function canViewMentorSection() {
@@ -794,7 +814,7 @@ function personFromRouteSlug(slug) {
     const name = String(person.name || "").trim().toLowerCase();
     const serviceNumber = String(person.serviceNumber || "").trim().toLowerCase();
     const id = String(person.id || "").trim().toLowerCase();
-    return person.status === "Actief" && (name === normalized || serviceNumber === normalized || id === normalized);
+    return isCurrentProfile(person) && (name === normalized || serviceNumber === normalized || id === normalized);
   }) || null;
 }
 
@@ -998,6 +1018,9 @@ function setPage(page) {
   if (page === "mijn-profiel") updateProfileNavigationButtons(visibleProfile());
   saveCurrentPage(page);
   syncBrowserRoute(page);
+  if (!isMentorTestStaticPageId(page) && typeof window !== "undefined") {
+    window.setTimeout(flushPausedStaticPageLiveRefresh, 0);
+  }
   return page;
 }
 
@@ -1272,6 +1295,22 @@ function activePageId() {
   return $(".page.active")?.id || "dashboard";
 }
 
+let liveRefreshPausedByStaticPage = false;
+
+function isMentorTestStaticPageId(page) {
+  return page === "mentor-toets" || page === "mentor-toetsen";
+}
+
+function isMentorTestStaticPageActive() {
+  return isMentorTestStaticPageId(activePageId()) || Boolean($("#mentorTestTemplateDialog")?.open);
+}
+
+function flushPausedStaticPageLiveRefresh() {
+  if (!liveRefreshPausedByStaticPage || isMentorTestStaticPageActive()) return;
+  liveRefreshPausedByStaticPage = false;
+  scheduleLiveRefresh("state");
+}
+
 // Voorkomt dat live refresh een geopend rechtermuismenu uit de DOM rendert.
 function hasOpenTransientMenu() {
   return Boolean(
@@ -1300,6 +1339,7 @@ function hasActiveLiveEditInteraction() {
 
 function renderLiveScope(scope = "state") {
   const page = activePageId();
+  const keepMentorTestPageStable = isMentorTestStaticPageActive();
   renderKaderNavigation();
   renderNavigationCounters();
   renderNotifications();
@@ -1311,8 +1351,10 @@ function renderLiveScope(scope = "state") {
     renderMentorOverview();
     renderMentorChecklist();
     renderMentorTrajectory();
-    renderMentorTestPage();
-    renderMentorTestsOverview();
+    if (!keepMentorTestPageStable) {
+      renderMentorTestPage();
+      renderMentorTestsOverview();
+    }
     renderMentorLeadershipLog();
     renderRecruitment();
     renderPeople();
@@ -1344,6 +1386,7 @@ function renderLiveScope(scope = "state") {
 async function refreshReviewCounters() {
   if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
   if (document.visibilityState === "hidden") return;
+  if (isMentorTestStaticPageActive()) return;
   if (reviewCounterLoadPromise) return reviewCounterLoadPromise;
   if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction() || hasActiveLiveEditInteraction()) return;
   reviewCounterLoadPromise = (async () => {
@@ -1379,6 +1422,10 @@ function scheduleLiveRefresh(scope = "state") {
   liveRefreshTimer = window.setTimeout(async () => {
     liveRefreshTimer = null;
     if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
+    if (isMentorTestStaticPageActive()) {
+      liveRefreshPausedByStaticPage = true;
+      return;
+    }
     if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction() || hasActiveLiveEditInteraction()) {
       if (!liveRefreshDeferTimer) {
         liveRefreshDeferTimer = window.setTimeout(() => {
@@ -1423,6 +1470,7 @@ function stopLiveUpdates() {
   if (liveRefreshDeferTimer) window.clearTimeout(liveRefreshDeferTimer);
   liveRefreshTimer = null;
   liveRefreshDeferTimer = null;
+  liveRefreshPausedByStaticPage = false;
   pendingLiveScopes.clear();
 }
 function renderLogbook() {

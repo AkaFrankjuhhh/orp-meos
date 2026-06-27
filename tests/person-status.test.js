@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { isActivePerson, isPersonLoginEligible } = require("../modules/person-status");
+const { isActivePerson, isCurrentPerson, isPersonLoginEligible } = require("../modules/person-status");
 
 test("portal login accepts active and temporary personnel statuses", () => {
   assert.equal(isPersonLoginEligible({ status: "Actief" }), true);
@@ -25,4 +25,11 @@ test("active status helper remains strict for active-state UI", () => {
   assert.equal(isActivePerson({ status: "Actief" }), true);
   assert.equal(isActivePerson({ status: "Afwezig" }), false);
   assert.equal(isActivePerson({ status: "I.O" }), false);
+});
+
+test("current status helper treats absence as a normal accessible profile", () => {
+  assert.equal(isCurrentPerson({ status: "Actief" }), true);
+  assert.equal(isCurrentPerson({ status: "Afwezig" }), true);
+  assert.equal(isCurrentPerson({ status: "I.O" }), true);
+  assert.equal(isCurrentPerson({ status: "Ontslagen" }), false);
 });

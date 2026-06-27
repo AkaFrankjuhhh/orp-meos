@@ -16,6 +16,7 @@ const {
 const { markNotificationsRead, clearNotifications } = require("./notifications");
 const { mentorReviewStateForStatus } = require("./mentor-tests-logic");
 const { setDiscordSyncStatus, syncStatusFromError } = require("./discord-sync-status");
+const { isCurrentPerson } = require("./person-status");
 
 function createPersoneelsportaalRouteHandler(deps) {
   const organization = currentOrganization();
@@ -490,7 +491,7 @@ function createPersoneelsportaalRouteHandler(deps) {
   async function syncChangedDiscordNicknames(state, previousNicknames) {
     if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncNicknameForPerson !== "function") return;
     const changedPeople = (state.people || [])
-      .filter((person) => person.status === "Actief" && person.discordId)
+      .filter((person) => isCurrentPerson(person) && person.discordId)
       .filter((person) => person.rank && person.serviceNumber)
       .filter((person) => previousNicknames.get(person.id) !== discordBot.buildServiceNickname(person));
 
@@ -535,7 +536,7 @@ function createPersoneelsportaalRouteHandler(deps) {
   async function syncChangedDiscordRankRoles(state, previousRankRoles) {
     if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncRankRoleForPerson !== "function") return;
     const changedPeople = (state.people || [])
-      .filter((person) => person.status === "Actief" && person.discordId)
+      .filter((person) => isCurrentPerson(person) && person.discordId)
       .filter((person) => person.rank && person.serviceNumber)
       .filter((person) => previousRankRoles.get(person.id) !== `${person.discordId || ""}:${person.rank || ""}:${discordBot.rankRoleIdForPerson(person) || ""}`);
 
@@ -898,10 +899,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!auth) return;
     const state = await readPeopleState();
     const body = await readBody(req);
-    const member = (state.people || []).find((person) => person.id === auth.profile.id && person.status === "Actief");
+    const member = (state.people || []).find((person) => person.id === auth.profile.id && isCurrentPerson(person));
     const reason = String(body.reason || "").trim();
     if (!member) {
-      sendJson(res, 400, { error: "Actief profiel is verplicht om een ontslagformulier in te dienen." });
+      sendJson(res, 400, { error: "Profiel is verplicht om een ontslagformulier in te dienen." });
       return;
     }
     if (!reason) {
@@ -957,9 +958,9 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 409, { error: "Dit ontslagformulier is al verwerkt." });
       return;
     }
-    const person = (state.people || []).find((entry) => entry.id === form.memberId && entry.status === "Actief");
+    const person = (state.people || []).find((entry) => entry.id === form.memberId && isCurrentPerson(entry));
     if (!person) {
-      sendJson(res, 404, { error: "Actief personeelslid niet gevonden. Mogelijk is dit profiel al gearchiveerd." });
+      sendJson(res, 404, { error: "Personeelslid niet gevonden. Mogelijk is dit profiel al gearchiveerd." });
       return;
     }
 
@@ -1057,9 +1058,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!auth) return;
     const state = await readFormsState();
     const body = await readBody(req);
-    const member = (state.people || []).find((person) => person.id === auth.profile.id && person.status === "Actief");
+    const member = (state.people || []).find((person) => person.id === auth.profile.id && isCurrentPerson(person));
     if (!member || !body.from || !body.to) {
-      sendJson(res, 400, { error: "Actief profiel, vanaf en tot zijn verplicht." });
+      sendJson(res, 400, { error: "Profiel, vanaf en tot zijn verplicht." });
       return;
     }
     state.absences = state.absences || [];
@@ -1246,9 +1247,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!auth) return;
     const state = await readFormsState();
     const body = await readBody(req);
-    const member = (state.people || []).find((person) => person.id === auth.profile.id && person.status === "Actief");
+    const member = (state.people || []).find((person) => person.id === auth.profile.id && isCurrentPerson(person));
     if (!member) {
-      sendJson(res, 400, { error: "Actief profiel is verplicht om een I8 formulier op te stellen." });
+      sendJson(res, 400, { error: "Profiel is verplicht om een I8 formulier op te stellen." });
       return;
     }
     const requiredFields = [
@@ -1463,7 +1464,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const enteredBy = (state.people || []).find((person) => person.id === auth.profile.id) || auth.profile;
     const entries = [];
     for (const item of rawEntries) {
-      const person = (state.people || []).find((entry) => entry.id === item.personId && entry.status === "Actief");
+      const person = (state.people || []).find((entry) => entry.id === item.personId && isCurrentPerson(entry));
       if (!person) continue;
       const hours = parseManualHoursValue(item.hours);
       if (!Number.isFinite(hours) || hours < 0 || hours > 99) continue;
@@ -1893,7 +1894,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 403, { error: "Alleen Kader, Interne-Zaken of (h)OvJ mag sancties registreren." });
       return;
     }
-    const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(disciplineMatch[1]) && entry.status === "Actief");
+    const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(disciplineMatch[1]) && isCurrentPerson(entry));
     if (!person) {
       sendJson(res, 404, { error: "Personeelslid niet gevonden." });
       return;
@@ -1961,7 +1962,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 403, { error: "Alleen Kader, Interne-Zaken of (h)OvJ mag sancties aanpassen." });
       return;
     }
-    const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(disciplineEntryMatch[1]) && entry.status === "Actief");
+    const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(disciplineEntryMatch[1]) && isCurrentPerson(entry));
     if (!person) {
       sendJson(res, 404, { error: "Personeelslid niet gevonden." });
       return;
@@ -2061,7 +2062,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const state = await readPeopleState();
     const discordId = normalizeDiscordId(auth.profile.discordId);
     const person = (state.people || []).find((entry) =>
-      entry.status === "Actief" &&
+      isCurrentPerson(entry) &&
       (entry.id === auth.profile.id || normalizeDiscordId(entry.discordId) === discordId)
     );
     if (!person || !mentorRanks.includes(person.rank)) {
@@ -2087,7 +2088,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const state = await readPeopleState();
     const discordId = normalizeDiscordId(auth.profile.discordId);
     const person = (state.people || []).find((entry) =>
-      entry.status === "Actief" &&
+      isCurrentPerson(entry) &&
       (entry.id === auth.profile.id || normalizeDiscordId(entry.discordId) === discordId)
     );
     if (!person || !mentorRanks.includes(person.rank)) {
@@ -2195,7 +2196,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const body = await readBody(req);
     const personId = String(body.personId || "").trim();
-    const person = (state.people || []).find((entry) => entry.id === personId && entry.status === "Actief");
+    const person = (state.people || []).find((entry) => entry.id === personId && isCurrentPerson(entry));
     if (!person || !mentorRanks.includes(person.rank)) {
       sendJson(res, 404, { error: "Mentor-traject niet gevonden." });
       return;
@@ -2247,7 +2248,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const body = await readBody(req);
     const personId = String(body.personId || "").trim();
-    const person = (state.people || []).find((entry) => entry.id === personId && entry.status === "Actief");
+    const person = (state.people || []).find((entry) => entry.id === personId && isCurrentPerson(entry));
     if (!person || !mentorRanks.includes(person.rank)) {
       sendJson(res, 404, { error: "Mentor-traject niet gevonden." });
       return;
@@ -2297,7 +2298,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const body = await readBody(req);
     const personId = String(body.personId || "").trim();
-    const person = (state.people || []).find((entry) => entry.id === personId && entry.status === "Actief");
+    const person = (state.people || []).find((entry) => entry.id === personId && isCurrentPerson(entry));
     if (!person || !mentorRanks.includes(person.rank)) {
       sendJson(res, 404, { error: "Mentor-traject niet gevonden." });
       return;
@@ -2385,7 +2386,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 403, { error: "Alleen Kader of Mentor mag mentor-checklists aanpassen." });
       return;
     }
-    const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(mentorMatch[1]) && entry.status === "Actief");
+    const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(mentorMatch[1]) && isCurrentPerson(entry));
     if (!person) {
       sendJson(res, 404, { error: "Personeelslid niet gevonden." });
       return;
@@ -2495,7 +2496,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     state.mentorChecklistGroups = normalizedGroups;
     for (const person of state.people || []) {
-      if (person.status !== "Actief" || !mentorRanks.includes(person.rank)) continue;
+      if (!isCurrentPerson(person) || !mentorRanks.includes(person.rank)) continue;
       const checklist = normalizeMentorChecklistForState(person, state);
       if (!checklist.completed) {
         const allItemsCompleted = checklist.items.length > 0 && checklist.items.every((item) => item.checked);
@@ -2659,8 +2660,8 @@ function createPersoneelsportaalRouteHandler(deps) {
       state.activity.push(`Rang geschiedenis gewist voor ${person.name}.`);
     }
     if (action === "io") {
-      if (person.status !== "Actief") {
-        sendJson(res, 400, { error: "Alleen actieve medewerkers kunnen op I.O worden gezet." });
+      if (!isCurrentPerson(person)) {
+        sendJson(res, 400, { error: "Alleen huidige medewerkers kunnen op I.O worden gezet." });
         return;
       }
       const now = new Date().toISOString();
@@ -2735,7 +2736,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       await syncChangedDiscordNicknames(state, previousNicknames);
       await syncChangedDiscordRankRoles(state, previousRankRoles);
     }
-    if (person.status === "Actief" && ["promote", "demote", "reactivate"].includes(action)) {
+    if (isCurrentPerson(person) && ["promote", "demote", "reactivate"].includes(action)) {
       await queuePersonDiscordSync(state, person, `person_${action}`);
     }
     await sendPeopleStateAfterMutation(res, auth, state);

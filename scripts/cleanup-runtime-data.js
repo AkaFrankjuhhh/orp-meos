@@ -3,6 +3,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { loadEnv, withClient, closePool, databaseNameFromConnectionString } = require("../modules/db");
+const {
+  DEFAULT_PORTO_DUTY_HOURS_START_WEEK,
+  parsePortoDutyHoursStartWeek
+} = require("../modules/porto-duty-hours");
 
 function parseArgs(argv) {
   const args = {
@@ -11,7 +15,8 @@ function parseArgs(argv) {
     portoHours: 24,
     discordHours: 24,
     discordFailedDays: 14,
-    staleRunningMinutes: 30
+    staleRunningMinutes: 30,
+    portoDutyStartWeek: null
   };
 
   for (const arg of argv) {
@@ -21,6 +26,7 @@ function parseArgs(argv) {
     else if (arg.startsWith("--discord-hours=")) args.discordHours = Number(arg.slice("--discord-hours=".length));
     else if (arg.startsWith("--discord-failed-days=")) args.discordFailedDays = Number(arg.slice("--discord-failed-days=".length));
     else if (arg.startsWith("--stale-running-minutes=")) args.staleRunningMinutes = Number(arg.slice("--stale-running-minutes=".length));
+    else if (arg.startsWith("--porto-duty-start-week=")) args.portoDutyStartWeek = arg.slice("--porto-duty-start-week=".length);
   }
 
   return args;
@@ -81,12 +87,18 @@ async function main() {
     throw new Error("DATABASE_URL ontbreekt. Laad eerst de juiste .env.");
   }
 
+  args.portoDutyStartWeek = args.portoDutyStartWeek
+    || process.env.PORTO_DUTY_HOURS_START_WEEK
+    || DEFAULT_PORTO_DUTY_HOURS_START_WEEK;
+  const portoDutyStartWeek = parsePortoDutyHoursStartWeek(args.portoDutyStartWeek);
+
   console.log(args.apply ? "Runtime data cleanup wordt toegepast." : "Runtime data cleanup dry-run.");
   console.log(`Database: ${databaseNameFromConnectionString(process.env.DATABASE_URL) || "-"}`);
 
   await withClient(async (client) => {
     const hasPortoUnits = await tableExists(client, "porto_units");
     const hasDiscordJobs = await tableExists(client, "discord_sync_jobs");
+    const hasHours = await tableExists(client, "hours");
 
     if (hasPortoUnits) {
       const duplicateActiveSql = `
@@ -151,6 +163,36 @@ async function main() {
       console.log(`${args.apply ? "Verwijderde" : "Te verwijderen"} oude inactieve Porto-rijen: ${deletedInactive}`);
     } else {
       console.log("porto_units tabel niet gevonden, overgeslagen.");
+    }
+
+    if (hasHours && portoDutyStartWeek) {
+      const oldPortoDutyWhere = `
+        (
+          entered_by_id = 'system:porto-duty-clock'
+          or id like 'porto-duty-%'
+        )
+        and (
+          week_year < $1
+          or (week_year = $1 and week_number < $2)
+        )
+      `;
+      const oldPortoDutyParams = [portoDutyStartWeek.weekYear, portoDutyStartWeek.weekNumber];
+      const oldPortoDutyCount = await countRows(client, `select count(*)::int as count from hours where ${oldPortoDutyWhere}`, oldPortoDutyParams);
+      const deletedOldPortoDuty = args.apply
+        ? await applyCount(client, `
+            with deleted as (
+              delete from hours
+              where ${oldPortoDutyWhere}
+              returning id
+            )
+            select count(*)::int as count from deleted
+          `, oldPortoDutyParams)
+        : oldPortoDutyCount;
+      console.log(`${args.apply ? "Verwijderde" : "Te verwijderen"} oude Porto-klokuren voor ${args.portoDutyStartWeek}: ${deletedOldPortoDuty}`);
+    } else if (!hasHours) {
+      console.log("hours tabel niet gevonden, Porto-klokuren overgeslagen.");
+    } else {
+      console.log(`PORTO_DUTY_HOURS_START_WEEK ongeldig (${args.portoDutyStartWeek}), Porto-klokuren overgeslagen.`);
     }
 
     if (hasDiscordJobs) {

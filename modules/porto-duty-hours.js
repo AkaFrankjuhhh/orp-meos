@@ -2,6 +2,10 @@
 
 const { splitRangeByOperationalWeeks } = require("./operational-weeks");
 
+const PORTO_DUTY_HOURS_SOURCE = "porto-duty-clock";
+const PORTO_DUTY_HOURS_ENTERED_BY_ID = "system:porto-duty-clock";
+const DEFAULT_PORTO_DUTY_HOURS_START_WEEK = "2026-W26";
+
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -18,6 +22,50 @@ function asDate(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function parsePortoDutyHoursStartWeek(value) {
+  if (!value) return null;
+  if (typeof value === "object") {
+    const weekYear = Number(value.weekYear ?? value.year);
+    const weekNumber = Number(value.weekNumber ?? value.week);
+    if (Number.isInteger(weekYear) && Number.isInteger(weekNumber) && weekNumber >= 1 && weekNumber <= 53) {
+      return { weekYear, weekNumber };
+    }
+    return null;
+  }
+  const match = String(value).trim().match(/^(\d{4})\s*[-_/ ]?\s*w?(\d{1,2})$/i);
+  if (!match) return null;
+  const weekYear = Number(match[1]);
+  const weekNumber = Number(match[2]);
+  if (!Number.isInteger(weekYear) || !Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 53) return null;
+  return { weekYear, weekNumber };
+}
+
+function weekIsBefore(weekYear, weekNumber, startWeek) {
+  if (!startWeek) return false;
+  const year = Number(weekYear);
+  const week = Number(weekNumber);
+  if (!Number.isInteger(year) || !Number.isInteger(week)) return false;
+  if (year !== startWeek.weekYear) return year < startWeek.weekYear;
+  return week < startWeek.weekNumber;
+}
+
+function isPortoDutyClockEntry(entry) {
+  if (!entry) return false;
+  if (entry.source === PORTO_DUTY_HOURS_SOURCE) return true;
+  if (entry.enteredById === PORTO_DUTY_HOURS_ENTERED_BY_ID) return true;
+  return String(entry.id || "").startsWith("porto-duty-");
+}
+
+function filterPortoDutyHourEntriesByStartWeek(entries, startWeekInput = DEFAULT_PORTO_DUTY_HOURS_START_WEEK) {
+  if (!Array.isArray(entries)) return [];
+  const startWeek = parsePortoDutyHoursStartWeek(startWeekInput);
+  if (!startWeek) return entries;
+  return entries.filter((entry) => {
+    if (!isPortoDutyClockEntry(entry)) return true;
+    return !weekIsBefore(entry.weekYear, entry.weekNumber, startWeek);
+  });
 }
 
 function peopleIndexes(people) {
@@ -80,6 +128,7 @@ function unitEndDate(unit, now) {
 function buildPortoDutyHourEntries(state, options = {}) {
   const now = asDate(options.now) || new Date();
   const timeZone = options.timeZone || "Europe/Amsterdam";
+  const startWeek = parsePortoDutyHoursStartWeek(options.startWeek);
   const units = Array.isArray(state?.portoUnits) ? state.portoUnits : [];
   const indexes = peopleIndexes(state?.people);
   const entries = [];
@@ -94,6 +143,7 @@ function buildPortoDutyHourEntries(state, options = {}) {
     const segments = splitRangeByOperationalWeeks(startedAt, endedAt, { timeZone });
     for (const person of participants) {
       for (const segment of segments) {
+        if (weekIsBefore(segment.weekYear, segment.weekNumber, startWeek)) continue;
         const minutes = Number(segment.minutes || 0);
         if (minutes <= 0) continue;
         const id = [
@@ -115,10 +165,10 @@ function buildPortoDutyHourEntries(state, options = {}) {
           minutes,
           startedAt: segment.startedAt.toISOString(),
           endedAt: segment.endedAt.toISOString(),
-          enteredById: "system:porto-duty-clock",
+          enteredById: PORTO_DUTY_HOURS_ENTERED_BY_ID,
           enteredByName: "Porto diensturen klok",
           enteredAt: now.toISOString(),
-          source: "porto-duty-clock",
+          source: PORTO_DUTY_HOURS_SOURCE,
           sourceUnitId: unit.id || "",
           sourceVehicleNumber: unit.vehicleNumber || ""
         });
@@ -128,4 +178,11 @@ function buildPortoDutyHourEntries(state, options = {}) {
   return entries;
 }
 
-module.exports = { buildPortoDutyHourEntries };
+module.exports = {
+  DEFAULT_PORTO_DUTY_HOURS_START_WEEK,
+  PORTO_DUTY_HOURS_ENTERED_BY_ID,
+  PORTO_DUTY_HOURS_SOURCE,
+  buildPortoDutyHourEntries,
+  filterPortoDutyHourEntriesByStartWeek,
+  parsePortoDutyHoursStartWeek
+};

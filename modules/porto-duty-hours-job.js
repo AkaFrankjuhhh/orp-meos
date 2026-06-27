@@ -9,6 +9,7 @@ function startPortoDutyHoursJob(options = {}) {
     writeHourEntries,
     intervalMs = 10 * 60 * 1000,
     timeZone = "Europe/Amsterdam",
+    startWeek = null,
     logError = console.error
   } = options;
 
@@ -25,7 +26,7 @@ function startPortoDutyHoursJob(options = {}) {
     running = true;
     try {
       const state = await readState();
-      const entries = buildPortoDutyHourEntries(state, { now: new Date(), timeZone });
+      const entries = buildPortoDutyHourEntries(state, { now: new Date(), timeZone, startWeek });
       if (entries.length) await writeHourEntries(entries);
       return { entries: entries.length };
     } catch (error) {

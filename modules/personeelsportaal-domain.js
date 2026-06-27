@@ -8,6 +8,7 @@ const {
   hasOvcFunctionBadge,
   normalizeOvcFunctionBadges
 } = require("./ovc");
+const { isCurrentPerson } = require("./person-status");
 
 // Centrale Personeelsportaal domeinregels: rangen, dienstnummers, profieldata en mutaties.
 const organization = currentOrganization();
@@ -94,7 +95,7 @@ function getAvailableServiceNumbers(state, rank, currentId = "", preferredPrefix
   const used = new Set(
     (state.people || [])
       .filter((person) => person.id !== currentId)
-      .filter((person) => person.status === "Actief")
+      .filter((person) => isCurrentPerson(person))
       .map((person) => person.serviceNumber)
       .filter(Boolean)
   );
@@ -140,7 +141,7 @@ function autoSortServiceNumbers(state) {
   sortableGroups.forEach((group) => {
     const groupRanks = new Set(group.ranks || []);
     const members = (state.people || [])
-      .filter((person) => (person.serviceNumber || "").startsWith(`${group.prefix}-`) && person.status === "Actief")
+      .filter((person) => (person.serviceNumber || "").startsWith(`${group.prefix}-`) && isCurrentPerson(person))
       .filter((person) => !groupRanks.size || groupRanks.has(person.rank))
       .filter((person) => !sortableRanks.size || sortableRanks.has(person.rank))
       .sort((a, b) => {
@@ -178,7 +179,7 @@ function assertValidServiceNumber(state, person) {
   const duplicate = (state.people || []).find(
     (entry) =>
       entry.id !== person.id &&
-      entry.status === "Actief" &&
+      isCurrentPerson(entry) &&
       entry.serviceNumber === person.serviceNumber
   );
   return duplicate ? "Dienstnummer is al in gebruik." : "";

@@ -15,15 +15,20 @@ function isActivePerson(person) {
   return normalizedPersonStatus(person) === "Actief";
 }
 
-function isPersonLoginEligible(person) {
+function isCurrentPerson(person) {
   if (!person) return false;
   const status = normalizedPersonStatus(person).toLowerCase();
   if (!status) return true;
   return !LOGIN_BLOCKED_STATUSES.has(status);
 }
 
+function isPersonLoginEligible(person) {
+  return isCurrentPerson(person);
+}
+
 module.exports = {
   normalizedPersonStatus,
   isActivePerson,
+  isCurrentPerson,
   isPersonLoginEligible
 };
