@@ -89,23 +89,45 @@
     <script>
       (function () {
         var root = document.documentElement;
-        var bootTimer = window.setTimeout(showBootError, 12000);
+        var bootTimer = window.setTimeout(function () {
+          showBootError("Portaal laden duurt te lang. Vernieuw de pagina; blijft dit gebeuren, sluit de browser volledig en open het portaal opnieuw.");
+        }, 12000);
 
-        function showBootError() {
-          window.clearTimeout(bootTimer);
-          if (root.classList.contains("orp-app-ready")) return;
-          root.classList.remove("orp-app-booting");
-          root.classList.add("orp-app-load-error");
+        function updateBootErrorMessage(message) {
+          if (!message) return;
+          var messageElement = document.querySelector(".orp-boot-error-message");
+          if (messageElement) {
+            messageElement.textContent = message;
+          }
         }
 
-        window.__orpBootReady = function () {
+        function releaseBoot() {
           window.clearTimeout(bootTimer);
           if (root.classList.contains("orp-app-load-error")) return;
           root.classList.remove("orp-app-booting");
           root.classList.add("orp-app-ready");
-        };
+        }
 
+        function showBootError(message) {
+          window.clearTimeout(bootTimer);
+          if (root.classList.contains("orp-app-ready")) return;
+          updateBootErrorMessage(message);
+          root.classList.remove("orp-app-booting");
+          root.classList.add("orp-app-load-error");
+        }
+
+        window.__orpBootReady = releaseBoot;
         window.__orpBootFail = showBootError;
+
+        function scheduleBootRelease() {
+          window.setTimeout(releaseBoot, 150);
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", scheduleBootRelease, { once: true });
+        } else {
+          scheduleBootRelease();
+        }
 
         window.addEventListener("error", function (event) {
           var target = event.target;
@@ -113,7 +135,7 @@
           var tag = target.tagName.toUpperCase();
           var rel = String(target.rel || "").toLowerCase();
           if ((tag === "LINK" && rel.indexOf("stylesheet") !== -1) || tag === "SCRIPT") {
-            showBootError();
+            showBootError("Een stijlbestand of script kon niet laden. Vernieuw de pagina; blijft dit gebeuren, controleer netwerk/cache.");
           }
         }, true);
       })();
@@ -135,7 +157,7 @@
         <div class="orp-boot-error">
           <strong>Defensie Personeelsportaal</strong>
           <h1>Portaal kon niet volledig laden</h1>
-          <p>De styling of scripts zijn niet goed binnengekomen. Vernieuw de pagina; blijft dit gebeuren, sluit de browser volledig en open het portaal opnieuw.</p>
+          <p class="orp-boot-error-message">De styling of scripts zijn niet goed binnengekomen. Vernieuw de pagina; blijft dit gebeuren, sluit de browser volledig en open het portaal opnieuw.</p>
           <noscript>
             <p>JavaScript staat uit. Zet JavaScript aan om het portaal te gebruiken.</p>
           </noscript>
@@ -1112,13 +1134,25 @@
     <script src="personeelsportaal-data.js?v=20260607-overheids-viewonly"></script>
     <script src="app.js?v=20260625-profile-log-preview"></script>
     <script>
-      window.addEventListener("load", function () {
-        window.setTimeout(function () {
+      (function () {
+        function releasePortalBoot() {
           if (typeof window.__orpBootReady === "function") {
             window.__orpBootReady();
           }
-        }, 80);
-      });
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", function () {
+            window.setTimeout(releasePortalBoot, 120);
+          }, { once: true });
+        } else {
+          window.setTimeout(releasePortalBoot, 120);
+        }
+
+        window.addEventListener("load", function () {
+          window.setTimeout(releasePortalBoot, 80);
+        }, { once: true });
+      })();
     </script>
   </body>
 </html>
