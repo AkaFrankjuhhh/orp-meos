@@ -1,14 +1,150 @@
 <!doctype html>
-<html lang="nl" data-theme="dark" data-typography="system">
+<html lang="nl" data-theme="dark" data-typography="system" class="orp-app-booting">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Oranjestad RP Defensie | Personeelsbeheer</title>
-    <link rel="stylesheet" href="shared.css?v=20260524-sidebar-scroll" />
-    <link rel="stylesheet" href="personeelsportaal.css?v=20260625-profile-log-preview" />
+    <style>
+      html.orp-app-booting body > :not(#orp-boot-screen),
+      html.orp-app-load-error body > :not(#orp-boot-screen) {
+        display: none !important;
+      }
+
+      html.orp-app-ready #orp-boot-screen {
+        display: none !important;
+      }
+
+      #orp-boot-screen {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        color: #f8fbff;
+        background:
+          radial-gradient(circle at 20% 20%, rgba(255, 136, 0, 0.14), transparent 32%),
+          linear-gradient(135deg, #08111f 0%, #101b2d 48%, #07101b 100%);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .orp-boot-card {
+        width: min(560px, 100%);
+        padding: 28px;
+        border: 1px solid rgba(143, 174, 214, 0.28);
+        border-radius: 14px;
+        background: rgba(13, 25, 43, 0.92);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+      }
+
+      .orp-boot-card strong {
+        display: block;
+        color: #9fc6ff;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .orp-boot-card h1 {
+        margin: 12px 0 10px;
+        color: #fff;
+        font-size: clamp(30px, 5vw, 44px);
+        line-height: 1;
+      }
+
+      .orp-boot-card p {
+        margin: 0;
+        color: #c5d5ea;
+        line-height: 1.55;
+      }
+
+      .orp-boot-error {
+        display: none;
+      }
+
+      html.orp-app-load-error .orp-boot-loading {
+        display: none;
+      }
+
+      html.orp-app-load-error .orp-boot-error {
+        display: block;
+      }
+
+      .orp-boot-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 22px;
+      }
+
+      .orp-boot-actions button {
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 18px;
+        color: #0b1020;
+        background: #ff8a00;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+    </style>
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var bootTimer = window.setTimeout(showBootError, 12000);
+
+        function showBootError() {
+          window.clearTimeout(bootTimer);
+          if (root.classList.contains("orp-app-ready")) return;
+          root.classList.remove("orp-app-booting");
+          root.classList.add("orp-app-load-error");
+        }
+
+        window.__orpBootReady = function () {
+          window.clearTimeout(bootTimer);
+          if (root.classList.contains("orp-app-load-error")) return;
+          root.classList.remove("orp-app-booting");
+          root.classList.add("orp-app-ready");
+        };
+
+        window.__orpBootFail = showBootError;
+
+        window.addEventListener("error", function (event) {
+          var target = event.target;
+          if (!target || !target.tagName) return;
+          var tag = target.tagName.toUpperCase();
+          var rel = String(target.rel || "").toLowerCase();
+          if ((tag === "LINK" && rel.indexOf("stylesheet") !== -1) || tag === "SCRIPT") {
+            showBootError();
+          }
+        }, true);
+      })();
+    </script>
+    <link rel="stylesheet" href="shared.css?v=20260627-boot-guard" />
+    <link rel="stylesheet" href="personeelsportaal.css?v=20260627-boot-guard" />
   </head>
   <body class="locked">
+    <section id="orp-boot-screen" aria-live="polite" aria-label="Portaal laden">
+      <div class="orp-boot-card">
+        <div class="orp-boot-loading">
+          <strong>Defensie Personeelsportaal</strong>
+          <h1>Portaal laden...</h1>
+          <p>De beveiligde omgeving wordt geladen. Wacht heel even.</p>
+          <noscript>
+            <p>JavaScript staat uit. Zet JavaScript aan om het portaal te gebruiken.</p>
+          </noscript>
+        </div>
+        <div class="orp-boot-error">
+          <strong>Defensie Personeelsportaal</strong>
+          <h1>Portaal kon niet volledig laden</h1>
+          <p>De styling of scripts zijn niet goed binnengekomen. Vernieuw de pagina; blijft dit gebeuren, sluit de browser volledig en open het portaal opnieuw.</p>
+          <noscript>
+            <p>JavaScript staat uit. Zet JavaScript aan om het portaal te gebruiken.</p>
+          </noscript>
+          <div class="orp-boot-actions">
+            <button type="button" onclick="window.location.reload()">Opnieuw laden</button>
+          </div>
+        </div>
+      </div>
+    </section>
     <section id="lockscreen" class="lockscreen" aria-label="Aanmelden">
       <div class="lock-visual" aria-hidden="true"></div>
       <div class="lock-content">
@@ -975,5 +1111,14 @@
     <script src="personeelsportaal/archive.js?v=20260606-resignation-overview"></script>
     <script src="personeelsportaal-data.js?v=20260607-overheids-viewonly"></script>
     <script src="app.js?v=20260625-profile-log-preview"></script>
+    <script>
+      window.addEventListener("load", function () {
+        window.setTimeout(function () {
+          if (typeof window.__orpBootReady === "function") {
+            window.__orpBootReady();
+          }
+        }, 80);
+      });
+    </script>
   </body>
 </html>
