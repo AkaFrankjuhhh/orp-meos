@@ -2259,7 +2259,7 @@ function wireEvents() {
       const body = {};
       const nextRank = typeof targetRankForAction === "function" ? targetRankForAction(person, "promote") : "";
       if (nextRank && typeof rankTrainingStatusFor === "function") {
-        const trainingStatus = rankTrainingStatusFor(person, nextRank);
+        const trainingStatus = rankTrainingStatusFor(person);
         if (!trainingStatus.ok) {
           const confirmed = await showSiteConfirm(
             `Medewerker mist: ${trainingStatus.missingLabels.join(", ")}. Wil je toch promoveren?`,

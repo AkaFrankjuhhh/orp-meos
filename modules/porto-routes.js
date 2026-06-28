@@ -66,6 +66,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     for (const unit of units || []) markRecentlyEnded(unit?.memberId, nowMs);
   }
 
+  function clearRecentlyEnded(memberId) {
+    const key = portoMemberKey(memberId);
+    if (key) recentlyEndedPortoMembers.delete(key);
+  }
+
   function isRecentlyEnded(memberId, nowMs = Date.now()) {
     if (!status8RejoinGuardMs) return false;
     const key = portoMemberKey(memberId);
@@ -622,7 +627,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const changedByOpsEligibility = closeIneligiblePortoOpsUnits(state, now);
       let unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
       const recentlyEnded = isRecentlyEnded(person.id);
-      if (recentlyEnded && status !== "8") {
+      if (recentlyEnded && !["0", "8"].includes(status)) {
         if (changedByOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 409, recentlyEndedError());
         return true;
@@ -673,6 +678,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       delete unit.autoRemoveAt;
       let settingsChanged = changedByOpsEligibility;
       if (status === "0") {
+        clearRecentlyEnded(person.id);
         unit.reviewStatus = "pending";
         unit.requestedAt = unit.requestedAt || now;
         unit.requestNote = requestNote;
@@ -922,11 +928,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 404, { error: "Actieve eenheid niet gevonden." });
         return true;
       }
-      if (!offDuty && isRecentlyEnded(unit.memberId)) {
-        if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
-        sendJson(res, 409, recentlyEndedError());
-        return true;
-      }
+      if (!offDuty) clearRecentlyEnded(unit.memberId);
       const selectedVehicleRange = selectedVehicleName
         ? (state.portoVehicleRanges || []).find((candidate) => (candidate.vehicles || []).includes(selectedVehicleName))
         : null;
@@ -1197,11 +1199,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 404, { error: "Aanmelding niet gevonden." });
         return true;
       }
-      if (!reject && isRecentlyEnded(unit.memberId)) {
-        if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
-        sendJson(res, 409, recentlyEndedError());
-        return true;
-      }
+      if (!reject) clearRecentlyEnded(unit.memberId);
       if (reject) {
         if (String(unit.status) !== "0" || unit.vehicleNumber) {
           sendJson(res, 409, { error: "Alleen open Status 0-aanmeldingen kunnen worden geweigerd." });

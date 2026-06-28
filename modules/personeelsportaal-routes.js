@@ -591,6 +591,27 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
   }
 
+  async function queueChangedDiscordProfiles(state, previousNicknames, previousRankRoles, reason) {
+    const queuedIds = new Set();
+    if (typeof enqueuePersonDiscordSync !== "function") return queuedIds;
+    const currentNicknames = discordNicknameSnapshot(state);
+    const currentRankRoles = discordRankRoleSnapshot(state);
+    const changedIds = new Set([
+      ...[...currentNicknames.entries()]
+        .filter(([personId, nickname]) => previousNicknames.get(personId) !== nickname)
+        .map(([personId]) => personId),
+      ...[...currentRankRoles.entries()]
+        .filter(([personId, rankRole]) => previousRankRoles.get(personId) !== rankRole)
+        .map(([personId]) => personId)
+    ]);
+    for (const person of state.people || []) {
+      if (!changedIds.has(person.id) || !isCurrentPerson(person)) continue;
+      await queuePersonDiscordSync(state, person, reason);
+      queuedIds.add(person.id);
+    }
+    return queuedIds;
+  }
+
   function absencePeriodText(absence) {
     return `${absence?.from || "-"} t/m ${absence?.to || "-"}`;
   }
@@ -2737,11 +2758,16 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
 
-    if (action !== "io" && !(action === "dismiss" && hasOvcFunctionBadge(person))) {
+    if (["promote", "demote"].includes(action)) {
+      const queuedIds = await queueChangedDiscordProfiles(state, previousNicknames, previousRankRoles, `person_${action}`);
+      if (isCurrentPerson(person) && !queuedIds.has(person.id)) {
+        await queuePersonDiscordSync(state, person, `person_${action}`);
+      }
+    } else if (action !== "io" && !(action === "dismiss" && hasOvcFunctionBadge(person))) {
       await syncChangedDiscordNicknames(state, previousNicknames);
       await syncChangedDiscordRankRoles(state, previousRankRoles);
     }
-    if (isCurrentPerson(person) && ["promote", "demote", "reactivate"].includes(action)) {
+    if (isCurrentPerson(person) && ["reactivate"].includes(action)) {
       await queuePersonDiscordSync(state, person, `person_${action}`);
     }
     await sendPeopleStateAfterMutation(res, auth, state);

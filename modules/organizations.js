@@ -461,6 +461,7 @@ const organizationConfigs = {
       operatorVehicleCode: "OC",
       operatorVehicleType: "OC",
       operatorVehicleName: "OC",
+      operatorChannelKey: "oc",
       lockTitle: "Politie Porto-Systeem",
       lockSubtitle: "Politie Oranjestad",
       lockText: "Alleen aangemelde Politie leden met een gekoppeld Politie Personeelsportaal-profiel kunnen het Porto-Systeem openen."
