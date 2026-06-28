@@ -195,7 +195,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     ) {
       return "Promotie naar Surveillant kan pas als het mentor-traject volledig is afgerond.";
     }
-    const missing = missingPromotionRequirements(organization, person, nextRank);
+    const missing = missingPromotionRequirements(organization, person, person.rank);
     if (missing.length) {
       return `Promotie naar ${nextRank} kan pas als deze vereisten behaald zijn: ${missing.join(", ")}.`;
     }

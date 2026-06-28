@@ -314,8 +314,9 @@ function trainingRequirementLabel(requirement) {
   return String(requirement || "");
 }
 
-function rankTrainingStatusFor(person, rank = targetRankForAction(person, "promote") || person?.rank) {
-  if ((organizationConfig?.key || "defensie") !== "defensie") return { ok: true, missingLabels: [], rank };
+function rankTrainingStatusFor(person, rank = person?.rank) {
+  const targetRank = targetRankForAction(person, "promote") || "";
+  if ((organizationConfig?.key || "defensie") !== "defensie") return { ok: true, missingLabels: [], rank, targetRank };
   const completed = completedTrainingNamesFor(person);
   const missingLabels = [];
   for (const requirement of trainingRequirementsForRank(rank)) {
@@ -334,7 +335,8 @@ function rankTrainingStatusFor(person, rank = targetRankForAction(person, "promo
   return {
     ok: missingLabels.length === 0,
     missingLabels: [...new Set(missingLabels)],
-    rank
+    rank,
+    targetRank
   };
 }
 
@@ -342,9 +344,10 @@ function renderTrainingRequirementBadge(person) {
   if ((organizationConfig?.key || "defensie") !== "defensie") return "";
   if (typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person)) return "";
   const trainingStatus = rankTrainingStatusFor(person);
+  const promotionTarget = trainingStatus.targetRank || "de volgende rang";
   const title = trainingStatus.ok
-    ? `Alle verplichte trainingen en badges voor promotie naar ${trainingStatus.rank || "de volgende rang"} zijn behaald.`
-    : `Mist voor promotie naar ${trainingStatus.rank || "de volgende rang"}: ${trainingStatus.missingLabels.join(", ")}`;
+    ? `Alle verplichte trainingen en badges voor promotie naar ${promotionTarget} zijn behaald.`
+    : `Mist voor promotie naar ${promotionTarget}: ${trainingStatus.missingLabels.join(", ")}`;
   return `
     <span class="training-status-pill ${trainingStatus.ok ? "is-complete" : "is-missing"}" title="${escapeHtml(title)}">
       <span>Trainingen behaald:</span>

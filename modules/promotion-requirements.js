@@ -80,9 +80,9 @@ function promotionRequirementLabel(requirement) {
   return String(requirement || "");
 }
 
-function missingPromotionRequirements(organization, person, nextRank) {
-  if (organization?.key !== "defensie" || !nextRank) return [];
-  const requirements = organization.rankTrainingRequirements?.[nextRank] || [];
+function missingPromotionRequirements(organization, person, currentRank = person?.rank) {
+  if (organization?.key !== "defensie" || !currentRank) return [];
+  const requirements = organization.rankTrainingRequirements?.[currentRank] || [];
   if (!Array.isArray(requirements) || !requirements.length) return [];
 
   const completed = completedTrainingNamesFor(person);
