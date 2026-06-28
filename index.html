@@ -1,6 +1,142 @@
 <!doctype html>
 <html lang="nl" data-theme="dark" data-typography="system" class="orp-app-booting">
-  <head>
+<head>
+    <script src="/portal-loader-failsafe.js?v=20260628-loader-failsafe" defer></script>
+  <script src="portal-loader-failsafe.js?v=20260628-loader-failsafe"></script>
+  <script>
+    (() => {
+      if (window.__orpEmergencyLoaderFailsafe) return;
+      window.__orpEmergencyLoaderFailsafe = true;
+
+      const hidePortalLoader = () => {
+        document.documentElement.classList.add("orp-app-ready");
+        document.documentElement.style.setProperty("visibility", "visible", "important");
+        document.documentElement.style.setProperty("opacity", "1", "important");
+
+        if (document.body) {
+          document.body.style.removeProperty("overflow");
+          document.body.style.setProperty("visibility", "visible", "important");
+          document.body.style.setProperty("opacity", "1", "important");
+        }
+
+        [
+          "#portalBootLoader",
+          "#portalLoadingScreen",
+          "#portalLoader",
+          "#appLoader",
+          "#bootLoader",
+          "[data-portal-loader]",
+          "[data-app-loader]",
+          "[data-boot-loader]",
+          ".portal-loader",
+          ".portal-loading-screen",
+          ".portal-boot-loader",
+          ".portal-boot-screen",
+          ".boot-loader",
+          ".boot-screen",
+          ".app-loader",
+          ".app-loading-screen",
+          ".loading-screen",
+          ".loading-overlay",
+          ".splash-screen",
+        ].forEach((selector) => {
+          document.querySelectorAll(selector).forEach((element) => {
+            element.hidden = true;
+            element.style.setProperty("display", "none", "important");
+          });
+        });
+
+        document.querySelectorAll("body *").forEach((element) => {
+          const text = (element.textContent || "").replace(/\s+/g, " ").trim();
+          if (!text.includes("Portaal laden") || !text.includes("beveiligde omgeving") || text.length > 700) return;
+
+          let root = element;
+          while (root.parentElement && root.parentElement !== document.body) {
+            const parentText = (root.parentElement.textContent || "").replace(/\s+/g, " ").trim();
+            if (parentText !== text) break;
+            root = root.parentElement;
+          }
+
+          root.hidden = true;
+          root.style.setProperty("display", "none", "important");
+        });
+      };
+
+      window.__orpReleaseBootScreen = window.__orpReleaseBootScreen || hidePortalLoader;
+      window.addEventListener("DOMContentLoaded", () => setTimeout(hidePortalLoader, 1200), { once: true });
+      window.addEventListener("load", () => setTimeout(hidePortalLoader, 1200), { once: true });
+      window.addEventListener("error", () => setTimeout(hidePortalLoader, 300));
+      window.addEventListener("unhandledrejection", () => setTimeout(hidePortalLoader, 300));
+      setTimeout(hidePortalLoader, 8000);
+    })();
+  </script>
+  <script>
+    (() => {
+      if (window.__orpPortalBootGuard) return;
+      window.__orpPortalBootGuard = true;
+
+      const release = () => {
+        document.documentElement.classList.add("orp-app-ready");
+        document.documentElement.style.setProperty("opacity", "1", "important");
+        document.documentElement.style.setProperty("visibility", "visible", "important");
+
+        if (document.body) {
+          document.body.style.removeProperty("overflow");
+          document.body.style.setProperty("opacity", "1", "important");
+          document.body.style.setProperty("visibility", "visible", "important");
+        }
+
+        [
+          "#portalBootLoader",
+          "#portalLoadingScreen",
+          "#portalLoader",
+          "#appLoader",
+          "#bootLoader",
+          "[data-portal-loader]",
+          "[data-app-loader]",
+          "[data-boot-loader]",
+          ".portal-loader",
+          ".portal-loading-screen",
+          ".portal-boot-loader",
+          ".portal-boot-screen",
+          ".boot-loader",
+          ".boot-screen",
+          ".app-loader",
+          ".app-loading-screen",
+          ".loading-screen",
+          ".loading-overlay",
+          ".splash-screen",
+        ].forEach((selector) => {
+          document.querySelectorAll(selector).forEach((element) => {
+            element.hidden = true;
+            element.style.setProperty("display", "none", "important");
+          });
+        });
+
+        document.querySelectorAll("body *").forEach((element) => {
+          const text = (element.textContent || "").replace(/\s+/g, " ").trim();
+          if (!text.includes("Portaal laden") || !text.includes("beveiligde omgeving") || text.length > 700) return;
+
+          let root = element;
+          while (root.parentElement && root.parentElement !== document.body) {
+            const parentText = (root.parentElement.textContent || "").replace(/\s+/g, " ").trim();
+            if (parentText !== text) break;
+            root = root.parentElement;
+          }
+
+          root.hidden = true;
+          root.style.setProperty("display", "none", "important");
+        });
+      };
+
+      window.__orpReleaseBootScreen = window.__orpReleaseBootScreen || release;
+      window.addEventListener("load", () => setTimeout(window.__orpReleaseBootScreen, 600), { once: true });
+      window.addEventListener("error", () => setTimeout(window.__orpReleaseBootScreen, 250), { once: true });
+      window.addEventListener("unhandledrejection", () => setTimeout(window.__orpReleaseBootScreen, 250), { once: true });
+      setTimeout(() => window.__orpReleaseBootScreen(), 8000);
+    })();
+  </script>
+  <script src="/portal-loader-failsafe.js?v=20260628-loader-release"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
@@ -142,7 +278,9 @@
     </script>
     <link rel="stylesheet" href="shared.css?v=20260627-boot-guard" />
     <link rel="stylesheet" href="personeelsportaal.css?v=20260627-boot-guard" />
-  </head>
+  <script src="/boot-failsafe.js?v=20260627-loader-failsafe" defer></script>
+  <script src="/portal-loader-failsafe.js?v=20260627-loader-failsafe" defer></script>
+</head>
   <body class="locked">
     <section id="orp-boot-screen" aria-live="polite" aria-label="Portaal laden">
       <div class="orp-boot-card">
@@ -1154,5 +1292,120 @@
         }, { once: true });
       })();
     </script>
-  </body>
+  <script id="portal-boot-failsafe">
+    (function () {
+      if (window.__orpBootFailsafeInstalled) return;
+      window.__orpBootFailsafeInstalled = true;
+
+      var released = false;
+
+      function hideElement(element) {
+        if (!element || element === document.body || element === document.documentElement) return;
+        element.setAttribute("aria-hidden", "true");
+        element.classList.add("is-hidden", "hidden");
+        element.style.display = "none";
+        element.hidden = true;
+      }
+
+      function hideByText() {
+        var nodes = document.querySelectorAll("body h1, body h2, body h3, body p, body strong, body div");
+        nodes.forEach(function (element) {
+          var text = element.textContent || "";
+          if (text.indexOf("Portaal laden") === -1) return;
+
+          var boot = element.closest(
+            "[data-portal-boot], [data-app-loader], #portalBootScreen, .portal-boot, .portal-boot-screen, .portal-loading-screen, .portal-loader, .app-boot-screen"
+          );
+
+          if (!boot) {
+            boot = element.parentElement;
+            while (boot && boot.parentElement && boot.parentElement !== document.body) {
+              var bootText = boot.textContent || "";
+              if (bootText.indexOf("Portaal laden") !== -1 && bootText.indexOf("beveiligde omgeving") !== -1) break;
+              boot = boot.parentElement;
+            }
+          }
+
+          hideElement(boot || element.parentElement);
+        });
+      }
+
+      function releaseBootScreen() {
+        if (released) return;
+        released = true;
+
+        if (document.documentElement) {
+          document.documentElement.classList.add("orp-app-loaded", "orp-app-ready", "app-loaded", "portal-ready", "is-ready");
+        }
+
+        if (document.body) {
+          document.body.classList.add("orp-app-loaded", "orp-app-ready", "app-loaded", "portal-ready", "is-ready");
+        }
+
+        [
+          "[data-portal-boot]",
+          "[data-app-loader]",
+          "#portalBootScreen",
+          ".portal-boot",
+          ".portal-boot-screen",
+          ".portal-loading-screen",
+          ".portal-loader",
+          ".app-boot-screen"
+        ].forEach(function (selector) {
+          document.querySelectorAll(selector).forEach(hideElement);
+        });
+
+        hideByText();
+      }
+
+      var originalRelease = window.__orpReleaseBootScreen;
+      window.__orpBootFailsafeRelease = releaseBootScreen;
+      window.__orpReleaseBootScreen = function () {
+        if (typeof originalRelease === "function" && originalRelease !== window.__orpReleaseBootScreen) {
+          try {
+            originalRelease();
+          } catch (error) {
+            console.warn("Portal boot release failed", error);
+          }
+        }
+
+        releaseBootScreen();
+      };
+
+      function forceRelease() {
+        if (!released && typeof window.__orpReleaseBootScreen === "function") {
+          try {
+            window.__orpReleaseBootScreen();
+          } catch (error) {
+            console.warn("Portal boot release failed", error);
+          }
+        }
+
+        releaseBootScreen();
+      }
+
+      function scheduleRelease(delay) {
+        window.setTimeout(forceRelease, delay);
+      }
+
+      if (document.readyState === "complete") {
+        scheduleRelease(1200);
+      } else {
+        window.addEventListener("load", function () {
+          scheduleRelease(1200);
+        }, { once: true });
+      }
+
+      window.addEventListener("error", function () {
+        scheduleRelease(250);
+      });
+
+      window.addEventListener("unhandledrejection", function () {
+        scheduleRelease(250);
+      });
+
+      scheduleRelease(8000);
+    })();
+  </script>
+</body>
 </html>
