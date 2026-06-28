@@ -313,7 +313,7 @@ function trainingRequirementLabel(requirement) {
   return String(requirement || "");
 }
 
-function rankTrainingStatusFor(person, rank = person?.rank) {
+function rankTrainingStatusFor(person, rank = targetRankForAction(person, "promote") || person?.rank) {
   if ((organizationConfig?.key || "defensie") !== "defensie") return { ok: true, missingLabels: [], rank };
   const completed = completedTrainingNamesFor(person);
   const missingLabels = [];
@@ -342,8 +342,8 @@ function renderTrainingRequirementBadge(person) {
   if (typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person)) return "";
   const trainingStatus = rankTrainingStatusFor(person);
   const title = trainingStatus.ok
-    ? "Alle verplichte trainingen en badges voor deze rang zijn behaald."
-    : `Mist: ${trainingStatus.missingLabels.join(", ")}`;
+    ? `Alle verplichte trainingen en badges voor promotie naar ${trainingStatus.rank || "de volgende rang"} zijn behaald.`
+    : `Mist voor promotie naar ${trainingStatus.rank || "de volgende rang"}: ${trainingStatus.missingLabels.join(", ")}`;
   return `
     <span class="training-status-pill ${trainingStatus.ok ? "is-complete" : "is-missing"}" title="${escapeHtml(title)}">
       <span>Trainingen behaald:</span>

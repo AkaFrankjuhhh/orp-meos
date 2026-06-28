@@ -17,6 +17,7 @@ const { markNotificationsRead, clearNotifications } = require("./notifications")
 const { mentorReviewStateForStatus } = require("./mentor-tests-logic");
 const { setDiscordSyncStatus, syncStatusFromError } = require("./discord-sync-status");
 const { isCurrentPerson } = require("./person-status");
+const { missingPromotionRequirements } = require("./promotion-requirements");
 
 function createPersoneelsportaalRouteHandler(deps) {
   const organization = currentOrganization();
@@ -193,6 +194,10 @@ function createPersoneelsportaalRouteHandler(deps) {
       && !canBypassMentorPromotion(actor, permissions)
     ) {
       return "Promotie naar Surveillant kan pas als het mentor-traject volledig is afgerond.";
+    }
+    const missing = missingPromotionRequirements(organization, person, nextRank);
+    if (missing.length) {
+      return `Promotie naar ${nextRank} kan pas als deze vereisten behaald zijn: ${missing.join(", ")}.`;
     }
     return "";
   }
