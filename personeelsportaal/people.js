@@ -179,8 +179,8 @@ function renderRecruitment() {
 
 function personnelCurrentWeekHours(person) {
   const week = typeof currentHourWeek === "function" ? currentHourWeek() : null;
-  if (!week || typeof hourEntryFor !== "function") return 0;
-  const entry = hourEntryFor(person.id, week.weekYear, week.weekNumber);
+  if (!week || typeof effectiveHourEntryFor !== "function") return 0;
+  const entry = effectiveHourEntryFor(person.id, week.weekYear, week.weekNumber);
   return Number(entry?.hours) || 0;
 }
 
@@ -199,14 +199,15 @@ function personnelServiceTopWeek(date = new Date()) {
 }
 
 function personnelServiceHoursForWeek(person, week) {
-  if (!week || typeof hourEntryFor !== "function") return 0;
-  const entry = hourEntryFor(person.id, week.weekYear, week.weekNumber);
+  if (!week || typeof effectiveHourEntryFor !== "function") return 0;
+  const entry = effectiveHourEntryFor(person.id, week.weekYear, week.weekNumber);
   return Number(entry?.hours) || 0;
 }
 
-function personnelOpsHoursLastWeeks(person, count = 2) {
-  if (typeof recentHourWeeks !== "function" || typeof opsHoursForWeek !== "function") return 0;
-  return recentHourWeeks(count).reduce((sum, week) => sum + opsHoursForWeek(person, week), 0);
+function personnelOpsHoursCurrentWeek(person) {
+  const week = typeof currentHourWeek === "function" ? currentHourWeek() : null;
+  if (!week || typeof opsHoursForWeek !== "function") return 0;
+  return opsHoursForWeek(person, week);
 }
 
 function personnelOperatorLabel() {
@@ -216,13 +217,13 @@ function personnelOperatorLabel() {
 function renderPersonnelHourBadges(person) {
   if (typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person)) return "";
   const serviceHours = personnelCurrentWeekHours(person);
-  const opsHours = personnelOpsHoursLastWeeks(person, 2);
+  const opsHours = personnelOpsHoursCurrentWeek(person);
   const operatorLabel = personnelOperatorLabel();
   const serviceText = typeof displayHourValue === "function" ? displayHourValue(serviceHours) : String(serviceHours);
   const opsText = typeof displayHourValue === "function" ? displayHourValue(opsHours) : String(opsHours);
   return `
     <span class="person-hours-badge service-hours" title="Diensturen huidige week">${escapeHtml(serviceText)}u dienst</span>
-    <span class="person-hours-badge ops-hours" title="${escapeHtml(operatorLabel)} uren laatste 2 weken">${escapeHtml(opsText)}u ${escapeHtml(operatorLabel)}</span>
+    <span class="person-hours-badge ops-hours" title="${escapeHtml(operatorLabel)} uren huidige week">${escapeHtml(opsText)}u ${escapeHtml(operatorLabel)}</span>
   `;
 }
 
@@ -366,7 +367,9 @@ function renderDiscordSyncStatusBadge(person) {
 }
 
 function personnelOpsHoursForTop(person) {
-  return personnelOpsHoursLastWeeks(person, 2);
+  const weeks = typeof recentHourWeeks === "function" ? recentHourWeeks(2) : [];
+  if (typeof opsHoursForWeek !== "function") return 0;
+  return weeks.reduce((sum, week) => sum + opsHoursForWeek(person, week), 0);
 }
 
 function renderPersonnelTopHoursList(title, subtitle, people, valueForPerson, className, emptyText = "Nog geen uren geregistreerd.") {
