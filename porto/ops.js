@@ -27,6 +27,9 @@ function renderVehicleRanges() {
 
 function applyPortoPayload(payload, options = {}) {
   PortoAudio.trackOpsSounds(payload, portoProfile, options);
+  if (payload.recentlyEnded && typeof setPortoSignedOffUntilStatus0 === "function") {
+    setPortoSignedOffUntilStatus0(true);
+  }
   portoCurrentOps = payload.currentOps || null;
   portoCanTakeOps = Boolean(payload.canTakeOps);
   portoCanManageOps = Boolean(payload.canManageOps);
@@ -37,13 +40,13 @@ function applyPortoPayload(payload, options = {}) {
   portoLinkableUnits = payload.linkableUnits || [];
   portoActiveUnits = payload.activeUnits || [];
   portoSideTaskOverview = payload.sideTaskOverview || [];
-  portoPhonebook = Array.isArray(payload.phonebook) ? payload.phonebook : portoPhonebook;
+  const phonebookChanged = typeof setPortoPhonebook === "function" ? setPortoPhonebook(payload.phonebook) : false;
   portoDiscordChannels = payload.discordChannels || [];
   portoDiscordChannelGroups = payload.discordChannelGroups || [];
   portoMapEnabled = Boolean(payload.mapEnabled);
   portoOpsLog = payload.opsLog || [];
   portoVehicleRanges = payload.vehicleRanges || portoVehicleRanges;
-  if ($("#portoPhonebookDialog")?.open) renderPortoPhonebook();
+  if (phonebookChanged && $("#portoPhonebookDialog")?.open) renderPortoPhonebook();
 }
 
 function isCurrentOpsUser() {
@@ -55,6 +58,7 @@ function canUseOpsWorkspace() {
 }
 
 function setPortoOpsPolling(enabled) {
+  if (enabled && portoSignedOffUntilStatus0) return;
   if (enabled && !portoOpsPoll) {
     portoOpsPoll = window.setInterval(() => loadPortoDuty({ automatic: true }), PORTO_AUTO_REFRESH_MS);
   }

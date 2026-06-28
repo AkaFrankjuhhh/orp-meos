@@ -34,12 +34,32 @@ function statusClassName(unit) {
 }
 
 function setPortoDutyPolling(enabled) {
+  if (enabled && portoSignedOffUntilStatus0) return;
   if (enabled && !portoDutyPoll) {
     portoDutyPoll = window.setInterval(() => loadPortoDuty({ automatic: true }), PORTO_AUTO_REFRESH_MS);
   }
   if (!enabled && portoDutyPoll) {
     window.clearInterval(portoDutyPoll);
     portoDutyPoll = null;
+  }
+}
+
+function setPortoSignedOffUntilStatus0(enabled) {
+  portoSignedOffUntilStatus0 = Boolean(enabled);
+  if (!portoSignedOffUntilStatus0) return;
+  setPortoDutyPolling(false);
+  if (typeof setPortoOpsPolling === "function") setPortoOpsPolling(false);
+  if (portoDeferredDutyLoadTimer) {
+    window.clearTimeout(portoDeferredDutyLoadTimer);
+    portoDeferredDutyLoadTimer = null;
+  }
+  if (portoLiveRefreshTimer) {
+    window.clearTimeout(portoLiveRefreshTimer);
+    portoLiveRefreshTimer = null;
+  }
+  if (portoLiveRefreshDeferTimer) {
+    window.clearTimeout(portoLiveRefreshDeferTimer);
+    portoLiveRefreshDeferTimer = null;
   }
 }
 
@@ -176,6 +196,7 @@ function renderDutyPanel() {
 
 async function loadPortoDuty(options = {}) {
   const automatic = Boolean(options.automatic);
+  if (automatic && portoSignedOffUntilStatus0) return null;
   if (portoDutyLoadPromise) return portoDutyLoadPromise;
   if (automatic) {
     const elapsed = Date.now() - portoLastDutyLoadAt;
@@ -191,7 +212,8 @@ async function loadPortoDuty(options = {}) {
   }
   portoLastDutyLoadAt = Date.now();
   portoDutyLoadPromise = (async () => {
-    const response = await fetch("/api/porto/status");
+    const includePhonebook = Boolean(options.includePhonebook || !portoPhonebookSignature || $("#portoPhonebookDialog")?.open);
+    const response = await fetch(`/api/porto/status${includePhonebook ? "" : "?phonebook=0"}`);
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
       showPortoInlineError(payload.error || "Porto status kon niet worden geladen.");
@@ -217,6 +239,7 @@ async function loadPortoDuty(options = {}) {
 async function updatePortoStatus(status, detail = "") {
   if (portoStatusWritePromise) await portoStatusWritePromise.catch(() => {});
   portoStatusWritePromise = (async () => {
+    if (status === "0") setPortoSignedOffUntilStatus0(false);
     const requestNoteInput = $("#portoStatusRequestInput");
     const requestNote = status === "0" ? String(requestNoteInput?.value || "").trim() : "";
     const response = await fetch("/api/porto/status", {
@@ -227,6 +250,7 @@ async function updatePortoStatus(status, detail = "") {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       if (payload.code === "porto_recently_ended") {
+        setPortoSignedOffUntilStatus0(true);
         portoDuty = null;
         portoLastDutyLoadAt = Date.now();
         applyPortoPayload({ unit: null, recentlyEnded: true });
@@ -238,6 +262,7 @@ async function updatePortoStatus(status, detail = "") {
       await showPortoNotice(payload.error || "Porto status kon niet worden opgeslagen.", "Status mislukt");
       return;
     }
+    setPortoSignedOffUntilStatus0(status === "8" || Boolean(payload.recentlyEnded));
     portoDuty = payload.unit || null;
     portoLastDutyLoadAt = Date.now();
     applyPortoPayload(payload);

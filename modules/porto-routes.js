@@ -496,7 +496,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return { unitsChanged, settingsChanged };
   }
 
-  async function maintainPortoPresence(state, person, { touch = true } = {}) {
+  async function maintainPortoPresence(state, person, { touch = true, recoverOpsUnit = true } = {}) {
     const changedBySweep = sweepPortoPresence(state);
     const changedByOpsEligibility = closeIneligiblePortoOpsUnits(state);
     const changedByTouch = touch ? touchPortoPresence(state, person) : false;
@@ -513,7 +513,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       delete state.portoCurrentOps.recoveredFromUnit;
       settingsChanged = true;
     }
-    if (currentOps && !currentOpsRecentlyEnded) {
+    if (recoverOpsUnit && currentOps && !currentOpsRecentlyEnded) {
       let opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === operatorVehicleNumber);
       if (!opsUnit) {
         const opsPerson = (state.people || []).find((entry) => entry.id === currentOps.memberId);
@@ -529,14 +529,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   }
 
   async function sendPortoState(res, state, person, unit = null, extra = {}) {
+    const { omitPhonebook = false, ...responseExtra } = extra;
     const payload = {
-      ...extra,
+      ...responseExtra,
       unit: decoratePortoUnit(state, unit),
       profile: person,
       vehicleRanges: state.portoVehicleRanges,
-      phonebook: portoPhonebookPeople(state),
       ...portoOpsPayload(state, person)
     };
+    if (!omitPhonebook) payload.phonebook = portoPhonebookPeople(state);
     sendJson(res, 200, await attachSideTaskOverview(payload));
   }
 
@@ -586,10 +587,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const rangesChanged = ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
       const skipPresenceMaintain = isRecentlyEnded(person.id);
-      if (!skipPresenceMaintain) await maintainPortoPresence(state, person, { touch: false });
+      if (!skipPresenceMaintain) await maintainPortoPresence(state, person, { touch: false, recoverOpsUnit: false });
       if (rangesChanged) await persistPortoState(state, { units: state.portoUnits, settings: true });
       const unit = skipPresenceMaintain ? null : state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
-      await sendPortoState(res, state, person, unit, skipPresenceMaintain ? { recentlyEnded: true } : {});
+      const omitPhonebook = url.searchParams.get("phonebook") === "0";
+      await sendPortoState(res, state, person, unit, {
+        ...(skipPresenceMaintain ? { recentlyEnded: true } : {}),
+        omitPhonebook
+      });
       return true;
     }
 

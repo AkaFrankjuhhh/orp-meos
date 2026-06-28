@@ -44,6 +44,10 @@ let portoLinkableUnits = [];
 let portoActiveUnits = [];
 let portoSideTaskOverview = [];
 let portoPhonebook = [];
+let portoPhonebookView = [];
+let portoPhonebookSignature = "";
+let portoPhonebookLastRenderKey = "";
+let portoPhonebookRenderTimer = null;
 let portoDiscordChannels = [];
 let portoDiscordChannelGroups = [];
 let portoMapEnabled = false;
@@ -63,6 +67,7 @@ let portoStatusWritePromise = null;
 let portoOpsWritePromise = null;
 let portoLastDutyLoadAt = 0;
 let portoDeferredDutyLoadTimer = null;
+let portoSignedOffUntilStatus0 = false;
 const PORTO_AUTO_REFRESH_MS = 8000;
 const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
 
@@ -150,47 +155,59 @@ function portoPhonebookSearchText(person) {
     .join(" ");
 }
 
-function appendPortoPhonebookCell(row, label, value, className = "") {
-  const cell = document.createElement("span");
-  cell.dataset.label = label;
-  cell.textContent = value;
-  if (className) cell.className = className;
-  row.append(cell);
+function phonebookSignature(entries) {
+  return (entries || [])
+    .map((person) => [person.id, person.rank, person.name, person.serviceNumber, person.phone].join("|"))
+    .join("\n");
+}
+
+function setPortoPhonebook(entries) {
+  if (!Array.isArray(entries)) return false;
+  const signature = phonebookSignature(entries);
+  if (signature === portoPhonebookSignature) return false;
+  portoPhonebookSignature = signature;
+  portoPhonebook = entries;
+  portoPhonebookView = entries.map((person) => ({
+    ...person,
+    searchText: portoPhonebookSearchText(person)
+  }));
+  portoPhonebookLastRenderKey = "";
+  return true;
+}
+
+function portoPhonebookRowHtml(person) {
+  const phone = person.phone || "<Geen bekend nummer>";
+  const phoneClass = person.phone ? "porto-phonebook-phone" : "porto-phonebook-phone missing";
+  const title = person.serviceNumber ? ` title="Dienstnummer: ${escapeHtml(person.serviceNumber)}"` : "";
+  return `
+    <div class="porto-phonebook-row"${title}>
+      <span data-label="Rang">${escapeHtml(person.rank || "-")}</span>
+      <span data-label="Naam">${escapeHtml(person.name || "-")}</span>
+      <span data-label="Telefoonnummer" class="${phoneClass}">${escapeHtml(phone)}</span>
+    </div>`;
 }
 
 function renderPortoPhonebook() {
   const rows = $("#portoPhonebookRows");
   if (!rows) return;
   const query = ($("#portoPhonebookSearch")?.value || "").trim().toLowerCase();
-  const entries = (Array.isArray(portoPhonebook) ? portoPhonebook : [])
-    .filter((person) => !query || portoPhonebookSearchText(person).includes(query))
-    .sort(comparePortoPhonebookEntries);
-
-  rows.replaceChildren();
+  const renderKey = `${portoPhonebookSignature}|${query}`;
+  if (renderKey === portoPhonebookLastRenderKey) return;
+  portoPhonebookLastRenderKey = renderKey;
+  const entries = portoPhonebookView.filter((person) => !query || person.searchText.includes(query));
   if (!entries.length) {
-    const empty = document.createElement("div");
-    empty.className = "porto-phonebook-empty";
-    empty.textContent = "Geen personen gevonden.";
-    rows.append(empty);
+    rows.innerHTML = '<div class="porto-phonebook-empty">Geen personen gevonden.</div>';
     return;
   }
+  rows.innerHTML = entries.map(portoPhonebookRowHtml).join("");
+}
 
-  const fragment = document.createDocumentFragment();
-  entries.forEach((person) => {
-    const row = document.createElement("div");
-    row.className = "porto-phonebook-row";
-    row.title = person.serviceNumber ? `Dienstnummer: ${person.serviceNumber}` : "";
-    appendPortoPhonebookCell(row, "Rang", person.rank || "-");
-    appendPortoPhonebookCell(row, "Naam", person.name || "-");
-    appendPortoPhonebookCell(
-      row,
-      "Telefoonnummer",
-      person.phone || "<Geen bekend nummer>",
-      person.phone ? "porto-phonebook-phone" : "porto-phonebook-phone missing"
-    );
-    fragment.append(row);
-  });
-  rows.append(fragment);
+function schedulePortoPhonebookRender() {
+  if (portoPhonebookRenderTimer) window.clearTimeout(portoPhonebookRenderTimer);
+  portoPhonebookRenderTimer = window.setTimeout(() => {
+    portoPhonebookRenderTimer = null;
+    renderPortoPhonebook();
+  }, 120);
 }
 
 function openPortoPhonebook() {
@@ -200,6 +217,9 @@ function openPortoPhonebook() {
   if (typeof dialog.showModal === "function" && !dialog.open) dialog.showModal();
   else dialog.setAttribute("open", "");
   window.setTimeout(() => $("#portoPhonebookSearch")?.focus(), 0);
+  if (!portoPhonebookSignature) {
+    loadPortoDuty({ includePhonebook: true }).then(renderPortoPhonebook).catch(() => {});
+  }
 }
 
 function closePortoPhonebook() {
@@ -222,10 +242,11 @@ function hasActivePortoLiveInteraction() {
 }
 
 function schedulePortoLiveRefresh(scope = "porto") {
+  if (portoSignedOffUntilStatus0) return;
   if (portoLiveRefreshTimer) return;
   portoLiveRefreshTimer = window.setTimeout(async () => {
     portoLiveRefreshTimer = null;
-    if (document.body.classList.contains("porto-locked")) return;
+    if (document.body.classList.contains("porto-locked") || portoSignedOffUntilStatus0) return;
     if (hasActivePortoLiveInteraction()) {
       if (!portoLiveRefreshDeferTimer) {
         portoLiveRefreshDeferTimer = window.setTimeout(() => {
@@ -405,7 +426,7 @@ $("#portoPhonebookDialog")?.addEventListener("submit", (event) => {
 });
 $("#closePortoPhonebookDialog")?.addEventListener("click", closePortoPhonebook);
 $("#cancelPortoPhonebookDialog")?.addEventListener("click", closePortoPhonebook);
-$("#portoPhonebookSearch")?.addEventListener("input", renderPortoPhonebook);
+$("#portoPhonebookSearch")?.addEventListener("input", schedulePortoPhonebookRender);
 $("#portoProfileForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const response = await fetch("/api/porto/profile", {

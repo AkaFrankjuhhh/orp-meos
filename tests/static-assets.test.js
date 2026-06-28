@@ -1,5 +1,7 @@
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 
 const port = 4137;
@@ -52,5 +54,14 @@ test("portal boot assets are served under the production CSP", async () => {
     }
   } finally {
     server.kill();
+  }
+});
+
+test("portal shell uses absolute assets so deep profile routes hydrate", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const assetRefs = [...html.matchAll(/\b(?:href|src)="([^"]+\.(?:css|js)(?:\?[^"]*)?)"/g)].map((match) => match[1]);
+  assert.ok(assetRefs.length > 10, "expected portal CSS and JS references");
+  for (const ref of assetRefs) {
+    assert.ok(ref.startsWith("/"), `${ref} should be absolute for /medewerkers/... routes`);
   }
 });

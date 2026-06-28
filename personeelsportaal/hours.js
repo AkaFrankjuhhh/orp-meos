@@ -40,12 +40,30 @@ function weekKey(week) {
   return `${week.weekYear}-${week.weekNumber}`;
 }
 
-function hourEntryFor(personId, weekYear, weekNumber) {
-  return (state.hours || []).find((entry) => (
+function hourEntriesFor(personId, weekYear, weekNumber) {
+  return (state.hours || []).filter((entry) => (
     entry.personId === personId &&
     Number(entry.weekYear) === Number(weekYear) &&
     Number(entry.weekNumber) === Number(weekNumber)
   ));
+}
+
+function isManualHourEntry(entry) {
+  const source = String(entry?.source || "").trim().toLowerCase();
+  return String(entry?.id || "").startsWith("manual-") || source === "handmatig" || source === "manual";
+}
+
+function effectiveHourEntryFor(personId, weekYear, weekNumber) {
+  const entries = hourEntriesFor(personId, weekYear, weekNumber);
+  const manual = entries.find(isManualHourEntry);
+  if (manual) return manual;
+  if (!entries.length) return null;
+  const hours = entries.reduce((sum, entry) => sum + (Number(entry.hours) || Number(entry.minutes || 0) / 60 || 0), 0);
+  return {
+    ...entries[0],
+    id: `effective-${personId}-${weekYear}-${weekNumber}`,
+    hours
+  };
 }
 
 function displayHourValue(value) {
@@ -76,13 +94,15 @@ function hourToneColor(hours) {
 
 function manualHoursForMonth(person) {
   const now = new Date();
-  return (state.hours || [])
-    .filter((entry) => entry.personId === person.id)
-    .filter((entry) => {
-      const start = isoWeekStart(entry.weekYear, entry.weekNumber);
-      return start.getUTCFullYear() === now.getFullYear() && start.getUTCMonth() === now.getMonth();
-    })
-    .reduce((sum, entry) => sum + (Number(entry.hours) || Number(entry.minutes || 0) / 60 || 0), 0);
+  const monthWeeks = new Map();
+  for (const entry of state.hours || []) {
+    if (entry.personId !== person.id) continue;
+    const start = isoWeekStart(entry.weekYear, entry.weekNumber);
+    if (start.getUTCFullYear() !== now.getFullYear() || start.getUTCMonth() !== now.getMonth()) continue;
+    monthWeeks.set(weekKey(entry), { weekYear: entry.weekYear, weekNumber: entry.weekNumber });
+  }
+  return [...monthWeeks.values()]
+    .reduce((sum, week) => sum + (Number(effectiveHourEntryFor(person.id, week.weekYear, week.weekNumber)?.hours) || 0), 0);
 }
 
 function opsEntrySeconds(entry) {
@@ -138,7 +158,7 @@ function renderProfileHours(person) {
   const canEdit = canManageHours();
   const total = manualHoursForMonth(person);
   const currentWeek = currentHourWeek();
-  const currentEntry = hourEntryFor(person.id, currentWeek.weekYear, currentWeek.weekNumber);
+  const currentEntry = effectiveHourEntryFor(person.id, currentWeek.weekYear, currentWeek.weekNumber);
   $("#profileMonthHours").textContent = `${displayHourValue(total)} uur`;
   $("#profileHoursCurrentWeekLabel").textContent = `Week ${currentWeek.weekNumber}`;
   $("#profileHoursWeekYear").value = currentWeek.weekYear;
@@ -148,7 +168,7 @@ function renderProfileHours(person) {
   $("#profileHoursEntry").hidden = !canEdit;
   $("#profileHoursWeeks").innerHTML = recentHourWeeks(4)
     .map((week) => {
-      const entry = hourEntryFor(person.id, week.weekYear, week.weekNumber);
+      const entry = effectiveHourEntryFor(person.id, week.weekYear, week.weekNumber);
       const hours = entry ? Number(entry.hours) || 0 : 0;
       return `
         <div class="manual-hours-week" style="--hours-tone:${hourToneColor(hours)}">
@@ -258,7 +278,7 @@ function renderBulkHoursRows(week) {
   $("#bulkHoursWeekNumber").value = week.weekNumber;
   $("#bulkHoursRows").innerHTML = sortedActivePeopleForHours()
     .map((person) => {
-      const entry = hourEntryFor(person.id, week.weekYear, week.weekNumber);
+      const entry = effectiveHourEntryFor(person.id, week.weekYear, week.weekNumber);
       return `
         <label class="bulk-hours-row">
           <span>
