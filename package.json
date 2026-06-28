@@ -17,6 +17,7 @@
     "db:discord-identity:check": "node scripts/check-discord-identity.js",
     "db:discord-identity:enforce": "node scripts/enforce-discord-identity.js",
     "prod:check": "node scripts/prod-check.js",
+    "smoke:check": "node scripts/smoke-check.js",
     "ops:reset-times": "node scripts/reset-ops-times.js",
     "db:backup": "node scripts/db-backup.js",
     "discord:nicknames:dry": "node scripts/discord-sync-nicknames.js",

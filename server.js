@@ -428,11 +428,19 @@ async function readPublicFormSubmitBody(req) {
 async function healthPayload() {
   const payload = {
     ok: true,
+    service: "portal",
+    organization: organization.key,
     status: "ok",
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.round(process.uptime()),
     storageMode,
-    database: { checked: storageMode === "postgres", ok: null }
+    sessions: typeof sessions.size === "function" ? sessions.size() : null,
+    eventBridge: postgresEventBridge.status?.() || { enabled: false },
+    database: {
+      checked: storageMode === "postgres",
+      ok: null,
+      name: storageMode === "postgres" ? databaseNameFromConnectionString(process.env.DATABASE_URL) || "" : ""
+    }
   };
 
   if (storageMode === "postgres") {
@@ -981,7 +989,7 @@ function serveStatic(req, res, url) {
     res.end(portoClientDataScript(organization));
     return;
   }
-  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "client-guard.js", "portal-loader-failsafe.js", "boot-failsafe.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
+  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "client-guard.js", "portal-boot.js", "portal-client-errors.js", "portal-loader-failsafe.js", "boot-failsafe.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
   serveWhitelistedStatic({
     root,
     requested,

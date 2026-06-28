@@ -90,7 +90,16 @@ function createPostgresEventBridge({ enabled, serviceName, publishLocal, logErro
     await withClient((dbClient) => dbClient.query("select pg_notify($1, $2)", [channelName, payload]));
   }
 
-  return { start, stop, notify };
+  function status() {
+    return {
+      enabled: Boolean(enabled),
+      listening: Boolean(client),
+      reconnectScheduled: Boolean(reconnectTimer),
+      stopped
+    };
+  }
+
+  return { start, stop, notify, status };
 }
 
 module.exports = { createPostgresEventBridge };

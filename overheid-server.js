@@ -326,7 +326,13 @@ async function handleRequest(req, res) {
   }
 
   if (url.pathname === "/api/health") {
-    sendJson(res, 200, { ok: true, service: "overheid-router", timestamp: new Date().toISOString() });
+    sendJson(res, 200, {
+      ok: true,
+      service: "overheid-router",
+      timestamp: new Date().toISOString(),
+      uptimeSeconds: Math.round(process.uptime()),
+      configuredRoutes: roleRoutes.filter((route) => route.roleId).map((route) => route.key)
+    });
     return;
   }
 

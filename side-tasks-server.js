@@ -537,7 +537,15 @@ async function handleApi(req, res, task, url) {
   if (shouldRejectMutation(req, APP_BASE_URL)) return jsonError(res, 403, "Ongeldige origin.");
 
   if (url.pathname === "/api/health") {
-    return sendJson(res, 200, { ok: true, service: "side-tasks", task: task.key, timestamp: new Date().toISOString() });
+    return sendJson(res, 200, {
+      ok: true,
+      service: "side-tasks",
+      task: task.key,
+      timestamp: new Date().toISOString(),
+      uptimeSeconds: Math.round(process.uptime()),
+      sessions: typeof sessions.size === "function" ? sessions.size() : null,
+      portalIdentityDatabase: hasPortalIdentityDatabase()
+    });
   }
 
   if (url.pathname === "/api/auth/login" && req.method === "GET") return handleAuthLogin(req, res, task);
