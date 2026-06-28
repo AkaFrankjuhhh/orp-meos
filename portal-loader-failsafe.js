@@ -6,6 +6,7 @@
     "#portalBootLoader",
     "#portalLoadingScreen",
     "#portalLoader",
+    "#orp-boot-screen",
     "#appLoader",
     "#bootLoader",
     "[data-portal-loader]",
@@ -38,6 +39,7 @@
   function revealDocument() {
     if (!document.documentElement || !document.body) return;
     document.documentElement.classList.add("orp-app-ready");
+    document.documentElement.classList.remove("orp-app-booting", "orp-app-load-error");
     document.documentElement.classList.remove("orp-app-loading", "is-loading", "loading");
     document.documentElement.style.visibility = "visible";
     document.documentElement.style.opacity = "1";
