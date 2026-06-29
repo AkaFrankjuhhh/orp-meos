@@ -14,11 +14,11 @@ const SIDE_TASK_DEFINITIONS = {
     logoUrl: "/assets/dsi-logo.png",
     allowAlias: true,
     dsiUnits: {
-      prefix: "24",
+      prefix: "50",
       min: 3,
       max: 99,
       capacity: 3,
-      commandUnits: { TCO: "24-01", ACO: "24-02" }
+      commandUnits: { TCO: "50-01", ACO: "50-02" }
     },
     commandRoleDefaults: {
       ACO: "1517546277913628695",
@@ -54,7 +54,27 @@ const SIDE_TASK_DEFINITIONS = {
     label: "KLu",
     displayName: "Koninklijke Luchtmacht",
     logoUrl: "/assets/klu-logo.png",
-    allowAlias: false,
+    allowAlias: true,
+    aliasProfile: {
+      numberLabel: "KLu roepnummer",
+      numberPlaceholder: "Eagle 1",
+      aliasLabel: "Schuilnaam",
+      aliasPlaceholder: "Naam",
+      aliasRequiredForActive: true,
+      numberSource: "rank",
+      nicknameTemplate: "[{number}] {name}",
+      rankNumbers: {
+        "Generaal": { number: "1", roleId: "1516830107711307867" },
+        "Luitenant Generaal": { number: "2", roleId: "1487005041154850837" },
+        "Majoor": { number: "3", roleId: "1487005030664900708" },
+        "Kapitein": { number: "4", roleId: "1487005042631376946" },
+        "Sergeant": { number: "5", roleId: "1487005047177871421" },
+        "Korporaal der 1e klasse": { number: "6", roleId: "1487005047979114546" },
+        "Korporaal": { number: "7", roleId: "1487005582845153280" },
+        "Soldaat der 1e klasse": { number: "8", roleId: "1487005583654649856" },
+        "Soldaat der 2de klasse": { number: "9", roleId: "1487005584392982549" }
+      }
+    },
     specialties: [
       { label: "298", roleId: "1486813167899381811" },
       { label: "299", roleId: "1487158218051424348" },
@@ -71,7 +91,18 @@ const SIDE_TASK_DEFINITIONS = {
     label: "DNR",
     displayName: "Dienst Nationale Recherche",
     logoUrl: "/assets/politie-logo.png",
-    allowAlias: false,
+    allowAlias: true,
+    aliasProfile: {
+      numberLabel: "DNR nummer",
+      numberPlaceholder: "DNR-01",
+      aliasLabel: "Schuilnaam",
+      aliasPlaceholder: "Schuilnaam",
+      aliasRequiredForActive: false,
+      numberPattern: "^DNR-\\d{2,3}$",
+      numberPatternHint: "Gebruik formaat DNR-01, DNR-02, DNR-03.",
+      nicknameTemplate: "[{number}] {name}",
+      supportsUndercover: true
+    },
     specialties: []
   }
 };

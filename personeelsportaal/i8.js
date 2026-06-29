@@ -3,6 +3,17 @@
 let i8ArchiveStatusFilter = "all";
 let ovjLogDetailContext = null;
 let pendingI8ArchiveRouteNumber = "";
+const I8_DRAFT_FIELDS = [
+  "i8Date",
+  "i8Time",
+  "i8Location",
+  "i8OpcoOvd",
+  "i8Description",
+  "i8ForceUsed",
+  "i8Vehicle",
+  "i8Injury",
+  "i8Truth"
+];
 
 function canViewOvJLeadershipLog() {
   return Boolean(permissions.canViewOvJLeadershipLog || hasKaderAccess());
@@ -38,12 +49,87 @@ function currentMemberName() {
   return currentProfile()?.name || authProfile?.name || "-";
 }
 
-function resetI8Form() {
+function i8DraftStorageKey() {
+  const profileId = currentProfile()?.id || authProfile?.id || "unknown";
+  return `orp-${organizationKey}-i8-draft-${profileId}`;
+}
+
+function i8FormHasUserInput() {
+  return I8_DRAFT_FIELDS.some((fieldId) => {
+    const field = $(`#${fieldId}`);
+    if (!field) return false;
+    if (field.type === "checkbox") return field.checked;
+    return String(field.value || "").trim() !== "";
+  });
+}
+
+function saveI8Draft() {
   const form = $("#i8Form");
   if (!form) return;
+  const draft = {};
+  I8_DRAFT_FIELDS.forEach((fieldId) => {
+    const field = $(`#${fieldId}`);
+    if (!field) return;
+    draft[fieldId] = field.type === "checkbox" ? Boolean(field.checked) : field.value;
+  });
+  draft.savedAt = new Date().toISOString();
+  localStorage.setItem(i8DraftStorageKey(), JSON.stringify(draft));
+}
+
+function restoreI8Draft(options = {}) {
+  const form = $("#i8Form");
+  if (!form) return false;
+  $("#i8Name").value = currentMemberName();
+  const raw = localStorage.getItem(i8DraftStorageKey());
+  if (!raw) {
+    if (!$("#i8Date").value) $("#i8Date").value = today;
+    form.dataset.i8DraftRestored = "true";
+    return false;
+  }
+  if (!options.force && form.dataset.i8DraftRestored === "true" && i8FormHasUserInput()) return true;
+  if (!options.force && form.dataset.i8DraftRestored !== "true" && i8FormHasUserInput()) return true;
+  try {
+    const draft = JSON.parse(raw);
+    I8_DRAFT_FIELDS.forEach((fieldId) => {
+      const field = $(`#${fieldId}`);
+      if (!field || !(fieldId in draft)) return;
+      if (field.type === "checkbox") {
+        field.checked = Boolean(draft[fieldId]);
+      } else {
+        field.value = draft[fieldId] || "";
+      }
+    });
+    if (!$("#i8Date").value) $("#i8Date").value = today;
+    form.dataset.i8DraftRestored = "true";
+    return true;
+  } catch {
+    localStorage.removeItem(i8DraftStorageKey());
+    if (!$("#i8Date").value) $("#i8Date").value = today;
+    form.dataset.i8DraftRestored = "true";
+    return false;
+  }
+}
+
+function clearI8Draft() {
+  localStorage.removeItem(i8DraftStorageKey());
+}
+
+function bindI8DraftAutosave() {
+  const form = $("#i8Form");
+  if (!form || form.dataset.i8DraftAutosave === "true") return;
+  form.dataset.i8DraftAutosave = "true";
+  form.addEventListener("input", saveI8Draft);
+  form.addEventListener("change", saveI8Draft);
+}
+
+function resetI8Form(options = {}) {
+  const form = $("#i8Form");
+  if (!form) return;
+  if (options.clearDraft !== false) clearI8Draft();
   form.reset();
   $("#i8Name").value = currentMemberName();
   $("#i8Date").value = today;
+  form.dataset.i8DraftRestored = "true";
 }
 
 function i8NumberFor(form, forms = state.i8Forms || []) {
@@ -320,6 +406,8 @@ function renderI8Forms() {
   const reviewList = $("#i8ReviewList");
   const archiveList = $("#i8ArchiveList");
   if ($("#i8Name")) $("#i8Name").value = currentMemberName();
+  bindI8DraftAutosave();
+  restoreI8Draft();
   setI8Tab(activeI8Tab);
   $$('[data-i8-archive-status]').forEach((button) => button.classList.toggle("active", button.dataset.i8ArchiveStatus === i8ArchiveStatusFilter));
 

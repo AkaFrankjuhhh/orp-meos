@@ -1836,7 +1836,7 @@ function wireEvents() {
   $$('[data-i8-tab]').forEach((button) => {
     button.addEventListener("click", () => {
       setI8Tab(button.dataset.i8Tab);
-      if (button.dataset.i8Tab === "create") resetI8Form();
+      if (button.dataset.i8Tab === "create") restoreI8Draft({ force: false });
     });
   });
   $("#i8DetailBody").addEventListener("click", (event) => {
@@ -1872,6 +1872,7 @@ function wireEvents() {
         truthConfirmed: $("#i8Truth").checked
       });
       if (!saved) return;
+      clearI8Draft();
       resetI8Form();
       setI8Tab("list");
       render();

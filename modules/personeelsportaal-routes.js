@@ -240,9 +240,11 @@ function createPersoneelsportaalRouteHandler(deps) {
     });
   }
 
-  async function sendFormsStateAfterMutation(res, auth, state, targetedWrite) {
+  async function sendFormsStateAfterMutation(res, auth, state, targetedWrite, options = {}) {
     await persistFormsStateMutation(state, targetedWrite);
-    await normalizeAbsenceDrivenPeopleStatusesIfNeeded(state);
+    if (options.normalizeAbsences !== false) {
+      await normalizeAbsenceDrivenPeopleStatusesIfNeeded(state);
+    }
     sendFormsStateResponse(res, auth, state);
   }
 
@@ -1341,7 +1343,8 @@ function createPersoneelsportaalRouteHandler(deps) {
       res,
       auth,
       state,
-      typeof formsStorage.createI8Form === "function" ? () => formsStorage.createI8Form(form, [activityMessage]) : null
+      typeof formsStorage.createI8Form === "function" ? () => formsStorage.createI8Form(form, [activityMessage]) : null,
+      { normalizeAbsences: false }
     );
     return;
   }

@@ -4,9 +4,17 @@ const { sideTaskForKey, statusOption } = require("./side-tasks-config");
 
 let schemaReady = false;
 let sideTaskPool = null;
-const DSI_COMMAND_UNITS = Object.freeze({ TCO: "24-01", ACO: "24-02" });
-const DSI_FIRST_REGULAR_UNIT = 3;
-const DSI_UNIT_CAPACITY = Number(sideTaskForKey("DSI")?.dsiUnits?.capacity || 3);
+const DSI_UNITS = sideTaskForKey("DSI")?.dsiUnits || {};
+const DSI_UNIT_PREFIX = String(DSI_UNITS.prefix || "50");
+const DSI_OLD_UNIT_PREFIXES = ["24"].filter((prefix) => prefix !== DSI_UNIT_PREFIX);
+const DSI_COMMAND_UNITS = Object.freeze(DSI_UNITS.commandUnits || { TCO: `${DSI_UNIT_PREFIX}-01`, ACO: `${DSI_UNIT_PREFIX}-02` });
+const DSI_FIRST_REGULAR_UNIT = Number(DSI_UNITS.min || 3);
+const DSI_LAST_REGULAR_UNIT = Number(DSI_UNITS.max || 99);
+const DSI_UNIT_CAPACITY = Number(DSI_UNITS.capacity || 3);
+
+function formatDsiUnit(index) {
+  return `${DSI_UNIT_PREFIX}-${String(index).padStart(2, "0")}`;
+}
 
 function sideTaskDatabaseUrl() {
   return String(process.env.SIDE_TASK_DATABASE_URL || "").trim();
@@ -131,6 +139,17 @@ async function ensureSideTaskSchema() {
     await client.query("alter table side_task_members add column if not exists phone text not null default ''");
     await client.query("alter table side_task_members add column if not exists unit_number text not null default ''");
     await client.query("alter table side_task_members add column if not exists command_role text not null default ''");
+    for (const oldPrefix of DSI_OLD_UNIT_PREFIXES) {
+      await client.query(
+        `update side_task_members
+         set unit_number = $2 || substring(unit_number from 3),
+             raw = jsonb_set(raw, '{unitNumber}', to_jsonb($2 || substring(unit_number from 3)), true),
+             updated_at = now()
+         where task_key = 'DSI'
+           and unit_number ~ ($1 || '-[0-9]{2}$')`,
+        [oldPrefix, DSI_UNIT_PREFIX]
+      );
+    }
     await client.query("create index if not exists side_task_members_task_unit_idx on side_task_members(task_key, unit_number) where unit_number <> ''");
     await client.query("create unique index if not exists side_task_members_task_command_role_uidx on side_task_members(task_key, command_role) where command_role <> ''");
     await client.query(`
@@ -367,10 +386,12 @@ function createSideTasksStore() {
   async function updateMemberProfile(taskKey, id, patch) {
     await ensureSideTaskSchema();
     return withSideTaskClient(async (client) => {
+      const rawPatch = patch.raw && typeof patch.raw === "object" ? patch.raw : {};
       const result = await client.query(
         `update side_task_members
          set call_sign = $3,
              alias_name = $4,
+             raw = raw || $5::jsonb,
              updated_at = now()
          where task_key = $1 and id = $2
          returning *`,
@@ -378,7 +399,8 @@ function createSideTasksStore() {
           taskKey,
           String(id),
           String(patch.callSign || "").trim(),
-          String(patch.aliasName || "").trim()
+          String(patch.aliasName || "").trim(),
+          JSON.stringify(rawPatch)
         ]
       );
       const member = memberFromRow(result.rows[0]);
@@ -547,10 +569,10 @@ function createSideTasksStore() {
   }
 
   function dsiUnitNumber(number) {
-    const match = /^24-(\d{1,2})$/.exec(String(number || "").trim());
+    const match = new RegExp(`^${DSI_UNIT_PREFIX}-(\\d{1,2})$`).exec(String(number || "").trim());
     if (!match) return "";
     const suffix = Number(match[1]);
-    return suffix >= 1 && suffix <= 99 ? `24-${String(suffix).padStart(2, "0")}` : "";
+    return suffix >= 1 && suffix <= DSI_LAST_REGULAR_UNIT ? formatDsiUnit(suffix) : "";
   }
 
   function isReservedDsiUnit(unitNumber) {
@@ -573,12 +595,12 @@ function createSideTasksStore() {
         const commandUnit = DSI_COMMAND_UNITS[member.commandRole] || "";
         let unitNumber = commandUnit || dsiUnitNumber(requestedUnitNumber);
         if (requestedUnitNumber && !unitNumber) {
-          const error = new Error("Kies een geldig 24-nummer.");
+          const error = new Error(`Kies een geldig ${DSI_UNIT_PREFIX}-nummer.`);
           error.status = 400;
           throw error;
         }
         if (requestedUnitNumber && isReservedDsiUnit(unitNumber) && !commandUnit) {
-          const error = new Error("24-01 en 24-02 zijn gereserveerd voor TCO/ACO. Reguliere DSI-nummers beginnen bij 24-03.");
+          const error = new Error(`${DSI_COMMAND_UNITS.TCO} en ${DSI_COMMAND_UNITS.ACO} zijn gereserveerd voor TCO/ACO. Reguliere DSI-nummers beginnen bij ${formatDsiUnit(DSI_FIRST_REGULAR_UNIT)}.`);
           error.status = 403;
           throw error;
         }
@@ -594,25 +616,25 @@ function createSideTasksStore() {
           const ownUnit = member.status !== "8" ? member.unitNumber : "";
           const existingCount = counts.get(unitNumber) || 0;
           if (unitNumber !== ownUnit && existingCount >= DSI_UNIT_CAPACITY) {
-            const error = new Error(`Deze 24-eenheid heeft al maximaal ${DSI_UNIT_CAPACITY} leden.`);
+            const error = new Error(`Deze ${DSI_UNIT_PREFIX}-eenheid heeft al maximaal ${DSI_UNIT_CAPACITY} leden.`);
             error.status = 409;
             throw error;
           }
           if (!counts.has(unitNumber) && requestedUnitNumber) {
-            const error = new Error("Koppel aan een bestaande 24-eenheid.");
+            const error = new Error(`Koppel aan een bestaande ${DSI_UNIT_PREFIX}-eenheid.`);
             error.status = 404;
             throw error;
           }
         } else {
-          for (let index = DSI_FIRST_REGULAR_UNIT; index <= 99; index += 1) {
-            const candidate = `24-${String(index).padStart(2, "0")}`;
+          for (let index = DSI_FIRST_REGULAR_UNIT; index <= DSI_LAST_REGULAR_UNIT; index += 1) {
+            const candidate = formatDsiUnit(index);
             if (!counts.has(candidate)) {
               unitNumber = candidate;
               break;
             }
           }
           if (!unitNumber) {
-            const error = new Error("Geen vrij 24-nummer beschikbaar.");
+            const error = new Error(`Geen vrij ${DSI_UNIT_PREFIX}-nummer beschikbaar.`);
             error.status = 409;
             throw error;
           }
@@ -657,15 +679,15 @@ function createSideTasksStore() {
               [taskKey, String(memberId)]
             );
             const usedUnits = new Set(activeUnits.rows.map((row) => row.unit_number));
-            for (let index = DSI_FIRST_REGULAR_UNIT; index <= 99; index += 1) {
-              const candidate = `24-${String(index).padStart(2, "0")}`;
+            for (let index = DSI_FIRST_REGULAR_UNIT; index <= DSI_LAST_REGULAR_UNIT; index += 1) {
+              const candidate = formatDsiUnit(index);
               if (!usedUnits.has(candidate)) {
                 replacementUnitNumber = candidate;
                 break;
               }
             }
             if (!replacementUnitNumber) {
-              const error = new Error("Geen vrij regulier 24-nummer beschikbaar.");
+              const error = new Error(`Geen vrij regulier ${DSI_UNIT_PREFIX}-nummer beschikbaar.`);
               error.status = 409;
               throw error;
             }

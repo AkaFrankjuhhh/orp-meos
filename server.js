@@ -273,6 +273,19 @@ function mentorTestWebhookUrl() {
   return process.env[`DISCORD_${orgKey}_MENTOR_TOETS_WEBHOOK_URL`] || process.env.DISCORD_MENTOR_TOETS_WEBHOOK_URL || "";
 }
 
+function formatMentorTestDateTime(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return formatDate(value);
+  return new Intl.DateTimeFormat("nl-NL", {
+    timeZone: "Europe/Amsterdam",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
 function buildMentorTestWebhookPayload(event, { person, actor, test } = {}) {
   const labels = {
     sent: "Toets klaargezet",
@@ -301,7 +314,7 @@ function buildMentorTestWebhookPayload(event, { person, actor, test } = {}) {
     { name: "Status", value: label, inline: true },
     { name: "Door", value: actor?.name || test?.reviewedByName || test?.sentByName || "-", inline: true }
   ];
-  if (test?.submittedAt) fields.push({ name: "Ingediend op", value: formatDate(test.submittedAt), inline: true });
+  if (test?.submittedAt) fields.push({ name: "Ingediend op", value: formatMentorTestDateTime(test.submittedAt), inline: true });
   return {
     username: "Mentor-Toets",
     embeds: [

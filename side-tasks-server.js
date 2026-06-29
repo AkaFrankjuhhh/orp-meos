@@ -371,6 +371,124 @@ async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
   return { member };
 }
 
+function shouldSyncAliasNicknameForStatus(task, status) {
+  if (!task.allowAlias) return false;
+  if (task.key === "DSI") return shouldSyncDsiNicknameForStatus(status);
+  return ["1", "4", "8"].includes(String(status));
+}
+
+function normalizeAliasNumber(task, value) {
+  const text = sanitizeText(value, 32);
+  if (task.key === "DNR") {
+    const match = /^DNR-(\d{1,3})$/i.exec(text);
+    return match ? `DNR-${match[1].padStart(2, "0")}` : text.toUpperCase();
+  }
+  return text;
+}
+
+function rankNumberFromRoles(task, member) {
+  const roles = new Set((member.raw?.lastKnownRoleIds || []).map(String));
+  const rankNumbers = task.aliasProfile?.rankNumbers || {};
+  for (const [rank, config] of Object.entries(rankNumbers)) {
+    if (config.roleId && roles.has(String(config.roleId))) return { rank, number: String(config.number || "") };
+  }
+  return null;
+}
+
+function aliasNumberForTask(task, member, portalIdentity = null) {
+  if (task.key === "KLU") {
+    const rank = String(portalIdentity?.person?.rank || "").trim();
+    const rankConfig = task.aliasProfile?.rankNumbers?.[rank] || null;
+    const resolved = rankConfig ? { rank, number: String(rankConfig.number || "") } : rankNumberFromRoles(task, member);
+    return resolved?.number ? `Eagle ${resolved.number}` : "";
+  }
+  if (task.key === "DSI") {
+    const displayNumber = (member.commandRole && member.unitNumber) || (["1", "4"].includes(String(member.status)) && member.unitNumber)
+      ? member.unitNumber
+      : member.callSign;
+    return displayNumber || "";
+  }
+  return normalizeAliasNumber(task, member.callSign);
+}
+
+function normalAliasName(member, portalIdentity = null) {
+  const portalName = String(portalIdentity?.person?.name || "").trim();
+  return portalName || member.displayName || member.discordUsername || "";
+}
+
+function validateAliasProfileForStatus(task, member, nextStatus, portalIdentity = null) {
+  if (!task.allowAlias || String(nextStatus) === "8") return;
+  if (task.key === "DSI") return requireDsiIdentityForStatus(member, nextStatus);
+  const aliasProfile = task.aliasProfile || {};
+  const number = aliasNumberForTask(task, member, portalIdentity);
+  if (!number) {
+    const error = new Error(`Vul eerst je ${aliasProfile.numberLabel || "roepnummer"} in en sla je profiel op.`);
+    error.status = 400;
+    throw error;
+  }
+  if (aliasProfile.numberPattern && !new RegExp(aliasProfile.numberPattern, "i").test(number)) {
+    const error = new Error(aliasProfile.numberPatternHint || `Gebruik een geldig ${aliasProfile.numberLabel || "roepnummer"}.`);
+    error.status = 400;
+    throw error;
+  }
+  const undercover = Boolean(member.raw?.undercover);
+  const needsAlias = Boolean(aliasProfile.aliasRequiredForActive || (aliasProfile.supportsUndercover && undercover));
+  if (needsAlias && !String(member.aliasName || "").trim()) {
+    const error = new Error(`Vul eerst je ${aliasProfile.aliasLabel || "schuilnaam"} in en sla je profiel op.`);
+    error.status = 400;
+    throw error;
+  }
+}
+
+async function restorePortalNickname(member) {
+  const portalIdentity = await portalIdentityForDiscordId(member.discordId);
+  if (!portalIdentity?.nickname) {
+    const configurationHint = hasPortalIdentityDatabase()
+      ? "Er is geen actief gekoppeld profiel gevonden in het personeelsportaal."
+      : "De koppeling met de personeelsportaal-database is nog niet ingesteld.";
+    return { warning: `Status is opgeslagen, maar Discordnaam is niet hersteld. ${configurationHint}` };
+  }
+  try {
+    await patchMainGuildNickname(member.discordId, portalIdentity.nickname);
+    return {};
+  } catch (error) {
+    return { warning: nicknameSyncWarning(error) };
+  }
+}
+
+async function applyAliasNicknameIfNeeded(task, member, nextStatus) {
+  if (task.key === "DSI") return applyDsiNicknameIfNeeded(task, member, nextStatus);
+  if (!task.allowAlias) return { member };
+  if (String(nextStatus) === "8") {
+    const restored = await restorePortalNickname(member);
+    return { member, warning: restored.warning };
+  }
+  const portalIdentity = await portalIdentityForDiscordId(member.discordId);
+  validateAliasProfileForStatus(task, member, nextStatus, portalIdentity);
+  const number = aliasNumberForTask(task, member, portalIdentity);
+  const undercover = Boolean(member.raw?.undercover);
+  const displayName = task.aliasProfile?.supportsUndercover && !undercover
+    ? normalAliasName(member, portalIdentity)
+    : String(member.aliasName || "").trim() || normalAliasName(member, portalIdentity);
+  const template = task.aliasProfile?.nicknameTemplate || "[{number}] {name}";
+  const nickname = template
+    .replaceAll("{number}", number)
+    .replaceAll("{name}", displayName)
+    .trim();
+  try {
+    let originalNickname = member.originalNickname || "";
+    if (!originalNickname) {
+      const mainMember = await fetchMainGuildMember(member.discordId);
+      originalNickname = mainMember?.nick || mainMember?.user?.global_name || mainMember?.user?.username || "";
+      member = await store.updateMember(task.key, member.id, { originalNickname });
+    }
+    await patchMainGuildNickname(member.discordId, nickname);
+    return { member };
+  } catch (error) {
+    return { member, warning: nicknameSyncWarning(error) };
+  }
+}
+
 function publicMember(member) {
   return {
     id: member.id,
@@ -380,6 +498,7 @@ function publicMember(member) {
     phone: member.phone,
     callSign: member.callSign,
     aliasName: member.aliasName,
+    undercover: Boolean(member.raw?.undercover),
     unitNumber: member.unitNumber,
     commandRole: member.commandRole,
     status: member.status,
@@ -415,6 +534,14 @@ function publicTask(task) {
     displayName: task.displayName,
     logoUrl: task.logoUrl || "",
     allowAlias: task.allowAlias,
+    aliasProfile: task.aliasProfile ? {
+      numberLabel: task.aliasProfile.numberLabel || "Roepnummer",
+      numberPlaceholder: task.aliasProfile.numberPlaceholder || "",
+      aliasLabel: task.aliasProfile.aliasLabel || "Schuilnaam",
+      aliasPlaceholder: task.aliasProfile.aliasPlaceholder || "",
+      supportsUndercover: Boolean(task.aliasProfile.supportsUndercover),
+      numberSource: task.aliasProfile.numberSource || "manual"
+    } : null,
     dsiUnits: task.dsiUnits || null,
     specialties: task.specialties.map((specialty) => ({ label: specialty.label }))
   };
@@ -605,11 +732,14 @@ async function handleApi(req, res, task, url) {
     const existing = await ensureSessionMember(task, session);
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
     let member = await store.updateMemberProfile(task.key, existing.id, {
-      callSign: sanitizeText(body.callSign, 32),
-      aliasName: sanitizeText(body.aliasName, 80)
+      callSign: task.aliasProfile?.numberSource === "rank" ? existing.callSign : normalizeAliasNumber(task, body.callSign),
+      aliasName: sanitizeText(body.aliasName, 80),
+      raw: {
+        ...(task.aliasProfile?.supportsUndercover ? { undercover: Boolean(body.undercover) } : {})
+      }
     });
-    if (task.key === "DSI") {
-      console.log(`[side-tasks] DSI-profiel opgeslagen voor ${member.discordId}: roepnummer=${member.callSign ? "ingesteld" : "leeg"}, schuilnaam=${member.aliasName ? "ingesteld" : "leeg"}.`);
+    if (task.allowAlias) {
+      console.log(`[side-tasks] ${task.key}-profiel opgeslagen voor ${member.discordId}: roepnummer=${member.callSign ? "ingesteld" : "leeg"}, schuilnaam=${member.aliasName ? "ingesteld" : "leeg"}.`);
     }
     // Een profielbewerking slaat uitsluitend profielgegevens op. De Discord-naam
     // verandert alleen tijdens de expliciete statusovergangen hieronder.
@@ -622,25 +752,39 @@ async function handleApi(req, res, task, url) {
     const status = validateStatus(task, body.status);
     let member = await ensureSessionMember(task, session);
     if (!member) return jsonError(res, 404, "Lid niet gevonden.");
-    const dsiActivation = task.key === "DSI" && ["0", "1"].includes(status);
-    if (dsiActivation && (body.callSign !== undefined || body.aliasName !== undefined)) {
+    const aliasActivation = task.allowAlias && status !== "8";
+    if (aliasActivation && (body.callSign !== undefined || body.aliasName !== undefined || body.undercover !== undefined)) {
       const profilePatch = {
         ...member,
-        callSign: body.callSign !== undefined ? sanitizeText(body.callSign, 32) : member.callSign,
-        aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : member.aliasName
+        callSign: task.aliasProfile?.numberSource === "rank"
+          ? member.callSign
+          : body.callSign !== undefined ? normalizeAliasNumber(task, body.callSign) : member.callSign,
+        aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : member.aliasName,
+        raw: {
+          ...(member.raw || {}),
+          ...(task.aliasProfile?.supportsUndercover && body.undercover !== undefined ? { undercover: Boolean(body.undercover) } : {})
+        }
       };
       // Valideer voordat we opslaan: een incomplete browserdraft mag nooit
-      // reeds opgeslagen DSI-gegevens leegmaken.
-      requireDsiIdentityForStatus(profilePatch, status);
+      // reeds opgeslagen profielgegevens leegmaken.
+      const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(member.discordId) : null;
+      validateAliasProfileForStatus(task, profilePatch, status, validationIdentity);
       member = await store.updateMemberProfile(task.key, member.id, profilePatch);
     }
-    if (task.key === "DSI") requireDsiIdentityForStatus(member, status);
+    if (task.allowAlias) {
+      const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(member.discordId) : null;
+      validateAliasProfileForStatus(task, member, status, validationIdentity);
+    }
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
     } else {
+      const rankNumberIdentity = task.aliasProfile?.numberSource === "rank" && status !== "8"
+        ? await portalIdentityForDiscordId(member.discordId)
+        : null;
       member = await store.updateMember(task.key, member.id, {
         status,
         statusDetail: statusOption(status).label,
+        callSign: task.aliasProfile?.numberSource === "rank" && status !== "8" ? aliasNumberForTask(task, member, rankNumberIdentity) : member.callSign,
         unitNumber: task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole ? "" : member.unitNumber,
         specialties: specialtiesForRoles(task, session.roles || [])
       });
@@ -648,11 +792,11 @@ async function handleApi(req, res, task, url) {
     if (task.key === "DSI") {
       console.log(`[side-tasks] DSI-status ${status} opgeslagen voor ${member.discordId}: roepnummer=${member.callSign ? "ingesteld" : "leeg"}, schuilnaam=${member.aliasName ? "ingesteld" : "leeg"}, eenheid=${member.unitNumber || "geen"}.`);
     }
-    if (task.key !== "DSI" || !shouldSyncDsiNicknameForStatus(status)) {
+    if (!shouldSyncAliasNicknameForStatus(task, status)) {
       publishSideTaskUpdate(task, "status-updated", { memberId: member.id, status });
       return sendJson(res, 200, { member: publicMember(member) });
     }
-    const nicknameResult = await applyDsiNicknameIfNeeded(task, member, status);
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, member, status);
     publishSideTaskUpdate(task, "status-updated", { memberId: nicknameResult.member.id, status });
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
@@ -732,15 +876,30 @@ async function handleApi(req, res, task, url) {
     const status = body.status ? validateStatus(task, body.status) : existing.status;
     const nextMemberProfile = {
       ...existing,
-      callSign: body.callSign !== undefined ? sanitizeText(body.callSign, 32) : existing.callSign,
-      aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName
+      callSign: task.aliasProfile?.numberSource === "rank"
+        ? existing.callSign
+        : body.callSign !== undefined ? normalizeAliasNumber(task, body.callSign) : existing.callSign,
+      aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
+      raw: {
+        ...(existing.raw || {}),
+        ...(task.aliasProfile?.supportsUndercover && body.undercover !== undefined ? { undercover: Boolean(body.undercover) } : {})
+      }
     };
-    if (task.key === "DSI") requireDsiIdentityForStatus(nextMemberProfile, status);
+    if (task.allowAlias) {
+      const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(existing.discordId) : null;
+      validateAliasProfileForStatus(task, nextMemberProfile, status, validationIdentity);
+    }
+    const rankNumberIdentity = task.aliasProfile?.numberSource === "rank" && status !== "8"
+      ? await portalIdentityForDiscordId(existing.discordId)
+      : null;
     let member = await store.updateMember(task.key, existing.id, {
       displayName: body.displayName !== undefined ? sanitizeText(body.displayName, 120) : existing.displayName,
       phone: body.phone !== undefined ? sanitizeText(body.phone, 32) : existing.phone,
-      callSign: body.callSign !== undefined ? sanitizeText(body.callSign, 32) : existing.callSign,
+      callSign: task.aliasProfile?.numberSource === "rank"
+        ? status !== "8" ? aliasNumberForTask(task, nextMemberProfile, rankNumberIdentity) : existing.callSign
+        : body.callSign !== undefined ? normalizeAliasNumber(task, body.callSign) : existing.callSign,
       aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
+      raw: nextMemberProfile.raw,
       status,
       statusDetail: statusOption(status).label,
       unitNumber: task.key === "DSI" && ["0", "8"].includes(status) && !existing.commandRole ? "" : existing.unitNumber
@@ -748,11 +907,11 @@ async function handleApi(req, res, task, url) {
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
     }
-    if (task.key !== "DSI" || !shouldSyncDsiNicknameForStatus(status)) {
+    if (!shouldSyncAliasNicknameForStatus(task, status)) {
       publishSideTaskUpdate(task, "member-updated", { memberId: member.id, status });
       return sendJson(res, 200, { member: publicMember(member) });
     }
-    const nicknameResult = await applyDsiNicknameIfNeeded(task, member, status);
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, member, status);
     publishSideTaskUpdate(task, "member-updated", { memberId: nicknameResult.member.id, status });
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }

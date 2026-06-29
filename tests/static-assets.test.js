@@ -65,3 +65,29 @@ test("portal shell uses absolute assets so deep profile routes hydrate", () => {
     assert.ok(ref.startsWith("/"), `${ref} should be absolute for /medewerkers/... routes`);
   }
 });
+
+test("I8 create form keeps a browser draft until server save succeeds", () => {
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const i8Code = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "i8.js"), "utf8");
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+
+  assert.match(i8Code, /function saveI8Draft\(/);
+  assert.match(i8Code, /function restoreI8Draft\(/);
+  assert.match(i8Code, /function clearI8Draft\(/);
+  assert.match(appCode, /button\.dataset\.i8Tab === "create"\) restoreI8Draft/);
+  assert.match(appCode, /if \(!saved\) return;\s+clearI8Draft\(\);/);
+  assert.match(html, /personeelsportaal\/i8\.js\?v=20260630-i8-draft-autosave/);
+});
+
+test("mentor test Discord embed formats submitted date and time", () => {
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  assert.match(serverCode, /function formatMentorTestDateTime\(/);
+  assert.match(serverCode, /timeZone: "Europe\/Amsterdam"/);
+  assert.match(serverCode, /name: "Ingediend op", value: formatMentorTestDateTime\(test\.submittedAt\)/);
+});
+
+test("side task shell serves DNR and KLu alias assets with a fresh version", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "side-tasks.html"), "utf8");
+  assert.match(html, /side-tasks\.css\?v=20260630-dnr-klu-alias/);
+  assert.match(html, /side-tasks\.js\?v=20260630-dnr-klu-alias/);
+});

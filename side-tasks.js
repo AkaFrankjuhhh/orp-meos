@@ -53,13 +53,18 @@ function loginView(message = "") {
 
 function displayMemberName(member, task) {
   if (task.allowAlias && member.aliasName) {
-    const number = (member.commandRole && member.unitNumber) || ((member.status === "1" || member.status === "4") && member.unitNumber)
-      ? member.unitNumber
-      : member.callSign;
+    const number = aliasNumberForDisplay(member, task);
     const prefix = ["ACO", "TCO"].includes(member.commandRole) ? `${member.commandRole} ` : "";
     if (number) return `${prefix}[${number}] ${member.aliasName}`;
   }
   return member.displayName || member.discordId;
+}
+
+function aliasNumberForDisplay(member, task) {
+  if (task.key === "KLU") return member.callSign || task.aliasProfile?.numberPlaceholder || "Eagle";
+  return (member.commandRole && member.unitNumber) || ((member.status === "1" || member.status === "4") && member.unitNumber)
+    ? member.unitNumber
+    : member.callSign;
 }
 
 function memberAvatar(member) {
@@ -82,8 +87,30 @@ function openProfileDraft() {
   const fields = Object.fromEntries(new FormData(form).entries());
   return {
     callSign: String(fields.callSign || ""),
-    aliasName: String(fields.aliasName || "")
+    aliasName: String(fields.aliasName || ""),
+    undercover: Boolean(fields.undercover)
   };
+}
+
+function aliasProfileFields(member = {}, task = appState.me?.task || {}) {
+  if (!task.allowAlias) return "";
+  const profile = task.aliasProfile || {};
+  const isRankNumber = profile.numberSource === "rank";
+  return `
+    <label>${escapeHtml(profile.numberLabel || "Roepnummer")}
+      <input name="callSign" value="${escapeHtml(member.callSign || "")}" placeholder="${escapeHtml(profile.numberPlaceholder || "")}" ${isRankNumber ? "readonly" : ""} />
+    </label>
+    <label>${escapeHtml(profile.aliasLabel || "Schuilnaam")}
+      <input name="aliasName" value="${escapeHtml(member.aliasName || "")}" placeholder="${escapeHtml(profile.aliasPlaceholder || "")}" />
+    </label>
+    ${profile.supportsUndercover ? `
+      <label class="toggle-line ${member.undercover ? "is-on" : "is-off"}">
+        <span>Undercover</span>
+        <input name="undercover" type="checkbox" ${member.undercover ? "checked" : ""} />
+        <span class="toggle-pill" aria-hidden="true"></span>
+      </label>
+    ` : ""}
+  `;
 }
 
 function profileMenu() {
@@ -95,14 +122,7 @@ function profileMenu() {
       <h2>Je profiel</h2>
       <p class="muted">${escapeHtml(displayMemberName(member || {}, task))}</p>
       <form class="profile-form" data-form="profile">
-        ${task.allowAlias ? `
-          <label>DSI roepnummer
-            <input name="callSign" value="${escapeHtml(member?.callSign || "")}" placeholder="A-01" />
-          </label>
-          <label>Schuilnaam
-            <input name="aliasName" value="${escapeHtml(member?.aliasName || "")}" placeholder="Schuilnaam" />
-          </label>
-        ` : ""}
+        ${aliasProfileFields(member || {}, task)}
         <button class="secondary-button" type="submit">Profiel opslaan</button>
       </form>
       </div>
@@ -194,6 +214,7 @@ function memberCard(member) {
 function dsiUnitSection() {
   const units = new Map();
   const pendingMembers = appState.members.filter((member) => member.status === "0");
+  const unitPrefix = String(appState.me.task?.dsiUnits?.prefix || "50");
   const capacity = Number(appState.me.task?.dsiUnits?.capacity || 3);
   appState.members
     .filter((member) => member.status !== "8" && member.unitNumber)
@@ -219,7 +240,7 @@ function dsiUnitSection() {
   return `
     <section class="member-section dsi-units">
       <h2>DSI-eenheden</h2>
-      <div class="dsi-unit-grid">${cards || `<p class="muted">Nog geen actieve 24-eenheden.</p>`}</div>
+      <div class="dsi-unit-grid">${cards || `<p class="muted">Nog geen actieve ${escapeHtml(unitPrefix)}-eenheden.</p>`}</div>
       ${pendingMembers.length ? `
         <div class="dsi-pending-members">
           ${pendingMembers.map((member) => `
@@ -248,6 +269,7 @@ function dsiContextMenu() {
     .filter((entry) => entry.status !== "8" && entry.unitNumber)
     .forEach((entry) => unitCounts.set(entry.unitNumber, (unitCounts.get(entry.unitNumber) || 0) + 1));
   const firstRegularUnit = Number(appState.me.task?.dsiUnits?.min || 3);
+  const unitPrefix = String(appState.me.task?.dsiUnits?.prefix || "50");
   const capacity = Number(appState.me.task?.dsiUnits?.capacity || 3);
   const units = [...unitCounts.entries()]
     .filter(([unitNumber, count]) => Number(unitNumber.slice(3)) >= firstRegularUnit && unitNumber !== member.unitNumber && count < capacity)
@@ -258,9 +280,9 @@ function dsiContextMenu() {
     <div class="dsi-context-menu" data-dsi-context-menu style="${style}">
       <div class="dsi-context-title">${escapeHtml(displayMemberName(member, appState.me.task))}</div>
       ${context.mode === "link" ? `
-        <label>Koppel aan bestaande 24-eenheid
+        <label>Koppel aan bestaande ${escapeHtml(unitPrefix)}-eenheid
           <select data-dsi-unit-select ${units.length ? "" : "disabled"}>
-            ${units.length ? units.map((unitNumber) => `<option value="${escapeHtml(unitNumber)}">${escapeHtml(unitNumber)}</option>`).join("") : `<option>Geen vrije 24-eenheid</option>`}
+            ${units.length ? units.map((unitNumber) => `<option value="${escapeHtml(unitNumber)}">${escapeHtml(unitNumber)}</option>`).join("") : `<option>Geen vrije ${escapeHtml(unitPrefix)}-eenheid</option>`}
           </select>
         </label>
         <div class="dsi-context-actions">
@@ -268,7 +290,7 @@ function dsiContextMenu() {
           <button class="primary-button" type="button" data-action="dsi-confirm-link" ${units.length ? "" : "disabled"}>Koppelen</button>
         </div>
       ` : `
-        <button type="button" data-action="dsi-open-link-menu">Koppel aan bestaand 24-nummer</button>
+        <button type="button" data-action="dsi-open-link-menu">Koppel aan bestaand ${escapeHtml(unitPrefix)}-nummer</button>
         ${member.status !== "8" ? `<button type="button" data-action="dsi-sign-off-member">Uit dienst melden</button>` : ""}
         ${permissions.canAssignDsiCommand ? `
           <button type="button" data-action="dsi-set-command-role" data-command-role="ACO">ACO toewijzen</button>
@@ -327,11 +349,14 @@ function archiveAdminRows() {
 function memberEditModal() {
   const member = appState.members.find((entry) => entry.id === appState.memberEditId);
   if (!member || !appState.me?.permissions?.canManageMembers) return "";
+  const task = appState.me.task;
+  const profile = task.aliasProfile || {};
+  const isRankNumber = profile.numberSource === "rank";
   return `
     <div class="member-edit-backdrop">
       <section class="member-edit-modal" role="dialog" aria-modal="true" aria-label="Lid aanpassen">
         <div class="page-heading">
-          <div><p class="eyebrow">DSI ledenbeheer</p><h2>${escapeHtml(member.aliasName || member.displayName)}</h2></div>
+          <div><p class="eyebrow">${escapeHtml(task.label)} ledenbeheer</p><h2>${escapeHtml(member.aliasName || member.displayName)}</h2></div>
           <button class="secondary-button" type="button" data-action="close-member-edit">Sluiten</button>
         </div>
         <form class="edit-grid" data-form="edit-member" data-id="${escapeHtml(member.id)}">
@@ -341,12 +366,19 @@ function memberEditModal() {
           <label>Telefoonnummer
             <input name="phone" value="${escapeHtml(member.phone || "")}" maxlength="32" />
           </label>
-          <label>DSI roepnummer
-            <input name="callSign" value="${escapeHtml(member.callSign || "")}" maxlength="32" />
+          <label>${escapeHtml(profile.numberLabel || "Roepnummer")}
+            <input name="callSign" value="${escapeHtml(member.callSign || "")}" maxlength="32" ${isRankNumber ? "readonly" : ""} />
           </label>
-          <label>Schuilnaam
+          <label>${escapeHtml(profile.aliasLabel || "Schuilnaam")}
             <input name="aliasName" value="${escapeHtml(member.aliasName || "")}" maxlength="80" />
           </label>
+          ${profile.supportsUndercover ? `
+            <label class="toggle-line ${member.undercover ? "is-on" : "is-off"}">
+              <span>Undercover</span>
+              <input name="undercover" type="checkbox" ${member.undercover ? "checked" : ""} />
+              <span class="toggle-pill" aria-hidden="true"></span>
+            </label>
+          ` : ""}
           <button class="primary-button" type="submit">Wijzigingen opslaan</button>
         </form>
       </section>
@@ -543,8 +575,8 @@ app.addEventListener("click", async (event) => {
       // Stuur die samen met de status mee, zodat Status 0/1 nooit tegen een
       // oudere databaseversie van roepnummer of schuilnaam aanloopt.
       const nextStatus = String(button.dataset.status || "");
-      const shouldIncludeDsiProfile = appState.me?.task?.key === "DSI" && ["0", "1"].includes(nextStatus);
-      const payload = { status: nextStatus, ...(shouldIncludeDsiProfile ? openProfileDraft() : {}) };
+      const shouldIncludeAliasProfile = appState.me?.task?.allowAlias && nextStatus !== "8";
+      const payload = { status: nextStatus, ...(shouldIncludeAliasProfile ? openProfileDraft() : {}) };
       const result = await api("/api/side-tasks/me/status", {
         method: "POST",
         body: JSON.stringify(payload)
@@ -644,6 +676,9 @@ app.addEventListener("submit", async (event) => {
   if (!form) return;
   event.preventDefault();
   const data = Object.fromEntries(new FormData(form).entries());
+  if (form.querySelector("input[name='undercover']")) {
+    data.undercover = Boolean(form.querySelector("input[name='undercover']")?.checked);
+  }
   try {
     if (form.dataset.form === "profile") {
       const result = await api("/api/side-tasks/me/profile", { method: "POST", body: JSON.stringify(data) });

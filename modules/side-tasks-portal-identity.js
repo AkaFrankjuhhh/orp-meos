@@ -93,7 +93,7 @@ async function portalIdentityForDiscordId(discordId) {
       );
       if (result.rows[0]) {
         const nickname = nicknameForPortalPerson(result.rows[0], organizationKey);
-        if (nickname) return { organizationKey, nickname };
+        if (nickname) return { organizationKey, nickname, person: result.rows[0] };
       }
     } catch (error) {
       if (!queryWarningLogged) {
