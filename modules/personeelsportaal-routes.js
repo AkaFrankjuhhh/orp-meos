@@ -405,7 +405,7 @@ function createPersoneelsportaalRouteHandler(deps) {
   }
 
   function mentorTestsEnabledForOrganization() {
-    return organization.key === "defensie" && Boolean(mentorTestsStore);
+    return Boolean(mentorTestsStore && mentorRanks.length);
   }
 
   function canReviewMentorTests(permissions) {

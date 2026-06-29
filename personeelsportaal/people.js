@@ -51,7 +51,7 @@ function getAvailableServiceNumbers(rank, permRole, currentId = "") {
   const used = new Set(
     state.people
       .filter((person) => person.id !== currentId)
-      .filter((person) => person.status === "Actief")
+      .filter((person) => typeof isCurrentProfile === "function" ? isCurrentProfile(person) : person.status === "Actief")
       .map((person) => person.serviceNumber)
       .filter(Boolean)
   );

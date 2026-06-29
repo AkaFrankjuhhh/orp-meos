@@ -33,7 +33,8 @@ const jobPollMs = Number(process.env.DISCORD_JOB_POLL_INTERVAL_MS || 5000);
 const jobBatchSize = Number(process.env.DISCORD_JOB_BATCH_SIZE || 5);
 const requiredRoleRetryMs = Math.max(60000, Number(process.env.DISCORD_REQUIRED_ROLE_RETRY_MS || 300000));
 const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toLowerCase() !== "false";
-const leaveLogWebhookConfigured = Boolean(discordLeaveLogWebhookUrl(currentOrganization()));
+const organization = currentOrganization();
+const leaveLogWebhookConfigured = Boolean(discordLeaveLogWebhookUrl(organization));
 const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true" || leaveLogWebhookConfigured;
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
@@ -303,9 +304,10 @@ function activePortoUnitForPerson(state, person) {
 function unitWithPortoNicknameContext(state, unit) {
   if (!unit) return unit;
   const currentOpsMemberId = state.portoCurrentOps?.active === false ? "" : state.portoCurrentOps?.memberId;
+  const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
   return {
     ...unit,
-    isPortoOpsLead: Boolean(unit.vehicleNumber === "30-00" && currentOpsMemberId && currentOpsMemberId === unit.memberId)
+    isPortoOpsLead: Boolean(unit.vehicleNumber === operatorVehicleNumber && currentOpsMemberId && currentOpsMemberId === unit.memberId)
   };
 }
 

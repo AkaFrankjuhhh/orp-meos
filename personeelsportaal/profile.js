@@ -60,7 +60,7 @@ function profileRankLabel(rank) {
 
 function profileNavigationPeople() {
   return (state.people || [])
-    .filter((person) => person.status === "Actief")
+    .filter((person) => typeof isCurrentProfile === "function" ? isCurrentProfile(person) : person.status === "Actief")
     .sort((a, b) => {
       const rankDelta = (rankWeight.get(b.rank) || 0) - (rankWeight.get(a.rank) || 0);
       if (rankDelta !== 0) return rankDelta;
