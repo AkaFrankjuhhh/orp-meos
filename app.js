@@ -79,6 +79,7 @@ const routePageMap = Object.fromEntries(Object.entries(pageRouteMap).map(([page,
 let suppressRouteSync = false;
 const portalWindowName = `${organizationKey}-personeelsportaal-main`;
 const portalChannelName = `orp-${organizationKey}-portaal-window`;
+const serviceNumberDisplayLabel = organizationKey === "politie" ? "Roepnummer" : "Dienstnummer";
 let reviewCounterPoll = null;
 let reviewCounterLoadPromise = null;
 let liveEventSource = null;
@@ -573,7 +574,7 @@ function renderOpsTimes() {
     ? `
       <div class="leadership-row leadership-row-head">
         <span>Naam</span>
-        <span>Dienstnummer</span>
+        <span>${escapeHtml(serviceNumberDisplayLabel)}</span>
         <span>Deze week</span>
       </div>
       ${people.map((person) => `
@@ -2015,9 +2016,14 @@ function wireEvents() {
     submitOwnMentorTest();
   });
   $("#mentorTestsList")?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-review-mentor-test]");
-    if (!button) return;
-    reviewMentorTest(button.dataset.reviewMentorTest, button.dataset.reviewStatus);
+    const deleteButton = event.target.closest("[data-delete-mentor-test]");
+    if (deleteButton) {
+      deleteMentorTest(deleteButton.dataset.deleteMentorTest);
+      return;
+    }
+    const reviewButton = event.target.closest("[data-review-mentor-test]");
+    if (!reviewButton) return;
+    reviewMentorTest(reviewButton.dataset.reviewMentorTest, reviewButton.dataset.reviewStatus);
   });
   $("#mentorBackBtn").addEventListener("click", () => setPage("mentor-overzicht"));
   $("#mentorChecklistItems").addEventListener("change", async (event) => {
@@ -2274,7 +2280,7 @@ function wireEvents() {
           await showSiteNotice("Geen vrij dienstnummer beschikbaar voor deze rang.", "Geen dienstnummer vrij");
           return;
         }
-        const choice = await showSiteChoice(`Dienstnummer kiezen voor ${targetRankForAction(person, "promote")}`, choices);
+        const choice = await showSiteChoice(`${serviceNumberDisplayLabel} kiezen voor ${targetRankForAction(person, "promote")}`, choices);
         if (!choice) return;
         body.serviceNumber = choice.value;
       }
@@ -2290,7 +2296,7 @@ function wireEvents() {
           await showSiteNotice("Geen vrij dienstnummer beschikbaar voor deze rang.", "Geen dienstnummer vrij");
           return;
         }
-        const choice = await showSiteChoice(`Dienstnummer kiezen voor ${targetRankForAction(person, "demote")}`, choices);
+        const choice = await showSiteChoice(`${serviceNumberDisplayLabel} kiezen voor ${targetRankForAction(person, "demote")}`, choices);
         if (!choice) return;
         body.serviceNumber = choice.value;
       }

@@ -114,6 +114,7 @@ const {
   getAvailableServiceNumbers,
   assignFirstAvailableServiceNumber,
   autoSortServiceNumbers,
+  normalizeServiceNumbersForRankRanges,
   savePerson,
   promotePerson,
   demotePerson,
@@ -149,6 +150,23 @@ function loadEnv() {
 
 function discordConfigured() {
   return requiredDiscordEnv.every((key) => process.env[key]) && Boolean(organizationMainRoleId(organization));
+}
+
+async function normalizePoliceServiceNumbersOnStartup() {
+  if (organization.key !== "politie") return;
+  if (enabledFromEnv(process.env.POLITIE_SERVICE_NUMBER_AUTO_MIGRATE, true) === false) return;
+  const state = await Promise.resolve(peopleStorage.readState());
+  const changed = normalizeServiceNumbersForRankRanges(state, { actorName: "Automatische politie roepnummer migratie" });
+  if (!changed.length) return;
+  await Promise.resolve(peopleStorage.writeState(state));
+  publishScopedEvent("people", { reason: "police-service-number-migration" });
+  for (const entry of changed) {
+    await enqueuePersonDiscordSync(entry.person, "police_service_number_migration", {
+      personId: entry.person.id || null,
+      discordId: entry.person.discordId || null
+    }).catch((error) => logServerError(`Discord sync inplannen mislukt voor ${entry.person?.name || entry.person?.id || "onbekend"}`, error));
+  }
+  console.log(`Politie roepnummer migratie: ${changed.length} profiel(en) aangepast.`);
 }
 
 function allowDevUnauth() {
@@ -1023,6 +1041,7 @@ async function startServer() {
   await sessions.cleanup?.();
   if (storageMode === "postgres") await publicFormsStore.ensurePublicFormsTable?.();
   await postgresEventBridge.start();
+  await normalizePoliceServiceNumbersOnStartup();
   portoDutyHoursJob = startPortoDutyHoursJob({
     enabled: storageMode === "postgres" && enabledFromEnv(process.env.PORTO_DUTY_HOURS_ENABLED, true),
     readState: peopleStorage.readState,

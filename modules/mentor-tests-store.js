@@ -377,6 +377,23 @@ function createMentorTestsStore() {
     return rowToTest(result.rows[0]);
   }
 
+  async function deleteTest({ organization, id }) {
+    const result = await withClient((client) => client.query(
+      `delete from mentor_tests
+       where organization = $1
+         and id = $2
+         and status <> 'approved'
+       returning *`,
+      [organization, id]
+    ));
+    if (!result.rows[0]) {
+      const error = new Error("Mentor-toets niet gevonden of al goedgekeurd.");
+      error.status = 404;
+      throw error;
+    }
+    return rowToTest(result.rows[0]);
+  }
+
   return {
     questionsForClient,
     questionsForOrganization: loadQuestionTemplate,
@@ -389,7 +406,8 @@ function createMentorTestsStore() {
     resendOpenForPerson,
     retractOpenForPerson,
     submit,
-    review
+    review,
+    deleteTest
   };
 }
 

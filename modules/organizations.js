@@ -353,9 +353,10 @@ const organizationConfigs = {
     requiredRoleLabel: "Politie",
     ranks: politieRanks,
     defaultRecruitRank: "Aspirant",
-    manualRecruitServiceNumber: true,
-    manualRankChangeServiceNumber: true,
-    manualRankChangeServiceNumberForAllRanks: true,
+    customServiceNumbers: true,
+    manualRecruitServiceNumber: false,
+    manualRankChangeServiceNumber: false,
+    manualRankChangeServiceNumberForAllRanks: false,
     rankCategories: [
       { title: "Eerste hoofdcommissaris", serviceRange: "21-01", ranks: ["Eerste hoofdcommissaris"], ranges: [{ prefix: "21", min: 1, max: 1 }] },
       { title: "Hoofdcommissaris", serviceRange: "21-02 t/m 21-05", ranks: ["Hoofdcommissaris"], ranges: [{ prefix: "21", min: 2, max: 5 }] },

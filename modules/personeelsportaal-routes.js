@@ -2403,6 +2403,52 @@ function createPersoneelsportaalRouteHandler(deps) {
     return;
   }
 
+  const mentorTestDeleteMatch = url.pathname.match(/^\/api\/mentor-tests\/([^/]+)\/delete$/);
+  if (mentorTestDeleteMatch && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    if (!mentorTestsEnabledForOrganization()) {
+      sendJson(res, 404, { error: "Mentor-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!canReviewMentorTests(permissions)) {
+      sendJson(res, 403, { error: "Geen toegang om mentor-toetsen te verwijderen." });
+      return;
+    }
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    try {
+      const test = await mentorTestsStore.deleteTest({
+        organization: organization.key,
+        id: decodeURIComponent(mentorTestDeleteMatch[1])
+      });
+      const person = (state.people || []).find((entry) => entry.id === test.personId);
+      if (person) {
+        const latestTest = await mentorTestsStore.latestForPerson(organization.key, person.id);
+        const latestReviewState = latestTest ? mentorReviewStateForStatus(latestTest.status) : null;
+        setMentorTestChecklistState(person, state, {
+          testSent: latestTest?.status === "sent" || latestTest?.status === "submitted",
+          testApproved: Boolean(latestReviewState?.testApproved),
+          completed: Boolean(latestReviewState?.completed),
+          actor
+        });
+        state.activity = state.activity || [];
+        state.activity.push(`${actor.name || auth.profile.name} heeft de mentor-toets van ${person.name} verwijderd.`);
+        addProfileLog(person, {
+          actor,
+          type: "mentor",
+          action: "Mentor-toets verwijderd",
+          details: "Toets moet opnieuw worden klaargezet."
+        });
+      }
+      await sendPeopleStateAfterMutation(res, auth, state);
+    } catch (error) {
+      sendJson(res, error.status || 500, { error: error.message || "Mentor-toets verwijderen is mislukt." });
+    }
+    return;
+  }
+
   const mentorMatch = url.pathname.match(/^\/api\/people\/([^/]+)\/mentor$/);
   if (mentorMatch && req.method === "POST") {
     const auth = requireAuth(req, res);

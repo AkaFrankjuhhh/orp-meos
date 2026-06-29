@@ -92,13 +92,15 @@ function hourToneColor(hours) {
   return `hsl(${hue} 74% ${lightness}%)`;
 }
 
-function manualHoursForMonth(person) {
-  const now = new Date();
+function manualHoursForMonth(person, now = new Date()) {
+  const currentWeek = isoWeekInfo(now);
+  const currentWeekStart = isoWeekStart(currentWeek.weekYear, currentWeek.weekNumber);
   const monthWeeks = new Map();
   for (const entry of state.hours || []) {
     if (entry.personId !== person.id) continue;
     const start = isoWeekStart(entry.weekYear, entry.weekNumber);
     if (start.getUTCFullYear() !== now.getFullYear() || start.getUTCMonth() !== now.getMonth()) continue;
+    if (start > currentWeekStart) continue;
     monthWeeks.set(weekKey(entry), { weekYear: entry.weekYear, weekNumber: entry.weekNumber });
   }
   return [...monthWeeks.values()]

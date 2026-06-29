@@ -27,6 +27,10 @@ function formatService(prefix, number) {
   return `${prefix}-${String(number).padStart(2, "0")}`;
 }
 
+function serviceNumberLabel() {
+  return organizationConfig?.key === "politie" ? "Roepnummer" : "Dienstnummer";
+}
+
 function personMatchesRankCategory(person, category) {
   if (!(category.ranks || []).includes(person.rank)) return false;
   if (organizationConfig?.manualRankChangeServiceNumberForAllRanks) return true;
@@ -77,8 +81,10 @@ function fillServiceSelect(selected = "") {
   const currentId = $("#memberId").value;
   const numbers = getAvailableServiceNumbers(rank, "Geen", currentId);
   if (selected && !numbers.includes(selected)) numbers.unshift(selected);
-  $("#memberService").innerHTML = numbers.map((number) => `<option>${number}</option>`).join("");
-  if (selected) $("#memberService").value = selected;
+  const field = $("#memberService");
+  const options = $("#memberServiceOptions");
+  if (options) options.innerHTML = numbers.map((number) => `<option value="${escapeHtml(number)}"></option>`).join("");
+  if (field && selected) field.value = selected;
 }
 
 function usesManualRecruitServiceNumber() {
@@ -93,7 +99,8 @@ function fillRecruitmentServiceSelect(selected = "") {
   if (!usesManualRecruitServiceNumber()) {
     field.hidden = true;
     select.required = false;
-    select.innerHTML = "";
+    select.value = "";
+    $("#recruitmentServiceOptions").innerHTML = "";
     return;
   }
 
@@ -102,7 +109,7 @@ function fillRecruitmentServiceSelect(selected = "") {
   if (selected && !numbers.includes(selected)) numbers.unshift(selected);
   field.hidden = false;
   select.required = true;
-  select.innerHTML = numbers.map((number) => `<option>${number}</option>`).join("");
+  $("#recruitmentServiceOptions").innerHTML = numbers.map((number) => `<option value="${escapeHtml(number)}"></option>`).join("");
   if (selected) select.value = selected;
 }
 
@@ -155,6 +162,10 @@ function renderRecruitment() {
   if (!officer || !hiredDate) return;
   officer.value = current ? `${current.serviceNumber || "-"} - ${current.name}` : "";
   if (!hiredDate.value) hiredDate.value = today;
+  const serviceField = $("#recruitmentServiceField");
+  if (serviceField) {
+    serviceField.childNodes[0].nodeValue = serviceNumberLabel();
+  }
   const canView = canViewRecruitment();
   const canRecruit = canRecruitPeople();
   fillRecruitmentServiceSelect($("#recruitmentServiceNumber")?.value || "");
@@ -642,7 +653,7 @@ function renderEmployeeDirectory() {
           </div>
           <div class="employee-table">
             <div class="employee-row employee-row-head">
-              <span>Dienstnummer</span>
+              <span>${escapeHtml(serviceNumberLabel())}</span>
               <span>Rang</span>
               <span>Naam</span>
               <span>Status</span>
@@ -678,6 +689,10 @@ function openMemberDialog(person = null) {
   $("#memberHiredDate").value = person?.hiredDate || person?.rankHistory?.[0]?.date || person?.rankDate || today;
   $("#memberPromotionDate").value = person?.promotionDate || person?.rankDate || today;
   $("#memberTasks").value = person?.tasks || "";
+  const memberServiceLabel = $("#memberServiceLabel");
+  if (memberServiceLabel) {
+    memberServiceLabel.childNodes[0].nodeValue = serviceNumberLabel();
+  }
   fillServiceSelect(person?.serviceNumber || "");
   $("#memberDialog").showModal();
 }

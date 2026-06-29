@@ -119,6 +119,42 @@ function assignFirstAvailableServiceNumber(state, person, preferredPrefix = "") 
   person.serviceNumber = numbers[0] || "";
 }
 
+function serviceNumberMatchesRank(person) {
+  if (hasOvcFunctionBadge(person) && !person.rank && !person.serviceNumber) return true;
+  const prefix = serviceNumberPrefix(person.serviceNumber);
+  if (!prefix || !ranks.includes(person.rank)) return false;
+  return getGroupsForRank(person.rank).some((group) => group.prefix === prefix);
+}
+
+function normalizeServiceNumbersForRankRanges(state, options = {}) {
+  const actorName = String(options.actorName || "Systeem").trim() || "Systeem";
+  const changed = [];
+  const todayValue = today();
+  state.people = Array.isArray(state.people) ? state.people : [];
+  state.activity = Array.isArray(state.activity) ? state.activity : [];
+
+  for (const person of state.people) {
+    if (!isCurrentPerson(person) || !person.rank || !person.serviceNumber) continue;
+    if (serviceNumberMatchesRank(person)) continue;
+    const previousServiceNumber = person.serviceNumber;
+    assignFirstAvailableServiceNumber(state, person);
+    if (!person.serviceNumber || person.serviceNumber === previousServiceNumber) continue;
+    person.rankHistory = Array.isArray(person.rankHistory) ? person.rankHistory : [];
+    person.rankHistory.push({
+      rank: person.rank,
+      date: todayValue,
+      serviceNumber: person.serviceNumber,
+      action: "service-number-normalized",
+      changedByName: actorName,
+      previousServiceNumber
+    });
+    state.activity.push(`${person.name} automatisch verplaatst van roepnummer ${previousServiceNumber} naar ${person.serviceNumber}.`);
+    changed.push({ person, previousServiceNumber, serviceNumber: person.serviceNumber });
+  }
+
+  return changed;
+}
+
 function applyRankChangeServiceNumber(state, person, previousGroup, nextGroup, previousPrefix, options = {}) {
   const requestedServiceNumber = String(options.serviceNumber || "").trim();
   const requiresManualNumber = requiresManualRankChangeServiceNumber(person.rank);
@@ -173,7 +209,8 @@ function assertValidServiceNumber(state, person) {
   const group = groups.find((entry) => entry.prefix === match[1]);
   if (!group) return "Dienstnummer hoort niet bij deze ranggroep.";
   const value = Number(match[2]);
-  if (value < group.min || value > group.max) {
+  const outsideConfiguredRange = value < group.min || value > group.max;
+  if (outsideConfiguredRange && !organization.customServiceNumbers) {
     return "Dienstnummer valt buiten de toegestane reeks.";
   }
   const duplicate = (state.people || []).find(
@@ -464,6 +501,8 @@ function createPersoneelsportaalDomain() {
     formatService,
     getAvailableServiceNumbers,
     assignFirstAvailableServiceNumber,
+    serviceNumberMatchesRank,
+    normalizeServiceNumbersForRankRanges,
     autoSortServiceNumbers,
     assertValidServiceNumber,
     savePerson,
