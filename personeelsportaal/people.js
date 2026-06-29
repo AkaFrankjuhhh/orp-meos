@@ -516,8 +516,9 @@ function renderPeople() {
     $("#peopleList").innerHTML = '<div class="feed-item">Geen toegang.</div>';
     return;
   }
-  const query = $("#searchInput")?.value.toLowerCase() || "";  const people = state.people
-    .filter((person) => person.status === "Actief")
+  const query = $("#searchInput")?.value.toLowerCase() || "";
+  const people = state.people
+    .filter((person) => typeof isCurrentProfile === "function" ? isCurrentProfile(person) : person.status === "Actief")
     .filter((person) => {
       const haystack = `${person.name} ${person.rank} ${person.serviceNumber} ${person.discordId} ${person.discord_id} ${person.permRole}`.toLowerCase();
       return haystack.includes(query);
@@ -527,7 +528,7 @@ function renderPeople() {
       if (rankDelta !== 0) return rankDelta;
       return (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true });
     });
-  const allActivePeople = state.people.filter((person) => person.status === "Actief");
+  const allActivePeople = state.people.filter((person) => typeof isCurrentProfile === "function" ? isCurrentProfile(person) : person.status === "Actief");
   const ovcPeople = people.filter((person) => typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person));
 
   const leadershipCategory = rankCategories[0] || {};
@@ -601,7 +602,7 @@ function employeeCategoryTone(title) {
 function renderEmployeeDirectory() {
   const query = $("#employeeSearchInput")?.value.toLowerCase() || "";
   const people = state.people
-    .filter((person) => person.status === "Actief")
+    .filter((person) => typeof isCurrentProfile === "function" ? isCurrentProfile(person) : person.status === "Actief")
     .filter((person) => {
       const haystack = `${person.name} ${person.rank} ${person.serviceNumber} ${person.discordId} ${person.discord_id}`.toLowerCase();
       return haystack.includes(query);
