@@ -72,6 +72,11 @@ const defaultDefensieQualificationRoleDefaults = {
     envKey: "DISCORD_OPCO_ROLE_ID",
     roleId: "1424523638526185513",
     label: "OPCO"
+  },
+  OVD: {
+    envKey: "DISCORD_OVD_ROLE_ID",
+    roleId: "",
+    label: "OVD"
   }
 };
 const dutchSurnameParticles = new Set([
@@ -266,7 +271,7 @@ function createDiscordBotServices(options = {}) {
       .filter((mapping) => !String(mapping.roleId || "").trim());
   }
 
-  function configuredQualificationRoleMappings() {
+  function allQualificationRoleMappings() {
     const qualificationRoleDefaults = organization.discord?.qualificationRoleMappings || defaultDefensieQualificationRoleDefaults;
     return Object.entries(qualificationRoleDefaults)
       .map(([qualification, config]) => ({
@@ -274,8 +279,17 @@ function createDiscordBotServices(options = {}) {
         label: config.label,
         envKey: config.envKey,
         roleId: envOrDefault(config.envKey, config.defaultRoleId || config.roleId)
-      }))
+      }));
+  }
+
+  function configuredQualificationRoleMappings() {
+    return allQualificationRoleMappings()
       .filter((mapping) => String(mapping.roleId || "").trim());
+  }
+
+  function missingQualificationRoleMappings() {
+    return allQualificationRoleMappings()
+      .filter((mapping) => !String(mapping.roleId || "").trim());
   }
 
   function rankRoleIdForPerson(person) {
@@ -784,10 +798,12 @@ function createDiscordBotServices(options = {}) {
   return {
     isConfigured,
     configuredRoleMappings,
+    allQualificationRoleMappings,
     allRankRoleMappings,
     configuredRankRoleMappings,
     missingRankRoleMappings,
     configuredQualificationRoleMappings,
+    missingQualificationRoleMappings,
     configuredVoiceChannels,
     resolveVoiceChannelId,
     getGuildMember,

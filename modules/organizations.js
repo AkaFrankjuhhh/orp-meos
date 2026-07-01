@@ -328,7 +328,8 @@ const organizationConfigs = {
       qualificationRoleMappings: {
         BKV: { envKey: "DISCORD_MEOS_ROLE_ID", defaultRoleId: "1425931664877551708", label: "MEOS" },
         OPS: { envKey: "DISCORD_OPS_ROLE_ID", defaultRoleId: "1423790817738227864", label: "OPS" },
-        OPCO: { envKey: "DISCORD_OPCO_ROLE_ID", defaultRoleId: "1424523638526185513", label: "OPCO" }
+        OPCO: { envKey: "DISCORD_OPCO_ROLE_ID", defaultRoleId: "1424523638526185513", label: "OPCO" },
+        OVD: { envKey: "DISCORD_OVD_ROLE_ID", defaultRoleId: "", label: "OVD" }
       },
       nicknameSymbols: defensieNicknameSymbols,
       portoOperatorLabel: "OPS"

@@ -62,15 +62,19 @@ async function main() {
     ...(Array.isArray(person.completedTrainings) ? person.completedTrainings : []),
     ...(Array.isArray(person.completedOperational) ? person.completedOperational : [])
   ].map(String));
-  const mappings = bot.configuredQualificationRoleMappings();
-  const desiredRoleIds = mappings
+  const allMappings = typeof bot.allQualificationRoleMappings === "function"
+    ? bot.allQualificationRoleMappings()
+    : bot.configuredQualificationRoleMappings();
+  const configuredMappings = allMappings.filter((mapping) => String(mapping.roleId || "").trim());
+  const desiredMissingConfig = allMappings.filter((mapping) => completed.has(mapping.qualification) && !String(mapping.roleId || "").trim());
+  const desiredRoleIds = configuredMappings
     .filter((mapping) => completed.has(mapping.qualification))
     .map((mapping) => mapping.roleId);
   const member = await bot.getGuildMember(person.discordId);
   if (member.skipped) throw new Error(member.reason || "Discord member kon niet worden opgehaald.");
   const currentRoleIds = (member.data?.roles || []).map(String);
   const missingRoleIds = desiredRoleIds.filter((roleId) => !currentRoleIds.includes(roleId));
-  const extraManagedRoleIds = mappings
+  const extraManagedRoleIds = configuredMappings
     .map((mapping) => mapping.roleId)
     .filter((roleId) => currentRoleIds.includes(roleId) && !desiredRoleIds.includes(roleId));
 
@@ -82,13 +86,15 @@ async function main() {
   console.log(`Trainingen: ${roleListText(Array.from(completed))}`);
   console.log("");
   console.log("Kwalificatie mappings:");
-  for (const mapping of mappings) {
+  for (const mapping of allMappings) {
     const desired = completed.has(mapping.qualification) ? "ja" : "nee";
-    const current = currentRoleIds.includes(mapping.roleId) ? "ja" : "nee";
-    console.log(`- ${mapping.qualification} -> ${mapping.label || mapping.qualification} (${mapping.envKey}=${mapping.roleId}) gewenst=${desired} aanwezig=${current}`);
+    const configured = String(mapping.roleId || "").trim() ? "ja" : "nee";
+    const current = mapping.roleId && currentRoleIds.includes(mapping.roleId) ? "ja" : "nee";
+    console.log(`- ${mapping.qualification} -> ${mapping.label || mapping.qualification} (${mapping.envKey}=${mapping.roleId || "NIET INGESTELD"}) gewenst=${desired} configured=${configured} aanwezig=${current}`);
   }
   console.log("");
   console.log(`Ontbrekende gewenste rollen: ${roleListText(missingRoleIds)}`);
+  console.log(`Gewenst maar niet geconfigureerd: ${roleListText(desiredMissingConfig.map((mapping) => mapping.envKey))}`);
   console.log(`Extra beheerde rollen: ${roleListText(extraManagedRoleIds)}`);
 
   if (!apply) {

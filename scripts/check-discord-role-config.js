@@ -38,8 +38,11 @@ const rankMappings = typeof bot.allRankRoleMappings === "function"
   : Object.entries(bot.rankRoleEnvKeys || {}).map(([rank, envKey]) => ({ rank, envKey, roleId: process.env[envKey] || "" }));
 const missingRankMappings = rankMappings.filter((mapping) => !String(mapping.roleId || "").trim());
 const qualificationMappings = typeof bot.configuredQualificationRoleMappings === "function"
-  ? bot.configuredQualificationRoleMappings()
+  ? bot.allQualificationRoleMappings()
   : [];
+const missingQualificationMappings = typeof bot.missingQualificationRoleMappings === "function"
+  ? bot.missingQualificationRoleMappings()
+  : qualificationMappings.filter((mapping) => !String(mapping.roleId || "").trim());
 
 console.log(`Organisatie: ${organization.key}`);
 console.log(`Hoofdrol: ${organizationMainRoleId(organization) || "NIET INGESTELD"}`);
@@ -70,6 +73,17 @@ if (!qualificationMappings.length) {
   process.exitCode = 1;
 } else {
   for (const mapping of qualificationMappings) {
-    console.log(`[ok] ${mapping.qualification}: ${mapping.envKey}=${mapping.roleId}`);
+    const state = mapping.roleId ? "ok" : "mist";
+    const value = mapping.roleId ? `=${mapping.roleId}` : "";
+    console.log(`[${state}] ${mapping.qualification}: ${mapping.envKey}${value}`);
   }
+}
+
+if (missingQualificationMappings.length) {
+  console.log("");
+  console.log("Ontbrekende kwalificatierol env keys:");
+  for (const mapping of missingQualificationMappings) {
+    console.log(`${mapping.envKey}=`);
+  }
+  process.exitCode = 1;
 }

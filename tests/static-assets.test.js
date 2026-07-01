@@ -167,9 +167,22 @@ test("Discord person sync script diagnoses qualification roles", () => {
   const scriptCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-sync-person.js"), "utf8");
   assert.equal(packageJson.scripts["discord:person"], "node scripts/discord-sync-person.js");
   assert.match(scriptCode, /configuredQualificationRoleMappings/);
+  assert.match(scriptCode, /allQualificationRoleMappings/);
   assert.match(scriptCode, /Ontbrekende gewenste rollen/);
+  assert.match(scriptCode, /Gewenst maar niet geconfigureerd/);
   assert.match(scriptCode, /syncQualificationRolesForPerson\(person/);
   assert.match(scriptCode, /--apply/);
+});
+
+test("Defensie OVD is a Discord qualification role mapping", () => {
+  const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
+  const organizationsCode = fs.readFileSync(path.join(process.cwd(), "modules", "organizations.js"), "utf8");
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  const roleConfigCode = fs.readFileSync(path.join(process.cwd(), "scripts", "check-discord-role-config.js"), "utf8");
+  assert.match(envExample, /DISCORD_OVD_ROLE_ID=/);
+  assert.match(organizationsCode, /OVD: \{ envKey: "DISCORD_OVD_ROLE_ID"/);
+  assert.match(botCode, /OVD: \{\s+envKey: "DISCORD_OVD_ROLE_ID"/);
+  assert.match(roleConfigCode, /Ontbrekende kwalificatierol env keys/);
 });
 
 test("Porto login accepts linked current profiles during absence", () => {
