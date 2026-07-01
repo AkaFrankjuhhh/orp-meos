@@ -23,6 +23,7 @@ const {
   completeDiscordSyncJob,
   failDiscordSyncJob
 } = require("../modules/discord-sync-jobs");
+const { setDiscordSyncStatus, syncStatusFromError } = require("../modules/discord-sync-status");
 
 const workerId = `discord-bot-${process.pid}`;
 const dailySyncTime = String(process.env.DISCORD_DAILY_SYNC_TIME || "05:00").trim();
@@ -580,6 +581,44 @@ async function syncPersonForState(state, person, reason = "Discord bot worker sy
   return syncPerson(person, reason);
 }
 
+async function updatePortalDiscordSyncStatus(person, state, message, reason) {
+  if (!person?.id && !person?.discordId) return;
+  setDiscordSyncStatus(person, state, message, reason);
+  const statusPayload = person.discordSyncStatus || {};
+  await withClient(async (client) => {
+    await client.query(`
+      update people
+      set
+        raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordSyncStatus', $3::jsonb),
+        updated_at = now()
+      where ($1 <> '' and id = $1)
+         or ($2 <> '' and discord_id = $2)
+    `, [person.id || "", person.discordId || "", JSON.stringify(statusPayload)]);
+    await client.query("select pg_notify($1, $2)", ["orp_app_events", JSON.stringify({
+      scope: "people",
+      sourceId: workerId,
+      serviceName: "discord-bot",
+      at: new Date().toISOString()
+    })]);
+  });
+}
+
+function syncStatusMessageFromResult(result) {
+  if (result?.skipped) return result.reason || "Discord sync overgeslagen.";
+  if (result?.unchanged) return "Discord profiel was al actueel.";
+  if (result?.ok) return "Discord profiel gesynchroniseerd.";
+  return "Discord sync verwerkt.";
+}
+
+async function findPersonForSyncJob(job) {
+  const state = await readPostgresState();
+  return (state.people || []).find((entry) => {
+    if (job.personId && entry.id === job.personId) return true;
+    if (job.discordId && String(entry.discordId || "") === String(job.discordId)) return true;
+    return false;
+  }) || null;
+}
+
 async function syncAllActive(reason = "Discord bot periodieke sync") {
   const state = await readPostgresState();
   const people = activePeopleForDiscord(state);
@@ -656,6 +695,13 @@ async function processJobs() {
         continue;
       }
       await completeDiscordSyncJob(job.id, result);
+      const statusPerson = ["sync_person", "porto_nickname"].includes(job.type)
+        ? await findPersonForSyncJob(job).catch(() => null)
+        : null;
+      if (statusPerson) {
+        const stateName = result?.skipped ? "skipped" : "synced";
+        await updatePortalDiscordSyncStatus(statusPerson, stateName, syncStatusMessageFromResult(result), job.payload?.reason || job.type);
+      }
       const resultText = result?.skipped
         ? `overgeslagen: ${result.reason || "geen reden"}`
         : result?.unchanged
@@ -669,6 +715,11 @@ async function processJobs() {
     } catch (error) {
       const retryDelayMs = Math.min(300000, 30000 * Math.max(1, job.attempts));
       await failDiscordSyncJob(job.id, error, { retryDelayMs });
+      const person = await findPersonForSyncJob(job).catch(() => null);
+      if (person) {
+        const syncStatus = syncStatusFromError(error);
+        await updatePortalDiscordSyncStatus(person, syncStatus.state, syncStatus.message, job.payload?.reason || job.type).catch(() => {});
+      }
       console.error(`[discord-bot] job ${job.id} mislukt: ${error.message}`);
     }
   }

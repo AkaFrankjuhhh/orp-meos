@@ -572,19 +572,20 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     try {
       const isNewHire = ["recruitment_hire", "person_created"].includes(reason);
+      const waitsForDiscordRoles = isNewHire || reason === "qualification_updated";
       const roleWaitMaxAttempts = Number(process.env.DISCORD_REQUIRED_ROLE_MAX_ATTEMPTS || 288);
       await enqueuePersonDiscordSync(person, reason, {
-        // New recruits often receive their organization role shortly after their portal profile.
-        maxAttempts: isNewHire && Number.isFinite(roleWaitMaxAttempts) ? Math.max(1, Math.floor(roleWaitMaxAttempts)) : undefined
+        // New recruits and qualification updates can race Discord role propagation.
+        maxAttempts: waitsForDiscordRoles && Number.isFinite(roleWaitMaxAttempts) ? Math.max(1, Math.floor(roleWaitMaxAttempts)) : undefined
       });
       setDiscordSyncStatus(
         person,
         "retry_planned",
-        isNewHire ? "Wacht op organisatie-rol of eerstvolgende worker-run." : "Sync staat in wachtrij.",
+        waitsForDiscordRoles ? "Wacht op Discord rollen of eerstvolgende worker-run." : "Sync staat in wachtrij.",
         reason
       );
       state.activity = state.activity || [];
-      state.activity.push(`Discord profielsync ingepland voor ${person.name}${isNewHire ? "; wacht indien nodig op de organisatie-rol" : ""}.`);
+      state.activity.push(`Discord profielsync ingepland voor ${person.name}${waitsForDiscordRoles ? "; wacht indien nodig op Discord rollen" : ""}.`);
     } catch (error) {
       const syncStatus = syncStatusFromError(error);
       setDiscordSyncStatus(person, syncStatus.state, syncStatus.message, reason);
@@ -744,11 +745,15 @@ function createPersoneelsportaalRouteHandler(deps) {
         `${portalTitle} kwalificatie aangepast`
       );
       if (result?.ok && Array.isArray(result.changes) && result.changes.length) {
+        setDiscordSyncStatus(person, "synced", "Discord kwalificatierollen aangepast.", "qualification_direct");
         state.activity = state.activity || [];
         state.activity.push(`Discord kwalificatierollen gesynchroniseerd voor ${person.name}.`);
       } else if (result?.skipped) {
+        setDiscordSyncStatus(person, result.retryable ? "role_missing" : "skipped", result.reason, "qualification_direct");
         state.activity = state.activity || [];
         state.activity.push(`Discord kwalificatierollen overgeslagen voor ${person.name}: ${result.reason}`);
+      } else if (result?.ok) {
+        setDiscordSyncStatus(person, "synced", "Discord kwalificatierollen gecontroleerd.", "qualification_direct");
       }
     } catch (error) {
       state.activity = state.activity || [];

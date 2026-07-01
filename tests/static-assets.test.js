@@ -135,6 +135,16 @@ test("Discord bot can claim IZ cases from a thread", () => {
   assert.match(botCode, /formData\.append\("payload_json"/);
 });
 
+test("Discord worker writes sync status back to portal profiles", () => {
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  assert.match(workerCode, /updatePortalDiscordSyncStatus/);
+  assert.match(workerCode, /jsonb_build_object\('discordSyncStatus'/);
+  assert.match(workerCode, /updatePortalDiscordSyncStatus\(statusPerson, stateName/);
+  assert.match(routesCode, /reason === "qualification_updated"/);
+  assert.match(routesCode, /Wacht op Discord rollen of eerstvolgende worker-run/);
+});
+
 test("Porto login accepts linked current profiles during absence", () => {
   const portoCode = fs.readFileSync(path.join(process.cwd(), "porto-server.js"), "utf8");
   assert.match(portoCode, /isPersonLoginEligible/);
