@@ -24,6 +24,7 @@
     "discord:nicknames:sync": "node scripts/discord-sync-nicknames.js --apply",
     "discord:profiles:dry": "node scripts/discord-sync-nicknames.js",
     "discord:profiles:sync": "node scripts/discord-sync-nicknames.js --apply",
+    "discord:person": "node scripts/discord-sync-person.js",
     "discord:roles:check": "node scripts/check-discord-role-config.js",
     "discord:bot": "node scripts/discord-bot-worker.js",
     "forms:webhooks:retry": "node scripts/retry-public-form-webhooks.js",

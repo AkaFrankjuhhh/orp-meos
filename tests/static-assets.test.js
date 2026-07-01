@@ -154,8 +154,22 @@ test("Discord worker casts Porto JSONB update parameters", () => {
 
 test("Discord nickname sync returns the desired nickname for logging", () => {
   const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
   assert.match(botCode, /return \{ \.\.\.result, nickname: desiredNickname \}/);
   assert.doesNotMatch(botCode, /return setNickname\(memberId, desiredNickname, auditReason\)/);
+  assert.match(workerCode, /function nicknameTextFromResult/);
+  assert.match(workerCode, /typeof value\.nickname === "string"/);
+  assert.match(workerCode, /const resultText = jobResultText\(result\)/);
+});
+
+test("Discord person sync script diagnoses qualification roles", () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+  const scriptCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-sync-person.js"), "utf8");
+  assert.equal(packageJson.scripts["discord:person"], "node scripts/discord-sync-person.js");
+  assert.match(scriptCode, /configuredQualificationRoleMappings/);
+  assert.match(scriptCode, /Ontbrekende gewenste rollen/);
+  assert.match(scriptCode, /syncQualificationRolesForPerson\(person/);
+  assert.match(scriptCode, /--apply/);
 });
 
 test("Porto login accepts linked current profiles during absence", () => {
