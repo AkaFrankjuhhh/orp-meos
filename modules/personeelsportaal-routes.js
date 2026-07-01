@@ -668,11 +668,59 @@ function createPersoneelsportaalRouteHandler(deps) {
     ].filter(Boolean).join("\n");
   }
 
+  function truncateDiscordEmbedText(value, maxLength) {
+    const text = String(value || "").trim();
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+  }
+
+  function discordDmColorForReason(reason = "") {
+    const text = String(reason || "").toLowerCase();
+    if (text.includes("approved") || text.includes("reviewed") || text.includes("geregistreerd")) return 0x22c55e;
+    if (text.includes("rejected") || text.includes("afgekeurd")) return 0xef4444;
+    if (text.includes("i8")) return 0x3b82f6;
+    if (text.includes("mentor")) return 0xf59e0b;
+    return 0x5aa0f0;
+  }
+
+  function buildDiscordDmEmbed(content, reason = "") {
+    const lines = String(content || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const title = truncateDiscordEmbedText(lines.shift() || "Bericht van het personeelsportaal", 256);
+    const fields = [];
+    const descriptions = [];
+    for (const line of lines) {
+      const separator = line.indexOf(":");
+      if (separator > 0 && fields.length < 25) {
+        fields.push({
+          name: truncateDiscordEmbedText(line.slice(0, separator), 256) || "-",
+          value: truncateDiscordEmbedText(line.slice(separator + 1), 1024) || "-",
+          inline: false
+        });
+      } else {
+        descriptions.push(line);
+      }
+    }
+    return [{
+      title,
+      description: descriptions.length ? truncateDiscordEmbedText(descriptions.join("\n"), 4096) : undefined,
+      color: discordDmColorForReason(reason),
+      fields,
+      footer: { text: portalTitle },
+      timestamp: new Date().toISOString()
+    }];
+  }
+
   async function queueDiscordDmForPerson(state, person, content, reason, activityMessages = null) {
     const discordId = normalizeDiscordId(person?.discordId || "");
     if (typeof enqueueDiscordSyncJob !== "function" || !discordId || !content) return false;
     try {
-      await enqueueDiscordSyncJob("send_dm", { discordId, content, reason }, { discordId, maxAttempts: 3 });
+      await enqueueDiscordSyncJob("send_dm", {
+        discordId,
+        content: "",
+        fallbackContent: content,
+        embeds: buildDiscordDmEmbed(content, reason),
+        reason
+      }, { discordId, maxAttempts: 3 });
       const message = `Discord DM ingepland voor ${person.name || discordId}.`;
       state.activity = state.activity || [];
       state.activity.push(message);
@@ -2493,6 +2541,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const testSent = allItemsCompleted ? Boolean(existing.testSent) : false;
     const testApproved = allItemsCompleted && testSent ? Boolean(existing.testApproved) : false;
     const completed = allItemsCompleted && testSent && testApproved;
+    const shouldNotifyMentorTestReady = allItemsCompleted && !testSent && !existing.testReadyNotifiedAt;
     const updatedAt = new Date().toISOString();
     const notes = normalizeMentorNotes(existing);
     const audit = Array.isArray(existing.audit) ? existing.audit : [];
@@ -2528,6 +2577,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       items,
       notes,
       audit,
+      testReadyNotifiedAt: allItemsCompleted ? existing.testReadyNotifiedAt || (shouldNotifyMentorTestReady ? updatedAt : "") : "",
       updatedAt,
       updatedById: auth.profile.id,
       updatedByName: auth.profile.name
@@ -2542,6 +2592,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     state.activity = state.activity || [];
     state.activity.push(`Mentor-checklist bijgewerkt voor ${person.name}.`);
+    if (shouldNotifyMentorTestReady) {
+      state.activity.push(`${person.name} heeft alle mentor-traject opdrachten afgerond; mentor-toets kan worden klaargezet.`);
+      await sendMentorTestWebhook("ready", { person, actor });
+    }
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }

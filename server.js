@@ -23,6 +23,7 @@ const { startPortoDutyHoursJob } = require("./modules/porto-duty-hours-job");
 const { enqueuePersonDiscordSync, enqueueDiscordSyncJob } = require("./modules/discord-sync-jobs");
 const { normalizeDiscordId, isDevDiscordId } = require("./modules/ovc");
 const { isPersonLoginEligible } = require("./modules/person-status");
+const { canUsePortalLogin } = require("./modules/portal-auth-rules");
 const {
   currentOrganization,
   organizationMainRoleId,
@@ -233,10 +234,11 @@ function requireAuth(req, res) {
 }
 
 
-function syncProfileFromDiscord(state, profile, user, member) {
+function syncProfileFromDiscord(state, profile, user, member, options = {}) {
   const roles = member.roles || [];
   const previousRole = profile.permRole || "Geen";
-  const nextRole = resolveSyncedPermRole(profile, roles, state);
+  const shouldSyncPermissionRole = options.syncPermissionRole !== false;
+  const nextRole = shouldSyncPermissionRole ? resolveSyncedPermRole(profile, roles, state) : previousRole;
 
   profile.discordUsername = user.global_name || user.username;
   profile.avatar = avatarUrl(user);
@@ -246,7 +248,7 @@ function syncProfileFromDiscord(state, profile, user, member) {
   profile.hasDefensieRole = profile.hasOrganizationRole;
   profile.permRole = nextRole;
 
-  if (previousRole !== nextRole) {
+  if (shouldSyncPermissionRole && previousRole !== nextRole) {
     state.activity = state.activity || [];
     state.activity.push(`${profile.name} perm rol gesynct via Discord: ${previousRole} -> ${nextRole}.`);
   }
@@ -288,6 +290,7 @@ function formatMentorTestDateTime(value) {
 
 function buildMentorTestWebhookPayload(event, { person, actor, test } = {}) {
   const labels = {
+    ready: "Toets kan klaargezet worden",
     sent: "Toets klaargezet",
     resent: "Toets opnieuw verstuurd",
     submitted: "Toets ingediend",
@@ -296,6 +299,7 @@ function buildMentorTestWebhookPayload(event, { person, actor, test } = {}) {
     retracted: "Toets teruggetrokken"
   };
   const colors = {
+    ready: 0x38bdf8,
     sent: 0xf59e0b,
     resent: 0xf97316,
     submitted: 0x3b82f6,
@@ -314,6 +318,7 @@ function buildMentorTestWebhookPayload(event, { person, actor, test } = {}) {
     { name: "Status", value: label, inline: true },
     { name: "Door", value: actor?.name || test?.reviewedByName || test?.sentByName || "-", inline: true }
   ];
+  if (event === "ready") fields.push({ name: "Actie", value: "Mentor-Leiding kan nu de mentor-toets sturen.", inline: false });
   if (test?.submittedAt) fields.push({ name: "Ingediend op", value: formatMentorTestDateTime(test.submittedAt), inline: true });
   return {
     username: "Mentor-Toets",
@@ -857,7 +862,13 @@ async function handleApi(req, res, url) {
         const syncAgeMs = Date.now() - Number(auth.session.roleSyncedAt || 0);
         const canUseCachedRoles = Array.isArray(auth.session.roles) && auth.session.roles.length && syncAgeMs < 5 * 60 * 1000;
         if (canUseCachedRoles) {
-          if (!auth.session.roles.includes(organizationMainRoleId(organization)) && !isDevOverrideDiscordId(profile.discordId)) {
+          if (!canUsePortalLogin({
+            profile,
+            discordId: auth.session.user?.id || profile.discordId,
+            roles: auth.session.roles,
+            organizationRoleId: organizationMainRoleId(organization),
+            devOverride: isDevOverrideDiscordId(profile.discordId)
+          })) {
             clearSession(req, res);
             sendJson(res, 403, { authenticated: false, error: "Geen Discord gekoppeld" });
             return;
@@ -865,14 +876,23 @@ async function handleApi(req, res, url) {
           auth.profile = profile;
         } else {
           const member = await getCurrentUserGuildMember(auth.session.accessToken);
-          if (!member.roles.includes(organizationMainRoleId(organization)) && !isDevOverrideDiscordId(profile.discordId)) {
+          const hasPortalLogin = canUsePortalLogin({
+            profile,
+            discordId: auth.session.user?.id || profile.discordId,
+            roles: member.roles || [],
+            organizationRoleId: organizationMainRoleId(organization),
+            devOverride: isDevOverrideDiscordId(profile.discordId)
+          });
+          if (!hasPortalLogin) {
             clearSession(req, res);
             sendJson(res, 403, { authenticated: false, error: "Geen Discord gekoppeld" });
             return;
           }
           auth.session.roles = member.roles || [];
           auth.session.roleSyncedAt = Date.now();
-          syncProfileFromDiscord(state, profile, auth.session.user, member);
+          syncProfileFromDiscord(state, profile, auth.session.user, member, {
+            syncPermissionRole: member.roles.includes(organizationMainRoleId(organization))
+          });
           auth.profile = profile;
           await Promise.resolve(peopleStorage.writeState(state));
         }
@@ -949,24 +969,31 @@ async function handleApi(req, res, url) {
       const redirectUri = cookies.orp_oauth_redirect || process.env.DISCORD_REDIRECT_URI;
       const token = await exchangeCode(url.searchParams.get("code"), redirectUri);
       const user = await getDiscordUser(token.access_token);
-      const member = await getCurrentUserGuildMember(token.access_token);
-      const hasOrganizationRole = member.roles.includes(organizationMainRoleId(organization));
-      if (!hasOrganizationRole && !isDevOverrideDiscordId(user.id)) {
-        logAuthDebug("callback-no-role", { userId: user.id });
-        redirectWithAuthError(req, res, "no-role");
-        return;
-      }
-
       const state = await Promise.resolve(peopleStorage.readState());
-      const profile = state.people.find((person) => person.discordId === user.id && isPersonLoginEligible(person)) || (isDevOverrideDiscordId(user.id) ? syntheticDevProfile(user) : null);
+      const member = await getCurrentUserGuildMember(token.access_token);
+      const loginDiscordId = normalizeDiscordId(user.id);
+      const profile = state.people.find((person) => normalizeDiscordId(person.discordId) === loginDiscordId && isPersonLoginEligible(person)) || (isDevOverrideDiscordId(user.id) ? syntheticDevProfile(user) : null);
       if (!profile) {
         logAuthDebug("callback-no-profile", { userId: user.id });
         redirectWithAuthError(req, res, "no-profile");
         return;
       }
+      const hasOrganizationRole = member.roles.includes(organizationMainRoleId(organization));
+      const hasPortalLogin = canUsePortalLogin({
+        profile,
+        discordId: user.id,
+        roles: member.roles || [],
+        organizationRoleId: organizationMainRoleId(organization),
+        devOverride: isDevOverrideDiscordId(user.id)
+      });
+      if (!hasPortalLogin) {
+        logAuthDebug("callback-no-role", { userId: user.id, profileId: profile.id });
+        redirectWithAuthError(req, res, "no-role");
+        return;
+      }
 
       if (!String(profile.id || "").startsWith("dev-")) {
-        syncProfileFromDiscord(state, profile, user, member);
+        syncProfileFromDiscord(state, profile, user, member, { syncPermissionRole: hasOrganizationRole });
         await Promise.resolve(peopleStorage.writeState(state));
       }
       createSession(res, user, profile, { accessToken: token.access_token, roles: member.roles || [] });

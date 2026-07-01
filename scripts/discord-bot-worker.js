@@ -39,6 +39,8 @@ const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTE
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
 const nonRegularPortoDiscordChannelKey = nonRegularPortoDiscordChannel.key;
+const IZ_LEIDING_CHANNEL_ID = String(process.env.DISCORD_IZ_LEIDING_CHANNEL_ID || "1515083209132478596").trim();
+const IZ_LEIDING_ROLE_ID = String(process.env.DISCORD_IZ_LEIDING_ROLE_ID || "1515080646806995045").trim();
 const AUDIT_LOG_ACTION_MEMBER_KICK = 20;
 const AUDIT_LOG_ACTION_MEMBER_BAN_ADD = 22;
 const LEAVE_LOG_AUDIT_LOOKUP_DELAY_MS = 1200;
@@ -50,6 +52,7 @@ let reconnectTimer = null;
 let hasGatewayVoiceSnapshot = false;
 const gatewayVoiceStatesByUser = new Map();
 const gatewayMemberRolesByUser = new Map();
+let claimIzCommandRegistered = false;
 
 function parseJsonValue(value, fallback) {
   if (value == null) return fallback;
@@ -58,6 +61,252 @@ function parseJsonValue(value, fallback) {
     return JSON.parse(value);
   } catch {
     return fallback;
+  }
+}
+
+function truncateDiscordContent(value, maxLength = 1900) {
+  const text = String(value || "").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 20)).trim()}\n...`;
+}
+
+function interactionTokenRoute(interaction) {
+  return `/interactions/${interaction.id}/${interaction.token}/callback`;
+}
+
+async function interactionCallback(interaction, body) {
+  const response = await fetch(`https://discord.com/api/v10${interactionTokenRoute(interaction)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Interaction response mislukt: ${response.status} ${text}`.trim());
+  }
+}
+
+async function acknowledgeInteraction(interaction, content, ephemeral = true) {
+  await interactionCallback(interaction, {
+    type: 4,
+    data: {
+      content,
+      flags: ephemeral ? 64 : 0,
+      allowed_mentions: { parse: [] }
+    }
+  });
+}
+
+async function deferInteraction(interaction, ephemeral = true) {
+  await interactionCallback(interaction, {
+    type: 5,
+    data: {
+      flags: ephemeral ? 64 : 0
+    }
+  });
+}
+
+async function editInteractionResponse(interaction, content) {
+  const appId = String(process.env.DISCORD_CLIENT_ID || process.env.DISCORD_APPLICATION_ID || "").trim() || String(interaction.application_id || "");
+  const response = await fetch(`https://discord.com/api/v10/webhooks/${appId}/${interaction.token}/messages/@original`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content, allowed_mentions: { parse: [] } })
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Interaction edit mislukt: ${response.status} ${text}`.trim());
+  }
+}
+
+function interactionHasRole(interaction, roleId) {
+  const roles = interaction.member?.roles || [];
+  return roles.map(String).includes(String(roleId));
+}
+
+function messageAuthorLabel(message = {}) {
+  const memberName = message.member?.nick || message.member?.user?.global_name;
+  const user = message.author || message.member?.user || {};
+  return memberName || user.global_name || user.username || user.id || "Onbekend";
+}
+
+function formatTranscriptMessage(message = {}) {
+  const createdAt = message.timestamp ? new Date(message.timestamp).toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam" }) : "-";
+  const content = String(message.content || "").trim();
+  const attachments = (message.attachments || [])
+    .map((attachment) => attachment.url || attachment.proxy_url)
+    .filter(Boolean);
+  const embeds = (message.embeds || [])
+    .map((embed, index) => embed.title || embed.description ? `[Embed ${index + 1}] ${[embed.title, embed.description].filter(Boolean).join(" - ")}` : `[Embed ${index + 1}]`)
+    .filter(Boolean);
+  return [
+    `**${messageAuthorLabel(message)}** - ${createdAt}`,
+    content || "_Geen tekst_",
+    ...attachments.map((url) => `Bijlage: ${url}`),
+    ...embeds
+  ].join("\n");
+}
+
+async function downloadMessageAttachments(message = {}) {
+  const files = [];
+  const failedUrls = [];
+  for (const attachment of message.attachments || []) {
+    const url = attachment.url || attachment.proxy_url;
+    if (!url || files.length >= 10) continue;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`download status ${response.status}`);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      files.push({
+        buffer,
+        filename: attachment.filename || `bijlage-${files.length + 1}`,
+        contentType: attachment.content_type || "application/octet-stream"
+      });
+    } catch (error) {
+      failedUrls.push(url);
+    }
+  }
+  return { files, failedUrls };
+}
+
+function caseNumberFromMessage(message = {}, thread = {}) {
+  const haystack = [message.content, thread.name]
+    .map((value) => String(value || ""))
+    .join(" ");
+  const match = /(?:zaak(?:nummer)?|case)\s*[:#-]?\s*([A-Z0-9-]{3,})/i.exec(haystack)
+    || /#([A-Z0-9-]{3,})/i.exec(haystack);
+  return match?.[1] || thread.name || message.id || "Zaak";
+}
+
+async function fetchAllThreadMessages(threadId) {
+  const all = [];
+  let before = "";
+  for (let page = 0; page < 20; page += 1) {
+    const result = await bot.listMessages(threadId, { limit: 100, before });
+    const messages = Array.isArray(result?.data) ? result.data : [];
+    if (!messages.length) break;
+    all.push(...messages);
+    before = messages[messages.length - 1]?.id || "";
+    if (messages.length < 100 || !before) break;
+  }
+  return all.sort((a, b) => Number(BigInt(a.id || 0) - BigInt(b.id || 0)));
+}
+
+async function postTranscriptToThread(threadId, messages = []) {
+  let buffer = "";
+  for (const message of messages) {
+    const block = formatTranscriptMessage(message);
+    const hasAttachments = Array.isArray(message.attachments) && message.attachments.length > 0;
+    if (hasAttachments) {
+      if (buffer) {
+        await bot.createMessage(threadId, { content: buffer, allowed_mentions: { parse: [] } }, "IZ zaak transcript");
+        buffer = "";
+      }
+      const { files, failedUrls } = await downloadMessageAttachments(message);
+      const content = failedUrls.length
+        ? `${block}\n\nNiet opnieuw geuploade bijlage(s):\n${failedUrls.join("\n")}`
+        : block;
+      if (files.length) {
+        await bot.createMessageWithFiles(threadId, { content: truncateDiscordContent(content), allowed_mentions: { parse: [] } }, files, "IZ zaak transcript bijlagen");
+      } else {
+        await bot.createMessage(threadId, { content: truncateDiscordContent(content), allowed_mentions: { parse: [] } }, "IZ zaak transcript bijlagen");
+      }
+      continue;
+    }
+    if ((buffer + "\n\n" + block).length > 1800) {
+      if (buffer) await bot.createMessage(threadId, { content: buffer, allowed_mentions: { parse: [] } }, "IZ zaak transcript");
+      buffer = block;
+    } else {
+      buffer = buffer ? `${buffer}\n\n${block}` : block;
+    }
+  }
+  if (buffer) await bot.createMessage(threadId, { content: buffer, allowed_mentions: { parse: [] } }, "IZ zaak transcript");
+}
+
+async function registerClaimIzCommand() {
+  if (claimIzCommandRegistered || !IZ_LEIDING_CHANNEL_ID || !IZ_LEIDING_ROLE_ID) return;
+  try {
+    await bot.registerGuildCommand({
+      name: "claimizleiding",
+      description: "Draag deze zaak/thread over naar IZ-Leiding.",
+      type: 1,
+      dm_permission: false
+    });
+    claimIzCommandRegistered = true;
+    console.log("[discord-bot] slash command /claimizleiding geregistreerd.");
+  } catch (error) {
+    console.error(`[discord-bot] slash command registreren mislukt: ${error.message}`);
+  }
+}
+
+async function handleClaimIzLeadership(interaction) {
+  if (!interactionHasRole(interaction, IZ_LEIDING_ROLE_ID)) {
+    await acknowledgeInteraction(interaction, "Alleen IZ-Leiding mag deze zaak overnemen.", true);
+    return;
+  }
+  await deferInteraction(interaction, true);
+  const threadId = String(interaction.channel_id || "").trim();
+  const threadResult = await bot.getChannel(threadId);
+  const thread = threadResult?.data || {};
+  if (![10, 11, 12].includes(Number(thread.type))) {
+    await editInteractionResponse(interaction, "Gebruik dit command in de thread van de zaak.");
+    return;
+  }
+  const parentChannelId = String(thread.parent_id || "").trim();
+  const starterResult = parentChannelId ? await bot.getMessage(parentChannelId, threadId).catch(() => null) : null;
+  const starterMessage = starterResult?.data || null;
+  const caseNumber = caseNumberFromMessage(starterMessage || {}, thread);
+  const claimText = `${caseNumber} is overgenomen door IZ-Leiding`;
+  const summary = await bot.createMessage(IZ_LEIDING_CHANNEL_ID, {
+    content: claimText,
+    embeds: [{
+      title: claimText,
+      description: starterMessage?.content ? truncateDiscordContent(starterMessage.content, 3500) : `Originele thread: ${thread.name || threadId}`,
+      color: 0x22c55e,
+      fields: [
+        { name: "Originele thread", value: thread.name || threadId, inline: false },
+        { name: "Overgenomen door", value: `<@${interaction.member?.user?.id || interaction.user?.id || "onbekend"}>`, inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    }],
+    allowed_mentions: { parse: [] }
+  }, "IZ zaak overgenomen");
+  const summaryMessageId = summary?.data?.id;
+  if (!summaryMessageId) throw new Error("Kon geen nieuw IZ-Leiding bericht plaatsen.");
+  const newThread = await bot.createThreadFromMessage(IZ_LEIDING_CHANNEL_ID, summaryMessageId, String(caseNumber).slice(0, 90), "IZ zaak thread aangemaakt");
+  const newThreadId = newThread?.data?.id;
+  if (!newThreadId) throw new Error("Kon geen nieuwe IZ-Leiding thread aanmaken.");
+  const threadMessages = await fetchAllThreadMessages(threadId);
+  const allMessages = starterMessage ? [starterMessage, ...threadMessages.filter((message) => message.id !== starterMessage.id)] : threadMessages;
+  await postTranscriptToThread(newThreadId, allMessages);
+  await bot.createMessage(newThreadId, {
+    content: `Zaak volledig overgenomen door IZ-Leiding. Originele thread wordt verwijderd.`,
+    allowed_mentions: { parse: [] }
+  }, "IZ zaak overname afgerond");
+  if (parentChannelId && starterMessage?.id) {
+    await bot.deleteMessage(parentChannelId, starterMessage.id, "IZ zaak overgenomen").catch((error) => {
+      console.warn(`[discord-bot] origineel zaakbericht verwijderen mislukt: ${error.message}`);
+    });
+  }
+  await bot.deleteChannel(threadId, "IZ zaak overgenomen").catch((error) => {
+    console.warn(`[discord-bot] originele thread verwijderen mislukt of was al verwijderd: ${error.message}`);
+  });
+  await editInteractionResponse(interaction, `${claimText}. Nieuwe thread: <#${newThreadId}>`);
+}
+
+async function handleInteractionCreate(interaction = {}) {
+  if (interaction.type !== 2) return;
+  const commandName = String(interaction.data?.name || "").toLowerCase();
+  if (commandName !== "claimizleiding") return;
+  try {
+    await handleClaimIzLeadership(interaction);
+  } catch (error) {
+    console.error(`[discord-bot] /claimizleiding mislukt: ${error.message}`);
+    try {
+      await editInteractionResponse(interaction, `Overnemen mislukt: ${error.message}`);
+    } catch (_) {
+      await acknowledgeInteraction(interaction, `Overnemen mislukt: ${error.message}`, true).catch(() => {});
+    }
   }
 }
 
@@ -354,7 +603,8 @@ async function syncByJob(job) {
   if (job.type === "send_dm") {
     return bot.sendDirectMessage(
       job.discordId || job.payload?.discordId,
-      job.payload?.content || job.payload?.message || ""
+      job.payload?.content || job.payload?.message || job.payload?.fallbackContent || "",
+      { embeds: job.payload?.embeds || [] }
     );
   }
 
@@ -553,6 +803,11 @@ function connectGateway() {
     if (packet.op === 11) return;
     if (packet.t === "READY") {
       console.log(`[discord-bot] online als ${packet.d?.user?.username || "bot"}.`);
+      await registerClaimIzCommand();
+      return;
+    }
+    if (packet.t === "INTERACTION_CREATE") {
+      await handleInteractionCreate(packet.d || {});
       return;
     }
     if (packet.t === "GUILD_CREATE") {

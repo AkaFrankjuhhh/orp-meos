@@ -2017,6 +2017,11 @@ function wireEvents() {
     submitOwnMentorTest();
   });
   $("#mentorTestsList")?.addEventListener("click", (event) => {
+    const detailButton = event.target.closest("[data-open-mentor-test-detail]");
+    if (detailButton) {
+      openMentorTestDetailDialog(detailButton.dataset.openMentorTestDetail);
+      return;
+    }
     const deleteButton = event.target.closest("[data-delete-mentor-test]");
     if (deleteButton) {
       deleteMentorTest(deleteButton.dataset.deleteMentorTest);
@@ -2025,6 +2030,16 @@ function wireEvents() {
     const reviewButton = event.target.closest("[data-review-mentor-test]");
     if (!reviewButton) return;
     reviewMentorTest(reviewButton.dataset.reviewMentorTest, reviewButton.dataset.reviewStatus);
+  });
+  $("#mentorTestDetailBody")?.addEventListener("click", async (event) => {
+    const deleteButton = event.target.closest("[data-delete-mentor-test]");
+    if (deleteButton) {
+      if (await deleteMentorTest(deleteButton.dataset.deleteMentorTest)) $("#mentorTestDetailDialog")?.close();
+      return;
+    }
+    const reviewButton = event.target.closest("[data-review-mentor-test]");
+    if (!reviewButton) return;
+    if (await reviewMentorTest(reviewButton.dataset.reviewMentorTest, reviewButton.dataset.reviewStatus)) $("#mentorTestDetailDialog")?.close();
   });
   $("#mentorBackBtn").addEventListener("click", () => setPage("mentor-overzicht"));
   $("#mentorChecklistItems").addEventListener("change", async (event) => {
@@ -2107,6 +2122,7 @@ function wireEvents() {
   $("#editMentorTestTemplateBtn")?.addEventListener("click", openMentorTestTemplateDialog);
   $("#closeMentorTestTemplateDialog")?.addEventListener("click", () => $("#mentorTestTemplateDialog")?.close());
   $("#cancelMentorTestTemplateDialog")?.addEventListener("click", () => $("#mentorTestTemplateDialog")?.close());
+  $("#closeMentorTestDetailDialog")?.addEventListener("click", () => $("#mentorTestDetailDialog")?.close());
   $("#mentorTestTemplateEditor")?.addEventListener("click", handleMentorTestTemplateEditorClick);
   $("#mentorTestTemplateEditor")?.addEventListener("change", handleMentorTestTemplateEditorChange);
   $("#mentorTestTemplateForm")?.addEventListener("submit", async (event) => {

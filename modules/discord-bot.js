@@ -356,6 +356,30 @@ function createDiscordBotServices(options = {}) {
     return `${text.slice(0, 1990).trim()}\n...`;
   }
 
+  function truncateDiscordEmbedText(value, maxLength) {
+    const text = String(value || "").trim();
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+  }
+
+  function normalizeDiscordEmbeds(embeds = []) {
+    return (Array.isArray(embeds) ? embeds : [])
+      .filter((embed) => embed && typeof embed === "object")
+      .slice(0, 10)
+      .map((embed) => ({
+        ...embed,
+        title: embed.title ? truncateDiscordEmbedText(embed.title, 256) : undefined,
+        description: embed.description ? truncateDiscordEmbedText(embed.description, 4096) : undefined,
+        fields: Array.isArray(embed.fields)
+          ? embed.fields.slice(0, 25).map((field) => ({
+              name: truncateDiscordEmbedText(field.name || "-", 256) || "-",
+              value: truncateDiscordEmbedText(field.value || "-", 1024) || "-",
+              inline: Boolean(field.inline)
+            }))
+          : undefined
+      }));
+  }
+
   async function getGuildMember(discordId) {
     const memberId = normalizeDiscordId(discordId);
     if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
@@ -370,10 +394,120 @@ function createDiscordBotServices(options = {}) {
     return discordBotFetch(`/guilds/${guildId()}/audit-logs?${query.toString()}`);
   }
 
-  async function sendDirectMessage(discordId, content) {
+  function applicationId() {
+    return String(process.env.DISCORD_CLIENT_ID || process.env.DISCORD_APPLICATION_ID || "").trim() || botToken().split(".")[0] || "";
+  }
+
+  async function registerGuildCommand(command) {
+    const appId = applicationId();
+    const targetGuildId = guildId();
+    if (!appId || !targetGuildId) return { skipped: true, reason: "Discord application ID of guild ID ontbreekt." };
+    return discordBotFetch(`/applications/${appId}/guilds/${targetGuildId}/commands`, {
+      method: "POST",
+      body: command
+    });
+  }
+
+  async function getChannel(channelId) {
+    const id = normalizeDiscordId(channelId);
+    if (!id) return { skipped: true, reason: "Kanaal ID ontbreekt." };
+    return discordBotFetch(`/channels/${id}`);
+  }
+
+  async function getMessage(channelId, messageId) {
+    const targetChannelId = normalizeDiscordId(channelId);
+    const targetMessageId = normalizeDiscordId(messageId);
+    if (!targetChannelId || !targetMessageId) return { skipped: true, reason: "Kanaal of bericht ontbreekt." };
+    return discordBotFetch(`/channels/${targetChannelId}/messages/${targetMessageId}`);
+  }
+
+  async function listMessages(channelId, options = {}) {
+    const targetChannelId = normalizeDiscordId(channelId);
+    if (!targetChannelId) return { skipped: true, reason: "Kanaal ID ontbreekt." };
+    const query = new URLSearchParams({ limit: String(Math.min(100, Math.max(1, Number(options.limit || 100)))) });
+    if (options.before) query.set("before", String(options.before));
+    if (options.after) query.set("after", String(options.after));
+    return discordBotFetch(`/channels/${targetChannelId}/messages?${query.toString()}`);
+  }
+
+  async function createMessage(channelId, payload, auditReason = "") {
+    const targetChannelId = normalizeDiscordId(channelId);
+    if (!targetChannelId) return { skipped: true, reason: "Kanaal ID ontbreekt." };
+    return discordBotFetch(`/channels/${targetChannelId}/messages`, {
+      method: "POST",
+      body: payload,
+      auditReason
+    });
+  }
+
+  async function createMessageWithFiles(channelId, payload, files = [], auditReason = "") {
+    const targetChannelId = normalizeDiscordId(channelId);
+    if (!targetChannelId) return { skipped: true, reason: "Kanaal ID ontbreekt." };
+    const formData = new FormData();
+    formData.append("payload_json", JSON.stringify(payload || {}));
+    files.slice(0, 10).forEach((file, index) => {
+      const blob = new Blob([file.buffer], { type: file.contentType || "application/octet-stream" });
+      formData.append(`files[${index}]`, blob, file.filename || `bijlage-${index + 1}`);
+    });
+    const headers = {
+      Authorization: `Bot ${botToken()}`
+    };
+    if (auditReason) headers["X-Audit-Log-Reason"] = encodeURIComponent(String(auditReason).slice(0, 512));
+    const response = await fetch(`${DISCORD_API_BASE}/channels/${targetChannelId}/messages`, {
+      method: "POST",
+      headers,
+      body: formData
+    });
+    const text = await response.text();
+    const data = text ? safeJson(text) : null;
+    if (!response.ok) {
+      const detail = data?.message || text || `Discord API fout ${response.status}`;
+      const error = new Error(detail);
+      error.status = response.status;
+      error.discord = data;
+      throw error;
+    }
+    return { ok: true, status: response.status, data };
+  }
+
+  async function createThreadFromMessage(channelId, messageId, name, auditReason = "") {
+    const targetChannelId = normalizeDiscordId(channelId);
+    const targetMessageId = normalizeDiscordId(messageId);
+    if (!targetChannelId || !targetMessageId || !name) return { skipped: true, reason: "Kanaal, bericht of threadnaam ontbreekt." };
+    return discordBotFetch(`/channels/${targetChannelId}/messages/${targetMessageId}/threads`, {
+      method: "POST",
+      body: {
+        name: String(name || "").slice(0, 100),
+        auto_archive_duration: 10080
+      },
+      auditReason
+    });
+  }
+
+  async function deleteChannel(channelId, auditReason = "") {
+    const targetChannelId = normalizeDiscordId(channelId);
+    if (!targetChannelId) return { skipped: true, reason: "Kanaal ID ontbreekt." };
+    return discordBotFetch(`/channels/${targetChannelId}`, {
+      method: "DELETE",
+      auditReason
+    });
+  }
+
+  async function deleteMessage(channelId, messageId, auditReason = "") {
+    const targetChannelId = normalizeDiscordId(channelId);
+    const targetMessageId = normalizeDiscordId(messageId);
+    if (!targetChannelId || !targetMessageId) return { skipped: true, reason: "Kanaal of bericht ontbreekt." };
+    return discordBotFetch(`/channels/${targetChannelId}/messages/${targetMessageId}`, {
+      method: "DELETE",
+      auditReason
+    });
+  }
+
+  async function sendDirectMessage(discordId, content, options = {}) {
     const memberId = normalizeDiscordId(discordId);
     const message = truncateDiscordMessage(content);
-    if (!memberId || !message) return { skipped: true, reason: "Discord ID of bericht ontbreekt." };
+    const embeds = normalizeDiscordEmbeds(options.embeds);
+    if (!memberId || (!message && !embeds.length)) return { skipped: true, reason: "Discord ID of bericht ontbreekt." };
     try {
       const channelResult = await discordBotFetch("/users/@me/channels", {
         method: "POST",
@@ -381,12 +515,14 @@ function createDiscordBotServices(options = {}) {
       });
       const channelId = channelResult?.data?.id;
       if (!channelId) return { skipped: true, reason: "Discord DM-kanaal kon niet worden aangemaakt." };
+      const body = {
+        allowed_mentions: { parse: [] }
+      };
+      if (message) body.content = message;
+      if (embeds.length) body.embeds = embeds;
       await discordBotFetch(`/channels/${channelId}/messages`, {
         method: "POST",
-        body: {
-          content: message,
-          allowed_mentions: { parse: [] }
-        }
+        body
       });
       return { ok: true, discordId: memberId };
     } catch (error) {
@@ -652,6 +788,15 @@ function createDiscordBotServices(options = {}) {
     resolveVoiceChannelId,
     getGuildMember,
     getGuildAuditLogs,
+    registerGuildCommand,
+    getChannel,
+    getMessage,
+    listMessages,
+    createMessage,
+    createMessageWithFiles,
+    createThreadFromMessage,
+    deleteChannel,
+    deleteMessage,
     sendDirectMessage,
     addRole,
     removeRole,

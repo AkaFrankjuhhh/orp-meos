@@ -15,6 +15,8 @@ const { createEventBus } = require("./modules/event-bus");
 const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { createPostgresEventBridge } = require("./modules/postgres-event-bridge");
 const { closePool, withClient, databaseNameFromConnectionString } = require("./modules/db");
+const { isPersonLoginEligible } = require("./modules/person-status");
+const { canUsePortalLogin } = require("./modules/portal-auth-rules");
 const {
   currentOrganization,
   organizationMainRoleId,
@@ -160,15 +162,16 @@ function requireAuth(req, res) {
   return auth;
 }
 
-function syncProfileFromDiscord(state, profile, user, member) {
+function syncProfileFromDiscord(state, profile, user, member, options = {}) {
   const roles = member.roles || [];
+  const shouldSyncPermissionRole = options.syncPermissionRole !== false;
   profile.discordUsername = user.global_name || user.username;
   profile.avatar = avatarUrl(user);
   profile.discordRoles = roles;
   profile.lastDiscordSync = new Date().toISOString();
   profile.hasOrganizationRole = roles.includes(organizationMainRoleId(organization));
   profile.hasDefensieRole = profile.hasOrganizationRole;
-  profile.permRole = resolveSyncedPermRole(profile, roles, state);
+  profile.permRole = shouldSyncPermissionRole ? resolveSyncedPermRole(profile, roles, state) : (profile.permRole || "Geen");
 }
 
 async function persistDiscordProfileSync(state, profile) {
@@ -359,7 +362,7 @@ async function handleApi(req, res, url) {
       return;
     }
     const state = await Promise.resolve(readState());
-    let profile = (state.people || []).find((person) => person.id === auth.profile.id && person.status === "Actief") || null;
+    let profile = (state.people || []).find((person) => person.id === auth.profile.id && isPersonLoginEligible(person)) || null;
     if (!profile && isDevOverrideDiscordId(auth.profile.discordId)) profile = auth.profile;
     if (!profile) {
       clearSession(req, res);
@@ -391,18 +394,27 @@ async function handleApi(req, res, url) {
       const token = await exchangeCode(url.searchParams.get("code"), redirectUri);
       const user = await getDiscordUser(token.access_token);
       const member = await getCurrentUserGuildMember(token.access_token);
-      if (!member.roles.includes(organizationMainRoleId(organization)) && !isDevOverrideDiscordId(user.id)) {
-        redirectWithAuthError(req, res, "no-role");
-        return;
-      }
       const state = await Promise.resolve(readState());
-      const profile = (state.people || []).find((person) => person.discordId === user.id && person.status === "Actief") || (isDevOverrideDiscordId(user.id) ? syntheticDevProfile(user) : null);
+      const loginDiscordId = normalizeDiscordId(user.id);
+      const profile = (state.people || []).find((person) => normalizeDiscordId(person.discordId) === loginDiscordId && isPersonLoginEligible(person)) || (isDevOverrideDiscordId(user.id) ? syntheticDevProfile(user) : null);
       if (!profile) {
         redirectWithAuthError(req, res, "no-profile");
         return;
       }
+      const hasOrganizationRole = member.roles.includes(organizationMainRoleId(organization));
+      const hasPortalLogin = canUsePortalLogin({
+        profile,
+        discordId: user.id,
+        roles: member.roles || [],
+        organizationRoleId: organizationMainRoleId(organization),
+        devOverride: isDevOverrideDiscordId(user.id)
+      });
+      if (!hasPortalLogin) {
+        redirectWithAuthError(req, res, "no-role");
+        return;
+      }
       if (!String(profile.id || "").startsWith("dev-")) {
-        syncProfileFromDiscord(state, profile, user, member);
+        syncProfileFromDiscord(state, profile, user, member, { syncPermissionRole: hasOrganizationRole });
         await persistDiscordProfileSync(state, profile);
       }
       createSession(res, user, profile, { accessToken: token.access_token, roles: member.roles || [] });

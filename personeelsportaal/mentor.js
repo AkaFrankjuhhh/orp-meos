@@ -531,6 +531,80 @@ function formatMentorTestAnswer(question, answers = {}) {
   return String(answer || "-");
 }
 
+function mentorTestStatusClass(status) {
+  if (status === "approved") return "is-approved";
+  if (status === "submitted" || status === "sent") return "is-sent";
+  if (status === "rejected") return "is-rejected";
+  return "";
+}
+
+function mentorTestById(testId) {
+  return (mentorTestsReviewCache?.tests || []).find((entry) => entry.id === testId) || null;
+}
+
+function renderMentorTestDetail(test) {
+  const defaultQuestions = mentorTestsReviewCache?.questions || [];
+  const questions = Array.isArray(test.questions) && test.questions.length ? test.questions : defaultQuestions;
+  const canDeleteTest = test.status !== "approved";
+  const reviewActions = test.status === "submitted"
+    ? `
+      <button class="primary" type="button" data-review-mentor-test="${escapeHtml(test.id)}" data-review-status="approved">Goedkeuren</button>
+      <button class="danger" type="button" data-review-mentor-test="${escapeHtml(test.id)}" data-review-status="rejected">Afkeuren</button>
+    `
+    : "";
+  const deleteAction = canDeleteTest
+    ? `<button class="ghost danger" type="button" data-delete-mentor-test="${escapeHtml(test.id)}">Verwijderen</button>`
+    : "";
+  return `
+    <div class="mentor-test-detail">
+      <div class="mentor-test-card-header">
+        <div>
+          <strong>${escapeHtml(test.personName || "Onbekend")}</strong>
+          <p>${escapeHtml(test.rank || "-")} - ${escapeHtml(test.serviceNumber || "-")}</p>
+        </div>
+        <span class="mentor-test-status ${mentorTestStatusClass(test.status)}">${escapeHtml(mentorTestStatusLabel(test.status))}</span>
+      </div>
+      <div class="mentor-test-meta">
+        <span>Verstuurd: ${escapeHtml(formatDateTime(test.sentAt))}</span>
+        ${test.submittedAt ? `<span>Ingediend: ${escapeHtml(formatDateTime(test.submittedAt))}</span>` : ""}
+        ${test.reviewedAt ? `<span>Beoordeeld: ${escapeHtml(formatDateTime(test.reviewedAt))}</span>` : ""}
+      </div>
+      ${test.answers && Object.keys(test.answers).length
+        ? `
+          <div class="mentor-test-answers">
+            ${questions
+              .map((question) => `
+                <div class="mentor-test-answer">
+                  <strong>${escapeHtml(question.label)}</strong>
+                  <p>${escapeHtml(formatMentorTestAnswer(question, test.answers))}</p>
+                </div>
+              `)
+              .join("")}
+          </div>
+        `
+        : '<p class="muted">Nog niet ingediend.</p>'}
+      ${reviewActions || deleteAction
+        ? `
+          <div class="mentor-test-actions">
+            ${reviewActions}
+            ${deleteAction}
+          </div>
+        `
+        : ""}
+    </div>
+  `;
+}
+
+function openMentorTestDetailDialog(testId) {
+  const test = mentorTestById(testId);
+  const dialog = $("#mentorTestDetailDialog");
+  const body = $("#mentorTestDetailBody");
+  if (!test || !dialog || !body) return;
+  $("#mentorTestDetailTitle").textContent = `${test.personName || "Onbekend"} - ${mentorTestStatusLabel(test.status)}`;
+  body.innerHTML = renderMentorTestDetail(test);
+  dialog.showModal();
+}
+
 function renderMentorTestsOverview() {
   const container = $("#mentorTestsList");
   if (!container) return;
@@ -551,62 +625,26 @@ function renderMentorTestsOverview() {
   }
 
   const tests = mentorTestsReviewCache.tests || [];
-  const defaultQuestions = mentorTestsReviewCache.questions || [];
   container.innerHTML = tests.length
     ? `
-      <div class="mentor-test-cards">
+      <div class="mentor-test-list">
+        <div class="mentor-test-row mentor-test-row-head">
+          <span>Naam</span>
+          <span>Rang</span>
+          <span>Dienstnummer</span>
+          <span>Ingediend</span>
+          <span>Status</span>
+        </div>
         ${tests
-          .map((test) => {
-            const questions = Array.isArray(test.questions) && test.questions.length ? test.questions : defaultQuestions;
-            const canDeleteTest = test.status !== "approved";
-            const reviewActions = test.status === "submitted"
-              ? `
-                <button class="primary small" type="button" data-review-mentor-test="${escapeHtml(test.id)}" data-review-status="approved">Goedkeuren</button>
-                <button class="danger small" type="button" data-review-mentor-test="${escapeHtml(test.id)}" data-review-status="rejected">Afkeuren</button>
-              `
-              : "";
-            const deleteAction = canDeleteTest
-              ? `<button class="ghost small danger" type="button" data-delete-mentor-test="${escapeHtml(test.id)}">Verwijderen</button>`
-              : "";
-            return `
-              <article class="mentor-test-card">
-                <div class="mentor-test-card-header">
-                  <div>
-                    <strong>${escapeHtml(test.personName || "Onbekend")}</strong>
-                    <p>${escapeHtml(test.rank || "-")} - ${escapeHtml(test.serviceNumber || "-")}</p>
-                  </div>
-                  <span class="mentor-test-status ${test.status === "approved" ? "is-approved" : test.status === "submitted" || test.status === "sent" ? "is-sent" : ""}">${escapeHtml(mentorTestStatusLabel(test.status))}</span>
-                </div>
-                <div class="mentor-test-meta">
-                  <span>Verstuurd: ${escapeHtml(formatDateTime(test.sentAt))}</span>
-                  ${test.submittedAt ? `<span>Ingediend: ${escapeHtml(formatDateTime(test.submittedAt))}</span>` : ""}
-                  ${test.reviewedAt ? `<span>Beoordeeld: ${escapeHtml(formatDateTime(test.reviewedAt))}</span>` : ""}
-                </div>
-                ${test.answers && Object.keys(test.answers).length
-                  ? `
-                    <div class="mentor-test-answers">
-                      ${questions
-                        .map((question) => `
-                          <div class="mentor-test-answer">
-                            <strong>${escapeHtml(question.label)}</strong>
-                            <p>${escapeHtml(formatMentorTestAnswer(question, test.answers))}</p>
-                          </div>
-                        `)
-                        .join("")}
-                    </div>
-                  `
-                  : '<p class="muted">Nog niet ingediend.</p>'}
-                ${reviewActions || deleteAction
-                  ? `
-                    <div class="mentor-test-actions">
-                      ${reviewActions}
-                      ${deleteAction}
-                    </div>
-                  `
-                  : ""}
-              </article>
-            `;
-          })
+          .map((test) => `
+            <button class="mentor-test-row mentor-test-row-button" type="button" data-open-mentor-test-detail="${escapeHtml(test.id)}">
+              <strong>${escapeHtml(test.personName || "Onbekend")}</strong>
+              <span>${escapeHtml(test.rank || "-")}</span>
+              <span>${escapeHtml(test.serviceNumber || "-")}</span>
+              <span>${escapeHtml(test.submittedAt ? formatDateTime(test.submittedAt) : "-")}</span>
+              <span class="mentor-test-status ${mentorTestStatusClass(test.status)}">${escapeHtml(mentorTestStatusLabel(test.status))}</span>
+            </button>
+          `)
           .join("")}
       </div>
     `
@@ -619,15 +657,16 @@ async function reviewMentorTest(testId, status) {
     approved ? "Mentor-toets goedkeuren en mentor-traject afronden?" : "Mentor-toets afkeuren en nieuwe poging nodig maken?",
     approved ? "Mentor-Toets goedkeuren" : "Mentor-Toets afkeuren"
   );
-  if (!confirmed) return;
+  if (!confirmed) return false;
   const ok = await runAction(`/api/mentor-tests/${encodeURIComponent(testId)}/review`, { status });
-  if (!ok) return;
+  if (!ok) return false;
   mentorTestsReviewCache = null;
   mentorSelfTestCache = null;
   renderMentorOverview();
   renderMentorTrajectory();
   renderMentorTestPage();
   renderMentorTestsOverview();
+  return true;
 }
 
 async function deleteMentorTest(testId) {
@@ -637,15 +676,16 @@ async function deleteMentorTest(testId) {
     `Mentor-toets van ${name} verwijderen? Daarna moet de toets opnieuw worden klaargezet.`,
     "Mentor-Toets verwijderen"
   );
-  if (!confirmed) return;
+  if (!confirmed) return false;
   const ok = await runAction(`/api/mentor-tests/${encodeURIComponent(testId)}/delete`);
-  if (!ok) return;
+  if (!ok) return false;
   mentorTestsReviewCache = null;
   mentorSelfTestCache = null;
   renderMentorOverview();
   renderMentorTrajectory();
   renderMentorTestPage();
   renderMentorTestsOverview();
+  return true;
 }
 
 async function sendMentorTest(personId) {

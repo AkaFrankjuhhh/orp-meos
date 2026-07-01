@@ -4477,7 +4477,54 @@ html[data-typography="system"] body[data-device="mobile"] .profile-person-name {
 
 .mentor-test-form,
 .mentor-test-cards,
-.mentor-test-answers {
+.mentor-test-answers,
+.mentor-test-list {
+  display: grid;
+  gap: 14px;
+}
+
+.mentor-test-list {
+  gap: 8px;
+}
+
+.mentor-test-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 1fr) minmax(110px, 0.5fr) minmax(150px, 0.7fr) minmax(120px, 0.5fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.38);
+  color: var(--text);
+  text-align: left;
+}
+
+.mentor-test-row-button {
+  cursor: pointer;
+}
+
+.mentor-test-row-button:hover {
+  border-color: rgba(255, 138, 0, 0.7);
+  background: rgba(255, 138, 0, 0.08);
+}
+
+.mentor-test-row-head {
+  padding: 8px 14px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mentor-test-detail-dialog {
+  width: min(1080px, calc(100vw - 32px));
+}
+
+.mentor-test-detail {
   display: grid;
   gap: 14px;
 }

@@ -91,3 +91,54 @@ test("side task shell serves DNR and KLu alias assets with a fresh version", () 
   assert.match(html, /side-tasks\.css\?v=20260630-dnr-klu-alias/);
   assert.match(html, /side-tasks\.js\?v=20260630-dnr-klu-alias/);
 });
+
+test("mentor tests render compact rows with a detail dialog", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
+  assert.match(html, /mentorTestDetailDialog/);
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260630-mentor-test-dialog/);
+  assert.match(mentorCode, /data-open-mentor-test-detail/);
+  assert.match(mentorCode, /function openMentorTestDetailDialog/);
+});
+
+test("Discord private messages are queued and sent as embeds", () => {
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  assert.match(routesCode, /function buildDiscordDmEmbed\(/);
+  assert.match(routesCode, /embeds: buildDiscordDmEmbed\(content, reason\)/);
+  assert.match(workerCode, /embeds: job\.payload\?\.embeds \|\| \[\]/);
+  assert.match(botCode, /async function sendDirectMessage\(discordId, content, options = \{\}\)/);
+  assert.match(botCode, /body\.embeds = embeds/);
+});
+
+test("mentor checklist completion notifies the mentor test channel once", () => {
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  assert.match(serverCode, /ready: "Toets kan klaargezet worden"/);
+  assert.match(routesCode, /shouldNotifyMentorTestReady = allItemsCompleted && !testSent && !existing\.testReadyNotifiedAt/);
+  assert.match(routesCode, /testReadyNotifiedAt: allItemsCompleted/);
+  assert.match(routesCode, /sendMentorTestWebhook\("ready", \{ person, actor \}\)/);
+});
+
+test("Discord bot can claim IZ cases from a thread", () => {
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  assert.match(workerCode, /name: "claimizleiding"/);
+  assert.match(workerCode, /IZ_LEIDING_CHANNEL_ID/);
+  assert.match(workerCode, /IZ_LEIDING_ROLE_ID/);
+  assert.match(workerCode, /interactionHasRole\(interaction, IZ_LEIDING_ROLE_ID\)/);
+  assert.match(workerCode, /downloadMessageAttachments/);
+  assert.match(workerCode, /createMessageWithFiles/);
+  assert.match(workerCode, /deleteChannel\(threadId, "IZ zaak overgenomen"\)/);
+  assert.match(botCode, /async function createMessageWithFiles/);
+  assert.match(botCode, /formData\.append\("payload_json"/);
+});
+
+test("Porto login accepts linked current profiles during absence", () => {
+  const portoCode = fs.readFileSync(path.join(process.cwd(), "porto-server.js"), "utf8");
+  assert.match(portoCode, /isPersonLoginEligible/);
+  assert.match(portoCode, /canUsePortalLogin/);
+  assert.doesNotMatch(portoCode, /person\.status === "Actief"/);
+  assert.match(portoCode, /normalizeDiscordId\(person\.discordId\) === loginDiscordId && isPersonLoginEligible\(person\)/);
+});
