@@ -6,6 +6,7 @@ const { readPostgresState } = require("../modules/postgres-state");
 const { createDiscordBotServices } = require("../modules/discord-bot");
 const { currentOrganization } = require("../modules/organizations");
 const { nonRegularPortoDiscordChannel } = require("../modules/porto-discord-channels");
+const { isCurrentPerson } = require("../modules/person-status");
 const {
   buildDiscordLeaveLogPayload,
   collectDefensieLeaveLogRoleIds,
@@ -431,11 +432,11 @@ async function reconcilePortoVoiceChannelsFromGatewaySnapshot() {
       const updateResult = await client.query(`
         update porto_units
         set
-          raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelKey', $2),
+          raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelKey', $2::text),
           updated_at = now()
         where active = true
           and vehicle_number = $1
-          and coalesce(raw->>'discordChannelKey', '') <> $2
+          and coalesce(raw->>'discordChannelKey', '') <> $2::text
       `, [vehicleNumber, targetKey]);
       changed += updateResult.rowCount || 0;
     }
@@ -471,7 +472,7 @@ async function updatePortoChannelStatusFromDiscord(channelId, status) {
     await client.query(`
       update porto_units
       set
-        raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelStatus', $2),
+        raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelStatus', $2::text),
         updated_at = now()
       where active = true
         and raw->>'discordChannelKey' = $1
@@ -504,7 +505,7 @@ async function updatePortoVoiceChannelFromDiscord(discordId, channelId) {
     await client.query(`
       update porto_units
       set
-        raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelKey', $2),
+        raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordChannelKey', $2::text),
         updated_at = now()
       where active = true
         and vehicle_number = $1
@@ -677,7 +678,7 @@ async function syncByJob(job) {
     if (!unit) return syncPerson(person, `Discord bot job ${job.id}: Porto dienst beeindigd`);
     return bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, unit), `Discord bot job ${job.id}: Porto roepnummer`);
   }
-  if (!person || person.status !== "Actief") return { skipped: true, reason: "Geen actief portaalprofiel gevonden" };
+  if (!person || !isCurrentPerson(person)) return { skipped: true, reason: "Geen actueel portaalprofiel gevonden" };
   return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
 }
 

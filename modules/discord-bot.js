@@ -687,7 +687,9 @@ function createDiscordBotServices(options = {}) {
     if (dsiProtection) {
       return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
     }
-    return setNickname(memberId, buildServiceNickname(person), auditReason);
+    const desiredNickname = buildServiceNickname(person);
+    const result = await setNickname(memberId, desiredNickname, auditReason);
+    return { ...result, nickname: desiredNickname };
   }
 
   async function syncNicknameForPersonIfNeeded(person, auditReason = `${portalAuditLabel} periodieke nickname controle`) {
@@ -704,7 +706,8 @@ function createDiscordBotServices(options = {}) {
       return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
     }
     if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
-    return setNickname(memberId, desiredNickname, auditReason);
+    const result = await setNickname(memberId, desiredNickname, auditReason);
+    return { ...result, nickname: desiredNickname };
   }
 
   async function syncPortoNicknameForPersonIfNeeded(person, unit, auditReason = "Porto roepnummer nickname gesynchroniseerd") {
@@ -721,7 +724,8 @@ function createDiscordBotServices(options = {}) {
       return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
     }
     if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
-    return setNickname(memberId, desiredNickname, auditReason);
+    const result = await setNickname(memberId, desiredNickname, auditReason);
+    return { ...result, nickname: desiredNickname };
   }
 
   async function moveMemberToVoice(discordId, channelKeyOrId, auditReason = "Porto voicekanaal aangepast") {

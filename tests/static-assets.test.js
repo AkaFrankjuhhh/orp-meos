@@ -145,6 +145,19 @@ test("Discord worker writes sync status back to portal profiles", () => {
   assert.match(routesCode, /Wacht op Discord rollen of eerstvolgende worker-run/);
 });
 
+test("Discord worker casts Porto JSONB update parameters", () => {
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  assert.match(workerCode, /jsonb_build_object\('discordChannelKey', \$2::text\)/);
+  assert.match(workerCode, /jsonb_build_object\('discordChannelStatus', \$2::text\)/);
+  assert.match(workerCode, /coalesce\(raw->>'discordChannelKey', ''\) <> \$2::text/);
+});
+
+test("Discord nickname sync returns the desired nickname for logging", () => {
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  assert.match(botCode, /return \{ \.\.\.result, nickname: desiredNickname \}/);
+  assert.doesNotMatch(botCode, /return setNickname\(memberId, desiredNickname, auditReason\)/);
+});
+
 test("Porto login accepts linked current profiles during absence", () => {
   const portoCode = fs.readFileSync(path.join(process.cwd(), "porto-server.js"), "utf8");
   assert.match(portoCode, /isPersonLoginEligible/);
