@@ -132,6 +132,65 @@ function messageAuthorLabel(message = {}) {
   return memberName || user.global_name || user.username || user.id || "Onbekend";
 }
 
+function nonEmptyText(value) {
+  return String(value || "").trim();
+}
+
+function formatEmbedForTranscript(embed = {}, index = 0) {
+  const lines = [`[Embed ${index + 1}]`];
+  const authorName = nonEmptyText(embed.author?.name);
+  if (authorName) lines.push(`Auteur: ${authorName}`);
+  if (embed.title) lines.push(`Titel: ${embed.title}`);
+  if (embed.description) lines.push(`Beschrijving: ${embed.description}`);
+  if (embed.url) lines.push(`URL: ${embed.url}`);
+  for (const field of embed.fields || []) {
+    const name = nonEmptyText(field.name) || "-";
+    const value = nonEmptyText(field.value) || "-";
+    lines.push(`${name}: ${value}`);
+  }
+  const footerText = nonEmptyText(embed.footer?.text);
+  if (footerText) lines.push(`Footer: ${footerText}`);
+  if (embed.image?.url) lines.push(`Afbeelding: ${embed.image.url}`);
+  if (embed.thumbnail?.url) lines.push(`Thumbnail: ${embed.thumbnail.url}`);
+  return lines.join("\n");
+}
+
+function formatComponentsForTranscript(components = []) {
+  const lines = [];
+  function visit(component = {}) {
+    const label = nonEmptyText(component.label);
+    const value = nonEmptyText(component.value);
+    const customId = nonEmptyText(component.custom_id);
+    const placeholder = nonEmptyText(component.placeholder);
+    if (label || value || customId || placeholder) {
+      lines.push(`Component: ${[label, value, placeholder, customId].filter(Boolean).join(" | ")}`);
+    }
+    for (const child of component.components || []) visit(child);
+    for (const option of component.options || []) {
+      const optionLabel = nonEmptyText(option.label);
+      const optionValue = nonEmptyText(option.value);
+      if (optionLabel || optionValue) lines.push(`Optie: ${[optionLabel, optionValue].filter(Boolean).join(" | ")}`);
+    }
+  }
+  for (const component of components || []) visit(component);
+  return lines;
+}
+
+function transcriptMessageHasContent(message = {}) {
+  return Boolean(
+    nonEmptyText(message.content) ||
+    (message.attachments || []).some((attachment) => attachment.url || attachment.proxy_url) ||
+    (message.embeds || []).some((embed) => (
+      nonEmptyText(embed.title) ||
+      nonEmptyText(embed.description) ||
+      (embed.fields || []).some((field) => nonEmptyText(field.name) || nonEmptyText(field.value)) ||
+      embed.image?.url ||
+      embed.thumbnail?.url
+    )) ||
+    formatComponentsForTranscript(message.components || []).length
+  );
+}
+
 function formatTranscriptMessage(message = {}) {
   const createdAt = message.timestamp ? new Date(message.timestamp).toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam" }) : "-";
   const content = String(message.content || "").trim();
@@ -139,14 +198,16 @@ function formatTranscriptMessage(message = {}) {
     .map((attachment) => attachment.url || attachment.proxy_url)
     .filter(Boolean);
   const embeds = (message.embeds || [])
-    .map((embed, index) => embed.title || embed.description ? `[Embed ${index + 1}] ${[embed.title, embed.description].filter(Boolean).join(" - ")}` : `[Embed ${index + 1}]`)
+    .map(formatEmbedForTranscript)
     .filter(Boolean);
+  const components = formatComponentsForTranscript(message.components || []);
   return [
     `**${messageAuthorLabel(message)}** - ${createdAt}`,
-    content || "_Geen tekst_",
+    content || (transcriptMessageHasContent(message) ? "" : "_Geen tekst_"),
     ...attachments.map((url) => `Bijlage: ${url}`),
-    ...embeds
-  ].join("\n");
+    ...embeds,
+    ...components
+  ].filter(Boolean).join("\n");
 }
 
 async function downloadMessageAttachments(message = {}) {
@@ -196,12 +257,16 @@ async function fetchAllThreadMessages(threadId) {
 
 async function postTranscriptToThread(threadId, messages = []) {
   let buffer = "";
+  let posted = 0;
+  let meaningfulMessages = 0;
   for (const message of messages) {
     const block = formatTranscriptMessage(message);
+    if (transcriptMessageHasContent(message)) meaningfulMessages += 1;
     const hasAttachments = Array.isArray(message.attachments) && message.attachments.length > 0;
     if (hasAttachments) {
       if (buffer) {
         await bot.createMessage(threadId, { content: buffer, allowed_mentions: { parse: [] } }, "IZ zaak transcript");
+        posted += 1;
         buffer = "";
       }
       const { files, failedUrls } = await downloadMessageAttachments(message);
@@ -213,16 +278,22 @@ async function postTranscriptToThread(threadId, messages = []) {
       } else {
         await bot.createMessage(threadId, { content: truncateDiscordContent(content), allowed_mentions: { parse: [] } }, "IZ zaak transcript bijlagen");
       }
+      posted += 1;
       continue;
     }
     if ((buffer + "\n\n" + block).length > 1800) {
       if (buffer) await bot.createMessage(threadId, { content: buffer, allowed_mentions: { parse: [] } }, "IZ zaak transcript");
+      if (buffer) posted += 1;
       buffer = block;
     } else {
       buffer = buffer ? `${buffer}\n\n${block}` : block;
     }
   }
-  if (buffer) await bot.createMessage(threadId, { content: buffer, allowed_mentions: { parse: [] } }, "IZ zaak transcript");
+  if (buffer) {
+    await bot.createMessage(threadId, { content: buffer, allowed_mentions: { parse: [] } }, "IZ zaak transcript");
+    posted += 1;
+  }
+  return { posted, meaningfulMessages };
 }
 
 async function registerClaimIzCommand() {
@@ -280,7 +351,15 @@ async function handleClaimIzLeadership(interaction) {
   if (!newThreadId) throw new Error("Kon geen nieuwe IZ-Leiding thread aanmaken.");
   const threadMessages = await fetchAllThreadMessages(threadId);
   const allMessages = starterMessage ? [starterMessage, ...threadMessages.filter((message) => message.id !== starterMessage.id)] : threadMessages;
-  await postTranscriptToThread(newThreadId, allMessages);
+  const transcriptResult = await postTranscriptToThread(newThreadId, allMessages);
+  if (!transcriptResult.meaningfulMessages) {
+    await bot.createMessage(newThreadId, {
+      content: "Waarschuwing: er is geen inhoud uit de originele thread gekopieerd. Originele thread is daarom niet verwijderd.",
+      allowed_mentions: { parse: [] }
+    }, "IZ zaak overname waarschuwing");
+    await editInteractionResponse(interaction, `${claimText}. Nieuwe thread: <#${newThreadId}>. Originele thread is niet verwijderd omdat er geen inhoud kon worden gekopieerd.`);
+    return;
+  }
   await bot.createMessage(newThreadId, {
     content: `Zaak volledig overgenomen door IZ-Leiding. Originele thread wordt verwijderd.`,
     allowed_mentions: { parse: [] }

@@ -128,8 +128,13 @@ test("Discord bot can claim IZ cases from a thread", () => {
   assert.match(workerCode, /IZ_LEIDING_CHANNEL_ID/);
   assert.match(workerCode, /IZ_LEIDING_ROLE_ID/);
   assert.match(workerCode, /interactionHasRole\(interaction, IZ_LEIDING_ROLE_ID\)/);
+  assert.match(workerCode, /function formatEmbedForTranscript/);
+  assert.match(workerCode, /for \(const field of embed\.fields \|\| \[\]\)/);
+  assert.match(workerCode, /function formatComponentsForTranscript/);
+  assert.match(workerCode, /transcriptMessageHasContent/);
   assert.match(workerCode, /downloadMessageAttachments/);
   assert.match(workerCode, /createMessageWithFiles/);
+  assert.match(workerCode, /Originele thread is daarom niet verwijderd/);
   assert.match(workerCode, /deleteChannel\(threadId, "IZ zaak overgenomen"\)/);
   assert.match(botCode, /async function createMessageWithFiles/);
   assert.match(botCode, /formData\.append\("payload_json"/);
