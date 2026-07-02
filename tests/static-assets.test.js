@@ -132,6 +132,10 @@ test("Discord bot can claim IZ cases from a thread", () => {
   assert.match(workerCode, /for \(const field of embed\.fields \|\| \[\]\)/);
   assert.match(workerCode, /function formatComponentsForTranscript/);
   assert.match(workerCode, /transcriptMessageHasContent/);
+  assert.match(workerCode, /function buildClaimSummaryEmbed/);
+  assert.match(workerCode, /originalMessageSummaryDescription/);
+  assert.match(workerCode, /Originele auteur/);
+  assert.match(workerCode, /Origineel bericht/);
   assert.match(workerCode, /downloadMessageAttachments/);
   assert.match(workerCode, /createMessageWithFiles/);
   assert.match(workerCode, /Originele thread is daarom niet verwijderd/);

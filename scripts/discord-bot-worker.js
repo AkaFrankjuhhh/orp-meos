@@ -191,6 +191,52 @@ function transcriptMessageHasContent(message = {}) {
   );
 }
 
+function originalMessageSummaryDescription(message = {}, thread = {}) {
+  const parts = [];
+  const content = nonEmptyText(message.content);
+  if (content) parts.push(content);
+  for (const embed of message.embeds || []) {
+    const formatted = formatEmbedForTranscript(embed);
+    if (formatted) parts.push(formatted);
+  }
+  for (const component of formatComponentsForTranscript(message.components || [])) {
+    parts.push(component);
+  }
+  for (const attachment of message.attachments || []) {
+    const url = attachment.url || attachment.proxy_url;
+    if (url) parts.push(`Bijlage: ${url}`);
+  }
+  if (!parts.length) parts.push(`Originele thread: ${thread.name || message.id || "onbekend"}`);
+  return truncateDiscordContent(parts.join("\n\n"), 3800);
+}
+
+function originalMessageSummaryFields(message = {}, thread = {}, interaction = {}) {
+  const fields = [
+    { name: "Originele thread", value: thread.name || String(thread.id || message.channel_id || "onbekend"), inline: false },
+    { name: "Originele auteur", value: message.author?.id ? `<@${message.author.id}>` : messageAuthorLabel(message), inline: true },
+    { name: "Overgenomen door", value: `<@${interaction.member?.user?.id || interaction.user?.id || "onbekend"}>`, inline: true }
+  ];
+  const messageUrl = message.guild_id && message.channel_id && message.id
+    ? `https://discord.com/channels/${message.guild_id}/${message.channel_id}/${message.id}`
+    : "";
+  if (messageUrl) fields.push({ name: "Origineel bericht", value: messageUrl, inline: false });
+  return fields;
+}
+
+function buildClaimSummaryEmbed(claimText, starterMessage = {}, thread = {}, interaction = {}) {
+  const starterEmbed = (starterMessage.embeds || [])[0] || {};
+  return {
+    title: claimText,
+    description: originalMessageSummaryDescription(starterMessage, thread),
+    color: starterEmbed.color || 0x22c55e,
+    fields: originalMessageSummaryFields(starterMessage, thread, interaction),
+    thumbnail: starterEmbed.thumbnail?.url ? { url: starterEmbed.thumbnail.url } : undefined,
+    image: starterEmbed.image?.url ? { url: starterEmbed.image.url } : undefined,
+    footer: starterEmbed.footer?.text ? { text: starterEmbed.footer.text } : undefined,
+    timestamp: new Date().toISOString()
+  };
+}
+
 function formatTranscriptMessage(message = {}) {
   const createdAt = message.timestamp ? new Date(message.timestamp).toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam" }) : "-";
   const content = String(message.content || "").trim();
@@ -332,16 +378,7 @@ async function handleClaimIzLeadership(interaction) {
   const claimText = `${caseNumber} is overgenomen door IZ-Leiding`;
   const summary = await bot.createMessage(IZ_LEIDING_CHANNEL_ID, {
     content: claimText,
-    embeds: [{
-      title: claimText,
-      description: starterMessage?.content ? truncateDiscordContent(starterMessage.content, 3500) : `Originele thread: ${thread.name || threadId}`,
-      color: 0x22c55e,
-      fields: [
-        { name: "Originele thread", value: thread.name || threadId, inline: false },
-        { name: "Overgenomen door", value: `<@${interaction.member?.user?.id || interaction.user?.id || "onbekend"}>`, inline: true }
-      ],
-      timestamp: new Date().toISOString()
-    }],
+    embeds: [buildClaimSummaryEmbed(claimText, starterMessage || {}, thread, interaction)],
     allowed_mentions: { parse: [] }
   }, "IZ zaak overgenomen");
   const summaryMessageId = summary?.data?.id;
