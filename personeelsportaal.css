@@ -2426,8 +2426,7 @@ dialog {
   gap: 10px;
 }
 
-.nav-item::before {
-  content: attr(data-nav-icon);
+.nav-icon {
   width: 22px;
   height: 22px;
   border-radius: 7px;
@@ -2437,9 +2436,16 @@ dialog {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  font-size: 10px;
-  font-weight: 900;
-  line-height: 1;
+}
+
+.nav-icon-svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .nav-item.active {
@@ -2447,8 +2453,8 @@ dialog {
   background: var(--accent-soft);
 }
 
-.nav-item.active::before,
-.nav-item:hover::before {
+.nav-item.active .nav-icon,
+.nav-item:hover .nav-icon {
   border-color: rgba(245, 158, 11, 0.82);
   background: var(--accent);
   color: #07111f;
@@ -2962,15 +2968,8 @@ summary {
 [data-theme="light"] #personeel .sticky-toolbar {
   background: transparent;
 }
-html:not([data-ui-mode="calm"]) .nav-item::before,
-html:not([data-ui-mode="calm"]) .nav-item.active::before,
-html:not([data-ui-mode="calm"]) .nav-item:hover::before {
-  content: none;
+html:not([data-ui-mode="calm"]) .nav-icon {
   display: none;
-}
-
-html:not([data-ui-mode="calm"]) .nav-item {
-  gap: 0;
 }
 [hidden] {
   display: none !important;
