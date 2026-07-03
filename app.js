@@ -1163,7 +1163,7 @@ function renderDashboard() {
           <span class="rank-count">${item.count}</span>
         </div>`;
       })
-      .join("") + (sortedRankCounts.length > 8 ? '<button class="rank-more-link" type="button">Bekijk alle rangen</button>' : "");
+      .join("");
   }
 
   function normalizeServiceNumberForRange(value) {

@@ -5315,7 +5315,8 @@ html[data-ui-mode="calm"] .rank-pie::after {
 }
 
 html[data-ui-mode="calm"] .rank-legend {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(360px, 1fr));
+  column-gap: 24px;
   gap: 11px;
 }
 
@@ -5327,10 +5328,6 @@ html[data-ui-mode="calm"] .rank-legend-item {
   display: grid;
   grid-template-columns: 14px minmax(180px, 260px) minmax(160px, 1fr) 42px;
   gap: 12px;
-}
-
-html[data-ui-mode="calm"] .rank-legend-item:nth-of-type(n+9) {
-  display: none;
 }
 
 html[data-ui-mode="calm"] .rank-swatch {
@@ -5368,16 +5365,6 @@ html[data-ui-mode="calm"] .rank-count {
 html[data-ui-mode="calm"] .nav-counter {
   background: rgba(66, 133, 204, 0.2);
   color: #bcd7ff;
-}
-
-html[data-ui-mode="calm"] .rank-more-link {
-  justify-self: start;
-  margin-top: 10px;
-  border: 0;
-  background: transparent;
-  color: #8fb9ff;
-  font-weight: 800;
-  padding: 0;
 }
 
 html[data-ui-mode="calm"] .range-row,
@@ -5428,5 +5415,11 @@ html[data-ui-mode="calm"] textarea {
   html[data-ui-mode="calm"] .dashboard-grid {
     grid-template-columns: minmax(560px, 0.86fr) minmax(620px, 1.14fr);
     column-gap: 24px;
+  }
+}
+
+@media (max-width: 1320px) {
+  html[data-ui-mode="calm"] .rank-legend {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
