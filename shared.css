@@ -332,6 +332,147 @@ h2 {
   display: block;
 }
 
+.ui-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 5px 6px 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.ui-mode-switch > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ui-mode-options {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.ui-mode-options button {
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ui-mode-options button:hover,
+.ui-mode-options button.is-active {
+  border-color: rgba(225, 112, 0, 0.36);
+  background: rgba(225, 112, 0, 0.14);
+  color: var(--text);
+}
+
+html[data-ui-mode="calm"] {
+  --bg: #0a1220;
+  --surface: #151f31;
+  --surface-2: #10192a;
+  --text: #edf4ff;
+  --muted: #9eb0c9;
+  --line: rgba(146, 166, 198, 0.16);
+  --green: #d77918;
+  --green-strong: #f09021;
+  --orange: #f09021;
+  --danger: #e05252;
+  --shadow: 0 18px 52px rgba(0, 0, 0, 0.18);
+}
+
+html[data-ui-mode="calm"] body {
+  background:
+    linear-gradient(180deg, rgba(10, 18, 32, 0.98), rgba(9, 16, 29, 1)),
+    var(--bg);
+}
+
+html[data-ui-mode="calm"] .sidebar {
+  width: 248px;
+  padding: 20px 14px;
+  background: #0d2f52;
+  border-right-color: rgba(146, 166, 198, 0.14);
+  gap: 18px;
+}
+
+html[data-ui-mode="calm"] .shell {
+  margin-left: 248px;
+  padding: 28px 34px 44px;
+}
+
+html[data-ui-mode="calm"] .topbar {
+  min-height: 64px;
+  margin-bottom: 22px;
+}
+
+html[data-ui-mode="calm"] h1 {
+  font-size: clamp(28px, 3.2vw, 38px);
+}
+
+html[data-ui-mode="calm"] .nav-list {
+  gap: 4px;
+  padding-right: 2px;
+}
+
+html[data-ui-mode="calm"] .nav-item {
+  min-height: 40px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  color: rgba(247, 251, 255, 0.86);
+}
+
+html[data-ui-mode="calm"] .nav-item:hover,
+html[data-ui-mode="calm"] .nav-item.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-ui-mode="calm"] .nav-item.active {
+  box-shadow: inset 3px 0 0 var(--orange);
+}
+
+html[data-ui-mode="calm"] .nav-divider {
+  margin: 8px 4px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+html[data-ui-mode="calm"] .nav-section {
+  padding-left: 12px;
+  color: rgba(247, 251, 255, 0.52);
+  font-size: 11px;
+}
+
+html[data-ui-mode="calm"] .profile-chip,
+html[data-ui-mode="calm"] .ui-mode-switch {
+  background: rgba(21, 31, 49, 0.86);
+  border-color: rgba(146, 166, 198, 0.16);
+  box-shadow: none;
+}
+
+html[data-ui-mode="calm"] .profile-chip {
+  padding: 8px 10px;
+  border-radius: 999px;
+}
+
+html[data-ui-mode="calm"] .profile-chip img,
+html[data-ui-mode="calm"] .avatar {
+  width: 38px;
+  height: 38px;
+}
+
+html[data-ui-mode="calm"] .auth-notice,
+html[data-ui-mode="calm"] .site-notice-card {
+  border-color: rgba(146, 166, 198, 0.16);
+}
+
 
 /* Shared notification pop-ups. */
 /* Website notification pop-ups */

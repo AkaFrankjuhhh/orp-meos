@@ -464,6 +464,7 @@ function renderDashboard() {
 function renderApp() {
   const page = location.hash === "#ledenbeheer" ? "ledenbeheer" : "dashboard";
   app.innerHTML = `${page === "ledenbeheer" ? memberAdminPage() : renderDashboard()}${dsiContextMenu()}${memberEditModal()}`;
+  window.DefensiePortalUI?.ensureUiModeToggle?.(".user-menu");
 }
 
 async function refresh() {

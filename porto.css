@@ -2363,6 +2363,78 @@ body.porto-duty-workspace .porto-status-grid {
   }
 }
 
+html[data-ui-mode="calm"] body.porto-blank {
+  background:
+    linear-gradient(180deg, rgba(10, 18, 32, 0.96), rgba(9, 16, 29, 0.98)),
+    var(--bg);
+}
+
+html[data-ui-mode="calm"] .porto-topbar {
+  height: 68px;
+  min-height: 68px;
+  padding: 12px 24px;
+  gap: 10px;
+}
+
+html[data-ui-mode="calm"] .porto-empty {
+  height: calc(100dvh - 68px);
+}
+
+html[data-ui-mode="calm"] .porto-status-intro,
+html[data-ui-mode="calm"] .porto-duty-card,
+html[data-ui-mode="calm"] .porto-pending-card,
+html[data-ui-mode="calm"] .porto-phonebook-form,
+html[data-ui-mode="calm"] .porto-profile-dialog .dialog-form {
+  background: rgba(21, 31, 49, 0.84);
+  border-color: rgba(146, 166, 198, 0.14);
+  box-shadow: none;
+}
+
+html[data-ui-mode="calm"] .porto-status-intro h1 {
+  font-size: clamp(30px, 4vw, 46px);
+}
+
+html[data-ui-mode="calm"] .porto-status-zero-card,
+html[data-ui-mode="calm"] .porto-duty-assignment,
+html[data-ui-mode="calm"] .porto-unit-member-bar,
+html[data-ui-mode="calm"] .porto-ops-request,
+html[data-ui-mode="calm"] .porto-ops-unit,
+html[data-ui-mode="calm"] .porto-phonebook-row {
+  background: rgba(16, 25, 42, 0.66);
+  border-color: rgba(146, 166, 198, 0.13);
+}
+
+html[data-ui-mode="calm"] .porto-status-grid {
+  gap: 10px;
+}
+
+html[data-ui-mode="calm"] .porto-status-tile,
+html[data-ui-mode="calm"] .porto-status-button,
+html[data-ui-mode="calm"] .porto-ops-action {
+  box-shadow: none;
+}
+
+html[data-ui-mode="calm"] .porto-status-tile {
+  border-color: rgba(146, 166, 198, 0.16);
+}
+
+html[data-ui-mode="calm"] .porto-callsign-card,
+html[data-ui-mode="calm"] .porto-vehicle-choice,
+html[data-ui-mode="calm"] .porto-number-table > div,
+html[data-ui-mode="calm"] .porto-profile-head {
+  background: rgba(16, 25, 42, 0.7);
+  border-color: rgba(146, 166, 198, 0.14);
+}
+
+html[data-ui-mode="calm"] .porto-wall-brand {
+  opacity: 0.08;
+}
+
+html[data-ui-mode="calm"] .porto-modern-status-light,
+html[data-ui-mode="calm"] .porto-ops-summary-dot {
+  box-shadow: none;
+}
+
 @media (max-width: 680px) {
   body.porto-duty-workspace .porto-duty-assignment,
   body.porto-duty-workspace .porto-unit-member-bar,

@@ -2495,6 +2495,7 @@ function wireEvents() {
 
 async function init() {
   applyOrganizationBranding();
+  window.DefensiePortalUI?.ensureUiModeToggle?.(".topbar-actions");
   registerPersoneelsportaalTab();
   updateDeviceMode();
   showLockError();

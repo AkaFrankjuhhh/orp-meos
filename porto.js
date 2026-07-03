@@ -705,6 +705,7 @@ $("#portoStatus4Choices").addEventListener("click", (event) => {
 });
 
 applyPortoBranding();
+window.DefensiePortalUI?.ensureUiModeToggle?.(".porto-topbar");
 showPortoLockError();
 renderStatusButtons();
 renderVehicleRanges();

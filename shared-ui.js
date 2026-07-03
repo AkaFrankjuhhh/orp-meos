@@ -1,6 +1,9 @@
 ﻿(function () {
   const query = (selector, root = document) => root.querySelector(selector);
   const queryAll = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const uiModeStorageKey = "orp-ui-mode";
+  const uiModeCookieName = "orp_ui_mode";
+  const uiModes = new Set(["classic", "calm"]);
 
   // Gedeelde HTML escape voor alle frontendtemplates.
   function escapeHtml(value) {
@@ -158,6 +161,76 @@
     textareas.forEach(resizeAutoGrowingTextarea);
   }
 
+  function readCookie(name) {
+    const prefix = `${name}=`;
+    const cookie = document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(prefix));
+    return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : "";
+  }
+
+  function storedUiMode() {
+    try {
+      const localMode = localStorage.getItem(uiModeStorageKey);
+      if (uiModes.has(localMode)) return localMode;
+    } catch {
+      // LocalStorage kan in private/strikte browsermodi falen; cookie blijft dan de fallback.
+    }
+    const cookieMode = readCookie(uiModeCookieName);
+    return uiModes.has(cookieMode) ? cookieMode : "classic";
+  }
+
+  function applyUiMode(mode) {
+    const nextMode = uiModes.has(mode) ? mode : "classic";
+    document.documentElement.dataset.uiMode = nextMode;
+    document.documentElement.classList.toggle("ui-calm", nextMode === "calm");
+    document.documentElement.classList.toggle("ui-classic", nextMode === "classic");
+    try {
+      localStorage.setItem(uiModeStorageKey, nextMode);
+    } catch {
+      // Cookie hieronder is genoeg voor dezelfde origin als localStorage niet beschikbaar is.
+    }
+    document.cookie = `${uiModeCookieName}=${encodeURIComponent(nextMode)}; path=/; max-age=31536000; SameSite=Lax`;
+    queryAll("[data-ui-mode-choice]").forEach((button) => {
+      const active = button.dataset.uiModeChoice === nextMode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+    return nextMode;
+  }
+
+  function uiModeToggleHtml() {
+    return `
+      <section class="ui-mode-switch" data-ui-mode-switch-root aria-label="UI stijl kiezen">
+        <span>UI</span>
+        <div class="ui-mode-options">
+          <button type="button" data-ui-mode-choice="classic" aria-pressed="false">Klassiek</button>
+          <button type="button" data-ui-mode-choice="calm" aria-pressed="false">Rustig</button>
+        </div>
+      </section>`;
+  }
+
+  function ensureUiModeToggle(target) {
+    const host = typeof target === "string" ? query(target) : target;
+    if (!host) return null;
+    const existing = host.querySelector("[data-ui-mode-switch-root]");
+    if (existing) return existing;
+    const wrapper = document.createElement("div");
+    wrapper.dataset.uiModeSwitchRoot = "true";
+    wrapper.innerHTML = uiModeToggleHtml();
+    host.prepend(wrapper.firstElementChild);
+    host.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-ui-mode-choice]");
+      if (!button || !host.contains(button)) return;
+      applyUiMode(button.dataset.uiModeChoice);
+    });
+    applyUiMode(storedUiMode());
+    return host.querySelector("[data-ui-mode-switch-root]");
+  }
+
+  applyUiMode(storedUiMode());
+
   window.DefensiePortalUI = {
     query,
     queryAll,
@@ -166,6 +239,9 @@
     formatDateTime,
     createNoticeDialog,
     bindAutoGrowingTextareas,
-    resizeAutoGrowingTextareas
+    resizeAutoGrowingTextareas,
+    applyUiMode,
+    storedUiMode,
+    ensureUiModeToggle
   };
 }());

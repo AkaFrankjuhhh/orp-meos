@@ -41,6 +41,48 @@ button {
   cursor: pointer;
 }
 
+.ui-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 5px 6px 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(7, 17, 31, 0.72);
+  color: var(--text);
+}
+
+.ui-mode-switch > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ui-mode-options {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.ui-mode-options button {
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ui-mode-options button:hover,
+.ui-mode-options button.is-active {
+  border-color: rgba(255, 138, 0, 0.42);
+  background: rgba(255, 138, 0, 0.14);
+  color: var(--text);
+}
+
 .app-shell {
   width: min(1500px, calc(100vw - 32px));
   margin: 0 auto;
@@ -726,4 +768,78 @@ select:focus {
     height: 64px;
     flex-basis: 64px;
   }
+}
+
+html[data-ui-mode="calm"] {
+  --bg: #0a1220;
+  --panel: rgba(21, 31, 49, 0.84);
+  --panel-strong: rgba(16, 25, 42, 0.9);
+  --line: rgba(146, 166, 198, 0.16);
+  --line-bright: rgba(146, 166, 198, 0.24);
+  --text: #edf4ff;
+  --muted: #9eb0c9;
+  --orange: #f09021;
+}
+
+html[data-ui-mode="calm"] body {
+  background:
+    linear-gradient(180deg, rgba(10, 18, 32, 0.98), rgba(9, 16, 29, 1)),
+    var(--bg);
+}
+
+html[data-ui-mode="calm"] .app-shell {
+  width: min(1380px, calc(100vw - 40px));
+}
+
+html[data-ui-mode="calm"] .topbar,
+html[data-ui-mode="calm"] .panel,
+html[data-ui-mode="calm"] .login-card,
+html[data-ui-mode="calm"] .member-card,
+html[data-ui-mode="calm"] .summary-tile,
+html[data-ui-mode="calm"] .profile-popover-card,
+html[data-ui-mode="calm"] .modal-card {
+  border-color: rgba(146, 166, 198, 0.14);
+  background: rgba(21, 31, 49, 0.84);
+  box-shadow: none;
+}
+
+html[data-ui-mode="calm"] .topbar {
+  padding: 16px 18px;
+  border-radius: 10px;
+}
+
+html[data-ui-mode="calm"] .topbar h1 {
+  font-size: clamp(1.8rem, 3vw, 3rem);
+}
+
+html[data-ui-mode="calm"] .task-logo {
+  width: 64px;
+  height: 64px;
+  flex-basis: 64px;
+  filter: none;
+}
+
+html[data-ui-mode="calm"] .user-menu-row {
+  gap: 8px;
+}
+
+html[data-ui-mode="calm"] .user-chip,
+html[data-ui-mode="calm"] .ui-mode-switch,
+html[data-ui-mode="calm"] .primary-button,
+html[data-ui-mode="calm"] .secondary-button,
+html[data-ui-mode="calm"] .danger-button {
+  border-color: rgba(146, 166, 198, 0.16);
+  box-shadow: none;
+}
+
+html[data-ui-mode="calm"] .status-button,
+html[data-ui-mode="calm"] input,
+html[data-ui-mode="calm"] select {
+  background: rgba(16, 25, 42, 0.72);
+  border-color: rgba(146, 166, 198, 0.16);
+}
+
+html[data-ui-mode="calm"] .member-list,
+html[data-ui-mode="calm"] .dashboard-grid {
+  gap: 14px;
 }

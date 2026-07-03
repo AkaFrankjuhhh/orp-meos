@@ -5237,3 +5237,119 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
     margin-top: 8px;
   }
 }
+
+html[data-ui-mode="calm"] .dashboard-grid {
+  gap: 18px;
+  grid-template-columns: minmax(320px, 0.72fr) minmax(420px, 1.28fr);
+}
+
+html[data-ui-mode="calm"] .panel,
+html[data-ui-mode="calm"] .person-card,
+html[data-ui-mode="calm"] .rank-category-title,
+html[data-ui-mode="calm"] .mentor-test-row,
+html[data-ui-mode="calm"] .feed-item,
+html[data-ui-mode="calm"] .table-row {
+  background: rgba(21, 31, 49, 0.82);
+  border-color: rgba(146, 166, 198, 0.14);
+  box-shadow: none;
+}
+
+html[data-ui-mode="calm"] .panel {
+  padding: 22px;
+}
+
+html[data-ui-mode="calm"] .member-summary {
+  gap: 10px;
+}
+
+html[data-ui-mode="calm"] .member-summary div {
+  border-color: rgba(146, 166, 198, 0.12);
+  background: rgba(16, 25, 42, 0.72);
+}
+
+html[data-ui-mode="calm"] .member-summary strong {
+  font-size: 34px;
+}
+
+html[data-ui-mode="calm"] .rank-chart-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+html[data-ui-mode="calm"] .rank-pie {
+  width: 100%;
+  height: 14px;
+  aspect-ratio: auto;
+  border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+}
+
+html[data-ui-mode="calm"] .rank-pie::after {
+  display: none;
+}
+
+html[data-ui-mode="calm"] .rank-legend {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px;
+}
+
+html[data-ui-mode="calm"] .rank-legend-item {
+  min-height: 38px;
+  padding: 8px 10px;
+  border-color: rgba(146, 166, 198, 0.12);
+  background: rgba(16, 25, 42, 0.6);
+}
+
+html[data-ui-mode="calm"] .rank-swatch {
+  width: 26px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+html[data-ui-mode="calm"] .rank-count,
+html[data-ui-mode="calm"] .nav-counter {
+  background: rgba(66, 133, 204, 0.2);
+  color: #bcd7ff;
+}
+
+html[data-ui-mode="calm"] .range-row,
+html[data-ui-mode="calm"] .feed-item {
+  border-color: rgba(146, 166, 198, 0.12);
+  background: rgba(16, 25, 42, 0.62);
+}
+
+html[data-ui-mode="calm"] .people-list {
+  gap: 20px;
+}
+
+html[data-ui-mode="calm"] .rank-category-title {
+  padding: 12px 14px;
+}
+
+html[data-ui-mode="calm"] .rank-category-title h2 {
+  font-size: clamp(21px, 2.2vw, 28px);
+}
+
+html[data-ui-mode="calm"] .person-card {
+  border-radius: 8px;
+  background: rgba(21, 31, 49, 0.78);
+}
+
+html[data-ui-mode="calm"] .person-card:hover {
+  border-color: rgba(240, 144, 33, 0.28);
+}
+
+html[data-ui-mode="calm"] .badge,
+html[data-ui-mode="calm"] .profile-badge,
+html[data-ui-mode="calm"] .status-pill,
+html[data-ui-mode="calm"] .training-pill {
+  box-shadow: none;
+}
+
+html[data-ui-mode="calm"] input,
+html[data-ui-mode="calm"] select,
+html[data-ui-mode="calm"] textarea {
+  background: rgba(16, 25, 42, 0.72);
+  border-color: rgba(146, 166, 198, 0.18);
+}

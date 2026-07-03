@@ -75,7 +75,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isIzLeadership = taskBadges.includes("IZ-Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
     const i8ReviewMode = organization.permissions?.i8ReviewMode || "defensie";
-    const canHandleI8Forms = i8ReviewMode === "ovjOnly" ? isOvJ : canViewAsKader || isOvJ || isInterneZaken || isIzLeadership;
+    const canViewI8Forms = canViewAsKader || isOvJ || isInterneZaken || isIzLeadership;
+    const canHandleI8Forms = i8ReviewMode === "ovjOnly" ? isOvJ : canViewI8Forms;
     const canOverrideI8Forms = i8ReviewMode === "ovjOnly" ? isOvJ : isKader || taskBadges.includes("OvJ") || isInterneZaken || isIzLeadership;
     const canManagePersonnelRanks = organization.permissions?.personnelRankMode === "kaderOnly"
       ? isKader
@@ -106,7 +107,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageI8Discipline: isKader || isInterneZaken || isIzLeadership || isOvJ,
       canViewAllHours: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canManageHours: isKader || (canOfficerManage && (isHoofdofficier || isOfficiersraad)),
-      canViewOvJChannels: canHandleI8Forms,
+      canViewOvJChannels: canViewI8Forms,
       canReviewI8Forms: canHandleI8Forms,
       canOverrideI8Forms,
       canLeadOvJ: isKader || taskBadges.includes("OvJ"),
