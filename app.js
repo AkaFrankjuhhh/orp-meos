@@ -1151,15 +1151,19 @@ function renderDashboard() {
     $("#rankPie").style.background = isCalmUi
       ? `linear-gradient(90deg, ${segments.join(", ")})`
       : `conic-gradient(${segments.join(", ")})`;
+    const maxRankCount = Math.max(...sortedRankCounts.map((item) => item.count), 1);
     $("#rankLegend").innerHTML = sortedRankCounts
-      .map((item) => `
+      .map((item) => {
+        const width = Math.max(8, Math.round((item.count / maxRankCount) * 100));
+        return `
         <div class="rank-legend-item">
           <span class="rank-swatch" style="background:${rankColors[item.rank]}"></span>
-          <span>${escapeHtml(item.rank)}</span>
+          <span class="rank-name">${escapeHtml(item.rank)}</span>
+          <span class="rank-bar-track"><span class="rank-bar-fill" style="width:${width}%"></span></span>
           <span class="rank-count">${item.count}</span>
-        </div>
-      `)
-      .join("");
+        </div>`;
+      })
+      .join("") + (sortedRankCounts.length > 8 ? '<button class="rank-more-link" type="button">Bekijk alle rangen</button>' : "");
   }
 
   function normalizeServiceNumberForRange(value) {

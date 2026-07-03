@@ -396,15 +396,17 @@ html[data-ui-mode="calm"] body {
 }
 
 html[data-ui-mode="calm"] .sidebar {
-  width: 248px;
-  padding: 20px 14px;
-  background: #0d2f52;
+  width: 286px;
+  padding: 24px 20px;
+  background:
+    linear-gradient(180deg, rgba(15, 28, 49, 0.98), rgba(10, 18, 32, 0.98)),
+    #0a1220;
   border-right-color: rgba(146, 166, 198, 0.14);
   gap: 18px;
 }
 
 html[data-ui-mode="calm"] .shell {
-  margin-left: 248px;
+  margin-left: 286px;
   padding: 28px 34px 44px;
 }
 
@@ -425,18 +427,20 @@ html[data-ui-mode="calm"] .nav-list {
 html[data-ui-mode="calm"] .nav-item {
   min-height: 40px;
   padding: 10px 12px;
-  border-radius: 7px;
-  color: rgba(247, 251, 255, 0.86);
+  border-radius: 8px;
+  color: rgba(222, 232, 247, 0.82);
+  border-color: transparent;
 }
 
 html[data-ui-mode="calm"] .nav-item:hover,
 html[data-ui-mode="calm"] .nav-item.active {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.055);
+  border-color: transparent;
 }
 
 html[data-ui-mode="calm"] .nav-item.active {
-  box-shadow: inset 3px 0 0 var(--orange);
+  color: var(--orange);
+  box-shadow: inset 4px 0 0 var(--orange);
 }
 
 html[data-ui-mode="calm"] .nav-divider {
