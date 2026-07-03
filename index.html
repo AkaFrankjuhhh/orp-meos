@@ -87,7 +87,7 @@
       }
     </style>
     <link rel="stylesheet" href="/shared.css?v=20260703-ui-mode" />
-    <link rel="stylesheet" href="/personeelsportaal.css?v=20260703-ui-mode" />
+    <link rel="stylesheet" href="/personeelsportaal.css?v=20260703-dashboard-polish" />
   <script src="/portal-boot.js?v=20260628-csp-cleanup" defer></script>
   <script src="/boot-failsafe.js?v=20260627-loader-failsafe" defer></script>
   <script src="/portal-loader-failsafe.js?v=20260627-loader-failsafe" defer></script>
@@ -141,36 +141,36 @@
       </div>
 
       <nav class="nav-list">
-        <button class="nav-item nav-external" data-open-porto type="button">Porto-Systeem</button>
+        <button class="nav-item nav-external" data-nav-icon="P" data-open-porto type="button">Porto-Systeem</button>
         <div class="nav-spacer" aria-hidden="true"></div>
-        <button class="nav-item active" data-page="dashboard" type="button">Dashboard</button>
-        <button class="nav-item" data-page="medewerkers" type="button">Medewerkers</button>
-        <button class="nav-item" data-page="afwezigheid" type="button">Afwezigheid</button>
-        <button class="nav-item" data-page="i8-opstellen" type="button">I8-Formulier</button>
-        <button class="nav-item" data-page="ontslag-formulier" type="button">Ontslag-Formulier</button>
+        <button class="nav-item active" data-nav-icon="D" data-page="dashboard" type="button">Dashboard</button>
+        <button class="nav-item" data-nav-icon="M" data-page="medewerkers" type="button">Medewerkers</button>
+        <button class="nav-item" data-nav-icon="A" data-page="afwezigheid" type="button">Afwezigheid</button>
+        <button class="nav-item" data-nav-icon="I8" data-page="i8-opstellen" type="button">I8-Formulier</button>
+        <button class="nav-item" data-nav-icon="O" data-page="ontslag-formulier" type="button">Ontslag-Formulier</button>
         <div class="nav-divider" aria-hidden="true"></div>
         <div class="nav-section" data-ovj-only="true">(h)OvJ</div>
-        <button class="nav-item" data-page="i8-controleren" data-ovj-only="true" type="button"><span>I8-Controleren</span><span id="i8ReviewCounter" class="nav-counter" hidden>0</span></button>
-        <button class="nav-item" data-page="i8-archief" data-ovj-only="true" type="button">I8-Archief</button>
-        <button class="nav-item" data-page="ovj-logboek" data-ovj-leadership-only="true" type="button">hOvJ-Logboek</button>
+        <button class="nav-item" data-nav-icon="C" data-page="i8-controleren" data-ovj-only="true" type="button"><span>I8-Controleren</span><span id="i8ReviewCounter" class="nav-counter" hidden>0</span></button>
+        <button class="nav-item" data-nav-icon="AR" data-page="i8-archief" data-ovj-only="true" type="button">I8-Archief</button>
+        <button class="nav-item" data-nav-icon="L" data-page="ovj-logboek" data-ovj-leadership-only="true" type="button">hOvJ-Logboek</button>
         <div class="nav-divider" data-ovj-only="true" aria-hidden="true"></div>
         <div class="nav-section" data-mentor-section="true">Mentor</div>
-        <button class="nav-item" data-page="mentor-overzicht" data-mentor-overview-only="true" type="button">Mentor-Overzicht</button>
-        <button class="nav-item" data-page="mentor-traject" data-mentor-traject-only="true" type="button">Mentor-Traject</button>
-        <button class="nav-item" data-page="mentor-toets" data-mentor-traject-only="true" type="button">Mentor-Toets</button>
-        <button class="nav-item" data-page="mentor-toetsen" data-mentor-leadership-only="true" type="button">Mentor-Toetsen</button>
-        <button class="nav-item" data-page="mentor-logboek" data-mentor-leadership-only="true" type="button">Mentor-Logboek</button>
+        <button class="nav-item" data-nav-icon="MO" data-page="mentor-overzicht" data-mentor-overview-only="true" type="button">Mentor-Overzicht</button>
+        <button class="nav-item" data-nav-icon="MT" data-page="mentor-traject" data-mentor-traject-only="true" type="button">Mentor-Traject</button>
+        <button class="nav-item" data-nav-icon="T" data-page="mentor-toets" data-mentor-traject-only="true" type="button">Mentor-Toets</button>
+        <button class="nav-item" data-nav-icon="TT" data-page="mentor-toetsen" data-mentor-leadership-only="true" type="button">Mentor-Toetsen</button>
+        <button class="nav-item" data-nav-icon="ML" data-page="mentor-logboek" data-mentor-leadership-only="true" type="button">Mentor-Logboek</button>
         <div class="nav-divider" data-ws-only="true" aria-hidden="true"></div>
         <div class="nav-section" data-ws-only="true">W&S</div>
-        <button class="nav-item" data-page="personeel-aannemen" data-ws-only="true" type="button">Personeel Aannemen</button>
-        <button class="nav-item" data-page="blacklist" data-ws-only="true" type="button">Blacklist</button>
+        <button class="nav-item" data-nav-icon="+" data-page="personeel-aannemen" data-ws-only="true" type="button">Personeel Aannemen</button>
+        <button class="nav-item" data-nav-icon="!" data-page="blacklist" data-ws-only="true" type="button">Blacklist</button>
         <div class="nav-divider" data-restricted-divider="true" aria-hidden="true"></div>
         <div class="nav-section" data-kader-only="true">Leiding Kanalen</div>
-        <button class="nav-item" data-page="personeel" data-personnel-only="true" type="button">Personeel</button>
-        <button class="nav-item" data-page="afwezigheid-overzicht" data-absence-review-only="true" type="button"><span>Afwezigheid overzicht</span><span id="absenceOverviewCounter" class="nav-counter" hidden>0</span></button>
-        <button class="nav-item" data-page="ontslag-overzicht" data-resignation-overview-only="true" type="button"><span>Ontslag-Overzicht</span><span id="resignationOverviewCounter" class="nav-counter" hidden>0</span></button>
-        <button class="nav-item" data-page="archief" data-personnel-archive-only="true" type="button">Personeels-Archief</button>
-        <button class="nav-item" data-page="logboek" data-kader-only="true" type="button">Logboek</button>
+        <button class="nav-item" data-nav-icon="P" data-page="personeel" data-personnel-only="true" type="button">Personeel</button>
+        <button class="nav-item" data-nav-icon="AO" data-page="afwezigheid-overzicht" data-absence-review-only="true" type="button"><span>Afwezigheid overzicht</span><span id="absenceOverviewCounter" class="nav-counter" hidden>0</span></button>
+        <button class="nav-item" data-nav-icon="OO" data-page="ontslag-overzicht" data-resignation-overview-only="true" type="button"><span>Ontslag-Overzicht</span><span id="resignationOverviewCounter" class="nav-counter" hidden>0</span></button>
+        <button class="nav-item" data-nav-icon="PA" data-page="archief" data-personnel-archive-only="true" type="button">Personeels-Archief</button>
+        <button class="nav-item" data-nav-icon="L" data-page="logboek" data-kader-only="true" type="button">Logboek</button>
       </nav>
     </aside>
 
@@ -263,7 +263,7 @@
             </div>
           </section>
 
-          <section class="panel">
+          <section class="panel service-ranges-panel">
             <div class="panel-head">
               <h2>Dienstnummer reeksen</h2>
             </div>
@@ -1058,7 +1058,7 @@
     </div>
     <script src="/portal-client-errors.js?v=20260628-csp-cleanup"></script>
     <script src="/client-guard.js?v=20260628-deep-route-assets"></script>
-    <script src="/shared-ui.js?v=20260703-ui-mode"></script>
+    <script src="/shared-ui.js?v=20260703-ui-polish"></script>
     <script src="/personeelsportaal/module-registry.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/profile.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/hours.js?v=20260628-month-to-date-hours"></script>
@@ -1068,6 +1068,6 @@
     <script src="/personeelsportaal/absence.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/archive.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal-data.js?v=20260628-deep-route-assets"></script>
-    <script src="/app.js?v=20260703-ui-mode"></script>
+    <script src="/app.js?v=20260703-ui-polish"></script>
 </body>
 </html>

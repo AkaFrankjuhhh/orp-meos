@@ -2427,13 +2427,19 @@ dialog {
 }
 
 .nav-item::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 3px;
+  content: attr(data-nav-icon);
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
   border: 1px solid rgba(247, 251, 255, 0.38);
   background: rgba(247, 251, 255, 0.08);
+  color: rgba(247, 251, 255, 0.76);
   flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .nav-item.active {
@@ -2445,6 +2451,7 @@ dialog {
 .nav-item:hover::before {
   border-color: rgba(245, 158, 11, 0.82);
   background: var(--accent);
+  color: #07111f;
 }
 
 button,
@@ -2955,14 +2962,14 @@ summary {
 [data-theme="light"] #personeel .sticky-toolbar {
   background: transparent;
 }
-.nav-item::before,
-.nav-item.active::before,
-.nav-item:hover::before {
+html:not([data-ui-mode="calm"]) .nav-item::before,
+html:not([data-ui-mode="calm"]) .nav-item.active::before,
+html:not([data-ui-mode="calm"]) .nav-item:hover::before {
   content: none;
   display: none;
 }
 
-.nav-item {
+html:not([data-ui-mode="calm"]) .nav-item {
   gap: 0;
 }
 [hidden] {
@@ -5241,6 +5248,16 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
 html[data-ui-mode="calm"] .dashboard-grid {
   gap: 18px;
   grid-template-columns: minmax(320px, 0.72fr) minmax(420px, 1.28fr);
+  align-items: start;
+}
+
+html[data-ui-mode="calm"] .member-overview,
+html[data-ui-mode="calm"] .service-ranges-panel {
+  max-width: 760px;
+}
+
+html[data-ui-mode="calm"] .rank-panel {
+  max-width: 1120px;
 }
 
 html[data-ui-mode="calm"] .panel,
@@ -5352,4 +5369,19 @@ html[data-ui-mode="calm"] select,
 html[data-ui-mode="calm"] textarea {
   background: rgba(16, 25, 42, 0.72);
   border-color: rgba(146, 166, 198, 0.18);
+}
+
+@media (min-width: 1500px) {
+  html[data-ui-mode="calm"] .dashboard-grid {
+    grid-template-columns: minmax(420px, 680px) minmax(620px, 980px);
+    column-gap: 24px;
+  }
+
+  html[data-ui-mode="calm"] .rank-panel {
+    width: min(100%, 980px);
+  }
+
+  html[data-ui-mode="calm"] .service-ranges-panel {
+    margin-top: -2px;
+  }
 }

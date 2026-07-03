@@ -182,6 +182,7 @@
   }
 
   function applyUiMode(mode) {
+    const previousMode = document.documentElement.dataset.uiMode || "";
     const nextMode = uiModes.has(mode) ? mode : "classic";
     document.documentElement.dataset.uiMode = nextMode;
     document.documentElement.classList.toggle("ui-calm", nextMode === "calm");
@@ -197,6 +198,9 @@
       button.classList.toggle("is-active", active);
       button.setAttribute("aria-pressed", active ? "true" : "false");
     });
+    if (previousMode && previousMode !== nextMode) {
+      window.dispatchEvent(new CustomEvent("orp-ui-mode-change", { detail: { mode: nextMode, previousMode } }));
+    }
     return nextMode;
   }
 

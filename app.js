@@ -1094,7 +1094,10 @@ function renderDashboard() {
       rankPieSegments.push({ rank: item.rank, count: item.count, start, end });
       return `${rankColors[item.rank]} ${start}% ${end}%`;
     });
-    $("#rankPie").style.background = `conic-gradient(${segments.join(", ")})`;
+    const isCalmUi = document.documentElement.dataset.uiMode === "calm";
+    $("#rankPie").style.background = isCalmUi
+      ? `linear-gradient(90deg, ${segments.join(", ")})`
+      : `conic-gradient(${segments.join(", ")})`;
     $("#rankLegend").innerHTML = sortedRankCounts
       .map((item) => `
         <div class="rank-legend-item">
@@ -1144,6 +1147,10 @@ function renderDashboard() {
 function rankPieSegmentFromEvent(event) {
   const pie = event.currentTarget;
   const rect = pie.getBoundingClientRect();
+  if (document.documentElement.dataset.uiMode === "calm") {
+    const percent = Math.max(0, Math.min(100, ((event.clientX - rect.left) / Math.max(rect.width, 1)) * 100));
+    return rankPieSegments.find((segment, index) => percent >= segment.start && (percent < segment.end || index === rankPieSegments.length - 1)) || null;
+  }
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + rect.height / 2;
   const dx = event.clientX - centerX;
@@ -1608,6 +1615,9 @@ function wireEvents() {
   window.addEventListener("resize", updateDeviceMode);
   window.addEventListener("resize", () => DefensiePortalUI.resizeAutoGrowingTextareas?.());
   window.addEventListener("popstate", () => applyRouteState("replace"));
+  window.addEventListener("orp-ui-mode-change", () => {
+    if (activePageId() === "dashboard") renderDashboard();
+  });
   $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
   const rankPie = $("#rankPie");
   rankPie?.addEventListener("mousemove", moveRankPieTooltip);
