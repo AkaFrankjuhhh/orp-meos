@@ -221,34 +221,57 @@ const publicFormConfigs = {
     dsi: {
       slug: "dsi",
       hostnames: formHosts("dsi"),
-      title: "Dienst Speciale Interventies",
-      subtitle: "Sollicitatieformulier voor deelname aan de DSI. Vul de intake en praktijkvragen volledig en naar waarheid in.",
-      notice: "Dit formulier bestaat uit twee delen. De vragen zijn voorlopig gelijk aan het BSB-formulier en worden later aangepast.",
+      title: "Sollicitatieformulier - Oranjestad Roleplay",
+      subtitle: "Bedankt voor je interesse in de Dienst Speciale Interventies (DSI). De DSI is een specialistische politie-eenheid die wordt ingezet bij situaties met een verhoogd risico, zoals vuurwapengevaarlijke verdachten, gijzelingen en andere tactische operaties.",
+      notice: "Het invullen van dit formulier betekent niet automatisch dat je wordt aangenomen. Na beoordeling kun je worden uitgenodigd voor een gesprek, theorie-examen en praktijk selectie.",
       accent: "#2563eb",
       internalOnly: true,
       webhookEnv: "DISCORD_FORM_DSI_WEBHOOK_URL",
       pages: [
         {
-          id: "intake",
-          title: "Intake",
-          description: "Dit zijn vragen over wie jij bent. Vanzelfsprekend gaat dit over ingame informatie."
+          id: "persoonlijk",
+          title: "Persoonlijke Gegevens"
         },
         {
-          id: "situaties",
-          title: "Praktijk Situaties",
-          description: "Beantwoord de situaties vanuit jouw eigen inzicht, houding en manier van samenwerken."
+          id: "motivatie",
+          title: "Motivatie"
+        },
+        {
+          id: "kennis",
+          title: "Kennisvragen"
+        },
+        {
+          id: "scenarios",
+          title: "Scenario's"
+        },
+        {
+          id: "porto",
+          title: "Porto & Communicatie"
         }
       ],
       questions: [
-        { id: "name", page: "intake", label: "Wat is jouw naam", type: "text", required: true },
-        { id: "rank", page: "intake", label: "Wat is jouw rang", type: "text", required: true },
-        { id: "defenceTenure", page: "intake", label: "Hoelang ben je lid van Politie", type: "text", required: true },
-        { id: "strengths", page: "intake", label: "Noem 3 goede eigenschappen die van pas komen bij de DSI", type: "textarea", required: true },
-        { id: "weaknesses", page: "intake", label: "Noem 3 mindere eigenschappen van jezelf", type: "textarea", required: true },
-        { id: "motivation", page: "intake", label: "Waarom wil je juist bij de DSI werken?", type: "textarea", required: true },
-        { id: "teamRole", page: "situaties", label: "Welke rol neem jij meestal aan binnen een team?", type: "textarea", required: true },
-        { id: "disagreement", page: "situaties", label: "Je krijgt een opdracht waar je het persoonlijk niet mee eens bent. Wat doe je?", type: "textarea", required: true },
-        { id: "suspiciousSituation", page: "situaties", label: "Tijdens een beveiligingsopdracht zie je iets verdachts. Hoe handel je?", type: "textarea", required: true }
+        { id: "discordFullName", page: "persoonlijk", label: "Volledige Discord naam", type: "text", required: true },
+        { id: "steamName", page: "persoonlijk", label: "Steamnaam", type: "text", required: true },
+        { id: "inGameName", page: "persoonlijk", label: "In-game naam", type: "text", required: true },
+        { id: "policeRank", page: "persoonlijk", label: "Rang binnen de Politie", type: "select", required: true, options: ["Agent", "Hoofdagent", "Brigadier", "Inspecteur", "Commissaris", "Anders"] },
+        { id: "policeTenure", page: "persoonlijk", label: "Hoe lang ben je werkzaam bij de Politie?", type: "select", required: true, options: ["Minder dan 1 week", "1-2 weken", "2-4 weken", "1-3 maanden", "Langer dan 3 maanden"] },
+        { id: "dsiMotivation", page: "motivatie", label: "Waarom wil jij onderdeel worden van de DSI?", type: "textarea", required: true },
+        { id: "whyAccept", page: "motivatie", label: "Waarom moeten wij juist jou aannemen?", type: "textarea", required: true },
+        { id: "dsiExpectation", page: "motivatie", label: "Wat verwacht jij van de DSI?", type: "textarea", required: true },
+        { id: "operatorExpectation", page: "motivatie", label: "Wat denk jij dat de DSI van jou mag verwachten?", type: "textarea", required: true },
+        { id: "dsiMeaning", page: "kennis", label: "Waar staat DSI voor?", type: "text", required: true },
+        { id: "aotMeaning", page: "kennis", label: "Waar staat AOT voor?", type: "text", required: true },
+        { id: "teamDifference", page: "kennis", label: "Wat is het verschil tussen een Arrestatieteam en een Observatieteam?", type: "textarea", required: true },
+        { id: "operatorTraits", page: "kennis", label: "Noem minimaal drie eigenschappen die een DSI-operator moet bezitten.", type: "textarea", required: true },
+        { id: "communicationImportance", page: "kennis", label: "Waarom is goede communicatie belangrijk tijdens een DSI-operatie?", type: "textarea", required: true },
+        { id: "priorityChoice", page: "kennis", label: "Wat is volgens jou belangrijker?", type: "select", required: true, options: ["Zo snel mogelijk handelen", "Veilig en gecontroleerd handelen"] },
+        { id: "priorityReason", page: "kennis", label: "Leg uit waarom je voor dit antwoord hebt gekozen.", type: "textarea", required: true },
+        { id: "scenarioObservation", page: "scenarios", label: "Scenario 1 - Wat doe jij?", help: "Je bent onderdeel van het Arrestatieteam. Tijdens een observatie zie jij dat de verdachte onverwachts de woning verlaat. De Teamleider heeft nog geen toestemming gegeven om in te grijpen.", type: "textarea", required: true },
+        { id: "scenarioColleagueInjured", page: "scenarios", label: "Scenario 2 - Wat is jouw eerste prioriteit?", help: "Tijdens een inval zie jij een collega gewond raken.", type: "textarea", required: true },
+        { id: "scenarioDisagreement", page: "scenarios", label: "Scenario 3 - Hoe ga je hiermee om?", help: "Je bent het niet eens met een opdracht van de Teamleider.", type: "textarea", required: true },
+        { id: "scenarioSurrender", page: "scenarios", label: "Scenario 4 - Hoe handel jij?", help: "Een verdachte werkt volledig mee en geeft zich direct over.", type: "textarea", required: true },
+        { id: "portoWeaponReport", page: "porto", label: "Hoe meld jij dit over de porto?", help: "Je bent de 50-03. Je ziet dat de verdachte een vuurwapen trekt.", type: "textarea", required: true },
+        { id: "portoShortClear", page: "porto", label: "Waarom moet portoverkeer tijdens een inzet kort en duidelijk zijn?", type: "textarea", required: true }
       ]
     }
   } : {}),

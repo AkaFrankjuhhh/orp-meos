@@ -32,7 +32,7 @@ test("discord worker uses organization porto operator number for lead nickname c
   assert.doesNotMatch(code, /unit\.vehicleNumber === "30-00"/);
 });
 
-test("police has a DSI public form based on the BSB intake", () => {
+test("police has a DSI public form with police intake questions", () => {
   const policeForms = loadPublicFormsForOrganization("politie");
   const defenceForms = loadPublicFormsForOrganization("defensie");
   const dsi = policeForms.publicFormFromSlug("dsi");
@@ -40,10 +40,15 @@ test("police has a DSI public form based on the BSB intake", () => {
   assert.ok(dsi);
   assert.equal(dsi.slug, "dsi");
   assert.deepEqual(dsi.hostnames, ["dsi.orppolitie.nl"]);
-  assert.match(dsi.title, /Dienst Speciale Interventies/);
+  assert.match(dsi.title, /Sollicitatieformulier/);
+  assert.match(dsi.subtitle, /Dienst Speciale Interventies/);
   assert.equal(dsi.internalOnly, true);
   assert.equal(dsi.webhookEnv, "DISCORD_FORM_DSI_WEBHOOK_URL");
-  assert.equal(dsi.questions.length, policeForms.publicFormFromSlug("bsb").questions.length);
+  assert.deepEqual(dsi.pages.map((page) => page.id), ["persoonlijk", "motivatie", "kennis", "scenarios", "porto"]);
+  assert.equal(dsi.questions.length, 22);
+  assert.ok(dsi.questions.find((question) => question.id === "policeRank")?.options.includes("Commissaris"));
+  assert.ok(dsi.questions.find((question) => question.id === "portoWeaponReport")?.help.includes("50-03"));
+  assert.notEqual(dsi.questions.length, policeForms.publicFormFromSlug("bsb").questions.length);
   assert.equal(defenceForms.publicFormFromSlug("dsi"), null);
 });
 
