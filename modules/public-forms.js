@@ -217,6 +217,41 @@ const publicFormConfigs = {
       { id: "suspiciousSituation", page: "situaties", label: "Tijdens een beveiligingsopdracht zie je iets verdachts. Hoe handel je?", type: "textarea", required: true }
     ]
   },
+  ...(organization.key === "politie" ? {
+    dsi: {
+      slug: "dsi",
+      hostnames: formHosts("dsi"),
+      title: "Dienst Speciale Interventies",
+      subtitle: "Sollicitatieformulier voor deelname aan de DSI. Vul de intake en praktijkvragen volledig en naar waarheid in.",
+      notice: "Dit formulier bestaat uit twee delen. De vragen zijn voorlopig gelijk aan het BSB-formulier en worden later aangepast.",
+      accent: "#2563eb",
+      internalOnly: true,
+      webhookEnv: "DISCORD_FORM_DSI_WEBHOOK_URL",
+      pages: [
+        {
+          id: "intake",
+          title: "Intake",
+          description: "Dit zijn vragen over wie jij bent. Vanzelfsprekend gaat dit over ingame informatie."
+        },
+        {
+          id: "situaties",
+          title: "Praktijk Situaties",
+          description: "Beantwoord de situaties vanuit jouw eigen inzicht, houding en manier van samenwerken."
+        }
+      ],
+      questions: [
+        { id: "name", page: "intake", label: "Wat is jouw naam", type: "text", required: true },
+        { id: "rank", page: "intake", label: "Wat is jouw rang", type: "text", required: true },
+        { id: "defenceTenure", page: "intake", label: "Hoelang ben je lid van Politie", type: "text", required: true },
+        { id: "strengths", page: "intake", label: "Noem 3 goede eigenschappen die van pas komen bij de DSI", type: "textarea", required: true },
+        { id: "weaknesses", page: "intake", label: "Noem 3 mindere eigenschappen van jezelf", type: "textarea", required: true },
+        { id: "motivation", page: "intake", label: "Waarom wil je juist bij de DSI werken?", type: "textarea", required: true },
+        { id: "teamRole", page: "situaties", label: "Welke rol neem jij meestal aan binnen een team?", type: "textarea", required: true },
+        { id: "disagreement", page: "situaties", label: "Je krijgt een opdracht waar je het persoonlijk niet mee eens bent. Wat doe je?", type: "textarea", required: true },
+        { id: "suspiciousSituation", page: "situaties", label: "Tijdens een beveiligingsopdracht zie je iets verdachts. Hoe handel je?", type: "textarea", required: true }
+      ]
+    }
+  } : {}),
   "w-s": {
     slug: "w-s",
     aliases: ["w&s", "ws"],
@@ -299,6 +334,7 @@ const publicFormManagerBadges = {
   trainer: ["Trainer-Leiding"],
   hrb: ["HRB-Leiding"],
   bsb: ["BSB-Leiding"],
+  dsi: ["DSI-Leiding"],
   "w-s": ["W&S-Leiding"],
   hovj: ["OvJ"]
 };

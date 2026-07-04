@@ -14,11 +14,37 @@ function withOrganization(key, fn) {
   }
 }
 
+function loadPublicFormsForOrganization(key) {
+  return withOrganization(key, () => {
+    delete require.cache[require.resolve("../modules/organizations")];
+    delete require.cache[require.resolve("../modules/public-forms")];
+    const publicForms = require("../modules/public-forms");
+    delete require.cache[require.resolve("../modules/organizations")];
+    delete require.cache[require.resolve("../modules/public-forms")];
+    return publicForms;
+  });
+}
+
 test("discord worker uses organization porto operator number for lead nickname context", () => {
   const code = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
 
   assert.match(code, /organization\.porto\?\.operatorVehicleNumber/);
   assert.doesNotMatch(code, /unit\.vehicleNumber === "30-00"/);
+});
+
+test("police has a DSI public form based on the BSB intake", () => {
+  const policeForms = loadPublicFormsForOrganization("politie");
+  const defenceForms = loadPublicFormsForOrganization("defensie");
+  const dsi = policeForms.publicFormFromSlug("dsi");
+
+  assert.ok(dsi);
+  assert.equal(dsi.slug, "dsi");
+  assert.deepEqual(dsi.hostnames, ["dsi.orppolitie.nl"]);
+  assert.match(dsi.title, /Dienst Speciale Interventies/);
+  assert.equal(dsi.internalOnly, true);
+  assert.equal(dsi.webhookEnv, "DISCORD_FORM_DSI_WEBHOOK_URL");
+  assert.equal(dsi.questions.length, policeForms.publicFormFromSlug("bsb").questions.length);
+  assert.equal(defenceForms.publicFormFromSlug("dsi"), null);
 });
 
 test("mentor tests are not hard-coded to defensie only", () => {

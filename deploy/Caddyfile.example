@@ -75,7 +75,7 @@ porto.orpdefensie.nl {
 }
 
 # Politie Personeelsportaal + publieke formulieren.
-orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, trainer.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl {
+orppolitie.nl, www.orppolitie.nl, herintrede.orppolitie.nl, overstap.orppolitie.nl, trainer.orppolitie.nl, dsi.orppolitie.nl, ws.orppolitie.nl, w-s.orppolitie.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3010
 
