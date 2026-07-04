@@ -63,7 +63,7 @@ body[data-form-org="politie"] {
   --form-bg-image: url("/assets/porto-dispatch-background.png?v=20260614-form-photo-refresh");
   --form-bg-position: center;
   --form-bg-accent: rgba(56, 189, 248, 0.18);
-  --form-logo-image: url("/assets/politie-logo.png?v=20260614-form-photo-refresh");
+  --form-logo-image: url("/assets/politie-logo.png?v=20260704-logo-clean");
   --form-logo-opacity: 0.1;
 }
 

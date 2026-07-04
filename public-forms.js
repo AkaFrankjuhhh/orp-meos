@@ -48,6 +48,25 @@ function setPageIcon(href) {
   });
 }
 
+function formVisualScopeFromHost() {
+  const host = String(window.location.hostname || "").toLowerCase();
+  if (host.endsWith("orppolitie.nl")) return "politie";
+  if (host.endsWith("orpoverheid.nl")) return "overheid";
+  return "defensie";
+}
+
+function formEyebrowForScope(scope) {
+  if (scope === "politie") return "ORP Politie Oranjestad";
+  if (scope === "overheid") return "ORP Overheid";
+  return "ORP Defensie Oranjestad";
+}
+
+function formTitleForScope(scope) {
+  if (scope === "politie") return "ORP Politie Formulier";
+  if (scope === "overheid") return "ORP Overheid Formulier";
+  return "ORP Defensie Formulier";
+}
+
 function showAuthErrorFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get("authError");
@@ -313,8 +332,11 @@ function validateCurrentPage() {
 }
 
 function showLoginRequired(loginUrl, message) {
+  const visualScope = formVisualScopeFromHost();
   document.body.dataset.formSlug = "internal-login";
-  document.body.dataset.formOrg = "overheid";
+  document.body.dataset.formOrg = visualScope;
+  document.title = formTitleForScope(visualScope);
+  $("#formEyebrow").textContent = formEyebrowForScope(visualScope);
   $("#formTitle").textContent = "Intern formulier";
   $("#formSubtitle").textContent = message || "Log in met Discord om dit interne formulier te openen.";
   $("#questions").innerHTML = `<a class="login-button" href="${escapeHtml(loginUrl)}">Aanmelden met Discord</a>`;
