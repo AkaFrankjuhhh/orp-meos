@@ -3750,6 +3750,24 @@ body[data-device="mobile"] #archief .sticky-toolbar {
   margin: -14px -14px 16px !important;
   padding: 14px !important;
 }
+
+html[data-ui-mode="calm"] #personeel .sticky-toolbar,
+html[data-ui-mode="calm"] #medewerkers .sticky-toolbar,
+html[data-ui-mode="calm"] #mentor-overzicht .sticky-toolbar,
+html[data-ui-mode="calm"] #archief .sticky-toolbar {
+  margin: 0 0 22px !important;
+  padding: 18px 0 18px !important;
+  background: transparent !important;
+  border-bottom: 1px solid rgba(146, 166, 198, 0.14) !important;
+}
+
+html[data-ui-mode="calm"] #personeel .sticky-toolbar {
+  padding-top: 20px !important;
+}
+
+html[data-ui-mode="calm"] .page-title-row {
+  min-width: 0;
+}
 /* Medewerkers: keep rank group counts next to the group title on the left. */
 #medewerkers .employee-group-count {
   order: -1;
