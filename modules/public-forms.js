@@ -61,6 +61,24 @@ function isComplaintForm(configOrSlug) {
   return ["klachten", "interne-klacht"].includes(slug);
 }
 
+function isDsiApplicationForm(configOrSlug) {
+  const slug = typeof configOrSlug === "string" ? configOrSlug : configOrSlug?.slug;
+  return slug === "dsi";
+}
+
+function publicFormSubmissionThreadName(config, submission = {}) {
+  if (isComplaintForm(config)) return `zaaknummer ${formatCaseNumber(submission.caseNumber)}`;
+  if (!isDsiApplicationForm(config)) return "";
+  const portalName = String(submission.submittedBy?.name || "").trim();
+  const fallbackName = String(
+    submission.answers?.inGameName ||
+    submission.answers?.discordFullName ||
+    submission.answers?.fullName ||
+    "Onbekend"
+  ).trim();
+  return `DSI Sollicitatie ${portalName || fallbackName || "Onbekend"}`;
+}
+
 const publicFormConfigs = {
   herintrede: {
     slug: "herintrede",
@@ -786,5 +804,7 @@ module.exports = {
   mergePublicFormConfig,
   sanitizePublicFormOverride,
   canManagePublicForm,
-  isComplaintForm
+  isComplaintForm,
+  isDsiApplicationForm,
+  publicFormSubmissionThreadName
 };

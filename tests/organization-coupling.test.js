@@ -68,6 +68,7 @@ test("police has a DSI public form with police intake questions", () => {
     formSlug: "dsi",
     formTitle: dsi.title,
     answers,
+    submittedBy: { name: "AkaFrank" },
     submittedAt: "2026-07-05T12:00:00.000Z"
   });
   const embedTitles = payload.embeds.map((embed) => embed.title);
@@ -77,6 +78,7 @@ test("police has a DSI public form with police intake questions", () => {
   assert.ok(embedTitles.includes("Kennisvragen"));
   assert.ok(embedTitles.includes("Scenario's"));
   assert.ok(embedTitles.includes("Porto & Communicatie"));
+  assert.equal(policeForms.publicFormSubmissionThreadName(dsi, { submittedBy: { name: "AkaFrank" }, answers }), "DSI Sollicitatie AkaFrank");
 });
 
 test("mentor tests are not hard-coded to defensie only", () => {

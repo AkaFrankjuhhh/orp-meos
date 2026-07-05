@@ -38,8 +38,7 @@ const {
   applyProfileAnswersToPublicForm,
   validatePublicFormSubmission,
   createPublicFormSubmission,
-  formatCaseNumber,
-  isComplaintForm,
+  publicFormSubmissionThreadName,
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
   mergePublicFormConfig,
@@ -632,8 +631,9 @@ function sendPublicFormWebhookInBackground(config, submission, files = []) {
     try {
       const webhookUrl = publicFormWebhookUrl(config);
       const payload = buildPublicFormWebhookPayload(config, submission);
-      webhookResult = isComplaintForm(config)
-        ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, files, `zaaknummer ${formatCaseNumber(submission.caseNumber)}`)
+      const threadName = publicFormSubmissionThreadName(config, submission);
+      webhookResult = threadName
+        ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, files, threadName)
         : await sendDiscordWebhook(webhookUrl, payload, files);
     } catch (error) {
       logServerError(`Public form webhook failed for ${config.slug}`, error);
@@ -642,8 +642,8 @@ function sendPublicFormWebhookInBackground(config, submission, files = []) {
     if (webhookResult && !webhookResult.ok && !webhookResult.skipped) {
       logServerError(`Public form webhook rejected for ${config.slug}`, new Error(`status=${webhookResult.status || "unknown"} body=${webhookResult.body || webhookResult.error || ""}`));
     }
-    if (isComplaintForm(config) && webhookResult?.ok && webhookResult.thread && !webhookResult.thread.ok && !webhookResult.thread.skipped) {
-      logServerError(`Public form complaint thread failed for ${submission.caseNumber || submission.id}`, new Error(`status=${webhookResult.thread.status || "unknown"} body=${webhookResult.thread.body || webhookResult.thread.error || ""}`));
+    if (webhookResult?.ok && webhookResult.thread && !webhookResult.thread.ok && !webhookResult.thread.skipped) {
+      logServerError(`Public form thread failed for ${config.slug}:${submission.caseNumber || submission.id}`, new Error(`status=${webhookResult.thread.status || "unknown"} body=${webhookResult.thread.body || webhookResult.thread.error || ""}`));
     }
     try {
       await publicFormsStore.saveSubmission(submission, webhookResult);
