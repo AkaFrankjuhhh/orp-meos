@@ -47,36 +47,42 @@ function submissionFromRow(row) {
 async function main() {
   const slug = argValue("slug", "hovj");
   const status = argValue("status", "failed:400");
+  const id = argValue("id", "");
   const limit = Math.max(1, Math.min(100, Number(argValue("limit", "25")) || 25));
   const dryRun = hasArg("dry-run");
   const config = await configForSlug(slug);
   const webhookUrl = publicFormWebhookUrl(config);
   if (!webhookUrl) throw new Error(`Geen webhook URL ingesteld voor ${slug}. Controleer ${config.webhookEnv} of DISCORD_PUBLIC_FORMS_WEBHOOK_URL.`);
 
-  const result = await withClient((client) => client.query(
-    `select id, form_slug, form_title, answers, submitted_at, ip, user_agent, case_number, webhook_status, raw
-     from public_form_submissions
-     where form_slug = $1 and webhook_status = $2
-     order by submitted_at asc
-     limit $3`,
-    [slug, status, limit]
-  ));
+  const result = await withClient((client) => {
+    const baseSelect = `select id, form_slug, form_title, answers, submitted_at, ip, user_agent, case_number, webhook_status, raw
+      from public_form_submissions`;
+    if (id) {
+      return client.query(`${baseSelect} where form_slug = $1 and id = $2 limit 1`, [slug, id]);
+    }
+    if (status === "any") {
+      return client.query(`${baseSelect} where form_slug = $1 order by submitted_at asc limit $2`, [slug, limit]);
+    }
+    return client.query(`${baseSelect} where form_slug = $1 and webhook_status = $2 order by submitted_at asc limit $3`, [slug, status, limit]);
+  });
 
   if (!result.rows.length) {
-    console.log(`Geen inzendingen gevonden voor ${slug} met status ${status}.`);
+    console.log(id
+      ? `Geen inzending gevonden voor ${slug} met id ${id}.`
+      : `Geen inzendingen gevonden voor ${slug} met status ${status}.`);
     return;
   }
 
   const { sendDiscordWebhook, sendDiscordWebhookWithMessageThread } = createDiscordWebhookServices({ formatDate: (value) => value || "-" });
   const store = createPublicFormsStore({ storageMode: "postgres" });
-  console.log(`${dryRun ? "[dry-run] " : ""}${result.rows.length} webhook(s) opnieuw verwerken voor ${slug} (${status}).`);
+  console.log(`${dryRun ? "[dry-run] " : ""}${result.rows.length} webhook(s) opnieuw verwerken voor ${slug}${id ? ` id=${id}` : ` status=${status}`}.`);
 
   for (const row of result.rows) {
     const submission = submissionFromRow(row);
     const payload = buildPublicFormWebhookPayload(config, submission);
     const fieldCount = payload.embeds?.[0]?.fields?.length || 0;
     if (dryRun) {
-      console.log(`[dry-run] ${submission.id} ${submission.submittedAt} fields=${fieldCount}`);
+      console.log(`[dry-run] ${submission.id} ${submission.submittedAt} status=${row.webhook_status || "-"} fields=${fieldCount}`);
       continue;
     }
     const webhookResult = isComplaintForm(config)
