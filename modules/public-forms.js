@@ -657,10 +657,10 @@ function buildPublicFormWebhookPayload(config, submission) {
   const embeds = [];
   let droppedFields = 0;
 
-  function createEmbed() {
+  function createEmbed(titleOverride = "") {
     if (embeds.length >= maxEmbeds) return null;
     const number = embeds.length + 1;
-    const title = number === 1 ? embedTitle : `${embedTitle} - vervolg ${number}`;
+    const title = titleOverride || (number === 1 ? embedTitle : `${embedTitle} - vervolg ${number}`);
     const embed = {
       title: truncateDiscordText(title, 256),
       color,
@@ -712,12 +712,6 @@ function buildPublicFormWebhookPayload(config, submission) {
     }
   }
 
-  function addSectionHeading(title) {
-    const cleanTitle = String(title || "").trim();
-    if (!cleanTitle) return;
-    addField(`__${cleanTitle}__`, "\u200b");
-  }
-
   if (submission.submittedBy) {
     const submittedBy = submission.submittedBy;
     const discordLine = submittedBy.discordUsername || submittedBy.discordId
@@ -742,7 +736,7 @@ function buildPublicFormWebhookPayload(config, submission) {
     for (const page of pages) {
       const pageQuestions = questionsByPage.get(page.id) || [];
       if (!pageQuestions.length) continue;
-      addSectionHeading(page.title || page.id);
+      createEmbed(page.title || page.id);
       for (const question of pageQuestions) {
         if (question.type === "file" || !conditionMatches(question.showIf, submission.answers)) continue;
         const rawValue = submission.answers?.[question.id];

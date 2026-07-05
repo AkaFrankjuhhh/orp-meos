@@ -70,13 +70,13 @@ test("police has a DSI public form with police intake questions", () => {
     answers,
     submittedAt: "2026-07-05T12:00:00.000Z"
   });
-  const fieldNames = payload.embeds.flatMap((embed) => embed.fields || []).map((field) => field.name);
+  const embedTitles = payload.embeds.map((embed) => embed.title);
 
-  assert.ok(fieldNames.includes("__Persoonlijke Gegevens__"));
-  assert.ok(fieldNames.includes("__Motivatie__"));
-  assert.ok(fieldNames.includes("__Kennisvragen__"));
-  assert.ok(fieldNames.includes("__Scenario's__"));
-  assert.ok(fieldNames.includes("__Porto & Communicatie__"));
+  assert.ok(embedTitles.includes("Persoonlijke Gegevens"));
+  assert.ok(embedTitles.includes("Motivatie"));
+  assert.ok(embedTitles.includes("Kennisvragen"));
+  assert.ok(embedTitles.includes("Scenario's"));
+  assert.ok(embedTitles.includes("Porto & Communicatie"));
 });
 
 test("mentor tests are not hard-coded to defensie only", () => {
