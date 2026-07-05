@@ -152,6 +152,9 @@ test("Discord worker writes sync status back to portal profiles", () => {
   assert.match(workerCode, /updatePortalDiscordSyncStatus\(statusPerson, stateName/);
   assert.match(routesCode, /reason === "qualification_updated"/);
   assert.match(routesCode, /Wacht op Discord rollen of eerstvolgende worker-run/);
+  assert.match(workerCode, /nestedSyncFailureFromResult/);
+  assert.match(workerCode, /\$\{label\} overgeslagen/);
+  assert.match(workerCode, /if \(nestedFailure\) throw nestedFailure/);
 });
 
 test("Discord worker casts Porto JSONB update parameters", () => {
@@ -177,9 +180,11 @@ test("Discord person sync script diagnoses qualification roles", () => {
   assert.equal(packageJson.scripts["discord:person"], "node scripts/discord-sync-person.js");
   assert.match(scriptCode, /configuredQualificationRoleMappings/);
   assert.match(scriptCode, /allQualificationRoleMappings/);
+  assert.match(scriptCode, /allRankRoleMappings/);
+  assert.match(scriptCode, /Ontbrekende rangrol/);
   assert.match(scriptCode, /Ontbrekende gewenste rollen/);
   assert.match(scriptCode, /Gewenst maar niet geconfigureerd/);
-  assert.match(scriptCode, /syncQualificationRolesForPerson\(person/);
+  assert.match(scriptCode, /syncDiscordForPersonIfNeeded\(person/);
   assert.match(scriptCode, /--apply/);
 });
 

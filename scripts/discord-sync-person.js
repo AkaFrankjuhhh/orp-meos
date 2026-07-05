@@ -66,6 +66,11 @@ async function main() {
     ? bot.allQualificationRoleMappings()
     : bot.configuredQualificationRoleMappings();
   const configuredMappings = allMappings.filter((mapping) => String(mapping.roleId || "").trim());
+  const rankMappings = typeof bot.allRankRoleMappings === "function"
+    ? bot.allRankRoleMappings()
+    : bot.configuredRankRoleMappings();
+  const configuredRankMappings = rankMappings.filter((mapping) => String(mapping.roleId || "").trim());
+  const desiredRankRoleId = bot.rankRoleIdForPerson?.(person) || "";
   const desiredMissingConfig = allMappings.filter((mapping) => completed.has(mapping.qualification) && !String(mapping.roleId || "").trim());
   const desiredRoleIds = configuredMappings
     .filter((mapping) => completed.has(mapping.qualification))
@@ -73,6 +78,10 @@ async function main() {
   const member = await bot.getGuildMember(person.discordId);
   if (member.skipped) throw new Error(member.reason || "Discord member kon niet worden opgehaald.");
   const currentRoleIds = (member.data?.roles || []).map(String);
+  const missingRankRoleIds = desiredRankRoleId && !currentRoleIds.includes(desiredRankRoleId) ? [desiredRankRoleId] : [];
+  const extraManagedRankRoleIds = configuredRankMappings
+    .map((mapping) => mapping.roleId)
+    .filter((roleId) => currentRoleIds.includes(roleId) && roleId !== desiredRankRoleId);
   const missingRoleIds = desiredRoleIds.filter((roleId) => !currentRoleIds.includes(roleId));
   const extraManagedRoleIds = configuredMappings
     .map((mapping) => mapping.roleId)
@@ -84,6 +93,16 @@ async function main() {
   console.log(`Discord ID: ${person.discordId || "-"}`);
   console.log(`Status: ${person.status || "-"}`);
   console.log(`Trainingen: ${roleListText(Array.from(completed))}`);
+  console.log("");
+  console.log("Rangrol mapping:");
+  for (const mapping of rankMappings) {
+    if (mapping.rank !== person.rank) continue;
+    const configured = String(mapping.roleId || "").trim() ? "ja" : "nee";
+    const current = mapping.roleId && currentRoleIds.includes(mapping.roleId) ? "ja" : "nee";
+    console.log(`- ${mapping.rank} (${mapping.envKey}=${mapping.roleId || "NIET INGESTELD"}) gewenst=ja configured=${configured} aanwezig=${current}`);
+  }
+  console.log(`Ontbrekende rangrol: ${roleListText(missingRankRoleIds)}`);
+  console.log(`Extra beheerde rangrollen: ${roleListText(extraManagedRankRoleIds)}`);
   console.log("");
   console.log("Kwalificatie mappings:");
   for (const mapping of allMappings) {
@@ -99,11 +118,11 @@ async function main() {
 
   if (!apply) {
     console.log("");
-    console.log("Dry-run klaar. Voeg --apply toe om de kwalificatierollen echt te synchroniseren.");
+    console.log("Dry-run klaar. Voeg --apply toe om naam, rangrol en kwalificatierollen echt te synchroniseren.");
     return;
   }
 
-  const result = await bot.syncQualificationRolesForPerson(person, "Handmatige kwalificatie resync");
+  const result = await bot.syncDiscordForPersonIfNeeded(person, "Handmatige Discord profiel resync");
   console.log("");
   console.log("Sync resultaat:");
   console.log(JSON.stringify(result, null, 2));

@@ -642,8 +642,10 @@ function sendPublicFormWebhookInBackground(config, submission, files = []) {
     if (webhookResult && !webhookResult.ok && !webhookResult.skipped) {
       logServerError(`Public form webhook rejected for ${config.slug}`, new Error(`status=${webhookResult.status || "unknown"} body=${webhookResult.body || webhookResult.error || ""}`));
     }
-    if (webhookResult?.ok && webhookResult.thread && !webhookResult.thread.ok && !webhookResult.thread.skipped) {
-      logServerError(`Public form thread failed for ${config.slug}:${submission.caseNumber || submission.id}`, new Error(`status=${webhookResult.thread.status || "unknown"} body=${webhookResult.thread.body || webhookResult.thread.error || ""}`));
+    if (webhookResult?.ok && webhookResult.thread && !webhookResult.thread.ok) {
+      const reason = webhookResult.thread.reason || webhookResult.thread.body || webhookResult.thread.error || "";
+      const status = webhookResult.thread.skipped ? "skipped" : (webhookResult.thread.status || "unknown");
+      logServerError(`Public form thread failed for ${config.slug}:${submission.caseNumber || submission.id}`, new Error(`status=${status} body=${reason}`));
     }
     try {
       await publicFormsStore.saveSubmission(submission, webhookResult);

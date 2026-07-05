@@ -43,6 +43,13 @@ test("defensie new recruits have default Discord base roles configured", () => {
   });
 });
 
+test("public form threads use the shared portal or government bot token", () => {
+  const code = fs.readFileSync(path.join(process.cwd(), "modules", "discord-webhooks.js"), "utf8");
+
+  assert.match(code, /DISCORD_BOT_TOKEN/);
+  assert.match(code, /MAIN_GOVERNMENT_DISCORD_BOT_TOKEN/);
+});
+
 test("police has a DSI public form with police intake questions", () => {
   const policeForms = loadPublicFormsForOrganization("politie");
   const defenceForms = loadPublicFormsForOrganization("defensie");

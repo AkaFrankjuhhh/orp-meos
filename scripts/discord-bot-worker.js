@@ -746,6 +746,24 @@ function jobResultText(result) {
   return JSON.stringify(result || {}).slice(0, 500);
 }
 
+function nestedSyncFailureFromResult(result) {
+  const requiredParts = [
+    ["basisrollen", result?.baseRoles],
+    ["rangrol", result?.rankRole],
+    ["kwalificatierollen", result?.qualificationRoles]
+  ];
+  for (const [label, part] of requiredParts) {
+    if (!part) continue;
+    if (part.skipped) return new Error(`${label} overgeslagen: ${part.reason || "geen reden"}`);
+    if (part.ok === false) return new Error(`${label} mislukt: ${part.reason || part.body || part.error || "onbekende fout"}`);
+    const failedChange = Array.isArray(part.changes)
+      ? part.changes.find((change) => change && change.ok === false)
+      : null;
+    if (failedChange) return new Error(`${label} wijzigen mislukt: ${failedChange.reason || failedChange.body || failedChange.error || "onbekende fout"}`);
+  }
+  return null;
+}
+
 async function findPersonForSyncJob(job) {
   const state = await readPostgresState();
   return (state.people || []).find((entry) => {
@@ -830,6 +848,8 @@ async function processJobs() {
         console.log(`[discord-bot] job ${job.id} wacht op organisatie-rol (${job.attempts}/${job.maxAttempts}) - ${roleWaitResult.reason}`);
         continue;
       }
+      const nestedFailure = nestedSyncFailureFromResult(result);
+      if (nestedFailure) throw nestedFailure;
       await completeDiscordSyncJob(job.id, result);
       const statusPerson = ["sync_person", "porto_nickname"].includes(job.type)
         ? await findPersonForSyncJob(job).catch(() => null)

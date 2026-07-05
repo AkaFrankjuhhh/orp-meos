@@ -1132,6 +1132,21 @@ function renderDashboard() {
     }))
     .filter((item) => item.count > 0);
 
+  function rankLegendDisplayOrder(items) {
+    const calmTwoColumn = document.documentElement.dataset.uiMode === "calm"
+      && window.matchMedia("(min-width: 1321px)").matches;
+    if (!calmTwoColumn || items.length < 3) return items;
+    const leftColumnLength = Math.ceil(items.length / 2);
+    const leftColumn = items.slice(0, leftColumnLength);
+    const rightColumn = items.slice(leftColumnLength);
+    const ordered = [];
+    for (let index = 0; index < leftColumnLength; index += 1) {
+      if (leftColumn[index]) ordered.push(leftColumn[index]);
+      if (rightColumn[index]) ordered.push(rightColumn[index]);
+    }
+    return ordered;
+  }
+
   if (!rankCounts.length) {
     rankPieSegments = [];
     $("#rankPie").style.background = "var(--surface-2)";
@@ -1152,7 +1167,7 @@ function renderDashboard() {
       ? `linear-gradient(90deg, ${segments.join(", ")})`
       : `conic-gradient(${segments.join(", ")})`;
     const maxRankCount = Math.max(...sortedRankCounts.map((item) => item.count), 1);
-    $("#rankLegend").innerHTML = sortedRankCounts
+    $("#rankLegend").innerHTML = rankLegendDisplayOrder(sortedRankCounts)
       .map((item) => {
         const width = Math.max(8, Math.round((item.count / maxRankCount) * 100));
         return `
@@ -1671,6 +1686,9 @@ function wireEvents() {
   bindDialogBackdropClose();
   window.addEventListener("resize", updateDeviceMode);
   window.addEventListener("resize", () => DefensiePortalUI.resizeAutoGrowingTextareas?.());
+  window.addEventListener("resize", () => {
+    if (activePageId() === "dashboard") renderDashboard();
+  });
   window.addEventListener("popstate", () => applyRouteState("replace"));
   window.addEventListener("orp-ui-mode-change", () => {
     if (activePageId() === "dashboard") renderDashboard();

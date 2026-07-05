@@ -55,9 +55,13 @@ async function sendDiscordWebhook(webhookUrl, payload, files = [], options = {})
 }
 
 async function createDiscordThreadFromMessage(channelId, messageId, threadName) {
-  const token = String(process.env.DISCORD_BOT_TOKEN || "").trim();
+  const token = String(
+    process.env.DISCORD_BOT_TOKEN ||
+    process.env.MAIN_GOVERNMENT_DISCORD_BOT_TOKEN ||
+    ""
+  ).trim();
   const name = truncateDiscordThreadName(threadName);
-  if (!token) return { skipped: true, reason: "DISCORD_BOT_TOKEN ontbreekt." };
+  if (!token) return { skipped: true, reason: "DISCORD_BOT_TOKEN/MAIN_GOVERNMENT_DISCORD_BOT_TOKEN ontbreekt." };
   if (!channelId || !messageId || !name) return { skipped: true, reason: "Kanaal, bericht of threadnaam ontbreekt." };
 
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}/threads`, {
