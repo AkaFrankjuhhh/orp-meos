@@ -117,15 +117,20 @@ function renderResignationOverview() {
   }
   const allForms = (state.resignationForms || [])
     .sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
-  const openForms = allForms.filter((form) => !["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend"));
-  const handledForms = allForms.filter((form) => ["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend"));
+  const formDisplayStatus = (form) => isHandledResignationForm(form) && !["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend")
+    ? "Verwerkt"
+    : (form.status || "Ingediend");
+  const formHandledAt = (form) => form.processedAt || form.cancelledAt || linkedResignationProfile(form)?.dismissalDate || "";
+  const formHandledBy = (form) => form.processedByName || form.cancelledByName || "-";
+  const openForms = allForms.filter((form) => !isHandledResignationForm(form));
+  const handledForms = allForms.filter(isHandledResignationForm);
   const renderFormCard = (form, handled = false) => `
       <article class="resignation-overview-card">
         <div class="resignation-overview-head">
           <strong>${escapeHtml(form.name || memberName(form.memberId))}</strong>
           <span>${escapeHtml(form.rank || "-")}</span>
           <span>${escapeHtml(formatDate(form.requestedAt))}</span>
-          <span class="resignation-overview-status">${escapeHtml(form.status || "Ingediend")}</span>
+          <span class="resignation-overview-status">${escapeHtml(formDisplayStatus(form))}</span>
           ${!handled && hasKaderAccess() ? `<div class="resignation-overview-actions">
             <button class="primary small" type="button" data-resignation-process="${escapeHtml(form.id)}">Verwerkt</button>
             <button class="ghost small" type="button" data-resignation-cancel="${escapeHtml(form.id)}">Annuleren</button>
@@ -133,8 +138,8 @@ function renderResignationOverview() {
           </div>` : ""}
         </div>
         ${handled ? `<div class="resignation-overview-meta">
-          <span>Afgehandeld: ${escapeHtml(formatDate(form.processedAt || form.cancelledAt))}</span>
-          <span>Door: ${escapeHtml(form.processedByName || form.cancelledByName || "-")}</span>
+          <span>Afgehandeld: ${escapeHtml(formatDate(formHandledAt(form)))}</span>
+          <span>Door: ${escapeHtml(formHandledBy(form))}</span>
         </div>` : ""}
         <div class="resignation-overview-reason">
           <span>Reden</span>

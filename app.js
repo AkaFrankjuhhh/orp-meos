@@ -84,9 +84,11 @@ let reviewCounterPoll = null;
 let reviewCounterLoadPromise = null;
 let liveEventSource = null;
 let liveRefreshTimer = null;
+let liveRefreshSuppressUntil = 0;
 let rankPieSegments = [];
 let mentorChecklistEditingUntil = 0;
 const REVIEW_COUNTER_FALLBACK_MS = 30000;
+const LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS = 1500;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -742,6 +744,7 @@ async function runAction(path, body = {}) {
     return false;
   }
   applyServerState(payload);
+  suppressImmediateLiveRefresh();
   return true;
 }
 
@@ -1353,8 +1356,19 @@ function openI8ReviewCount() {
   return (state.i8Forms || []).filter((form) => ["pending", "in_review"].includes(form.status || "pending")).length;
 }
 
+function linkedResignationProfile(form) {
+  if (!form?.memberId) return null;
+  return (state.people || []).find((person) => person.id === form.memberId) || null;
+}
+
+function isHandledResignationForm(form) {
+  if (["Verwerkt", "Geannuleerd"].includes(form?.status || "Ingediend")) return true;
+  const linkedProfile = linkedResignationProfile(form);
+  return Boolean(linkedProfile && !isCurrentProfile(linkedProfile));
+}
+
 function openResignationFormCount() {
-  return (state.resignationForms || []).filter((form) => !["Verwerkt", "Geannuleerd"].includes(form.status || "Ingediend")).length;
+  return (state.resignationForms || []).filter((form) => !isHandledResignationForm(form)).length;
 }
 
 function setNavCounter(selector, count, visible) {
@@ -1496,11 +1510,33 @@ function startReviewCounterPolling() {
 const pendingLiveScopes = new Set();
 let liveRefreshDeferTimer = null;
 
+function suppressImmediateLiveRefresh() {
+  liveRefreshSuppressUntil = Date.now() + LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS;
+  pendingLiveScopes.clear();
+  if (liveRefreshTimer) {
+    window.clearTimeout(liveRefreshTimer);
+    liveRefreshTimer = null;
+  }
+  if (liveRefreshDeferTimer) {
+    window.clearTimeout(liveRefreshDeferTimer);
+    liveRefreshDeferTimer = null;
+  }
+}
+
+function isLiveRefreshSuppressed() {
+  return Date.now() < liveRefreshSuppressUntil;
+}
+
 function scheduleLiveRefresh(scope = "state") {
+  if (isLiveRefreshSuppressed()) return;
   pendingLiveScopes.add(scope || "state");
   if (liveRefreshTimer) return;
   liveRefreshTimer = window.setTimeout(async () => {
     liveRefreshTimer = null;
+    if (isLiveRefreshSuppressed()) {
+      pendingLiveScopes.clear();
+      return;
+    }
     if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
     if (isMentorTestStaticPageActive()) {
       liveRefreshPausedByStaticPage = true;

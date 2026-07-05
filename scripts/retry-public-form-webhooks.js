@@ -43,6 +43,13 @@ function submissionFromRow(row) {
   };
 }
 
+function webhookThreadStatusText(webhookResult = {}) {
+  if (!webhookResult.thread) return "";
+  if (webhookResult.thread.ok) return ` thread=created:${webhookResult.thread.threadId || "-"}`;
+  if (webhookResult.thread.skipped) return ` thread=skipped:${webhookResult.thread.reason || "geen reden"}`;
+  return ` thread=failed:${webhookResult.thread.status || "unknown"}:${webhookResult.thread.body || webhookResult.thread.error || ""}`;
+}
+
 async function main() {
   const slug = argValue("slug", "hovj");
   const status = argValue("status", "failed:400");
@@ -89,7 +96,7 @@ async function main() {
       ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, [], threadName)
       : await sendDiscordWebhook(webhookUrl, payload);
     await store.saveSubmission(submission, webhookResult);
-    console.log(`${submission.id} -> ${webhookResult.ok ? "sent" : `failed:${webhookResult.status || "unknown"}`}`);
+    console.log(`${submission.id} -> ${webhookResult.ok ? "sent" : `failed:${webhookResult.status || "unknown"}`}${webhookThreadStatusText(webhookResult)}`);
   }
 }
 

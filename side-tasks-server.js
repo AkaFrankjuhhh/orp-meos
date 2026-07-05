@@ -6,6 +6,7 @@ const { URLSearchParams } = require("node:url");
 const { loadEnv } = require("./modules/db");
 const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-store");
 const {
+  allSideTasks,
   sideTaskForHost,
   hasMembershipRole,
   specialtiesForRoles,
@@ -38,6 +39,8 @@ const NEVENTAKEN_GUILD_ID = process.env.SIDE_TASK_DISCORD_GUILD_ID || "";
 const NEVENTAKEN_BOT_TOKEN = process.env.SIDE_TASK_DISCORD_BOT_TOKEN || "";
 const MAIN_GUILD_ID = process.env.MAIN_GOVERNMENT_DISCORD_GUILD_ID || process.env.DISCORD_GUILD_ID || "";
 const MAIN_BOT_TOKEN = process.env.MAIN_GOVERNMENT_DISCORD_BOT_TOKEN || process.env.DISCORD_BOT_TOKEN || "";
+const SIDE_TASK_BROWSER_TIMEOUT_MS = Math.max(60000, Number(process.env.SIDE_TASK_BROWSER_TIMEOUT_MS || 15 * 60 * 1000));
+const SIDE_TASK_BROWSER_TIMEOUT_CHECK_MS = Math.max(30000, Number(process.env.SIDE_TASK_BROWSER_TIMEOUT_CHECK_MS || 60 * 1000));
 
 const sessions = createSessionStore();
 const store = createSideTasksStore();
@@ -327,6 +330,21 @@ function publishSideTaskUpdate(task, reason, extra = {}) {
     reason,
     ...extra
   });
+}
+
+async function signOffTimedOutBrowserMembers() {
+  const cutoff = new Date(Date.now() - SIDE_TASK_BROWSER_TIMEOUT_MS);
+  const timedOutMembers = await store.signOffTimedOutClientMembers(cutoff);
+  for (const member of timedOutMembers) {
+    const task = allSideTasks().find((entry) => entry.key === member.taskKey);
+    if (!task) continue;
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, member, "8").catch((error) => ({ warning: nicknameSyncWarning(error) }));
+    if (nicknameResult?.warning) {
+      console.warn(`[side-tasks] ${member.taskKey} ${member.discordId} automatisch afgemeld, maar nickname herstel gaf waarschuwing: ${nicknameResult.warning}`);
+    }
+    publishSideTaskUpdate(task, "browser-timeout-signed-off", { memberId: member.id, status: "8" });
+    console.log(`[side-tasks] ${member.taskKey} ${member.discordId} automatisch afgemeld na browser-timeout.`);
+  }
 }
 
 async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
@@ -701,6 +719,13 @@ async function handleApi(req, res, task, url) {
     });
   }
 
+  if (url.pathname === "/api/side-tasks/me/heartbeat" && req.method === "POST") {
+    const member = await ensureSessionMember(task, session);
+    if (!member) return jsonError(res, 404, "Lid niet gevonden.");
+    const updated = await store.markClientHeartbeat(task.key, member.id);
+    return sendJson(res, 200, { ok: true, member: publicMember(updated) });
+  }
+
   if (url.pathname === "/api/side-tasks/members" && req.method === "GET") {
     const members = await store.listMembers(task.key);
     return sendJson(res, 200, { members: members.map(publicMember), statuses: statusOptionsForTask(task) });
@@ -959,6 +984,11 @@ async function handleRequest(req, res) {
 async function start() {
   await store.ensureSideTaskSchema();
   await sessions.load();
+  setInterval(() => {
+    signOffTimedOutBrowserMembers().catch((error) => {
+      console.error(`[side-tasks] browser-timeout controle mislukt: ${error.message}`);
+    });
+  }, SIDE_TASK_BROWSER_TIMEOUT_CHECK_MS);
   http.createServer(handleRequest).listen(PORT, () => {
     console.log(`ORP Neventaken draait op ${APP_BASE_URL}`);
     console.log(`Poort: ${PORT}`);

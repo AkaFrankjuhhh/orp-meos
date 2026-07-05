@@ -383,6 +383,53 @@ function createSideTasksStore() {
     return upsertMember(taskKey, { ...existing, ...patch, id: existing.id, discordId: existing.discordId });
   }
 
+  async function markClientHeartbeat(taskKey, id, heartbeatAt = new Date()) {
+    await ensureSideTaskSchema();
+    const heartbeatIso = heartbeatAt instanceof Date ? heartbeatAt.toISOString() : new Date(heartbeatAt).toISOString();
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        `update side_task_members
+         set raw = coalesce(raw, '{}'::jsonb)
+             || jsonb_build_object(
+               'clientHeartbeatAt', $3::text,
+               'clientHeartbeatActive', true
+             ),
+             updated_at = now()
+         where task_key = $1 and id = $2
+         returning *`,
+        [taskKey, String(id), heartbeatIso]
+      );
+      return memberFromRow(result.rows[0]);
+    });
+  }
+
+  async function signOffTimedOutClientMembers(timeoutBefore = new Date()) {
+    await ensureSideTaskSchema();
+    const timeoutIso = timeoutBefore instanceof Date ? timeoutBefore.toISOString() : new Date(timeoutBefore).toISOString();
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        `update side_task_members
+         set status = '8',
+             status_detail = $2,
+             unit_number = '',
+             command_role = '',
+             raw = coalesce(raw, '{}'::jsonb)
+               || jsonb_build_object(
+                 'clientHeartbeatActive', false,
+                 'autoSignedOffAt', now(),
+                 'autoSignedOffReason', 'browser_heartbeat_timeout'
+               ),
+             updated_at = now()
+         where status <> '8'
+           and coalesce(raw->>'clientHeartbeatActive', '') = 'true'
+           and nullif(raw->>'clientHeartbeatAt', '')::timestamptz < $1::timestamptz
+         returning *`,
+        [timeoutIso, statusOption("8").label]
+      );
+      return result.rows.map(memberFromRow);
+    });
+  }
+
   async function updateMemberProfile(taskKey, id, patch) {
     await ensureSideTaskSchema();
     return withSideTaskClient(async (client) => {
@@ -736,6 +783,8 @@ function createSideTasksStore() {
     upsertMember,
     syncMemberFromDiscord,
     updateMember,
+    markClientHeartbeat,
+    signOffTimedOutClientMembers,
     updateMemberProfile,
     assignDsiUnit,
     assignDsiCommandRole,

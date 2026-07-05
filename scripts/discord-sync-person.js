@@ -18,15 +18,35 @@ function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function personMatches(person, query) {
-  const needle = normalize(query);
-  if (!needle) return false;
+function compactSearchText(value) {
+  return normalize(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function personSearchValues(person) {
   return [
     person.id,
     person.name,
     person.discordId,
-    person.serviceNumber
-  ].some((value) => normalize(value).includes(needle));
+    person.discordUsername,
+    person.serviceNumber,
+    person.previousServiceNumber,
+    person.raw?.name,
+    person.raw?.discordUsername
+  ].map(compactSearchText).filter(Boolean);
+}
+
+function personMatches(person, query) {
+  const needle = compactSearchText(query);
+  if (!needle) return false;
+  const values = personSearchValues(person);
+  if (values.some((value) => value.includes(needle))) return true;
+  const parts = needle.split(/\s+/).filter((part) => part.length >= 2);
+  if (!parts.length) return false;
+  return values.some((value) => parts.every((part) => value.includes(part)));
 }
 
 function roleListText(roleIds = []) {
@@ -48,7 +68,19 @@ async function main() {
 
   const state = await readPostgresState();
   const matches = (state.people || []).filter((person) => personMatches(person, query));
-  if (!matches.length) throw new Error(`Geen profiel gevonden voor "${query}".`);
+  if (!matches.length) {
+    const firstToken = compactSearchText(query).split(/\s+/).find((part) => part.length >= 2) || compactSearchText(query);
+    const candidates = firstToken
+      ? (state.people || []).filter((person) => personSearchValues(person).some((value) => value.includes(firstToken))).slice(0, 10)
+      : [];
+    if (candidates.length) {
+      console.log(`Geen exacte match gevonden voor "${query}". Mogelijke profielen:`);
+      for (const person of candidates) {
+        console.log(`- ${person.serviceNumber || "-"} ${person.name || "-"} discord=${person.discordId || "-"} username=${person.discordUsername || "-"} status=${person.status || "-"}`);
+      }
+    }
+    throw new Error(`Geen profiel gevonden voor "${query}". Probeer --query "dienstnummer" of --discord "Discord ID".`);
+  }
   if (matches.length > 1) {
     console.log(`Meerdere profielen gevonden voor "${query}":`);
     for (const person of matches) {

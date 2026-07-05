@@ -1035,17 +1035,31 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 404, { error: "Ontslagformulier niet gevonden." });
       return;
     }
+    const processedBy = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     if (form.status === "Verwerkt") {
-      sendJson(res, 409, { error: "Dit ontslagformulier is al verwerkt." });
+      await sendPeopleStateAfterMutation(res, auth, state);
       return;
     }
     const person = (state.people || []).find((entry) => entry.id === form.memberId && isCurrentPerson(entry));
     if (!person) {
-      sendJson(res, 404, { error: "Personeelslid niet gevonden. Mogelijk is dit profiel al gearchiveerd." });
+      const archivedPerson = (state.people || []).find((entry) => entry.id === form.memberId && !isCurrentPerson(entry));
+      if (!archivedPerson) {
+        sendJson(res, 404, { error: "Personeelslid niet gevonden. Mogelijk is dit profiel al gearchiveerd." });
+        return;
+      }
+      form.status = "Verwerkt";
+      form.processedAt = form.processedAt || new Date().toISOString();
+      form.processedById = form.processedById || processedBy.id;
+      form.processedByName = form.processedByName || processedBy.name;
+      form.name = form.name || archivedPerson.name || "";
+      form.rank = form.rank || archivedPerson.previousRank || archivedPerson.rank || "";
+      form.serviceNumber = form.serviceNumber || archivedPerson.previousServiceNumber || "";
+      state.activity = state.activity || [];
+      state.activity.push(`${processedBy.name} heeft een al gearchiveerd ontslagformulier van ${form.name || "onbekend"} afgerond.`);
+      await sendPeopleStateAfterMutation(res, auth, state);
       return;
     }
 
-    const processedBy = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     const releasedNumber = person.serviceNumber || form.serviceNumber || "";
     const todayValue = today();
     const reason = String(form.reason || "Ontslagformulier verwerkt.").trim();

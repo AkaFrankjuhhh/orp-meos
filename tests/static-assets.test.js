@@ -66,6 +66,29 @@ test("portal shell uses absolute assets so deep profile routes hydrate", () => {
   }
 });
 
+test("portal live refresh ignores the immediate echo after local actions", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+
+  assert.match(html, /app\.js\?v=20260705-live-action-cooldown/);
+  assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
+  assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
+  assert.match(appCode, /function isLiveRefreshSuppressed\(/);
+});
+
+test("archived resignation forms are not counted as open", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const archiveCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "archive.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+
+  assert.match(html, /personeelsportaal\/archive\.js\?v=20260705-resignation-archive-state/);
+  assert.match(appCode, /function isHandledResignationForm\(/);
+  assert.match(appCode, /linkedProfile && !isCurrentProfile\(linkedProfile\)/);
+  assert.match(archiveCode, /const openForms = allForms\.filter\(\(form\) => !isHandledResignationForm\(form\)\)/);
+  assert.match(routesCode, /al gearchiveerd ontslagformulier/);
+});
+
 test("I8 create form keeps a browser draft until server save succeeds", () => {
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const i8Code = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "i8.js"), "utf8");
@@ -89,7 +112,20 @@ test("mentor test Discord embed formats submitted date and time", () => {
 test("side task shell serves DNR and KLu alias assets with a fresh version", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "side-tasks.html"), "utf8");
   assert.match(html, /side-tasks\.css\?v=20260703-calm-arial/);
-  assert.match(html, /side-tasks\.js\?v=20260703-ui-mode/);
+  assert.match(html, /side-tasks\.js\?v=20260705-browser-heartbeat/);
+});
+
+test("side task browser heartbeat signs off closed browsers server-side", () => {
+  const clientCode = fs.readFileSync(path.join(process.cwd(), "side-tasks.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "side-tasks-server.js"), "utf8");
+  const storeCode = fs.readFileSync(path.join(process.cwd(), "modules", "side-tasks-store.js"), "utf8");
+
+  assert.match(clientCode, /BROWSER_HEARTBEAT_INTERVAL_MS/);
+  assert.match(clientCode, /\/api\/side-tasks\/me\/heartbeat/);
+  assert.match(serverCode, /SIDE_TASK_BROWSER_TIMEOUT_MS/);
+  assert.match(serverCode, /signOffTimedOutBrowserMembers/);
+  assert.match(storeCode, /clientHeartbeatAt/);
+  assert.match(storeCode, /browser_heartbeat_timeout/);
 });
 
 test("mentor tests render compact rows with a detail dialog", () => {

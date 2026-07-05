@@ -10,9 +10,12 @@ let appState = {
   memberEditId: ""
 };
 const LIVE_REFRESH_INTERVAL_MS = 60000;
+const BROWSER_HEARTBEAT_INTERVAL_MS = 60000;
 let liveRefreshInFlight = false;
 let liveEventSource = null;
 let liveReconnectTimer = null;
+let browserHeartbeatTimer = null;
+let browserHeartbeatInFlight = false;
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -501,6 +504,25 @@ async function refreshLiveState() {
   }
 }
 
+async function sendBrowserHeartbeat() {
+  if (!appState.me || browserHeartbeatInFlight) return;
+  browserHeartbeatInFlight = true;
+  try {
+    const result = await api("/api/side-tasks/me/heartbeat", { method: "POST", body: "{}" });
+    if (result.member && appState.me) appState.me.member = result.member;
+  } catch (error) {
+    console.warn("Neventaken heartbeat mislukt:", error.message);
+  } finally {
+    browserHeartbeatInFlight = false;
+  }
+}
+
+function startBrowserHeartbeat() {
+  if (browserHeartbeatTimer) return;
+  sendBrowserHeartbeat();
+  browserHeartbeatTimer = setInterval(sendBrowserHeartbeat, BROWSER_HEARTBEAT_INTERVAL_MS);
+}
+
 function scheduleLiveReconnect() {
   if (liveReconnectTimer) return;
   liveReconnectTimer = setTimeout(() => {
@@ -527,6 +549,7 @@ function connectLiveEvents() {
 async function init() {
   try {
     await refresh();
+    startBrowserHeartbeat();
   } catch (error) {
     const params = new URLSearchParams(location.search);
     const authError = params.get("authError");
