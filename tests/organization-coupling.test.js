@@ -61,6 +61,22 @@ test("police has a DSI public form with police intake questions", () => {
   assert.ok(dsi.questions.find((question) => question.id === "portoWeaponReport")?.help.includes("50-03"));
   assert.notEqual(dsi.questions.length, policeForms.publicFormFromSlug("bsb").questions.length);
   assert.equal(defenceForms.publicFormFromSlug("dsi"), null);
+
+  const answers = Object.fromEntries(dsi.questions.map((question) => [question.id, question.type === "select" ? question.options[0] : "Test"]));
+  const payload = policeForms.buildPublicFormWebhookPayload(dsi, {
+    formScope: "Intern",
+    formSlug: "dsi",
+    formTitle: dsi.title,
+    answers,
+    submittedAt: "2026-07-05T12:00:00.000Z"
+  });
+  const fieldNames = payload.embeds.flatMap((embed) => embed.fields || []).map((field) => field.name);
+
+  assert.ok(fieldNames.includes("__Persoonlijke Gegevens__"));
+  assert.ok(fieldNames.includes("__Motivatie__"));
+  assert.ok(fieldNames.includes("__Kennisvragen__"));
+  assert.ok(fieldNames.includes("__Scenario's__"));
+  assert.ok(fieldNames.includes("__Porto & Communicatie__"));
 });
 
 test("mentor tests are not hard-coded to defensie only", () => {

@@ -712,6 +712,12 @@ function buildPublicFormWebhookPayload(config, submission) {
     }
   }
 
+  function addSectionHeading(title) {
+    const cleanTitle = String(title || "").trim();
+    if (!cleanTitle) return;
+    addField(`__${cleanTitle}__`, "\u200b");
+  }
+
   if (submission.submittedBy) {
     const submittedBy = submission.submittedBy;
     const discordLine = submittedBy.discordUsername || submittedBy.discordId
@@ -725,11 +731,32 @@ function buildPublicFormWebhookPayload(config, submission) {
     addField("Zaaknummer", formatCaseNumber(submission.caseNumber));
   }
 
-  for (const question of (config.questions || [])) {
-    if (question.type === "file" || !conditionMatches(question.showIf, submission.answers)) continue;
-    const rawValue = submission.answers?.[question.id];
-    const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue || "-";
-    addField(question.label, value);
+  const pages = Array.isArray(config.pages) ? config.pages : [];
+  if (pages.length) {
+    const questionsByPage = new Map();
+    for (const question of (config.questions || [])) {
+      const pageId = question.page || pages[0]?.id || "";
+      if (!questionsByPage.has(pageId)) questionsByPage.set(pageId, []);
+      questionsByPage.get(pageId).push(question);
+    }
+    for (const page of pages) {
+      const pageQuestions = questionsByPage.get(page.id) || [];
+      if (!pageQuestions.length) continue;
+      addSectionHeading(page.title || page.id);
+      for (const question of pageQuestions) {
+        if (question.type === "file" || !conditionMatches(question.showIf, submission.answers)) continue;
+        const rawValue = submission.answers?.[question.id];
+        const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue || "-";
+        addField(question.label, value);
+      }
+    }
+  } else {
+    for (const question of (config.questions || [])) {
+      if (question.type === "file" || !conditionMatches(question.showIf, submission.answers)) continue;
+      const rawValue = submission.answers?.[question.id];
+      const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue || "-";
+      addField(question.label, value);
+    }
   }
 
   if (submission.attachments?.length) {
