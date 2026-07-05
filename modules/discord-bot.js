@@ -617,6 +617,29 @@ function createDiscordBotServices(options = {}) {
     return { ok: true, changes };
   }
 
+  async function ensureBaseRolesForPerson(person, auditReason = `${portalAuditLabel} basisrollen gesynchroniseerd`) {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
+    const memberId = normalizeDiscordId(person?.discordId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+
+    const memberResult = await getGuildMember(memberId);
+    if (memberResult.skipped) return memberResult;
+    const existingRoles = new Set(memberResult.data?.roles || []);
+    const desiredRoleIds = compactRoleIds([
+      requiredDefensieRoleId(),
+      rankRoleIdForPerson(person)
+    ]);
+    if (!desiredRoleIds.length) return { skipped: true, reason: "Geen basisrollen ingesteld." };
+
+    const changes = [];
+    for (const roleId of desiredRoleIds) {
+      if (!existingRoles.has(roleId)) {
+        changes.push(await addRole(memberId, roleId, auditReason));
+      }
+    }
+    return { ok: true, changes, desiredRoleIds };
+  }
+
   async function syncRankRoleForPerson(person, auditReason = `${portalAuditLabel} rangrol gesynchroniseerd`) {
     if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
     const memberId = normalizeDiscordId(person?.discordId);
@@ -653,10 +676,11 @@ function createDiscordBotServices(options = {}) {
 
   async function syncDiscordForPersonIfNeeded(person, auditReason = `${portalAuditLabel} Discord profiel gesynchroniseerd`) {
     if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
+    const baseRoles = await ensureBaseRolesForPerson(person, auditReason);
     const nickname = await syncNicknameForPersonIfNeeded(person, auditReason);
     const rankRole = await syncRankRoleForPersonIfNeeded(person, auditReason);
     const qualificationRoles = await syncQualificationRolesForPersonIfNeeded(person, auditReason);
-    return { ok: true, nickname, rankRole, qualificationRoles };
+    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles };
   }
 
   function buildServiceNickname(person, template = process.env.DISCORD_NICKNAME_TEMPLATE || "personeelsportaal") {
@@ -821,6 +845,7 @@ function createDiscordBotServices(options = {}) {
     addRole,
     removeRole,
     syncRoleSet,
+    ensureBaseRolesForPerson,
     isDiscordSyncExcludedPerson,
     isDiscordSyncExcludedDiscordId,
     rankRoleEnvKeys: organization.discord?.rankRoleEnvKeys || defaultDefensieRankRoleEnvKeys,

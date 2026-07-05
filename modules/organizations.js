@@ -291,7 +291,7 @@ const organizationConfigs = {
       "Marechaussee 4de Klasser": "#fbbf24"
     },
     discord: {
-      mainRole: { envKey: "DISCORD_DEFENSIE_ROLE_ID" },
+      mainRole: { envKey: "DISCORD_DEFENSIE_ROLE_ID", defaultRoleId: "1423468016099918024" },
       functionRoleMappings: [
         { key: "kader", label: "Kader", envKey: "DISCORD_KADER_ROLE_ID", stateKey: "kaderRoleId" },
         { key: "hoofdofficier", label: "Hoofdofficier", envKey: "DISCORD_HOOFDOFFICIER_ROLE_ID", stateKey: "hoofdofficierRoleId" },
@@ -323,7 +323,7 @@ const organizationConfigs = {
         "Marechaussee 1ste Klasser": "DISCORD_RANK_MARECHAUSSEE_1STE_KLASSER_ROLE_ID",
         "Marechaussee 2de Klasser": "DISCORD_RANK_MARECHAUSSEE_2DE_KLASSER_ROLE_ID",
         "Marechaussee 3de Klasser": "DISCORD_RANK_MARECHAUSSEE_3DE_KLASSER_ROLE_ID",
-        "Marechaussee 4de Klasser": "DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID"
+        "Marechaussee 4de Klasser": { envKey: "DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID", defaultRoleId: "1423468808928104489" }
       },
       qualificationRoleMappings: {
         BKV: { envKey: "DISCORD_MEOS_ROLE_ID", defaultRoleId: "1425931664877551708", label: "MEOS" },

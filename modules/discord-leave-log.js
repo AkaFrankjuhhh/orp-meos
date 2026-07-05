@@ -19,8 +19,12 @@ function collectOrganizationDiscordRoleIds(organization = currentOrganization())
   for (const mapping of organization.discord?.taskRoleMappings || []) {
     addRoleId(roleIds, envOrDefault(mapping.envKey, mapping.defaultRoleId));
   }
-  for (const envKey of Object.values(organization.discord?.rankRoleEnvKeys || {})) {
-    addRoleId(roleIds, envOrDefault(envKey));
+  for (const mapping of Object.values(organization.discord?.rankRoleEnvKeys || {})) {
+    if (typeof mapping === "string") {
+      addRoleId(roleIds, envOrDefault(mapping));
+    } else {
+      addRoleId(roleIds, envOrDefault(mapping?.envKey, mapping?.defaultRoleId || mapping?.roleId));
+    }
   }
   for (const mapping of Object.values(organization.discord?.qualificationRoleMappings || {})) {
     addRoleId(roleIds, envOrDefault(mapping.envKey, mapping.defaultRoleId));

@@ -32,6 +32,17 @@ test("discord worker uses organization porto operator number for lead nickname c
   assert.doesNotMatch(code, /unit\.vehicleNumber === "30-00"/);
 });
 
+test("defensie new recruits have default Discord base roles configured", () => {
+  const { organizationConfigs, organizationMainRoleId } = require("../modules/organizations");
+  const defensie = organizationConfigs.defensie;
+
+  assert.equal(organizationMainRoleId(defensie), "1423468016099918024");
+  assert.deepEqual(defensie.discord.rankRoleEnvKeys["Marechaussee 4de Klasser"], {
+    envKey: "DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID",
+    defaultRoleId: "1423468808928104489"
+  });
+});
+
 test("police has a DSI public form with police intake questions", () => {
   const policeForms = loadPublicFormsForOrganization("politie");
   const defenceForms = loadPublicFormsForOrganization("defensie");

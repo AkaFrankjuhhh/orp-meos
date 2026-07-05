@@ -689,11 +689,12 @@ async function syncPersonForState(state, person, reason = "Discord bot worker sy
   if (!person?.discordId) return { skipped: true, reason: "Geen Discord ID" };
   const portoUnit = activePortoUnitForPerson(state, person);
   if (portoUnit) {
+    const baseRoles = await bot.ensureBaseRolesForPerson(person, reason);
     const nickname = await bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, portoUnit), `${reason}: Porto roepnummer`);
     const rankRole = await bot.syncRankRoleForPersonIfNeeded(person, reason);
     const qualificationRoles = await bot.syncQualificationRolesForPersonIfNeeded(person, reason);
     await sleep(350);
-    return { ok: true, nickname, rankRole, qualificationRoles, porto: true };
+    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, porto: true };
   }
   return syncPerson(person, reason);
 }
@@ -822,7 +823,7 @@ async function processJobs() {
   for (const job of jobs) {
     try {
       const result = await syncByJob(job);
-      const roleWaitResult = [result, result?.nickname, result?.rankRole, result?.qualificationRoles]
+      const roleWaitResult = [result, result?.baseRoles, result?.nickname, result?.rankRole, result?.qualificationRoles]
         .find((entry) => entry?.retryable);
       if (roleWaitResult) {
         await failDiscordSyncJob(job.id, new Error(roleWaitResult.reason), { retryDelayMs: requiredRoleRetryMs });
