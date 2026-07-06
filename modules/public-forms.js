@@ -68,15 +68,19 @@ function isDsiApplicationForm(configOrSlug) {
 
 function publicFormSubmissionThreadName(config, submission = {}) {
   if (isComplaintForm(config)) return `zaaknummer ${formatCaseNumber(submission.caseNumber)}`;
-  if (!isDsiApplicationForm(config)) return "";
   const portalName = String(submission.submittedBy?.name || "").trim();
   const fallbackName = String(
     submission.answers?.inGameName ||
     submission.answers?.discordFullName ||
     submission.answers?.fullName ||
+    submission.answers?.name ||
+    submission.answers?.steamName ||
     "Onbekend"
   ).trim();
-  return `DSI Sollicitatie ${portalName || fallbackName || "Onbekend"}`;
+  const name = portalName || fallbackName || "Onbekend";
+  if (isDsiApplicationForm(config)) return `DSI Sollicitatie ${name}`;
+  const title = String(config?.threadTitle || config?.title || config?.slug || "Formulier").replace(/^ORP\s*-\s*/i, "").trim();
+  return `${title} ${name}`.trim();
 }
 
 const publicFormConfigs = {

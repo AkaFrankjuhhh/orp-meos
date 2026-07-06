@@ -86,6 +86,14 @@ test("police has a DSI public form with police intake questions", () => {
   assert.ok(embedTitles.includes("Scenario's"));
   assert.ok(embedTitles.includes("Porto & Communicatie"));
   assert.equal(policeForms.publicFormSubmissionThreadName(dsi, { submittedBy: { name: "AkaFrank" }, answers }), "DSI Sollicitatie AkaFrank");
+  assert.equal(
+    policeForms.publicFormSubmissionThreadName(policeForms.publicFormFromSlug("hovj"), { submittedBy: { name: "AkaFrank" }, answers: {} }),
+    "Sollicitatie hulpofficier van justitie (hOvJ) AkaFrank"
+  );
+  assert.equal(
+    policeForms.publicFormSubmissionThreadName(policeForms.publicFormFromSlug("klachten"), { caseNumber: 12 }),
+    "zaaknummer 012"
+  );
 });
 
 test("mentor tests are not hard-coded to defensie only", () => {
