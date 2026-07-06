@@ -292,6 +292,33 @@ function createDiscordBotServices(options = {}) {
       .filter((mapping) => !String(mapping.roleId || "").trim());
   }
 
+  function normalizeBadgeRoleMapping(mapping, type) {
+    return {
+      type,
+      key: mapping?.key || "",
+      label: mapping?.label || mapping?.key || "",
+      envKey: mapping?.envKey || "",
+      roleId: envOrDefault(mapping?.envKey || "", mapping?.defaultRoleId || mapping?.roleId || "")
+    };
+  }
+
+  function allBadgeRoleMappings() {
+    return [
+      ...(organization.discord?.functionRoleMappings || []).map((mapping) => normalizeBadgeRoleMapping(mapping, "function")),
+      ...(organization.discord?.taskRoleMappings || []).map((mapping) => normalizeBadgeRoleMapping(mapping, "task"))
+    ];
+  }
+
+  function configuredBadgeRoleMappings() {
+    return allBadgeRoleMappings()
+      .filter((mapping) => String(mapping.roleId || "").trim());
+  }
+
+  function missingBadgeRoleMappings() {
+    return allBadgeRoleMappings()
+      .filter((mapping) => !String(mapping.roleId || "").trim());
+  }
+
   function rankRoleIdForPerson(person) {
     const rank = String(person?.rank || "").trim();
     const mapping = configuredRankRoleMappings().find((entry) => entry.rank === rank);
@@ -303,6 +330,18 @@ function createDiscordBotServices(options = {}) {
       ...(Array.isArray(person?.completedTrainings) ? person.completedTrainings : []),
       ...(Array.isArray(person?.completedOperational) ? person.completedOperational : [])
     ].map((item) => String(item || "").trim()).filter(Boolean));
+  }
+
+  function assignedBadgeSetForPerson(person) {
+    const assigned = [
+      person?.permRole,
+      ...(Array.isArray(person?.extraFunctions) ? person.extraFunctions : []),
+      ...(Array.isArray(person?.badges) ? person.badges : [])
+    ];
+    for (const mapping of organization.autoFunctionByRanks || []) {
+      if ((mapping.ranks || []).includes(person?.rank || "")) assigned.push(mapping.label);
+    }
+    return new Set(assigned.map((item) => String(item || "").trim()).filter(Boolean));
   }
 
   function configuredVoiceChannels() {
@@ -674,13 +713,32 @@ function createDiscordBotServices(options = {}) {
     return syncQualificationRolesForPerson(person, auditReason);
   }
 
+  async function syncBadgeRolesForPerson(person, auditReason = `${portalAuditLabel} functie- en badgerollen gesynchroniseerd`) {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
+    const memberId = normalizeDiscordId(person?.discordId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+    const mappings = configuredBadgeRoleMappings();
+    const managedRoleIds = mappings.map((mapping) => mapping.roleId);
+    if (!managedRoleIds.length) return { skipped: true, reason: "Geen Discord functie- of badgerollen ingesteld." };
+    const assignedBadges = assignedBadgeSetForPerson(person);
+    const desiredRoleIds = mappings
+      .filter((mapping) => assignedBadges.has(mapping.label))
+      .map((mapping) => mapping.roleId);
+    return syncRoleSet(memberId, desiredRoleIds, managedRoleIds, auditReason);
+  }
+
+  async function syncBadgeRolesForPersonIfNeeded(person, auditReason = `${portalAuditLabel} periodieke functie- en badgerol controle`) {
+    return syncBadgeRolesForPerson(person, auditReason);
+  }
+
   async function syncDiscordForPersonIfNeeded(person, auditReason = `${portalAuditLabel} Discord profiel gesynchroniseerd`) {
     if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
     const baseRoles = await ensureBaseRolesForPerson(person, auditReason);
     const nickname = await syncNicknameForPersonIfNeeded(person, auditReason);
     const rankRole = await syncRankRoleForPersonIfNeeded(person, auditReason);
     const qualificationRoles = await syncQualificationRolesForPersonIfNeeded(person, auditReason);
-    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles };
+    const badgeRoles = await syncBadgeRolesForPersonIfNeeded(person, auditReason);
+    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, badgeRoles };
   }
 
   function buildServiceNickname(person, template = process.env.DISCORD_NICKNAME_TEMPLATE || "personeelsportaal") {
@@ -824,10 +882,13 @@ function createDiscordBotServices(options = {}) {
     configuredRoleMappings,
     allQualificationRoleMappings,
     allRankRoleMappings,
+    allBadgeRoleMappings,
     configuredRankRoleMappings,
     missingRankRoleMappings,
     configuredQualificationRoleMappings,
     missingQualificationRoleMappings,
+    configuredBadgeRoleMappings,
+    missingBadgeRoleMappings,
     configuredVoiceChannels,
     resolveVoiceChannelId,
     getGuildMember,
@@ -854,6 +915,8 @@ function createDiscordBotServices(options = {}) {
     syncRankRoleForPersonIfNeeded,
     syncQualificationRolesForPerson,
     syncQualificationRolesForPersonIfNeeded,
+    syncBadgeRolesForPerson,
+    syncBadgeRolesForPersonIfNeeded,
     syncDiscordForPersonIfNeeded,
     rankSymbolsFor,
     formatNameForDiscordNickname,

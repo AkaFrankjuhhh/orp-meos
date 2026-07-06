@@ -790,6 +790,37 @@ function buildPublicFormWebhookPayload(config, submission) {
   };
 }
 
+function discordEmbedCharCount(embed = {}) {
+  return [
+    embed.title,
+    embed.description,
+    embed.footer?.text,
+    ...(Array.isArray(embed.fields) ? embed.fields.flatMap((field) => [field.name, field.value]) : [])
+  ].reduce((sum, value) => sum + String(value || "").length, 0);
+}
+
+function splitPublicFormWebhookPayload(payload, maxPayloadChars = 5600) {
+  const embeds = Array.isArray(payload?.embeds) ? payload.embeds : [];
+  if (!embeds.length) return [payload];
+  const payloads = [];
+  let current = { ...payload, embeds: [] };
+  let currentChars = 0;
+
+  for (const embed of embeds) {
+    const embedChars = discordEmbedCharCount(embed);
+    if (current.embeds.length && (current.embeds.length >= 10 || currentChars + embedChars > maxPayloadChars)) {
+      payloads.push(current);
+      current = { ...payload, embeds: [] };
+      currentChars = 0;
+    }
+    current.embeds.push(embed);
+    currentChars += embedChars;
+  }
+
+  if (current.embeds.length) payloads.push(current);
+  return payloads.length ? payloads : [payload];
+}
+
 module.exports = {
   publicFormConfigs,
   publicFormForRequest,
@@ -801,6 +832,7 @@ module.exports = {
   formatCaseNumber,
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
+  splitPublicFormWebhookPayload,
   mergePublicFormConfig,
   sanitizePublicFormOverride,
   canManagePublicForm,

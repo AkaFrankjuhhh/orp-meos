@@ -102,10 +102,26 @@ async function main() {
     ? bot.allRankRoleMappings()
     : bot.configuredRankRoleMappings();
   const configuredRankMappings = rankMappings.filter((mapping) => String(mapping.roleId || "").trim());
+  const badgeMappings = typeof bot.allBadgeRoleMappings === "function"
+    ? bot.allBadgeRoleMappings()
+    : [];
+  const configuredBadgeMappings = badgeMappings.filter((mapping) => String(mapping.roleId || "").trim());
   const desiredRankRoleId = bot.rankRoleIdForPerson?.(person) || "";
   const desiredMissingConfig = allMappings.filter((mapping) => completed.has(mapping.qualification) && !String(mapping.roleId || "").trim());
   const desiredRoleIds = configuredMappings
     .filter((mapping) => completed.has(mapping.qualification))
+    .map((mapping) => mapping.roleId);
+  const assignedBadges = new Set([
+    person.permRole,
+    ...(Array.isArray(person.extraFunctions) ? person.extraFunctions : []),
+    ...(Array.isArray(person.badges) ? person.badges : [])
+  ].map((item) => String(item || "").trim()).filter(Boolean));
+  for (const mapping of organization.autoFunctionByRanks || []) {
+    if ((mapping.ranks || []).includes(person.rank || "")) assignedBadges.add(mapping.label);
+  }
+  const desiredMissingBadgeConfig = badgeMappings.filter((mapping) => assignedBadges.has(mapping.label) && !String(mapping.roleId || "").trim());
+  const desiredBadgeRoleIds = configuredBadgeMappings
+    .filter((mapping) => assignedBadges.has(mapping.label))
     .map((mapping) => mapping.roleId);
   const member = await bot.getGuildMember(person.discordId);
   if (member.skipped) throw new Error(member.reason || "Discord member kon niet worden opgehaald.");
@@ -118,6 +134,10 @@ async function main() {
   const extraManagedRoleIds = configuredMappings
     .map((mapping) => mapping.roleId)
     .filter((roleId) => currentRoleIds.includes(roleId) && !desiredRoleIds.includes(roleId));
+  const missingBadgeRoleIds = desiredBadgeRoleIds.filter((roleId) => !currentRoleIds.includes(roleId));
+  const extraManagedBadgeRoleIds = configuredBadgeMappings
+    .map((mapping) => mapping.roleId)
+    .filter((roleId) => currentRoleIds.includes(roleId) && !desiredBadgeRoleIds.includes(roleId));
 
   console.log(`Organisatie: ${organization.key}`);
   console.log(`Hoofdrol (${organization.requiredRoleLabel || organization.label}): ${organizationMainRoleId(organization) || "NIET INGESTELD"}`);
@@ -125,6 +145,7 @@ async function main() {
   console.log(`Discord ID: ${person.discordId || "-"}`);
   console.log(`Status: ${person.status || "-"}`);
   console.log(`Trainingen: ${roleListText(Array.from(completed))}`);
+  console.log(`Functies/badges: ${roleListText(Array.from(assignedBadges))}`);
   console.log("");
   console.log("Rangrol mapping:");
   for (const mapping of rankMappings) {
@@ -147,6 +168,18 @@ async function main() {
   console.log(`Ontbrekende gewenste rollen: ${roleListText(missingRoleIds)}`);
   console.log(`Gewenst maar niet geconfigureerd: ${roleListText(desiredMissingConfig.map((mapping) => mapping.envKey))}`);
   console.log(`Extra beheerde rollen: ${roleListText(extraManagedRoleIds)}`);
+  console.log("");
+  console.log("Functie- en badge mappings:");
+  for (const mapping of badgeMappings) {
+    const desired = assignedBadges.has(mapping.label) ? "ja" : "nee";
+    const configured = String(mapping.roleId || "").trim() ? "ja" : "nee";
+    const current = mapping.roleId && currentRoleIds.includes(mapping.roleId) ? "ja" : "nee";
+    console.log(`- ${mapping.label} (${mapping.envKey}=${mapping.roleId || "NIET INGESTELD"}) gewenst=${desired} configured=${configured} aanwezig=${current}`);
+  }
+  console.log("");
+  console.log(`Ontbrekende gewenste functie-/badgerollen: ${roleListText(missingBadgeRoleIds)}`);
+  console.log(`Gewenst maar niet geconfigureerde functie-/badgerollen: ${roleListText(desiredMissingBadgeConfig.map((mapping) => mapping.envKey))}`);
+  console.log(`Extra beheerde functie-/badgerollen: ${roleListText(extraManagedBadgeRoleIds)}`);
 
   if (!apply) {
     console.log("");

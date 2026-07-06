@@ -43,6 +43,12 @@ const qualificationMappings = typeof bot.configuredQualificationRoleMappings ===
 const missingQualificationMappings = typeof bot.missingQualificationRoleMappings === "function"
   ? bot.missingQualificationRoleMappings()
   : qualificationMappings.filter((mapping) => !String(mapping.roleId || "").trim());
+const badgeMappings = typeof bot.allBadgeRoleMappings === "function"
+  ? bot.allBadgeRoleMappings()
+  : [];
+const missingBadgeMappings = typeof bot.missingBadgeRoleMappings === "function"
+  ? bot.missingBadgeRoleMappings()
+  : badgeMappings.filter((mapping) => !String(mapping.roleId || "").trim());
 
 console.log(`Organisatie: ${organization.key}`);
 console.log(`Hoofdrol: ${organizationMainRoleId(organization) || "NIET INGESTELD"}`);
@@ -83,6 +89,27 @@ if (missingQualificationMappings.length) {
   console.log("");
   console.log("Ontbrekende kwalificatierol env keys:");
   for (const mapping of missingQualificationMappings) {
+    console.log(`${mapping.envKey}=`);
+  }
+  process.exitCode = 1;
+}
+
+console.log("");
+console.log("Functie- en badgerollen:");
+if (!badgeMappings.length) {
+  console.log("[mist] Geen functie- of badgerollen ingesteld.");
+} else {
+  for (const mapping of badgeMappings) {
+    const state = mapping.roleId ? "ok" : "mist";
+    const value = mapping.roleId ? `=${mapping.roleId}` : "";
+    console.log(`[${state}] ${mapping.label}: ${mapping.envKey}${value}`);
+  }
+}
+
+if (missingBadgeMappings.length) {
+  console.log("");
+  console.log("Ontbrekende functie- en badgerol env keys:");
+  for (const mapping of missingBadgeMappings) {
     console.log(`${mapping.envKey}=`);
   }
   process.exitCode = 1;

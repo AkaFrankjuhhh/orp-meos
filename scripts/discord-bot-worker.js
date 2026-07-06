@@ -693,8 +693,9 @@ async function syncPersonForState(state, person, reason = "Discord bot worker sy
     const nickname = await bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, portoUnit), `${reason}: Porto roepnummer`);
     const rankRole = await bot.syncRankRoleForPersonIfNeeded(person, reason);
     const qualificationRoles = await bot.syncQualificationRolesForPersonIfNeeded(person, reason);
+    const badgeRoles = await bot.syncBadgeRolesForPersonIfNeeded(person, reason);
     await sleep(350);
-    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, porto: true };
+    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, badgeRoles, porto: true };
   }
   return syncPerson(person, reason);
 }
@@ -750,7 +751,8 @@ function nestedSyncFailureFromResult(result) {
   const requiredParts = [
     ["basisrollen", result?.baseRoles],
     ["rangrol", result?.rankRole],
-    ["kwalificatierollen", result?.qualificationRoles]
+    ["kwalificatierollen", result?.qualificationRoles],
+    ["functie- en badgerollen", result?.badgeRoles]
   ];
   for (const [label, part] of requiredParts) {
     if (!part) continue;

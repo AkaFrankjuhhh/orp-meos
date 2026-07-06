@@ -16,10 +16,12 @@ test("collectOrganizationDiscordRoleIds includes configured main, function, rank
   const previous = {
     DISCORD_DEFENSIE_ROLE_ID: process.env.DISCORD_DEFENSIE_ROLE_ID,
     DISCORD_KADER_ROLE_ID: process.env.DISCORD_KADER_ROLE_ID,
+    DISCORD_TRAINER_ROLE_ID: process.env.DISCORD_TRAINER_ROLE_ID,
     DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID: process.env.DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID
   };
   process.env.DISCORD_DEFENSIE_ROLE_ID = "role-main";
   process.env.DISCORD_KADER_ROLE_ID = "role-kader";
+  process.env.DISCORD_TRAINER_ROLE_ID = "role-trainer";
   process.env.DISCORD_RANK_MARECHAUSSEE_4DE_KLASSER_ROLE_ID = "role-rank";
 
   try {
@@ -27,6 +29,7 @@ test("collectOrganizationDiscordRoleIds includes configured main, function, rank
 
     assert.equal(roleIds.has("role-main"), true);
     assert.equal(roleIds.has("role-kader"), true);
+    assert.equal(roleIds.has("role-trainer"), true);
     assert.equal(roleIds.has("role-rank"), true);
     assert.equal(roleIds.has("1425931664877551708"), true);
   } finally {

@@ -83,11 +83,62 @@ async function createDiscordThreadFromMessage(channelId, messageId, threadName) 
   return { ok: false, status: response.status, body: body.slice(0, 800) };
 }
 
+async function createDiscordThreadMessage(threadId, payload) {
+  const token = String(
+    process.env.DISCORD_BOT_TOKEN ||
+    process.env.MAIN_GOVERNMENT_DISCORD_BOT_TOKEN ||
+    ""
+  ).trim();
+  if (!token) return { skipped: true, reason: "DISCORD_BOT_TOKEN/MAIN_GOVERNMENT_DISCORD_BOT_TOKEN ontbreekt." };
+  if (!threadId) return { skipped: true, reason: "Thread ID ontbreekt." };
+
+  const response = await fetch(`https://discord.com/api/v10/channels/${threadId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (response.ok) {
+    const body = await response.json().catch(() => null);
+    return { ok: true, status: response.status, messageId: body?.id || "", body };
+  }
+  const body = await response.text().catch(() => "");
+  return { ok: false, status: response.status, body: body.slice(0, 800) };
+}
+
 async function sendDiscordWebhookWithMessageThread(webhookUrl, payload, files = [], threadName) {
   const webhookResult = await sendDiscordWebhook(webhookUrl, payload, files, { wait: true });
   if (!webhookResult.ok) return webhookResult;
   const threadResult = await createDiscordThreadFromMessage(webhookResult.channelId, webhookResult.messageId, threadName);
   return { ...webhookResult, thread: threadResult };
+}
+
+async function sendDiscordWebhookPayloads(webhookUrl, payloads = [], files = []) {
+  const list = Array.isArray(payloads) && payloads.length ? payloads : [{}];
+  const parts = [];
+  for (let index = 0; index < list.length; index += 1) {
+    const result = await sendDiscordWebhook(webhookUrl, list[index], index === 0 ? files : []);
+    parts.push(result);
+    if (!result.ok) return { ...result, parts };
+  }
+  return { ok: true, status: parts[0]?.status || 204, parts };
+}
+
+async function sendDiscordWebhookPayloadsWithMessageThread(webhookUrl, payloads = [], files = [], threadName) {
+  const list = Array.isArray(payloads) && payloads.length ? payloads : [{}];
+  const parts = [];
+
+  for (let index = 0; index < list.length - 1; index += 1) {
+    const result = await sendDiscordWebhook(webhookUrl, list[index]);
+    parts.push(result);
+    if (!result.ok) return { ...result, parts };
+  }
+
+  const finalResult = await sendDiscordWebhookWithMessageThread(webhookUrl, list[list.length - 1], files, threadName);
+  parts.push(finalResult);
+  return { ...finalResult, parts };
 }
 
 function createDiscordWebhookServices({ formatDate }) {
@@ -286,6 +337,8 @@ function createDiscordWebhookServices({ formatDate }) {
   return {
     sendDiscordWebhook,
     sendDiscordWebhookWithMessageThread,
+    sendDiscordWebhookPayloads,
+    sendDiscordWebhookPayloadsWithMessageThread,
     absenceWebhookUrl,
     personnelWebhookUrl,
     buildAbsenceWebhookPayload,

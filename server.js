@@ -41,6 +41,7 @@ const {
   publicFormSubmissionThreadName,
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
+  splitPublicFormWebhookPayload,
   mergePublicFormConfig,
   sanitizePublicFormOverride,
   canManagePublicForm
@@ -257,6 +258,8 @@ function syncProfileFromDiscord(state, profile, user, member, options = {}) {
 const {
   sendDiscordWebhook,
   sendDiscordWebhookWithMessageThread,
+  sendDiscordWebhookPayloads,
+  sendDiscordWebhookPayloadsWithMessageThread,
   absenceWebhookUrl,
   personnelWebhookUrl,
   buildAbsenceWebhookPayload,
@@ -631,10 +634,15 @@ function sendPublicFormWebhookInBackground(config, submission, files = []) {
     try {
       const webhookUrl = publicFormWebhookUrl(config);
       const payload = buildPublicFormWebhookPayload(config, submission);
+      const payloads = splitPublicFormWebhookPayload(payload);
       const threadName = publicFormSubmissionThreadName(config, submission);
-      webhookResult = threadName
-        ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, files, threadName)
-        : await sendDiscordWebhook(webhookUrl, payload, files);
+      webhookResult = payloads.length > 1
+        ? threadName
+          ? await sendDiscordWebhookPayloadsWithMessageThread(webhookUrl, payloads, files, threadName)
+          : await sendDiscordWebhookPayloads(webhookUrl, payloads, files)
+        : threadName
+          ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, files, threadName)
+          : await sendDiscordWebhook(webhookUrl, payload, files);
     } catch (error) {
       logServerError(`Public form webhook failed for ${config.slug}`, error);
       webhookResult = { ok: false, status: "error", error: error.message || "webhook failed" };

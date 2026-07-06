@@ -1976,6 +1976,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     state.activity = state.activity || [];
     state.activity.push(`Functies en badges bijgewerkt voor ${person.name}.`);
+    if (badgeChanges.length) {
+      await queuePersonDiscordSync(state, person, "badge_updated");
+    }
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }

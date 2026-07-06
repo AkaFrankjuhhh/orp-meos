@@ -4,6 +4,7 @@ const {
   publicFormFromSlug,
   publicFormWebhookUrl,
   buildPublicFormWebhookPayload,
+  splitPublicFormWebhookPayload,
   mergePublicFormConfig,
   publicFormSubmissionThreadName
 } = require("../modules/public-forms");
@@ -50,6 +51,10 @@ function webhookThreadStatusText(webhookResult = {}) {
   return ` thread=failed:${webhookResult.thread.status || "unknown"}:${webhookResult.thread.body || webhookResult.thread.error || ""}`;
 }
 
+function webhookPartsStatusText(webhookResult = {}) {
+  return Array.isArray(webhookResult.parts) ? ` messages=${webhookResult.parts.length}` : "";
+}
+
 async function main() {
   const slug = argValue("slug", "hovj");
   const status = argValue("status", "failed:400");
@@ -79,24 +84,34 @@ async function main() {
     return;
   }
 
-  const { sendDiscordWebhook, sendDiscordWebhookWithMessageThread } = createDiscordWebhookServices({ formatDate: (value) => value || "-" });
+  const {
+    sendDiscordWebhook,
+    sendDiscordWebhookWithMessageThread,
+    sendDiscordWebhookPayloads,
+    sendDiscordWebhookPayloadsWithMessageThread
+  } = createDiscordWebhookServices({ formatDate: (value) => value || "-" });
   const store = createPublicFormsStore({ storageMode: "postgres" });
   console.log(`${dryRun ? "[dry-run] " : ""}${result.rows.length} webhook(s) opnieuw verwerken voor ${slug}${id ? ` id=${id}` : ` status=${status}`}.`);
 
   for (const row of result.rows) {
     const submission = submissionFromRow(row);
     const payload = buildPublicFormWebhookPayload(config, submission);
-    const fieldCount = payload.embeds?.[0]?.fields?.length || 0;
+    const payloads = splitPublicFormWebhookPayload(payload);
+    const fieldCount = payload.embeds?.reduce((sum, embed) => sum + (embed.fields?.length || 0), 0) || 0;
     if (dryRun) {
-      console.log(`[dry-run] ${submission.id} ${submission.submittedAt} status=${row.webhook_status || "-"} fields=${fieldCount}`);
+      console.log(`[dry-run] ${submission.id} ${submission.submittedAt} status=${row.webhook_status || "-"} fields=${fieldCount} messages=${payloads.length}`);
       continue;
     }
     const threadName = publicFormSubmissionThreadName(config, submission);
-    const webhookResult = threadName
-      ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, [], threadName)
-      : await sendDiscordWebhook(webhookUrl, payload);
+    const webhookResult = payloads.length > 1
+      ? threadName
+        ? await sendDiscordWebhookPayloadsWithMessageThread(webhookUrl, payloads, [], threadName)
+        : await sendDiscordWebhookPayloads(webhookUrl, payloads)
+      : threadName
+        ? await sendDiscordWebhookWithMessageThread(webhookUrl, payload, [], threadName)
+        : await sendDiscordWebhook(webhookUrl, payload);
     await store.saveSubmission(submission, webhookResult);
-    console.log(`${submission.id} -> ${webhookResult.ok ? "sent" : `failed:${webhookResult.status || "unknown"}`}${webhookThreadStatusText(webhookResult)}`);
+    console.log(`${submission.id} -> ${webhookResult.ok ? "sent" : `failed:${webhookResult.status || "unknown"}`}${webhookPartsStatusText(webhookResult)}${webhookThreadStatusText(webhookResult)}`);
   }
 }
 

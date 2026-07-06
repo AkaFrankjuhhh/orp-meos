@@ -224,6 +224,44 @@ test("Discord person sync script diagnoses qualification roles", () => {
   assert.match(scriptCode, /--apply/);
 });
 
+test("Discord sync manages portal function and badge roles", () => {
+  const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
+  const organizationsCode = fs.readFileSync(path.join(process.cwd(), "modules", "organizations.js"), "utf8");
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  const roleConfigCode = fs.readFileSync(path.join(process.cwd(), "scripts", "check-discord-role-config.js"), "utf8");
+  const scriptCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-sync-person.js"), "utf8");
+
+  assert.match(envExample, /DISCORD_MENTOR_LEIDING_ROLE_ID=/);
+  assert.match(envExample, /DISCORD_POLITIE_DSI_ROLE_ID=/);
+  assert.match(organizationsCode, /label: "Trainer", envKey: "DISCORD_TRAINER_ROLE_ID"/);
+  assert.match(organizationsCode, /label: "DSI", envKey: "DISCORD_DSI_ROLE_ID"/);
+  assert.match(botCode, /function allBadgeRoleMappings\(/);
+  assert.match(botCode, /function syncBadgeRolesForPerson\(/);
+  assert.match(botCode, /assignedBadgeSetForPerson/);
+  assert.match(workerCode, /badgeRoles/);
+  assert.match(routesCode, /queuePersonDiscordSync\(state, person, "badge_updated"\)/);
+  assert.match(roleConfigCode, /Functie- en badgerollen/);
+  assert.match(scriptCode, /Functie- en badge mappings/);
+});
+
+test("public form webhooks split long Discord embeds over multiple messages", () => {
+  const publicFormsCode = fs.readFileSync(path.join(process.cwd(), "modules", "public-forms.js"), "utf8");
+  const webhooksCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-webhooks.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const retryCode = fs.readFileSync(path.join(process.cwd(), "scripts", "retry-public-form-webhooks.js"), "utf8");
+
+  assert.match(publicFormsCode, /function splitPublicFormWebhookPayload\(/);
+  assert.match(publicFormsCode, /maxPayloadChars = 5600/);
+  assert.match(webhooksCode, /sendDiscordWebhookPayloadsWithMessageThread/);
+  assert.match(webhooksCode, /createDiscordThreadMessage/);
+  assert.match(webhooksCode, /list\.length - 1/);
+  assert.match(webhooksCode, /const finalResult = await sendDiscordWebhookWithMessageThread/);
+  assert.match(serverCode, /splitPublicFormWebhookPayload\(payload\)/);
+  assert.match(retryCode, /messages=\$\{payloads\.length\}/);
+});
+
 test("Defensie OVD is a Discord qualification role mapping", () => {
   const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
   const organizationsCode = fs.readFileSync(path.join(process.cwd(), "modules", "organizations.js"), "utf8");
