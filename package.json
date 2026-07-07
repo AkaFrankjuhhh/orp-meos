@@ -1,10 +1,14 @@
 {
-  "name": "defensie-personeelsportaal",
+  "name": "orp-defensie-politie-portaal",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "start:defensie": "set ORP_ORGANIZATION=defensie&& node server.js",
+    "start:politie": "set ORP_ORGANIZATION=politie&& node server.js",
     "start:porto": "node porto-server.js",
+    "start:porto:defensie": "set ORP_ORGANIZATION=defensie&& node porto-server.js",
+    "start:porto:politie": "set ORP_ORGANIZATION=politie&& node porto-server.js",
     "start:overheid": "node overheid-server.js",
     "start:side-tasks": "node side-tasks-server.js",
     "discord:side-tasks": "node scripts/side-tasks-discord-worker.js",

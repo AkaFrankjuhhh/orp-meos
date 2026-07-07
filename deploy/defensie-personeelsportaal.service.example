@@ -1,0 +1,20 @@
+[Unit]
+Description=ORP Defensie Personeelsportaal
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=defensie
+WorkingDirectory=/home/defensie/defensie-personeelsportaal
+Environment=NODE_ENV=production
+EnvironmentFile=/home/defensie/defensie-personeelsportaal/.env
+Environment=ORP_ORGANIZATION=defensie
+Environment=PORT=3000
+Environment=APP_BASE_URL=https://orpdefensie.nl
+Environment=PORTO_APP_BASE_URL=https://porto.orpdefensie.nl
+ExecStart=/usr/bin/node /home/defensie/defensie-personeelsportaal/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
