@@ -52,6 +52,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const status8RejoinGuardMs = Number.isFinite(configuredStatus8RejoinGuardMs)
     ? Math.max(0, configuredStatus8RejoinGuardMs)
     : 90000;
+  const pendingAutoAssignMs = 60000;
   const recentlyEndedPortoMembers = new Map();
 
   function portoMemberKey(memberId) {
@@ -84,6 +85,24 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       return false;
     }
     return true;
+  }
+
+  function regularPortoPrefix() {
+    return String(operatorVehicleNumber || "30-00").split("-")[0] || "30";
+  }
+
+  function firstAvailableRegularVehicleNumber(state) {
+    const preferred = firstAvailableVehicleNumber(state, regularPortoPrefix());
+    if (preferred && preferred !== operatorVehicleNumber) return preferred;
+    return availablePortoVehicleNumbers(state)
+      .flatMap((range) => range.numbers || [])
+      .find((number) => number && number !== operatorVehicleNumber) || "";
+  }
+
+  function pendingSeconds(unit, nowMs = Date.now()) {
+    const requestedAt = Date.parse(unit?.requestedAt || unit?.updatedAt || "");
+    if (!Number.isFinite(requestedAt)) return 0;
+    return Math.max(0, Math.floor((nowMs - requestedAt) / 1000));
   }
 
   function recentlyEndedError() {
@@ -793,6 +812,61 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         reviewStatus: "management-bypass",
         assignedById: person.id,
         assignedByName: managementBypassLabel,
+        assignedAt: now,
+        status: "1",
+        statusDetail: "Beschikbaar",
+        lastSeenAt: now,
+        updatedAt: now
+      });
+      syncPortoLinkedNames(state, vehicleNumber);
+      await persistPortoState(state, { units: state.portoUnits });
+      await sendPortoState(res, state, person, unit);
+      return true;
+    }
+
+    if (url.pathname === "/api/porto/auto-assign" && req.method === "POST") {
+      const context = await requireActivePerson(req, res);
+      if (!context) return true;
+      const { state, person } = context;
+      ensurePortoVehicleRanges(state);
+      state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      const nowMs = Date.now();
+      const now = new Date(nowMs).toISOString();
+      sweepPortoPresence(state);
+      const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
+      if (!unit || String(unit.status) !== "0") {
+        sendJson(res, 409, { error: "Je hebt geen open Status 0-aanmelding." });
+        return true;
+      }
+      if (unit.vehicleNumber) {
+        await sendPortoState(res, state, person, unit);
+        return true;
+      }
+      const secondsWaiting = pendingSeconds(unit, nowMs);
+      const waitSeconds = Math.ceil((pendingAutoAssignMs / 1000) - secondsWaiting);
+      if (waitSeconds > 0) {
+        sendJson(res, 409, {
+          error: `Automatisch aanmelden kan na ${pendingAutoAssignMs / 1000} seconden. Wacht nog ${waitSeconds} seconden.`,
+          waitSeconds
+        });
+        return true;
+      }
+      const vehicleNumber = firstAvailableRegularVehicleNumber(state);
+      if (!vehicleNumber) {
+        sendJson(res, 409, { error: "Geen vrij roepnummer beschikbaar." });
+        return true;
+      }
+      const range = vehicleRangeForNumber(state, vehicleNumber);
+      Object.assign(unit, {
+        name: person.name,
+        rank: person.rank,
+        serviceNumber: person.serviceNumber,
+        phone: person.portoPhone || "",
+        vehicleNumber,
+        vehicleType: range?.vehicleType || "Dienst",
+        reviewStatus: "auto-assigned",
+        assignedById: "",
+        assignedByName: "Automatische aanmelding",
         assignedAt: now,
         status: "1",
         statusDetail: "Beschikbaar",

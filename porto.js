@@ -70,6 +70,8 @@ let portoOpsWritePromise = null;
 let portoLastDutyLoadAt = 0;
 let portoDeferredDutyLoadTimer = null;
 let portoSignedOffUntilStatus0 = false;
+let portoAutoAssignTimer = null;
+let portoAutoAssignUnitId = "";
 const PORTO_AUTO_REFRESH_MS = 8000;
 const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
 

@@ -67,6 +67,35 @@ function setPortoSignedOffUntilStatus0(enabled) {
   }
 }
 
+function clearPortoAutoAssignTimer() {
+  if (portoAutoAssignTimer) {
+    window.clearTimeout(portoAutoAssignTimer);
+    portoAutoAssignTimer = null;
+  }
+  portoAutoAssignUnitId = "";
+}
+
+function pendingAutoAssignDelayMs(unit) {
+  const requestedAt = Date.parse(unit?.requestedAt || unit?.updatedAt || "");
+  const delayMs = 60000;
+  if (!Number.isFinite(requestedAt)) return delayMs;
+  return Math.max(0, delayMs - (Date.now() - requestedAt));
+}
+
+function schedulePortoAutoAssign(waitingForOps) {
+  if (!waitingForOps || !portoDuty?.id) {
+    clearPortoAutoAssignTimer();
+    return;
+  }
+  if (portoAutoAssignTimer && portoAutoAssignUnitId === portoDuty.id) return;
+  clearPortoAutoAssignTimer();
+  portoAutoAssignUnitId = portoDuty.id;
+  portoAutoAssignTimer = window.setTimeout(() => {
+    portoAutoAssignTimer = null;
+    runPortoAutoAssign();
+  }, pendingAutoAssignDelayMs(portoDuty));
+}
+
 function renderDutyAssignment() {
   if (!portoDuty) return;
   const callsign = $("#portoDutyCallsign");
@@ -162,6 +191,7 @@ function renderDutyPanel() {
   const managementBypassButton = $("#portoManagementBypassBtn");
   if (!intro || !panel || !pendingPanel) return;
   if (portoViewingOpsLog) {
+    clearPortoAutoAssignTimer();
     intro.hidden = true;
     pendingPanel.hidden = true;
     panel.hidden = true;
@@ -186,6 +216,7 @@ function renderDutyPanel() {
     managementBypassButton.textContent = portoManagementBypassLabel || (portoOrganization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass");
   }
   if (devBypassButton) devBypassButton.hidden = !(waitingForOps && isDevBypassProfile());
+  schedulePortoAutoAssign(waitingForOps);
   panel.hidden = !assignedDuty || opsWorkspace;
   renderOpsLogAccess();
   setPortoDutyPolling((waitingForOps || assignedDuty) && !opsWorkspace);
@@ -308,6 +339,30 @@ async function runPortoManagementBypass() {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     await showPortoNotice(payload.error || `${portoManagementBypassLabel || "Bypass"} kon niet worden uitgevoerd.`, `${portoManagementBypassLabel || "Bypass"} mislukt`);
+    return;
+  }
+  portoDuty = payload.unit || null;
+  portoLastDutyLoadAt = Date.now();
+  if (payload.profile) portoProfile = payload.profile;
+  applyPortoPayload(payload);
+  renderVehicleRanges();
+  renderDutyPanel();
+  renderOpsPanel();
+}
+
+async function runPortoAutoAssign() {
+  if (!portoDuty || String(portoDuty.status) !== "0" || portoDuty.vehicleNumber) return;
+  const response = await fetch("/api/porto/auto-assign", { method: "POST" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (payload.waitSeconds) {
+      portoAutoAssignTimer = window.setTimeout(() => {
+        portoAutoAssignTimer = null;
+        runPortoAutoAssign();
+      }, Math.max(1, Number(payload.waitSeconds)) * 1000);
+      return;
+    }
+    showPortoInlineError(payload.error || "Automatisch aanmelden is niet gelukt.");
     return;
   }
   portoDuty = payload.unit || null;
