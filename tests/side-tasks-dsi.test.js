@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { sideTaskForKey } = require("../modules/side-tasks-config");
+const { sideTaskForKey, permissionsForTask } = require("../modules/side-tasks-config");
 const { shouldSyncDsiNicknameForStatus, requireDsiIdentityForStatus } = require("../modules/side-tasks-dsi");
 
 test("DSI nickname sync only runs for status 0, 1 and 8", () => {
@@ -30,6 +30,14 @@ test("DSI unit assignment does not hard-code the old 24 range", () => {
   assert.doesNotMatch(storeCode, /`24-\$\{String\(index\)/);
   assert.doesNotMatch(storeCode, /\^24-/);
   assert.doesNotMatch(uiCode, /24-eenheid|24-eenheden|24-nummer/);
+});
+
+test("DSI members can assign ACO and TCO labels", () => {
+  process.env.SIDE_TASK_DSI_MEMBER_ROLE_IDS = "dsi-member-role";
+  const dsiTask = sideTaskForKey("DSI");
+  const permissions = permissionsForTask(dsiTask, ["dsi-member-role"], "discord-user");
+  assert.equal(permissions.hasAccess, true);
+  assert.equal(permissions.canAssignDsiCommand, true);
 });
 
 test("DNR supports manual DNR numbers and undercover alias mode", () => {

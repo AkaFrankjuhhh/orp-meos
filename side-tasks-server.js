@@ -867,25 +867,13 @@ async function handleApi(req, res, task, url) {
   const dsiCommandMatch = url.pathname.match(/^\/api\/side-tasks\/dsi\/members\/([^/]+)\/command-role$/);
   if (dsiCommandMatch && req.method === "POST") {
     if (task.key !== "DSI") return jsonError(res, 404, "Niet gevonden.");
-    if (!session.permissions.canAssignDsiCommand) return jsonError(res, 403, "Alleen DSI-leiding kan ACO/TCO toewijzen.");
+    if (!session.permissions.canAssignDsiCommand) return jsonError(res, 403, "Alleen DSI-leden kunnen ACO/TCO toewijzen.");
     const body = await readBody(req);
     const commandRole = ["", "ACO", "TCO"].includes(String(body.commandRole || "").trim()) ? String(body.commandRole || "").trim() : null;
     if (commandRole === null) return jsonError(res, 400, "Ongeldige ACO/TCO-keuze.");
     const member = await store.findMemberById(task.key, decodeURIComponent(dsiCommandMatch[1]));
     if (!member) return jsonError(res, 404, "DSI-lid niet gevonden.");
     if (["0", "1"].includes(String(member.status))) requireDsiIdentityForStatus(member, member.status);
-    if (commandRole) {
-      const discordMember = await fetchBotGuildMember(member.discordId);
-      const eligibleRoleIds = commandRole === "ACO" ? task.roleIds.aco : task.roleIds.tco;
-      const liveRoleIds = Array.isArray(discordMember?.roles) ? discordMember.roles.map(String) : [];
-      const storedRoleIds = Array.isArray(member.raw?.lastKnownRoleIds) ? member.raw.lastKnownRoleIds.map(String) : [];
-      const verifiedRoleIds = liveRoleIds.length ? liveRoleIds : storedRoleIds;
-      const hasEligibleRole = verifiedRoleIds.some((roleId) => eligibleRoleIds.includes(roleId));
-      if (!hasEligibleRole) {
-        const source = liveRoleIds.length ? "Discord" : "de laatste DSI-login";
-        return jsonError(res, 403, `Dit lid heeft volgens ${source} niet de vereiste ${commandRole}-Discordrol. Laat het lid opnieuw inloggen nadat de rol is gegeven.`);
-      }
-    }
     const updated = await store.assignDsiCommandRole(task.key, member.id, commandRole);
     const nicknameResult = await applyDsiNicknameIfNeeded(task, updated, updated.status);
     publishSideTaskUpdate(task, "dsi-command-role-updated", { memberId: nicknameResult.member.id, commandRole });

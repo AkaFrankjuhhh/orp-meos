@@ -196,12 +196,13 @@ function permissionsForTask(task, memberRoles, discordId) {
   const hasSpecialtyRole = hasAnyRole(memberRoles, roleIds.specialties);
   const canManageMembers = isDev || hasLeadershipRole || hasSubleadershipRole;
   const canManageDsiUnits = task.key === "DSI" && (canManageMembers || hasAcoRole || hasTcoRole);
+  const canAssignDsiCommand = task.key === "DSI" && (canManageMembers || hasMemberRole || hasAcoRole || hasTcoRole);
   return {
     isDev,
     hasAccess: isDev || canManageMembers || hasAcoRole || hasTcoRole || hasMemberRole || hasSpecialtyRole,
     canManageMembers,
     canManageDsiUnits,
-    canAssignDsiCommand: task.key === "DSI" && canManageMembers,
+    canAssignDsiCommand,
     canUseAlias: task.allowAlias,
     roles: {
       member: hasMemberRole,
