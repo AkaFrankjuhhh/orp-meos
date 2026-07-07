@@ -1065,16 +1065,17 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           sendJson(res, 400, { error: "Geen voertuigreeks gevonden voor dit roepnummer." });
           return true;
         }
-        const vehicleNumber = firstAvailableVehicleNumber(state, currentRange.prefix);
+        const vehicleNumber = firstAvailableRegularVehicleNumber(state);
         if (!vehicleNumber) {
           sendJson(res, 409, { error: "Geen vrij roepnummer beschikbaar om deze persoon los te koppelen." });
           return true;
         }
+        const targetRange = vehicleRangeForNumber(state, vehicleNumber) || currentRange;
         const now = new Date().toISOString();
         Object.assign(unit, {
           vehicleNumber,
-          vehicleCode: currentRange.vehicleCode,
-          vehicleType: currentRange.vehicleType,
+          vehicleCode: targetRange.vehicleCode,
+          vehicleType: targetRange.vehicleType,
           vehicleName: "",
           operatorSlot: "",
           linkedWith: [],

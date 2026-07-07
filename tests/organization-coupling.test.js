@@ -32,6 +32,15 @@ test("discord worker uses organization porto operator number for lead nickname c
   assert.doesNotMatch(code, /unit\.vehicleNumber === "30-00"/);
 });
 
+test("porto unlink assigns the next regular unit instead of reusing the operator range", () => {
+  const code = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const unlinkBlock = code.slice(code.indexOf("if (unlink) {"), code.indexOf("if (offDuty) {"));
+
+  assert.match(unlinkBlock, /firstAvailableRegularVehicleNumber\(state\)/);
+  assert.doesNotMatch(unlinkBlock, /firstAvailableVehicleNumber\(state,\s*currentRange\.prefix\)/);
+  assert.match(unlinkBlock, /const targetRange = vehicleRangeForNumber\(state, vehicleNumber\) \|\| currentRange/);
+});
+
 test("defensie new recruits have default Discord base roles configured", () => {
   const { organizationConfigs, organizationMainRoleId } = require("../modules/organizations");
   const defensie = organizationConfigs.defensie;
