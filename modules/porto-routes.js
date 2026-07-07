@@ -25,9 +25,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const operatorVehicleName = organization.porto?.operatorVehicleName || operatorLabel;
   const operatorChannelKey = organization.porto?.operatorChannelKey || "ops";
   const managementLabel = organization.permissionAliases?.kader?.[0] || "leiding";
+  const managementBypassLabel = organization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass";
   const {
     ensurePortoVehicleRanges,
     canUsePortoDevBypass,
+    canUsePortoManagementBypass,
     canServePortoOps,
     canOperatePortoOps,
     activePortoOps,
@@ -746,6 +748,51 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         reviewStatus: "dev-bypass",
         assignedById: person.id,
         assignedByName: "Dev bypass",
+        assignedAt: now,
+        status: "1",
+        statusDetail: "Beschikbaar",
+        lastSeenAt: now,
+        updatedAt: now
+      });
+      syncPortoLinkedNames(state, vehicleNumber);
+      await persistPortoState(state, { units: state.portoUnits });
+      await sendPortoState(res, state, person, unit);
+      return true;
+    }
+
+    if (url.pathname === "/api/porto/management-bypass" && req.method === "POST") {
+      const context = await requireActivePerson(req, res);
+      if (!context) return true;
+      const { state, person } = context;
+      if (!canUsePortoManagementBypass(person)) {
+        sendJson(res, 403, { error: `Alleen ${managementLabel} mag deze bypass gebruiken.` });
+        return true;
+      }
+      ensurePortoVehicleRanges(state);
+      state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      const now = new Date().toISOString();
+      sweepPortoPresence(state);
+      let unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
+      if (!unit) {
+        unit = { id: crypto.randomUUID(), memberId: person.id, linkedWith: [], requestedAt: now, active: true };
+        state.portoUnits.push(unit);
+      }
+      const vehicleNumber = unit.vehicleNumber || availablePortoVehicleNumbers(state).flatMap((range) => range.numbers || [])[0];
+      if (!vehicleNumber) {
+        sendJson(res, 409, { error: "Geen vrij roepnummer beschikbaar." });
+        return true;
+      }
+      const range = vehicleRangeForNumber(state, vehicleNumber);
+      Object.assign(unit, {
+        name: person.name,
+        rank: person.rank,
+        serviceNumber: person.serviceNumber,
+        phone: person.portoPhone || "",
+        vehicleNumber,
+        vehicleType: range?.vehicleType || "Dienst",
+        reviewStatus: "management-bypass",
+        assignedById: person.id,
+        assignedByName: managementBypassLabel,
         assignedAt: now,
         status: "1",
         statusDetail: "Beschikbaar",

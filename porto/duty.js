@@ -4,6 +4,10 @@ function isDevBypassProfile() {
   return Boolean(portoCanUseDevTools);
 }
 
+function canUseManagementBypass() {
+  return Boolean(portoCanUseManagementBypass);
+}
+
 function isAssignedDuty() {
   return Boolean(portoDuty && String(portoDuty.status) !== "8" && portoDuty.vehicleNumber);
 }
@@ -155,6 +159,7 @@ function renderDutyPanel() {
   const pendingPanel = $("#portoPendingPanel");
   const opsLogPage = $("#portoOpsLogPage");
   const devBypassButton = $("#portoDevBypassBtn");
+  const managementBypassButton = $("#portoManagementBypassBtn");
   if (!intro || !panel || !pendingPanel) return;
   if (portoViewingOpsLog) {
     intro.hidden = true;
@@ -176,6 +181,10 @@ function renderDutyPanel() {
   if (opsViewButton) opsViewButton.hidden = !(assignedDuty && portoCanManageOps && !isCurrentOpsUser());
   intro.hidden = hasDuty || opsWorkspace;
   pendingPanel.hidden = !waitingForOps;
+  if (managementBypassButton) {
+    managementBypassButton.hidden = !(waitingForOps && canUseManagementBypass());
+    managementBypassButton.textContent = portoManagementBypassLabel || (portoOrganization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass");
+  }
   if (devBypassButton) devBypassButton.hidden = !(waitingForOps && isDevBypassProfile());
   panel.hidden = !assignedDuty || opsWorkspace;
   renderOpsLogAccess();
@@ -283,6 +292,22 @@ async function runPortoDevBypass() {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     await showPortoNotice(payload.error || "Dev bypass kon niet worden uitgevoerd.", "Dev bypass mislukt");
+    return;
+  }
+  portoDuty = payload.unit || null;
+  portoLastDutyLoadAt = Date.now();
+  if (payload.profile) portoProfile = payload.profile;
+  applyPortoPayload(payload);
+  renderVehicleRanges();
+  renderDutyPanel();
+  renderOpsPanel();
+}
+
+async function runPortoManagementBypass() {
+  const response = await fetch("/api/porto/management-bypass", { method: "POST" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    await showPortoNotice(payload.error || `${portoManagementBypassLabel || "Bypass"} kon niet worden uitgevoerd.`, `${portoManagementBypassLabel || "Bypass"} mislukt`);
     return;
   }
   portoDuty = payload.unit || null;

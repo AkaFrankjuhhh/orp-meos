@@ -35,6 +35,8 @@ function applyPortoPayload(payload, options = {}) {
   portoCanManageOps = Boolean(payload.canManageOps);
   portoCanViewOpsLog = Boolean(payload.canViewOpsLog);
   portoCanUseDevTools = Boolean(payload.canUseDevTools);
+  portoCanUseManagementBypass = Boolean(payload.canUseManagementBypass);
+  portoManagementBypassLabel = payload.managementBypassLabel || (portoOrganization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass");
   portoOpsRequests = payload.opsRequests || [];
   portoAvailableVehicleRanges = payload.availableVehicleRanges || [];
   portoLinkableUnits = payload.linkableUnits || [];

@@ -251,6 +251,18 @@ function createPortoServices() {
     );
   }
 
+  function canUsePortoManagementBypass(person) {
+    if (!person || !isCurrentPerson(person)) return false;
+    const managementAliases = organization.permissionAliases?.kader || ["Kader"];
+    const badges = new Set([
+      person.permRole,
+      ...(Array.isArray(person.badges) ? person.badges : []),
+      ...(Array.isArray(person.extraFunctions) ? person.extraFunctions : []),
+      ...functionBadgesForPerson(person)
+    ].filter(Boolean));
+    return managementAliases.some((badge) => badges.has(badge));
+  }
+
   function hasCompletedOperational(person, value) {
     return Array.isArray(person?.completedOperational) && person.completedOperational.includes(value);
   }
@@ -687,6 +699,8 @@ function createPortoServices() {
     const canTakeOps = canServePortoOps(person);
     const canViewOpsLog = canViewPortoOpsLog(person);
     const canManageOps = canOperatePortoOps(person);
+    const canUseManagementBypass = canUsePortoManagementBypass(person);
+    const managementBypassLabel = organization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass";
     const opsRequests = canManageOps
       ? state.portoUnits
           .filter((unit) => unit.active !== false && String(unit.status) === "0" && !unit.vehicleNumber && !assignedMemberIds.has(unit.memberId))
@@ -715,6 +729,8 @@ function createPortoServices() {
       canTakeOps,
       canManageOps,
       canUseDevTools: canUsePortoDevBypass(person),
+      canUseManagementBypass,
+      managementBypassLabel,
       opsRequests,
       availableVehicleRanges: canManageOps ? availablePortoVehicleNumbers(state) : [],
       linkableUnits: canManageOps ? linkablePortoUnits(state) : [],
@@ -731,6 +747,7 @@ function createPortoServices() {
     defaultPortoVehicleRanges,
     ensurePortoVehicleRanges,
     canUsePortoDevBypass,
+    canUsePortoManagementBypass,
     canServePortoOps,
     canOperatePortoOps,
     activePortoOps,
