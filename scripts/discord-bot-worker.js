@@ -63,6 +63,31 @@ let claimIzCommandRegistered = false;
 let addTrainingCommandRegistered = false;
 let trainerInfoOverviewTimer = null;
 
+const manualTrainingRequestOptions = [
+  {
+    label: "Zulu",
+    value: "ZULU",
+    description: "Voeg Zulu Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_REQUEST_ZULU_ROLE_ID",
+    defaultRoleId: "1501158324509478994",
+    minimumRank: "Wachtmeester 1ste Klasser"
+  },
+  {
+    label: "Communicatie",
+    value: "COMMUNICATIE",
+    description: "Nog niet beschikbaar: er is nog geen Discord rol gekoppeld.",
+    envKey: "DISCORD_TRAINING_REQUEST_COMMUNICATIE_ROLE_ID",
+    defaultRoleId: ""
+  },
+  {
+    label: "EHBO",
+    value: "EHBO",
+    description: "Nog niet beschikbaar: er is nog geen Discord rol gekoppeld.",
+    envKey: "DISCORD_TRAINING_REQUEST_EHBO_ROLE_ID",
+    defaultRoleId: ""
+  }
+];
+
 function parseJsonValue(value, fallback) {
   if (value == null) return fallback;
   if (typeof value !== "string") return value;
@@ -366,14 +391,13 @@ async function registerClaimIzCommand() {
 }
 
 function trainingRequirementOptions() {
-  return (typeof bot.allTrainingRequirementRoleMappings === "function" ? bot.allTrainingRequirementRoleMappings() : [])
-    .filter((mapping) => String(mapping.roleId || "").trim())
-    .map((mapping) => ({
-      label: mapping.label || mapping.requirement,
-      value: mapping.requirement,
-      description: `Voeg ${mapping.label || mapping.requirement} Training Aanvraag toe.`
-    }))
-    .slice(0, 25);
+  return manualTrainingRequestOptions.map((option) => ({
+    ...option,
+    roleId: String(process.env[option.envKey] || option.defaultRoleId || "").trim(),
+    description: String(process.env[option.envKey] || option.defaultRoleId || "").trim()
+      ? option.description
+      : "Nog niet beschikbaar: er is nog geen Discord rol gekoppeld."
+  }));
 }
 
 async function registerAddTrainingCommand() {
@@ -461,7 +485,11 @@ function trainingSelectComponents() {
       placeholder: "Welke training wil je toevoegen?",
       min_values: 1,
       max_values: 1,
-      options
+      options: options.map((option) => ({
+        label: option.label,
+        value: option.value,
+        description: option.description
+      }))
     }]
   }];
 }
@@ -486,6 +514,17 @@ function displayPersonName(person = {}) {
   const serviceNumber = String(person.serviceNumber || person.previousServiceNumber || "").trim();
   const name = String(person.name || person.discordUsername || person.discordId || "Onbekend").trim();
   return serviceNumber ? `${serviceNumber} ${name}` : name;
+}
+
+function rankWeight(rank) {
+  const ranks = organization.ranks || [];
+  const index = ranks.indexOf(rank);
+  return index === -1 ? Number.POSITIVE_INFINITY : index;
+}
+
+function rankIsAtLeast(rank, minimumRank) {
+  if (!minimumRank) return true;
+  return rankWeight(rank) <= rankWeight(minimumRank);
 }
 
 function trainingOverviewValue(people = []) {
@@ -611,12 +650,36 @@ async function handleAddTrainingCommand(interaction) {
 async function handleTrainingRequestSelect(interaction) {
   const selected = String((interaction.data?.values || [])[0] || "").trim();
   const mapping = trainingRequirementOptions().find((option) => option.value === selected);
-  const fullMapping = (typeof bot.allTrainingRequirementRoleMappings === "function" ? bot.allTrainingRequirementRoleMappings() : [])
-    .find((entry) => entry.requirement === selected);
-  const roleId = String(fullMapping?.roleId || "").trim();
+  const roleId = String(mapping?.roleId || "").trim();
   const userId = String(interaction.member?.user?.id || interaction.user?.id || "").trim();
-  if (!mapping || !roleId || !userId) {
+  if (!mapping || !userId) {
     await acknowledgeInteraction(interaction, "Deze training kon niet worden gekoppeld.", true);
+    return;
+  }
+  if (!roleId) {
+    await interactionCallback(interaction, {
+      type: 7,
+      data: {
+        content: `${mapping.label} is nog niet beschikbaar. Er is nog geen Discord rol gekoppeld.`,
+        components: [],
+        flags: 64,
+        allowed_mentions: { parse: [] }
+      }
+    });
+    return;
+  }
+  const state = await readPostgresState();
+  const person = (state.people || []).find((entry) => String(entry.discordId || "") === userId);
+  if (mapping.minimumRank && !rankIsAtLeast(person?.rank || "", mapping.minimumRank)) {
+    await interactionCallback(interaction, {
+      type: 7,
+      data: {
+        content: `${mapping.label} kan pas worden aangevraagd vanaf ${mapping.minimumRank}.`,
+        components: [],
+        flags: 64,
+        allowed_mentions: { parse: [] }
+      }
+    });
     return;
   }
   await bot.addRole(userId, roleId, `${organization.label} training-aanvraag via /voegtrainingtoe`);

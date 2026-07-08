@@ -264,6 +264,10 @@ test("Discord bot exposes training request dropdown and trainer info overview", 
   assert.match(workerCode, /voegtrainingtoe/);
   assert.match(workerCode, /training_request_select/);
   assert.match(workerCode, /Welke training wil je toevoegen/);
+  assert.match(workerCode, /label: "Zulu"/);
+  assert.match(workerCode, /label: "Communicatie"/);
+  assert.match(workerCode, /label: "EHBO"/);
+  assert.match(workerCode, /minimumRank: "Wachtmeester 1ste Klasser"/);
   assert.match(workerCode, /buildTrainerInfoOverviewPayload/);
   assert.match(workerCode, /scheduleTrainerInfoOverviewUpdate/);
   assert.match(botCode, /async function editMessage\(/);
