@@ -54,6 +54,27 @@ async function sendDiscordWebhook(webhookUrl, payload, files = [], options = {})
   return webhookResult(response);
 }
 
+async function editDiscordWebhookMessage(webhookUrl, messageId, payload) {
+  if (!webhookUrl || !messageId) return { skipped: true };
+  const url = new URL(webhookUrl);
+  const parts = url.pathname.split("/").filter(Boolean);
+  const webhookIndex = parts.indexOf("webhooks");
+  const webhookId = parts[webhookIndex + 1] || "";
+  const webhookToken = parts[webhookIndex + 2] || "";
+  if (!webhookId || !webhookToken) return { skipped: true, reason: "Webhook URL is ongeldig." };
+  const response = await fetch(`https://discord.com/api/v10/webhooks/${webhookId}/${webhookToken}/messages/${messageId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (response.ok) {
+    const body = await response.json().catch(() => null);
+    return { ok: true, status: response.status, body };
+  }
+  const body = await response.text().catch(() => "");
+  return { ok: false, status: response.status, body: body.slice(0, 800) };
+}
+
 async function createDiscordThreadFromMessage(channelId, messageId, threadName) {
   const token = String(
     process.env.DISCORD_BOT_TOKEN ||
@@ -336,6 +357,7 @@ function createDiscordWebhookServices({ formatDate }) {
 
   return {
     sendDiscordWebhook,
+    editDiscordWebhookMessage,
     sendDiscordWebhookWithMessageThread,
     sendDiscordWebhookPayloads,
     sendDiscordWebhookPayloadsWithMessageThread,

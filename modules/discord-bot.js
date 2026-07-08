@@ -543,6 +543,17 @@ function createDiscordBotServices(options = {}) {
     });
   }
 
+  async function editMessage(channelId, messageId, payload, auditReason = "") {
+    const targetChannelId = normalizeDiscordId(channelId);
+    const targetMessageId = normalizeDiscordId(messageId);
+    if (!targetChannelId || !targetMessageId) return { skipped: true, reason: "Kanaal of bericht ontbreekt." };
+    return discordBotFetch(`/channels/${targetChannelId}/messages/${targetMessageId}`, {
+      method: "PATCH",
+      body: payload,
+      auditReason
+    });
+  }
+
   async function createMessageWithFiles(channelId, payload, files = [], auditReason = "") {
     const targetChannelId = normalizeDiscordId(channelId);
     if (!targetChannelId) return { skipped: true, reason: "Kanaal ID ontbreekt." };
@@ -973,6 +984,7 @@ function createDiscordBotServices(options = {}) {
     getMessage,
     listMessages,
     createMessage,
+    editMessage,
     createMessageWithFiles,
     createThreadFromMessage,
     deleteChannel,

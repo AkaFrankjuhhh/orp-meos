@@ -16,6 +16,7 @@ const {
   memberHasAnyTrackedRole,
   sendDiscordLeaveLog
 } = require("../modules/discord-leave-log");
+const { createDiscordWebhookServices } = require("../modules/discord-webhooks");
 const {
   ensureDiscordSyncJobsTable,
   enqueueAllDiscordSync,
@@ -40,9 +41,13 @@ const leaveLogWebhookConfigured = Boolean(discordLeaveLogWebhookUrl(organization
 const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true" || leaveLogWebhookConfigured;
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
+const discordWebhooks = createDiscordWebhookServices();
 const nonRegularPortoDiscordChannelKey = nonRegularPortoDiscordChannel.key;
 const IZ_LEIDING_CHANNEL_ID = String(process.env.DISCORD_IZ_LEIDING_CHANNEL_ID || "1515083209132478596").trim();
 const IZ_LEIDING_ROLE_ID = String(process.env.DISCORD_IZ_LEIDING_ROLE_ID || "1515080646806995045").trim();
+const TRAINER_INFO_CHANNEL_ID = String(process.env.DISCORD_TRAINER_INFO_CHANNEL_ID || "1496169651695128627").trim();
+const TRAINER_INFO_WEBHOOK_URL = String(process.env.DISCORD_TRAINER_INFO_WEBHOOK_URL || "").trim();
+const TRAINER_INFO_SETTINGS_KEY = `discord_trainer_training_overview_${organization.key}`;
 const AUDIT_LOG_ACTION_MEMBER_KICK = 20;
 const AUDIT_LOG_ACTION_MEMBER_BAN_ADD = 22;
 const LEAVE_LOG_AUDIT_LOOKUP_DELAY_MS = 1200;
@@ -55,6 +60,8 @@ let hasGatewayVoiceSnapshot = false;
 const gatewayVoiceStatesByUser = new Map();
 const gatewayMemberRolesByUser = new Map();
 let claimIzCommandRegistered = false;
+let addTrainingCommandRegistered = false;
+let trainerInfoOverviewTimer = null;
 
 function parseJsonValue(value, fallback) {
   if (value == null) return fallback;
@@ -358,6 +365,38 @@ async function registerClaimIzCommand() {
   }
 }
 
+function trainingRequirementOptions() {
+  return (typeof bot.allTrainingRequirementRoleMappings === "function" ? bot.allTrainingRequirementRoleMappings() : [])
+    .filter((mapping) => String(mapping.roleId || "").trim())
+    .map((mapping) => ({
+      label: mapping.label || mapping.requirement,
+      value: mapping.requirement,
+      description: `Voeg ${mapping.label || mapping.requirement} Training Aanvraag toe.`
+    }))
+    .slice(0, 25);
+}
+
+async function registerAddTrainingCommand() {
+  if (addTrainingCommandRegistered || !trainingRequirementOptions().length) return;
+  try {
+    await bot.registerGuildCommand({
+      name: "voegtrainingtoe",
+      description: "Voeg een training-aanvraag rol toe aan jezelf.",
+      type: 1,
+      dm_permission: false
+    });
+    addTrainingCommandRegistered = true;
+    console.log("[discord-bot] slash command /voegtrainingtoe geregistreerd.");
+  } catch (error) {
+    console.error(`[discord-bot] slash command /voegtrainingtoe registreren mislukt: ${error.message}`);
+  }
+}
+
+async function registerDiscordCommands() {
+  await registerClaimIzCommand();
+  await registerAddTrainingCommand();
+}
+
 async function handleClaimIzLeadership(interaction) {
   if (!interactionHasRole(interaction, IZ_LEIDING_ROLE_ID)) {
     await acknowledgeInteraction(interaction, "Alleen IZ-Leiding mag deze zaak overnemen.", true);
@@ -412,18 +451,214 @@ async function handleClaimIzLeadership(interaction) {
   await editInteractionResponse(interaction, `${claimText}. Nieuwe thread: <#${newThreadId}>`);
 }
 
+function trainingSelectComponents() {
+  const options = trainingRequirementOptions();
+  return [{
+    type: 1,
+    components: [{
+      type: 3,
+      custom_id: "training_request_select",
+      placeholder: "Welke training wil je toevoegen?",
+      min_values: 1,
+      max_values: 1,
+      options
+    }]
+  }];
+}
+
+async function readTrainerInfoMessageSettings() {
+  const result = await withClient((client) => client.query(
+    "select value from app_settings where key = $1 limit 1",
+    [TRAINER_INFO_SETTINGS_KEY]
+  ));
+  return result.rows[0]?.value || {};
+}
+
+async function saveTrainerInfoMessageSettings(settings = {}) {
+  await withClient((client) => client.query(`
+    insert into app_settings(key, value, updated_at)
+    values($1, $2::jsonb, now())
+    on conflict(key) do update set value = excluded.value, updated_at = now()
+  `, [TRAINER_INFO_SETTINGS_KEY, JSON.stringify(settings)]));
+}
+
+function displayPersonName(person = {}) {
+  const serviceNumber = String(person.serviceNumber || person.previousServiceNumber || "").trim();
+  const name = String(person.name || person.discordUsername || person.discordId || "Onbekend").trim();
+  return serviceNumber ? `${serviceNumber} ${name}` : name;
+}
+
+function trainingOverviewValue(people = []) {
+  if (!people.length) return "**Aantal benodigden:** 0\n**Namen:** -";
+  const names = [];
+  let usedLength = 0;
+  for (const person of people) {
+    const name = displayPersonName(person);
+    const nextLength = usedLength + name.length + (names.length ? 2 : 0);
+    if (names.length >= 12 || nextLength > 850) break;
+    names.push(name);
+    usedLength = nextLength;
+  }
+  const remaining = people.length - names.length;
+  return [
+    `**Aantal benodigden:** ${people.length}`,
+    `**Namen:** ${names.join(", ")}${remaining > 0 ? ` en ${remaining} meer` : ""}`
+  ].join("\n");
+}
+
+async function buildTrainerInfoOverviewPayload() {
+  const mappings = trainingRequirementOptions()
+    .map((option) => {
+      const fullMapping = (typeof bot.allTrainingRequirementRoleMappings === "function" ? bot.allTrainingRequirementRoleMappings() : [])
+        .find((entry) => entry.requirement === option.value);
+      return { ...option, roleId: String(fullMapping?.roleId || "").trim() };
+    })
+    .filter((mapping) => mapping.roleId);
+  const grouped = new Map(mappings.map((mapping) => [mapping.value, []]));
+  const state = await readPostgresState();
+  const people = (state.people || [])
+    .filter((person) => isCurrentPerson(person) && String(person.discordId || "").trim());
+
+  for (const person of people) {
+    const member = await bot.getGuildMember(person.discordId).catch(() => null);
+    const roles = new Set((member?.data?.roles || []).map((roleId) => String(roleId || "").trim()));
+    for (const mapping of mappings) {
+      if (roles.has(mapping.roleId)) grouped.get(mapping.value)?.push(person);
+    }
+    await sleep(150);
+  }
+
+  const fields = mappings.map((mapping) => ({
+    name: `Training: ${mapping.label}`,
+    value: trainingOverviewValue(grouped.get(mapping.value) || []),
+    inline: false
+  }));
+
+  return {
+    content: "",
+    embeds: [{
+      title: "Trainer-informatie",
+      description: "Live overzicht van leden met een openstaande training-aanvraag rol.",
+      color: 0xffa000,
+      fields,
+      footer: { text: `${organization.label} • laatst bijgewerkt` },
+      timestamp: new Date().toISOString()
+    }],
+    allowed_mentions: { parse: [] }
+  };
+}
+
+async function updateTrainerInfoOverview() {
+  if (!TRAINER_INFO_CHANNEL_ID || !trainingRequirementOptions().length) return { skipped: true };
+  const payload = await buildTrainerInfoOverviewPayload();
+  const settings = await readTrainerInfoMessageSettings();
+  const channelId = String(settings.channelId || TRAINER_INFO_CHANNEL_ID).trim();
+  const messageId = String(settings.messageId || "").trim();
+  const delivery = TRAINER_INFO_WEBHOOK_URL ? "webhook" : "bot";
+  if (messageId) {
+    try {
+      const edited = settings.delivery === "webhook" && TRAINER_INFO_WEBHOOK_URL
+        ? await discordWebhooks.editDiscordWebhookMessage(TRAINER_INFO_WEBHOOK_URL, messageId, payload)
+        : await bot.editMessage(channelId, messageId, payload, "Trainer-informatie overzicht bijgewerkt");
+      if (edited?.ok === false) throw new Error(edited.body || `Discord status ${edited.status || "unknown"}`);
+      return { ok: true, action: "edited", messageId, data: edited?.data || edited?.body };
+    } catch (error) {
+      console.warn(`[discord-bot] trainer-informatie bericht bewerken mislukt, nieuw bericht wordt geplaatst: ${error.message}`);
+    }
+  }
+  const created = TRAINER_INFO_WEBHOOK_URL
+    ? await discordWebhooks.sendDiscordWebhook(TRAINER_INFO_WEBHOOK_URL, payload, [], { wait: true })
+    : await bot.createMessage(TRAINER_INFO_CHANNEL_ID, payload, "Trainer-informatie overzicht geplaatst");
+  if (created?.ok === false) throw new Error(created.body || `Discord status ${created.status || "unknown"}`);
+  const createdMessageId = created?.data?.id || created?.messageId || created?.body?.id || "";
+  const createdChannelId = created?.data?.channel_id || created?.channelId || created?.body?.channel_id || TRAINER_INFO_CHANNEL_ID;
+  if (createdMessageId) {
+    await saveTrainerInfoMessageSettings({ channelId: createdChannelId, messageId: createdMessageId, delivery });
+  }
+  return { ok: true, action: "created", messageId: createdMessageId };
+}
+
+function scheduleTrainerInfoOverviewUpdate(delayMs = 10000) {
+  if (!TRAINER_INFO_CHANNEL_ID || trainerInfoOverviewTimer) return;
+  trainerInfoOverviewTimer = setTimeout(async () => {
+    trainerInfoOverviewTimer = null;
+    try {
+      const result = await updateTrainerInfoOverview();
+      if (result?.ok) console.log(`[discord-bot] trainer-informatie overzicht ${result.action || "bijgewerkt"}.`);
+    } catch (error) {
+      console.error(`[discord-bot] trainer-informatie overzicht bijwerken mislukt: ${error.message}`);
+    }
+  }, Math.max(0, Number(delayMs || 0)));
+}
+
+async function handleAddTrainingCommand(interaction) {
+  const options = trainingRequirementOptions();
+  if (!options.length) {
+    await acknowledgeInteraction(interaction, "Er zijn geen training-aanvraag rollen ingesteld.", true);
+    return;
+  }
+  await interactionCallback(interaction, {
+    type: 4,
+    data: {
+      content: "Welke training wil je toevoegen?",
+      components: trainingSelectComponents(),
+      flags: 64,
+      allowed_mentions: { parse: [] }
+    }
+  });
+}
+
+async function handleTrainingRequestSelect(interaction) {
+  const selected = String((interaction.data?.values || [])[0] || "").trim();
+  const mapping = trainingRequirementOptions().find((option) => option.value === selected);
+  const fullMapping = (typeof bot.allTrainingRequirementRoleMappings === "function" ? bot.allTrainingRequirementRoleMappings() : [])
+    .find((entry) => entry.requirement === selected);
+  const roleId = String(fullMapping?.roleId || "").trim();
+  const userId = String(interaction.member?.user?.id || interaction.user?.id || "").trim();
+  if (!mapping || !roleId || !userId) {
+    await acknowledgeInteraction(interaction, "Deze training kon niet worden gekoppeld.", true);
+    return;
+  }
+  await bot.addRole(userId, roleId, `${organization.label} training-aanvraag via /voegtrainingtoe`);
+  scheduleTrainerInfoOverviewUpdate(1000);
+  await interactionCallback(interaction, {
+    type: 7,
+    data: {
+      content: `${mapping.label} Training Aanvraag is toegevoegd aan jouw Discord profiel.`,
+      components: [],
+      flags: 64,
+      allowed_mentions: { parse: [] }
+    }
+  });
+}
+
 async function handleInteractionCreate(interaction = {}) {
+  if (interaction.type === 3 && interaction.data?.custom_id === "training_request_select") {
+    try {
+      await handleTrainingRequestSelect(interaction);
+    } catch (error) {
+      console.error(`[discord-bot] training dropdown mislukt: ${error.message}`);
+      await acknowledgeInteraction(interaction, `Training toevoegen mislukt: ${error.message}`, true).catch(() => {});
+    }
+    return;
+  }
   if (interaction.type !== 2) return;
   const commandName = String(interaction.data?.name || "").toLowerCase();
-  if (commandName !== "claimizleiding") return;
   try {
-    await handleClaimIzLeadership(interaction);
+    if (commandName === "claimizleiding") {
+      await handleClaimIzLeadership(interaction);
+      return;
+    }
+    if (commandName === "voegtrainingtoe") {
+      await handleAddTrainingCommand(interaction);
+      return;
+    }
   } catch (error) {
-    console.error(`[discord-bot] /claimizleiding mislukt: ${error.message}`);
+    console.error(`[discord-bot] /${commandName} mislukt: ${error.message}`);
     try {
-      await editInteractionResponse(interaction, `Overnemen mislukt: ${error.message}`);
+      await editInteractionResponse(interaction, `Command mislukt: ${error.message}`);
     } catch (_) {
-      await acknowledgeInteraction(interaction, `Overnemen mislukt: ${error.message}`, true).catch(() => {});
+      await acknowledgeInteraction(interaction, `Command mislukt: ${error.message}`, true).catch(() => {});
     }
   }
 }
@@ -873,6 +1108,9 @@ async function processJobs() {
       const nestedFailure = nestedSyncFailureFromResult(result);
       if (nestedFailure) throw nestedFailure;
       await completeDiscordSyncJob(job.id, result);
+      if (result?.trainingNeededRoles || result?.qualificationRoles) {
+        scheduleTrainerInfoOverviewUpdate(10000);
+      }
       const statusPerson = ["sync_person", "porto_nickname"].includes(job.type)
         ? await findPersonForSyncJob(job).catch(() => null)
         : null;
@@ -1024,7 +1262,8 @@ function connectGateway() {
     if (packet.op === 11) return;
     if (packet.t === "READY") {
       console.log(`[discord-bot] online als ${packet.d?.user?.username || "bot"}.`);
-      await registerClaimIzCommand();
+      await registerDiscordCommands();
+      scheduleTrainerInfoOverviewUpdate(3000);
       return;
     }
     if (packet.t === "INTERACTION_CREATE") {

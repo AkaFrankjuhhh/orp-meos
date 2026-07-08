@@ -253,6 +253,23 @@ test("Discord sync manages portal function and badge roles", () => {
   assert.match(scriptCode, /Functie- en badge mappings/);
 });
 
+test("Discord bot exposes training request dropdown and trainer info overview", () => {
+  const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  const webhooksCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-webhooks.js"), "utf8");
+
+  assert.match(envExample, /DISCORD_TRAINER_INFO_CHANNEL_ID=1496169651695128627/);
+  assert.match(envExample, /DISCORD_TRAINER_INFO_WEBHOOK_URL=/);
+  assert.match(workerCode, /voegtrainingtoe/);
+  assert.match(workerCode, /training_request_select/);
+  assert.match(workerCode, /Welke training wil je toevoegen/);
+  assert.match(workerCode, /buildTrainerInfoOverviewPayload/);
+  assert.match(workerCode, /scheduleTrainerInfoOverviewUpdate/);
+  assert.match(botCode, /async function editMessage\(/);
+  assert.match(webhooksCode, /editDiscordWebhookMessage/);
+});
+
 test("public form webhooks split long Discord embeds over multiple messages", () => {
   const publicFormsCode = fs.readFileSync(path.join(process.cwd(), "modules", "public-forms.js"), "utf8");
   const webhooksCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-webhooks.js"), "utf8");
