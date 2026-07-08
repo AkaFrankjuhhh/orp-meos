@@ -209,6 +209,10 @@ button {
   text-align: left;
 }
 
+.nav-item-spaced {
+  margin-top: 10px;
+}
+
 .nav-item:hover,
 .nav-item.active,
 .theme-toggle:hover {
@@ -431,6 +435,10 @@ html[data-ui-mode="calm"] .nav-item {
   border-radius: 8px;
   color: rgba(222, 232, 247, 0.82);
   border-color: transparent;
+}
+
+html[data-ui-mode="calm"] .nav-item-spaced {
+  margin-top: 12px;
 }
 
 html[data-ui-mode="calm"] .nav-item:hover,

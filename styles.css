@@ -208,6 +208,10 @@ button {
   text-align: left;
 }
 
+.nav-item-spaced {
+  margin-top: 10px;
+}
+
 .nav-item:hover,
 .nav-item.active,
 .theme-toggle:hover {
