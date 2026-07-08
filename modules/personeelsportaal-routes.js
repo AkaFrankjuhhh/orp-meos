@@ -24,6 +24,7 @@ function createPersoneelsportaalRouteHandler(deps) {
   const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
   const portalTitle = organization.portalTitle || "Personeelsportaal";
   const qualificationRoleLabels = Object.keys(organization.discord?.qualificationRoleMappings || {});
+  const trainingRequirementRoleLabels = Object.keys(organization.discord?.trainingRequirementRoleMappings || {});
   const {
     requireAuth,
     readState,
@@ -737,22 +738,37 @@ function createPersoneelsportaalRouteHandler(deps) {
   }
 
   async function syncQualificationDiscordRoles(state, person, changedLabels) {
-    if (!discordBot || !discordBot.isConfigured?.() || typeof discordBot.syncQualificationRolesForPerson !== "function") return;
-    if (!person?.discordId || !changedLabels.some((label) => qualificationRoleLabels.includes(label))) return;
+    if (!discordBot || !discordBot.isConfigured?.()) return;
+    if (!person?.discordId) return;
+    const shouldSyncQualificationRoles = changedLabels.some((label) => qualificationRoleLabels.includes(label))
+      && typeof discordBot.syncQualificationRolesForPerson === "function";
+    const shouldSyncTrainingRequirementRoles = changedLabels.some((label) => trainingRequirementRoleLabels.includes(label))
+      && typeof discordBot.syncTrainingRequirementRolesForPerson === "function";
+    if (!shouldSyncQualificationRoles && !shouldSyncTrainingRequirementRoles) return;
     try {
-      const result = await discordBot.syncQualificationRolesForPerson(
-        person,
-        `${portalTitle} kwalificatie aangepast`
-      );
-      if (result?.ok && Array.isArray(result.changes) && result.changes.length) {
+      const result = shouldSyncQualificationRoles
+        ? await discordBot.syncQualificationRolesForPerson(
+          person,
+          `${portalTitle} kwalificatie aangepast`
+        )
+        : null;
+      const trainingResult = shouldSyncTrainingRequirementRoles
+        ? await discordBot.syncTrainingRequirementRolesForPerson(
+          person,
+          `${portalTitle} benodigde training aangepast`
+        )
+        : null;
+      const changed = [result, trainingResult].some((entry) => entry?.ok && Array.isArray(entry.changes) && entry.changes.length);
+      const skipped = [result, trainingResult].find((entry) => entry?.skipped);
+      if (changed) {
         setDiscordSyncStatus(person, "synced", "Discord kwalificatierollen aangepast.", "qualification_direct");
         state.activity = state.activity || [];
         state.activity.push(`Discord kwalificatierollen gesynchroniseerd voor ${person.name}.`);
-      } else if (result?.skipped) {
-        setDiscordSyncStatus(person, result.retryable ? "role_missing" : "skipped", result.reason, "qualification_direct");
+      } else if (skipped) {
+        setDiscordSyncStatus(person, skipped.retryable ? "role_missing" : "skipped", skipped.reason, "qualification_direct");
         state.activity = state.activity || [];
-        state.activity.push(`Discord kwalificatierollen overgeslagen voor ${person.name}: ${result.reason}`);
-      } else if (result?.ok) {
+        state.activity.push(`Discord kwalificatierollen overgeslagen voor ${person.name}: ${skipped.reason}`);
+      } else if (result?.ok || trainingResult?.ok) {
         setDiscordSyncStatus(person, "synced", "Discord kwalificatierollen gecontroleerd.", "qualification_direct");
       }
     } catch (error) {

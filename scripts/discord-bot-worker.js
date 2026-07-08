@@ -694,9 +694,10 @@ async function syncPersonForState(state, person, reason = "Discord bot worker sy
     const nickname = await bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, portoUnit), `${reason}: Porto roepnummer`);
     const rankRole = await bot.syncRankRoleForPersonIfNeeded(person, reason);
     const qualificationRoles = await bot.syncQualificationRolesForPersonIfNeeded(person, reason);
+    const trainingNeededRoles = await bot.syncTrainingRequirementRolesForPersonIfNeeded(person, reason);
     const badgeRoles = await bot.syncBadgeRolesForPersonIfNeeded(person, reason);
     await sleep(350);
-    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, badgeRoles, porto: true };
+    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, trainingNeededRoles, badgeRoles, porto: true };
   }
   return syncPerson(person, reason);
 }
@@ -753,6 +754,7 @@ function nestedSyncFailureFromResult(result) {
     ["basisrollen", result?.baseRoles],
     ["rangrol", result?.rankRole],
     ["kwalificatierollen", result?.qualificationRoles],
+    ["benodigde trainingsrollen", result?.trainingNeededRoles],
     ["functie- en badgerollen", result?.badgeRoles]
   ];
   for (const [label, part] of requiredParts) {
@@ -844,7 +846,14 @@ async function syncByJob(job) {
     }
     return bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, unit), `Discord bot job ${job.id}: Porto roepnummer`);
   }
-  if (!person || !isCurrentPerson(person)) return { skipped: true, reason: "Geen actueel portaalprofiel gevonden" };
+  if (!person) return { skipped: true, reason: "Geen actueel portaalprofiel gevonden" };
+  if (!isCurrentPerson(person)) {
+    const trainingNeededRoles = await bot.syncTrainingRequirementRolesForPersonIfNeeded(
+      person,
+      `Discord bot job ${job.id}: niet-actueel profiel`
+    );
+    return { ok: true, inactive: true, trainingNeededRoles };
+  }
   return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
 }
 

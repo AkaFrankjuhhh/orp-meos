@@ -106,10 +106,24 @@ async function main() {
     ? bot.allBadgeRoleMappings()
     : [];
   const configuredBadgeMappings = badgeMappings.filter((mapping) => String(mapping.roleId || "").trim());
+  const trainingRequirementMappings = typeof bot.allTrainingRequirementRoleMappings === "function"
+    ? bot.allTrainingRequirementRoleMappings()
+    : [];
+  const configuredTrainingRequirementMappings = trainingRequirementMappings.filter((mapping) => String(mapping.roleId || "").trim());
   const desiredRankRoleId = bot.rankRoleIdForPerson?.(person) || "";
   const desiredMissingConfig = allMappings.filter((mapping) => completed.has(mapping.qualification) && !String(mapping.roleId || "").trim());
   const desiredRoleIds = configuredMappings
     .filter((mapping) => completed.has(mapping.qualification))
+    .map((mapping) => mapping.roleId);
+  const missingTrainingRequirements = new Set(
+    typeof bot.missingTrainingRequirementsForPerson === "function"
+      ? bot.missingTrainingRequirementsForPerson(person)
+      : []
+  );
+  const desiredMissingTrainingConfig = trainingRequirementMappings
+    .filter((mapping) => missingTrainingRequirements.has(mapping.requirement) && !String(mapping.roleId || "").trim());
+  const desiredTrainingRequirementRoleIds = configuredTrainingRequirementMappings
+    .filter((mapping) => missingTrainingRequirements.has(mapping.requirement))
     .map((mapping) => mapping.roleId);
   const assignedBadges = new Set([
     person.permRole,
@@ -134,6 +148,10 @@ async function main() {
   const extraManagedRoleIds = configuredMappings
     .map((mapping) => mapping.roleId)
     .filter((roleId) => currentRoleIds.includes(roleId) && !desiredRoleIds.includes(roleId));
+  const missingTrainingRequirementRoleIds = desiredTrainingRequirementRoleIds.filter((roleId) => !currentRoleIds.includes(roleId));
+  const extraManagedTrainingRequirementRoleIds = configuredTrainingRequirementMappings
+    .map((mapping) => mapping.roleId)
+    .filter((roleId) => currentRoleIds.includes(roleId) && !desiredTrainingRequirementRoleIds.includes(roleId));
   const missingBadgeRoleIds = desiredBadgeRoleIds.filter((roleId) => !currentRoleIds.includes(roleId));
   const extraManagedBadgeRoleIds = configuredBadgeMappings
     .map((mapping) => mapping.roleId)
@@ -169,6 +187,20 @@ async function main() {
   console.log(`Gewenst maar niet geconfigureerd: ${roleListText(desiredMissingConfig.map((mapping) => mapping.envKey))}`);
   console.log(`Extra beheerde rollen: ${roleListText(extraManagedRoleIds)}`);
   console.log("");
+  if (trainingRequirementMappings.length) {
+    console.log("Benodigde training mappings:");
+    for (const mapping of trainingRequirementMappings) {
+      const desired = missingTrainingRequirements.has(mapping.requirement) ? "ja" : "nee";
+      const configured = String(mapping.roleId || "").trim() ? "ja" : "nee";
+      const current = mapping.roleId && currentRoleIds.includes(mapping.roleId) ? "ja" : "nee";
+      console.log(`- ${mapping.requirement} -> ${mapping.label || mapping.requirement} (${mapping.envKey}=${mapping.roleId || "NIET INGESTELD"}) nodig=${desired} configured=${configured} aanwezig=${current}`);
+    }
+    console.log("");
+    console.log(`Ontbrekende benodigde trainingsrollen: ${roleListText(missingTrainingRequirementRoleIds)}`);
+    console.log(`Benodigd maar niet geconfigureerd: ${roleListText(desiredMissingTrainingConfig.map((mapping) => mapping.envKey))}`);
+    console.log(`Extra beheerde benodigde trainingsrollen: ${roleListText(extraManagedTrainingRequirementRoleIds)}`);
+    console.log("");
+  }
   console.log("Functie- en badge mappings:");
   for (const mapping of badgeMappings) {
     const desired = assignedBadges.has(mapping.label) ? "ja" : "nee";

@@ -235,14 +235,21 @@ test("Discord sync manages portal function and badge roles", () => {
 
   assert.match(envExample, /DISCORD_MENTOR_LEIDING_ROLE_ID=/);
   assert.match(envExample, /DISCORD_POLITIE_DSI_ROLE_ID=/);
+  assert.match(envExample, /DISCORD_TRAINING_NEEDED_BKV_ROLE_ID=1499476179537625128/);
   assert.match(organizationsCode, /label: "Trainer", envKey: "DISCORD_TRAINER_ROLE_ID"/);
   assert.match(organizationsCode, /label: "DSI", envKey: "DISCORD_DSI_ROLE_ID"/);
+  assert.match(organizationsCode, /trainingRequirementRoleMappings/);
   assert.match(botCode, /function allBadgeRoleMappings\(/);
   assert.match(botCode, /function syncBadgeRolesForPerson\(/);
+  assert.match(botCode, /function syncTrainingRequirementRolesForPerson\(/);
   assert.match(botCode, /assignedBadgeSetForPerson/);
+  assert.match(workerCode, /trainingNeededRoles/);
   assert.match(workerCode, /badgeRoles/);
+  assert.match(routesCode, /syncTrainingRequirementRolesForPerson/);
   assert.match(routesCode, /queuePersonDiscordSync\(state, person, "badge_updated"\)/);
+  assert.match(roleConfigCode, /Benodigde trainingsrollen/);
   assert.match(roleConfigCode, /Functie- en badgerollen/);
+  assert.match(scriptCode, /Benodigde training mappings/);
   assert.match(scriptCode, /Functie- en badge mappings/);
 });
 

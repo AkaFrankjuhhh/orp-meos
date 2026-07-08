@@ -348,6 +348,17 @@ const organizationConfigs = {
         OPCO: { envKey: "DISCORD_OPCO_ROLE_ID", defaultRoleId: "1424523638526185513", label: "OPCO" },
         OVD: { envKey: "DISCORD_OVD_ROLE_ID", defaultRoleId: "", label: "OVD" }
       },
+      trainingRequirementRoleMappings: {
+        BKV: { envKey: "DISCORD_TRAINING_NEEDED_BKV_ROLE_ID", defaultRoleId: "1499476179537625128", label: "BKV" },
+        IBT: { envKey: "DISCORD_TRAINING_NEEDED_IBT_ROLE_ID", defaultRoleId: "1499476290766639274", label: "IBT" },
+        KW: { envKey: "DISCORD_TRAINING_NEEDED_KW_ROLE_ID", defaultRoleId: "1499476327877840907", label: "KW" },
+        OPS: { envKey: "DISCORD_TRAINING_NEEDED_OPS_ROLE_ID", defaultRoleId: "1499476361968877763", label: "OPS" },
+        TMO: { envKey: "DISCORD_TRAINING_NEEDED_TMO_ROLE_ID", defaultRoleId: "1499476379144552588", label: "TMO" },
+        OPCO: { envKey: "DISCORD_TRAINING_NEEDED_OPCO_ROLE_ID", defaultRoleId: "1499476403031244820", label: "OPCO" },
+        SIV: { envKey: "DISCORD_TRAINING_NEEDED_SIV_ROLE_ID", defaultRoleId: "1499476432424796273", label: "SIV" },
+        OGM: { envKey: "DISCORD_TRAINING_NEEDED_OGM_ROLE_ID", defaultRoleId: "1499476966233870346", label: "OGM" },
+        SMG: { envKey: "DISCORD_TRAINING_NEEDED_SMG_ROLE_ID", defaultRoleId: "1499477017945444452", label: "MP5" }
+      },
       nicknameSymbols: defensieNicknameSymbols,
       portoOperatorLabel: "OPS"
     },

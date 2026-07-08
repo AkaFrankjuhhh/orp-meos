@@ -43,6 +43,12 @@ const qualificationMappings = typeof bot.configuredQualificationRoleMappings ===
 const missingQualificationMappings = typeof bot.missingQualificationRoleMappings === "function"
   ? bot.missingQualificationRoleMappings()
   : qualificationMappings.filter((mapping) => !String(mapping.roleId || "").trim());
+const trainingRequirementMappings = typeof bot.allTrainingRequirementRoleMappings === "function"
+  ? bot.allTrainingRequirementRoleMappings()
+  : [];
+const missingTrainingRequirementMappings = typeof bot.missingTrainingRequirementRoleMappings === "function"
+  ? bot.missingTrainingRequirementRoleMappings()
+  : trainingRequirementMappings.filter((mapping) => !String(mapping.roleId || "").trim());
 const badgeMappings = typeof bot.allBadgeRoleMappings === "function"
   ? bot.allBadgeRoleMappings()
   : [];
@@ -89,6 +95,25 @@ if (missingQualificationMappings.length) {
   console.log("");
   console.log("Ontbrekende kwalificatierol env keys:");
   for (const mapping of missingQualificationMappings) {
+    console.log(`${mapping.envKey}=`);
+  }
+  process.exitCode = 1;
+}
+
+if (trainingRequirementMappings.length) {
+  console.log("");
+  console.log("Benodigde trainingsrollen:");
+  for (const mapping of trainingRequirementMappings) {
+    const state = mapping.roleId ? "ok" : "mist";
+    const value = mapping.roleId ? `=${mapping.roleId}` : "";
+    console.log(`[${state}] ${mapping.label || mapping.requirement}: ${mapping.envKey}${value}`);
+  }
+}
+
+if (missingTrainingRequirementMappings.length) {
+  console.log("");
+  console.log("Ontbrekende benodigde trainingsrol env keys:");
+  for (const mapping of missingTrainingRequirementMappings) {
     console.log(`${mapping.envKey}=`);
   }
   process.exitCode = 1;

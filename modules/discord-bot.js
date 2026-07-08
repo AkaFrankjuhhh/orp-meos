@@ -10,6 +10,7 @@ const {
   envOrDefault
 } = require("./organizations");
 const { createSideTasksStore } = require("./side-tasks-store");
+const { isCurrentPerson } = require("./person-status");
 
 const defaultDefensieRankNicknameSymbols = {
   "Marechaussee 4de Klasser": "\u276F",
@@ -222,6 +223,14 @@ function normalizeNicknameTemplateForOrganization(template) {
   return text.replaceAll("{serviceNumber} {symbols}", "{serviceNumber}{symbolSeparator}{symbols}");
 }
 
+function normalizeRequirementName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function createDiscordBotServices(options = {}) {
   const sideTasksStore = createSideTasksStore();
   let dsiNicknameGuardWarningShown = false;
@@ -304,6 +313,26 @@ function createDiscordBotServices(options = {}) {
       .filter((mapping) => !String(mapping.roleId || "").trim());
   }
 
+  function allTrainingRequirementRoleMappings() {
+    return Object.entries(organization.discord?.trainingRequirementRoleMappings || {})
+      .map(([requirement, config]) => ({
+        requirement,
+        label: config.label || requirement,
+        envKey: config.envKey,
+        roleId: envOrDefault(config.envKey, config.defaultRoleId || config.roleId)
+      }));
+  }
+
+  function configuredTrainingRequirementRoleMappings() {
+    return allTrainingRequirementRoleMappings()
+      .filter((mapping) => String(mapping.roleId || "").trim());
+  }
+
+  function missingTrainingRequirementRoleMappings() {
+    return allTrainingRequirementRoleMappings()
+      .filter((mapping) => !String(mapping.roleId || "").trim());
+  }
+
   function normalizeBadgeRoleMapping(mapping, type) {
     return {
       type,
@@ -342,6 +371,15 @@ function createDiscordBotServices(options = {}) {
       ...(Array.isArray(person?.completedTrainings) ? person.completedTrainings : []),
       ...(Array.isArray(person?.completedOperational) ? person.completedOperational : [])
     ].map((item) => String(item || "").trim()).filter(Boolean));
+  }
+
+  function missingTrainingRequirementsForPerson(person) {
+    if (organization.key !== "defensie") return [];
+    if (!isCurrentPerson(person)) return [];
+    const requirements = organization.rankTrainingRequirements?.[person?.rank || ""] || [];
+    if (!Array.isArray(requirements) || !requirements.length) return [];
+    const completed = new Set([...completedQualificationSetForPerson(person)].map(normalizeRequirementName));
+    return requirements.filter((requirement) => !completed.has(normalizeRequirementName(requirement)));
   }
 
   function assignedBadgeSetForPerson(person) {
@@ -725,6 +763,24 @@ function createDiscordBotServices(options = {}) {
     return syncQualificationRolesForPerson(person, auditReason);
   }
 
+  async function syncTrainingRequirementRolesForPerson(person, auditReason = `${portalAuditLabel} benodigde trainingsrollen gesynchroniseerd`) {
+    if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
+    const memberId = normalizeDiscordId(person?.discordId);
+    if (!memberId) return { skipped: true, reason: "Discord ID ontbreekt." };
+    const mappings = configuredTrainingRequirementRoleMappings();
+    const managedRoleIds = mappings.map((mapping) => mapping.roleId);
+    if (!managedRoleIds.length) return { skipped: true, reason: "Geen Discord benodigde trainingsrollen ingesteld." };
+    const missingRequirements = new Set(missingTrainingRequirementsForPerson(person));
+    const desiredRoleIds = mappings
+      .filter((mapping) => missingRequirements.has(mapping.requirement))
+      .map((mapping) => mapping.roleId);
+    return syncRoleSet(memberId, desiredRoleIds, managedRoleIds, auditReason);
+  }
+
+  async function syncTrainingRequirementRolesForPersonIfNeeded(person, auditReason = `${portalAuditLabel} periodieke benodigde trainingsrol controle`) {
+    return syncTrainingRequirementRolesForPerson(person, auditReason);
+  }
+
   async function syncBadgeRolesForPerson(person, auditReason = `${portalAuditLabel} functie- en badgerollen gesynchroniseerd`) {
     if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
     const memberId = normalizeDiscordId(person?.discordId);
@@ -749,8 +805,9 @@ function createDiscordBotServices(options = {}) {
     const nickname = await syncNicknameForPersonIfNeeded(person, auditReason);
     const rankRole = await syncRankRoleForPersonIfNeeded(person, auditReason);
     const qualificationRoles = await syncQualificationRolesForPersonIfNeeded(person, auditReason);
+    const trainingNeededRoles = await syncTrainingRequirementRolesForPersonIfNeeded(person, auditReason);
     const badgeRoles = await syncBadgeRolesForPersonIfNeeded(person, auditReason);
-    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, badgeRoles };
+    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, trainingNeededRoles, badgeRoles };
   }
 
   function buildServiceNickname(person, template = process.env.DISCORD_NICKNAME_TEMPLATE || "personeelsportaal") {
@@ -898,10 +955,13 @@ function createDiscordBotServices(options = {}) {
     allQualificationRoleMappings,
     allRankRoleMappings,
     allBadgeRoleMappings,
+    allTrainingRequirementRoleMappings,
     configuredRankRoleMappings,
     missingRankRoleMappings,
     configuredQualificationRoleMappings,
     missingQualificationRoleMappings,
+    configuredTrainingRequirementRoleMappings,
+    missingTrainingRequirementRoleMappings,
     configuredBadgeRoleMappings,
     missingBadgeRoleMappings,
     configuredVoiceChannels,
@@ -926,10 +986,13 @@ function createDiscordBotServices(options = {}) {
     isDiscordSyncExcludedDiscordId,
     rankRoleEnvKeys: organization.discord?.rankRoleEnvKeys || defaultDefensieRankRoleEnvKeys,
     rankRoleIdForPerson,
+    missingTrainingRequirementsForPerson,
     syncRankRoleForPerson,
     syncRankRoleForPersonIfNeeded,
     syncQualificationRolesForPerson,
     syncQualificationRolesForPersonIfNeeded,
+    syncTrainingRequirementRolesForPerson,
+    syncTrainingRequirementRolesForPersonIfNeeded,
     syncBadgeRolesForPerson,
     syncBadgeRolesForPersonIfNeeded,
     syncDiscordForPersonIfNeeded,
