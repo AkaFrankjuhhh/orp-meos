@@ -20,6 +20,11 @@ const portoOperatorTraining = portoRuntimeConfig.operatorTraining || portoOperat
 
 const profileTrainings = portoRuntimeConfig.profileTrainings || ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
 const profileOperational = portoRuntimeConfig.profileOperational || ["OPS", "OPCO", "OVD"];
+const portoDutyRoleSuffix = portoOrganization.key === "politie" ? "P" : "K";
+const portoDutyRoles = [
+  { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${portoDutyRoleSuffix}` },
+  { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${portoDutyRoleSuffix}` }
+];
 const portoStatuses = [
   { code: "1", title: "Status 1", label: "Beschikbaar", className: "available" },
   { code: "2", title: "Status 2", label: "Aanrijdend", className: "driving" },
@@ -707,6 +712,14 @@ $("#portoStatus4Choices").addEventListener("click", (event) => {
   if (!button) return;
   $("#portoStatus4Choices").hidden = true;
   updatePortoStatus("4", button.dataset.status4);
+});
+$("#portoDutyRoleActions")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-duty-role]");
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  updatePortoDutyRole(button.dataset.dutyRole || "").finally(() => {
+    button.disabled = false;
+  });
 });
 
 applyPortoBranding();

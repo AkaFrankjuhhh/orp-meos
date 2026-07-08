@@ -143,23 +143,92 @@ function renderUnitMemberBar() {
       name: portoProfile?.name || portoDuty.name,
       rank: portoProfile?.rank || portoDuty.rank,
       serviceNumber: portoProfile?.serviceNumber || portoDuty.serviceNumber,
-      phone: portoProfile?.portoPhone || portoDuty.phone
+      phone: portoProfile?.portoPhone || portoDuty.phone,
+      completedTrainings: Array.isArray(portoProfile?.completedTrainings) ? portoProfile.completedTrainings : [],
+      completedOperational: Array.isArray(portoProfile?.completedOperational) ? portoProfile.completedOperational : [],
+      specializations: [
+        ...(Array.isArray(portoProfile?.completedTrainings) ? portoProfile.completedTrainings : []),
+        ...(Array.isArray(portoProfile?.completedOperational) ? portoProfile.completedOperational : [])
+      ],
+      dutyRole: portoDuty.dutyRole || ""
     });
   }
   while (members.length < 2) members.push({ empty: true });
-  bar.innerHTML = members.map((member, index) => member.empty ? `
+  bar.innerHTML = members.map((member, index) => {
+    const nameClass = typeof memberNameClass === "function" ? memberNameClass(member) : "porto-member-name";
+    const title = typeof memberNameTitle === "function" ? memberNameTitle(member) : "";
+    return member.empty ? `
     <article class="porto-unit-member empty">
       <span class="porto-unit-slot">Eenheid ${index + 1}</span>
       <div><span>Rang + Dienstnummer:</span><strong>-</strong></div>
       <div><span>Naam:</span><strong>-</strong></div>
       <div><span>Telefoonnummer:</span><strong>-</strong></div>
     </article>` : `
-    <article class="porto-unit-member">
+    <article class="porto-unit-member ${escapeHtml(nameClass.replace("porto-member-name", ""))}"${title ? ` title="${escapeHtml(title)}"` : ""}>
       <span class="porto-unit-slot">Eenheid ${index + 1}</span>
       <div><span>Rang + Dienstnummer:</span><strong>${escapeHtml(member.rank || "-")} - ${escapeHtml(member.serviceNumber || "-")}</strong></div>
-      <div><span>Naam:</span><strong>${escapeHtml(member.name || "Onbekend")}</strong></div>
+      <div><span>Naam:</span><strong class="${escapeHtml(nameClass)}">${escapeHtml(member.name || "Onbekend")}</strong></div>
       <div><span>Telefoonnummer:</span><strong>${escapeHtml(member.phone || "Niet ingevuld")}</strong></div>
-    </article>`).join("");
+    </article>`;
+  }).join("");
+}
+
+function personOperationalValues(person = portoProfile) {
+  return new Set([
+    ...(Array.isArray(person?.completedOperational) ? person.completedOperational : []),
+    ...(Array.isArray(person?.completedTrainings) ? person.completedTrainings : [])
+  ].map(String));
+}
+
+function allowedPortoDutyRoles(person = portoProfile) {
+  const values = personOperationalValues(person);
+  return portoDutyRoles.filter((role) => role.requiredAny.some((value) => values.has(value)));
+}
+
+function portoDutyRoleLabel(roleKey) {
+  return portoDutyRoles.find((role) => role.key === String(roleKey || "").trim())?.label || "";
+}
+
+function renderDutyRolePanel() {
+  const panel = $("#portoDutyRolePanel");
+  const actions = $("#portoDutyRoleActions");
+  if (!panel || !actions) return;
+  const allowedRoles = allowedPortoDutyRoles();
+  const assigned = Boolean(portoDuty && String(portoDuty.status) !== "8" && portoDuty.vehicleNumber);
+  panel.hidden = !assigned || !allowedRoles.length;
+  if (panel.hidden) {
+    actions.innerHTML = "";
+    return;
+  }
+  const currentRole = String(portoDuty?.dutyRole || "").trim();
+  actions.innerHTML = allowedRoles.map((role) => {
+    const active = currentRole === role.key;
+    return `
+      <button class="porto-duty-role-button ${active ? "active" : ""}" type="button" data-duty-role="${escapeHtml(role.key)}">
+        <strong>${escapeHtml(role.label)} ${active ? "neerleggen" : "aannemen"}</strong>
+        <span>${escapeHtml(role.nicknameLabel)} voor jouw huidige roepnummer</span>
+      </button>`;
+  }).join("");
+}
+
+async function updatePortoDutyRole(roleKey) {
+  const currentRole = String(portoDuty?.dutyRole || "").trim();
+  const nextRole = currentRole === roleKey ? "" : roleKey;
+  const response = await fetch("/api/porto/duty-role", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dutyRole: nextRole })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    await showPortoNotice(payload.error || "Dienstrol kon niet worden bijgewerkt.", "Dienstrol mislukt");
+    return;
+  }
+  portoDuty = payload.unit || portoDuty;
+  if (payload.profile) portoProfile = payload.profile;
+  applyPortoPayload(payload, { suppressOwnAssignmentSound: true });
+  renderDutyPanel();
+  renderOpsPanel();
 }
 
 function renderDutyOpsInfo() {
@@ -224,6 +293,7 @@ function renderDutyPanel() {
   if (!assignedDuty || opsWorkspace || !portoProfile) return;
   renderDutyAssignment();
   renderUnitMemberBar();
+  renderDutyRolePanel();
   renderDutyOpsInfo();
   const statusPill = $("#portoDutyCurrentStatus");
   statusPill.textContent = statusText(portoDuty);

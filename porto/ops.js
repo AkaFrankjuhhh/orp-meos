@@ -318,6 +318,32 @@ function memberHasIbt(member) {
   return opsMemberSpecializations(member).includes("IBT");
 }
 
+function memberDutyRole(member) {
+  const role = String(member?.dutyRole || "").trim().toUpperCase();
+  return role === "OVD" || role === "OPCO" ? role : "";
+}
+
+function memberDutyClass(member) {
+  const role = memberDutyRole(member);
+  if (role === "OVD") return "duty-ovd";
+  if (role === "OPCO") return "duty-opco";
+  return "";
+}
+
+function memberNameTitle(member) {
+  const parts = [];
+  const role = memberDutyRole(member);
+  if (role) parts.push(role);
+  if (!memberHasIbt(member)) parts.push("GEEN IBT");
+  return parts.join(" | ") || "Rechtermuisknop voor acties";
+}
+
+function memberNameClass(member) {
+  return ["porto-member-name", memberDutyClass(member), memberHasIbt(member) ? "" : "no-ibt"]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function visibleModernSpecializations(member) {
   return opsMemberSpecializations(member).filter((item) => item !== "IBT");
 }
@@ -426,11 +452,12 @@ function renderModernOpsUnitCard(unit, options = {}) {
       ? `<span class="porto-modern-member-specs">${specializations.map((item) => escapeHtml(item)).join(" / ")}</span>`
       : "";
     const slotHtml = slotLabel ? `<span class="porto-modern-member-slot">${escapeHtml(slotLabel)}</span>` : "";
+    const title = memberNameTitle(member);
     return `
-      <article class="porto-modern-member ${hasIbt ? "" : "no-ibt"} ${member.autoOffline ? "auto-offline" : ""}" data-ops-unit-member="${escapeHtml(member.id)}" title="Rechtermuisknop voor acties">
+      <article class="porto-modern-member ${hasIbt ? "" : "no-ibt"} ${memberDutyClass(member)} ${member.autoOffline ? "auto-offline" : ""}" data-ops-unit-member="${escapeHtml(member.id)}" title="${escapeHtml(title)}">
         ${memberAvatarHtml(member)}
         <div>
-          <strong>${escapeHtml(member.name || "Onbekend")}${slotHtml}</strong>
+          <strong class="${escapeHtml(memberNameClass(member))}">${escapeHtml(member.name || "Onbekend")}${slotHtml}</strong>
           ${specsHtml}
         </div>
         <button class="porto-modern-member-action" type="button" data-ops-open-menu="${escapeHtml(member.id)}" aria-label="Acties voor ${escapeHtml(member.name || "persoon")}">&rsaquo;</button>

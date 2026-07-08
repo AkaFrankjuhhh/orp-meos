@@ -54,6 +54,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     : 90000;
   const pendingAutoAssignMs = 60000;
   const recentlyEndedPortoMembers = new Map();
+  const dutyRoleSuffix = organization.key === "politie" ? "P" : "K";
+  const dutyRoleDefinitions = [
+    { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${dutyRoleSuffix}` },
+    { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${dutyRoleSuffix}` }
+  ];
 
   function portoMemberKey(memberId) {
     return String(memberId || "").trim();
@@ -110,6 +115,26 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       error: "Uitdienstmelding wordt nog verwerkt. Wacht kort voordat je opnieuw aanmeldt.",
       code: "porto_recently_ended"
     };
+  }
+
+  function normalizedPortoDutyRole(value) {
+    const key = String(value || "").trim().toUpperCase();
+    return dutyRoleDefinitions.some((role) => role.key === key) ? key : "";
+  }
+
+  function canPersonUsePortoDutyRole(person, roleKey) {
+    const role = dutyRoleDefinitions.find((entry) => entry.key === roleKey);
+    if (!role) return false;
+    const values = new Set([
+      ...(Array.isArray(person?.completedOperational) ? person.completedOperational : []),
+      ...(Array.isArray(person?.completedTrainings) ? person.completedTrainings : [])
+    ].map(String));
+    return role.requiredAny.some((value) => values.has(value));
+  }
+
+  function clearPortoDutyRole(unit) {
+    if (!unit) return;
+    unit.dutyRole = "";
   }
 
   function timestampMs(value) {
@@ -222,7 +247,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     if (!unit) return unit;
     return {
       ...unit,
-      isPortoOpsLead: isPortoOperatorLeadUnit(state, unit)
+      isPortoOpsLead: isPortoOperatorLeadUnit(state, unit),
+      dutyRole: normalizedPortoDutyRole(unit.dutyRole)
     };
   }
 
@@ -362,6 +388,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         entry.vehicleType = "";
         entry.vehicleName = "";
         entry.operatorSlot = "";
+        clearPortoDutyRole(entry);
         entry.linkedWith = [];
         entry.endedAt = nowIso;
         entry.updatedAt = nowIso;
@@ -389,6 +416,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       entry.vehicleType = "";
       entry.vehicleName = "";
       entry.operatorSlot = "";
+      clearPortoDutyRole(entry);
       entry.linkedWith = [];
       entry.endedAt = nowIso;
       entry.updatedAt = nowIso;
@@ -460,6 +488,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         vehicleType: "",
         vehicleName: "",
         operatorSlot: "",
+        dutyRole: "",
         endedById: endedBy.id || "",
         endedByName: endedBy.name || "Onbekend",
         endedAt,
@@ -719,6 +748,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
             status: "8",
             statusDetail: "Uit dienst",
             active: false,
+            dutyRole: "",
             endedAt: now,
             updatedAt: now
           });
@@ -875,6 +905,48 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       });
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
+      await sendPortoState(res, state, person, unit);
+      return true;
+    }
+
+    if (url.pathname === "/api/porto/duty-role" && req.method === "POST") {
+      const context = await requireActivePerson(req, res);
+      if (!context) return true;
+      const { state, person } = context;
+      ensurePortoVehicleRanges(state);
+      state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      const body = await readBody(req);
+      const dutyRole = normalizedPortoDutyRole(body.dutyRole);
+      if (String(body.dutyRole || "").trim() && !dutyRole) {
+        sendJson(res, 400, { error: "Ongeldige dienstrol." });
+        return true;
+      }
+      if (dutyRole && !canPersonUsePortoDutyRole(person, dutyRole)) {
+        const role = dutyRoleDefinitions.find((entry) => entry.key === dutyRole);
+        sendJson(res, 403, { error: `Je hebt ${role?.label || dutyRole} niet op je profiel.` });
+        return true;
+      }
+      const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false && entry.vehicleNumber);
+      if (!unit) {
+        sendJson(res, 409, { error: "Je hebt eerst een actief porto-roepnummer nodig." });
+        return true;
+      }
+      const now = new Date().toISOString();
+      const changedUnits = new Map();
+      if (dutyRole) {
+        for (const entry of state.portoUnits) {
+          if (entry.id === unit.id || entry.active === false) continue;
+          if (normalizedPortoDutyRole(entry.dutyRole) !== dutyRole) continue;
+          entry.dutyRole = "";
+          entry.updatedAt = now;
+          changedUnits.set(entry.id, entry);
+        }
+      }
+      unit.dutyRole = dutyRole;
+      unit.updatedAt = now;
+      changedUnits.set(unit.id, unit);
+      await persistPortoState(state, { units: state.portoUnits });
+      await enqueuePortoDiscordNicknames(state, [...changedUnits.values()], dutyRole ? `${dutyRole} porto dienstrol aangenomen` : "Porto dienstrol neergelegd");
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -1109,6 +1181,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           vehicleType: "",
           vehicleName: "",
           operatorSlot: "",
+          dutyRole: "",
           linkedWith: [],
           endedById: person.id,
           endedByName: person.name,

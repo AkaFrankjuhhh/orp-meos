@@ -472,6 +472,7 @@ function createPortoServices() {
         vehicleType: "",
         vehicleName: "",
         operatorSlot: "",
+        dutyRole: "",
         linkedWith: [],
         endedAt: nowIso,
         updatedAt: nowIso
@@ -528,6 +529,9 @@ function createPortoServices() {
   }
 
   function comparePortoMembersByPriority(a, b) {
+    const dutyRank = (member) => member.dutyRole === "OVD" ? 0 : member.dutyRole === "OPCO" ? 1 : 2;
+    const dutyDelta = dutyRank(a) - dutyRank(b);
+    if (dutyDelta) return dutyDelta;
     const slotRank = (member) => member.operatorSlot === "lead" ? 0 : member.operatorSlot === "support" ? 1 : 2;
     const slotDelta = slotRank(a) - slotRank(b);
     if (slotDelta) return slotDelta;
@@ -586,6 +590,7 @@ function createPortoServices() {
         specializations: [...completedTrainings, ...completedOperational],
         status: unit.status,
         statusDetail: unit.statusDetail,
+        dutyRole: unit.dutyRole || "",
         vehicleNumber: unit.vehicleNumber,
         vehicleCode: unit.vehicleCode || range?.vehicleCode || "",
         vehicleType: unit.vehicleType || range?.vehicleType || "",
@@ -612,6 +617,9 @@ function createPortoServices() {
     if (!unit) return null;
     const range = vehicleRangeForNumber(state, unit.vehicleNumber);
     const peopleById = new Map((state.people || []).map((person) => [person.id, person]));
+    const ownPerson = peopleById.get(unit.memberId) || {};
+    const ownCompletedTrainings = Array.isArray(ownPerson.completedTrainings) ? ownPerson.completedTrainings : [];
+    const ownCompletedOperational = Array.isArray(ownPerson.completedOperational) ? ownPerson.completedOperational : [];
     const members = unit.vehicleNumber
       ? [...(state.portoUnits || [])
           .filter((entry) => entry.active !== false && entry.vehicleNumber === unit.vehicleNumber)
@@ -622,37 +630,50 @@ function createPortoServices() {
             return map;
           }, new Map())
           .values()]
-          .map((entry) => ({
-            id: entry.id,
-            memberId: entry.memberId,
-            name: entry.name,
-            rank: entry.rank,
-            serviceNumber: entry.serviceNumber,
-            avatar: peopleById.get(entry.memberId)?.avatar || entry.avatar || "",
-            phone: entry.phone,
-            vehicleNumber: entry.vehicleNumber,
-            vehicleCode: entry.vehicleCode || range?.vehicleCode || "",
-            vehicleType: entry.vehicleType,
-            status: entry.status,
-            statusDetail: entry.statusDetail,
-            vehicleName: entry.vehicleName || "",
-            operatorSlot: operatorSlotForDisplay(state, entry, peopleById),
-            discordChannelKey: defaultDiscordChannelForUnit(entry),
-            discordChannelStatus: entry.discordChannelStatus || "",
-          }))
+          .map((entry) => {
+            const person = peopleById.get(entry.memberId) || {};
+            const completedTrainings = Array.isArray(person.completedTrainings) ? person.completedTrainings : [];
+            const completedOperational = Array.isArray(person.completedOperational) ? person.completedOperational : [];
+            return {
+              id: entry.id,
+              memberId: entry.memberId,
+              name: entry.name,
+              rank: entry.rank,
+              serviceNumber: entry.serviceNumber,
+              avatar: person.avatar || entry.avatar || "",
+              phone: entry.phone,
+              completedTrainings,
+              completedOperational,
+              specializations: [...completedTrainings, ...completedOperational],
+              vehicleNumber: entry.vehicleNumber,
+              vehicleCode: entry.vehicleCode || range?.vehicleCode || "",
+              vehicleType: entry.vehicleType,
+              status: entry.status,
+              statusDetail: entry.statusDetail,
+              dutyRole: entry.dutyRole || "",
+              vehicleName: entry.vehicleName || "",
+              operatorSlot: operatorSlotForDisplay(state, entry, peopleById),
+              discordChannelKey: defaultDiscordChannelForUnit(entry),
+              discordChannelStatus: entry.discordChannelStatus || "",
+            };
+          })
       : [{
           id: unit.id,
           memberId: unit.memberId,
           name: unit.name,
           rank: unit.rank,
           serviceNumber: unit.serviceNumber,
-          avatar: peopleById.get(unit.memberId)?.avatar || unit.avatar || "",
+          avatar: ownPerson.avatar || unit.avatar || "",
           phone: unit.phone,
+          completedTrainings: ownCompletedTrainings,
+          completedOperational: ownCompletedOperational,
+          specializations: [...ownCompletedTrainings, ...ownCompletedOperational],
           vehicleNumber: unit.vehicleNumber,
           vehicleCode: unit.vehicleCode || range?.vehicleCode || "",
           vehicleType: unit.vehicleType,
           status: unit.status,
           statusDetail: unit.statusDetail,
+          dutyRole: unit.dutyRole || "",
           vehicleName: unit.vehicleName || "",
           operatorSlot: operatorSlotForDisplay(state, unit, peopleById),
           discordChannelKey: defaultDiscordChannelForUnit(unit),

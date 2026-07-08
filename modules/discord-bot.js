@@ -197,7 +197,11 @@ function buildPortoNicknameDefault(person, unit = {}) {
   const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
   const isOpsLead = unit?.vehicleNumber === operatorVehicleNumber && unit?.isPortoOpsLead === true;
   const operatorLabel = organization.porto?.operatorLabel || organization.discord?.portoOperatorLabel || "OPS";
-  return truncateDiscordNickname(isOpsLead ? `${operatorLabel} ${body}` : body);
+  const dutyRole = String(unit?.dutyRole || "").trim().toUpperCase();
+  const dutySuffix = organization.key === "politie" ? "P" : "K";
+  const dutyPrefix = dutyRole === "OVD" || dutyRole === "OPCO" ? `${dutyRole}-${dutySuffix}` : "";
+  const leadPrefix = isOpsLead ? operatorLabel : "";
+  return truncateDiscordNickname(`${dutyPrefix || leadPrefix} ${body}`.trim());
 }
 
 function nicknameTemplateHasPlaceholders(template) {

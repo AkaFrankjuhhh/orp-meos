@@ -41,6 +41,20 @@ test("porto unlink assigns the next regular unit instead of reusing the operator
   assert.match(unlinkBlock, /const targetRange = vehicleRangeForNumber\(state, vehicleNumber\) \|\| currentRange/);
 });
 
+test("porto duty roles can be claimed and rendered for both organizations", () => {
+  const routeCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  const dutyUiCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
+  const opsUiCode = fs.readFileSync(path.join(process.cwd(), "porto", "ops.js"), "utf8");
+
+  assert.match(routeCode, /\/api\/porto\/duty-role/);
+  assert.match(routeCode, /canPersonUsePortoDutyRole/);
+  assert.match(botCode, /`\$\{dutyRole\}-\$\{dutySuffix\}`/);
+  assert.match(dutyUiCode, /data-duty-role/);
+  assert.match(opsUiCode, /memberNameTitle/);
+  assert.match(opsUiCode, /GEEN IBT/);
+});
+
 test("defensie new recruits have default Discord base roles configured", () => {
   const { organizationConfigs, organizationMainRoleId } = require("../modules/organizations");
   const defensie = organizationConfigs.defensie;

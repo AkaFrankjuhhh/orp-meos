@@ -55,6 +55,7 @@ function closeStalePortoUnit(unit, nowIso, reason = "Dubbele Porto-aanmelding ge
   unit.vehicleType = "";
   unit.vehicleName = "";
   unit.operatorSlot = "";
+  unit.dutyRole = "";
   unit.linkedWith = [];
   unit.endedAt = unit.endedAt || nowIso;
   unit.updatedAt = nowIso;
@@ -159,6 +160,9 @@ function portoUnitFromRow(row) {
   const active = row.active !== false;
   const vehicleNumber = row.vehicle_number || "";
   const operatorSlot = active && vehicleNumber ? String(raw.operatorSlot || "").trim() : "";
+  const dutyRole = active && vehicleNumber && ["OVD", "OPCO"].includes(String(raw.dutyRole || "").trim())
+    ? String(raw.dutyRole).trim()
+    : "";
   return {
     ...raw,
     id: row.id,
@@ -174,6 +178,7 @@ function portoUnitFromRow(row) {
     vehicleType: row.vehicle_type || "",
     vehicleName: row.vehicle_name || "",
     operatorSlot,
+    dutyRole,
     linkedWith: parseJson(row.linked_with, []),
     active,
     requestedAt: iso(row.requested_at),
@@ -203,7 +208,7 @@ async function upsertPortoUnit(client, unit) {
            vehicle_code = '',
            vehicle_type = '',
            vehicle_name = '',
-           raw = raw - 'operatorSlot',
+           raw = raw - 'operatorSlot' - 'dutyRole',
            linked_with = '[]'::jsonb,
            ended_at = coalesce(ended_at, now()),
            updated_at = now()

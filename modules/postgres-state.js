@@ -200,6 +200,7 @@ async function readPostgresState() {
       vehicleCode: row.vehicle_code || "",
       vehicleType: row.vehicle_type || "",
       vehicleName: row.vehicle_name || "",
+      dutyRole: ["OVD", "OPCO"].includes(String(raw.dutyRole || "").trim()) ? String(raw.dutyRole).trim() : "",
       linkedWith: parseJson(row.linked_with, []),
       active: row.active !== false,
       requestedAt: iso(row.requested_at),
