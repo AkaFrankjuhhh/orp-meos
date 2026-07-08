@@ -759,9 +759,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         await enqueueNormalDiscordNicknames(state, endedUnits);
       } else {
         closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
-        await enqueuePortoDiscordNicknames(state, [unit], "Porto status aangepast");
       }
       await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
+      if (status !== "8") {
+        await enqueuePortoDiscordNicknames(state, [unit], "Porto status aangepast");
+      }
       await sendPortoState(res, state, person, status === "8" ? null : unit, status === "8" ? { recentlyEnded: true } : {});
       return true;
     }
