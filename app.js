@@ -93,7 +93,21 @@ const LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS = 1500;
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
+function currentLoginPeriod(date = new Date()) {
+  const hour = date.getHours();
+  if (hour >= 6 && hour < 11) return "morning";
+  if (hour >= 11 && hour < 18) return "day";
+  if (hour >= 18 && hour < 22) return "evening";
+  return "night";
+}
+
+function setLoginBackgroundByTime() {
+  document.body.dataset.organization = organizationKey;
+  document.body.dataset.loginPeriod = currentLoginPeriod();
+}
+
 function applyOrganizationBranding() {
+  setLoginBackgroundByTime();
   const label = organizationConfig.label || "Defensie";
   const title = organizationConfig.portalTitle || `${label} Personeelsportaal`;
   const subtitle = organizationConfig.portalSubtitle || `${label} Oranjestad`;
@@ -2620,6 +2634,7 @@ async function init() {
   window.DefensiePortalUI?.ensureUiModeToggle?.(".topbar-actions");
   registerPersoneelsportaalTab();
   updateDeviceMode();
+  window.setInterval(setLoginBackgroundByTime, 5 * 60 * 1000);
   showLockError();
   captureOpenProfileRequest();
   fillRankSelect();

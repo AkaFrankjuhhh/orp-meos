@@ -66,11 +66,27 @@ test("portal shell uses absolute assets so deep profile routes hydrate", () => {
   }
 });
 
+test("portal lockscreen supports organization time-cycle backgrounds", () => {
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "shared.css"), "utf8");
+
+  assert.match(appCode, /function currentLoginPeriod/);
+  assert.match(appCode, /document\.body\.dataset\.organization = organizationKey/);
+  assert.match(appCode, /document\.body\.dataset\.loginPeriod = currentLoginPeriod\(\)/);
+  for (const period of ["morning", "day", "evening", "night"]) {
+    assert.match(styles, new RegExp(`lockscreen-defensie-${period}\\.png`));
+    assert.match(styles, new RegExp(`lockscreen-politie-${period}\\.png`));
+  }
+  assert.match(styles, /lockscreen-defensie\.png/);
+  assert.match(styles, /lockscreen-politie\.png/);
+  assert.match(styles, /--lockscreen-cycle-image/);
+});
+
 test("portal live refresh ignores the immediate echo after local actions", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260705-live-action-cooldown/);
+  assert.match(html, /app\.js\?v=20260708-lockscreen-cycle/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
