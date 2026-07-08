@@ -219,9 +219,18 @@ async function updatePortoDutyRole(roleKey) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ dutyRole: nextRole })
   });
-  const payload = await response.json().catch(() => ({}));
+  const responseText = await response.text().catch(() => "");
+  let payload = {};
+  try {
+    payload = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    payload = {};
+  }
   if (!response.ok) {
-    await showPortoNotice(payload.error || "Dienstrol kon niet worden bijgewerkt.", "Dienstrol mislukt");
+    const fallback = responseText && responseText.length < 240
+      ? responseText
+      : `Dienstrol kon niet worden bijgewerkt. HTTP ${response.status}`;
+    await showPortoNotice(payload.error || fallback, "Dienstrol mislukt");
     return;
   }
   portoDuty = payload.unit || portoDuty;

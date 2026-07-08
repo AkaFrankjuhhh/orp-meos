@@ -910,44 +910,50 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     }
 
     if (url.pathname === "/api/porto/duty-role" && req.method === "POST") {
-      const context = await requireActivePerson(req, res);
-      if (!context) return true;
-      const { state, person } = context;
-      ensurePortoVehicleRanges(state);
-      state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
-      const body = await readBody(req);
-      const dutyRole = normalizedPortoDutyRole(body.dutyRole);
-      if (String(body.dutyRole || "").trim() && !dutyRole) {
-        sendJson(res, 400, { error: "Ongeldige dienstrol." });
-        return true;
-      }
-      if (dutyRole && !canPersonUsePortoDutyRole(person, dutyRole)) {
-        const role = dutyRoleDefinitions.find((entry) => entry.key === dutyRole);
-        sendJson(res, 403, { error: `Je hebt ${role?.label || dutyRole} niet op je profiel.` });
-        return true;
-      }
-      const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false && entry.vehicleNumber);
-      if (!unit) {
-        sendJson(res, 409, { error: "Je hebt eerst een actief porto-roepnummer nodig." });
-        return true;
-      }
-      const now = new Date().toISOString();
-      const changedUnits = new Map();
-      if (dutyRole) {
-        for (const entry of state.portoUnits) {
-          if (entry.id === unit.id || entry.active === false) continue;
-          if (normalizedPortoDutyRole(entry.dutyRole) !== dutyRole) continue;
-          entry.dutyRole = "";
-          entry.updatedAt = now;
-          changedUnits.set(entry.id, entry);
+      try {
+        const context = await requireActivePerson(req, res);
+        if (!context) return true;
+        const { state, person } = context;
+        ensurePortoVehicleRanges(state);
+        state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+        const body = await readBody(req);
+        const dutyRole = normalizedPortoDutyRole(body.dutyRole);
+        if (String(body.dutyRole || "").trim() && !dutyRole) {
+          sendJson(res, 400, { error: "Ongeldige dienstrol." });
+          return true;
         }
+        if (dutyRole && !canPersonUsePortoDutyRole(person, dutyRole)) {
+          const role = dutyRoleDefinitions.find((entry) => entry.key === dutyRole);
+          sendJson(res, 403, { error: `Je hebt ${role?.label || dutyRole} niet op je profiel.` });
+          return true;
+        }
+        const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false && entry.vehicleNumber);
+        if (!unit) {
+          sendJson(res, 409, { error: "Je hebt eerst een actief porto-roepnummer nodig." });
+          return true;
+        }
+        const now = new Date().toISOString();
+        const changedUnits = new Map();
+        if (dutyRole) {
+          for (const entry of state.portoUnits) {
+            if (entry.id === unit.id || entry.active === false) continue;
+            if (normalizedPortoDutyRole(entry.dutyRole) !== dutyRole) continue;
+            entry.dutyRole = "";
+            entry.updatedAt = now;
+            changedUnits.set(entry.id, entry);
+          }
+        }
+        unit.dutyRole = dutyRole;
+        unit.updatedAt = now;
+        changedUnits.set(unit.id, unit);
+        await persistPortoState(state, { units: state.portoUnits });
+        enqueuePortoDiscordNicknames(state, [...changedUnits.values()], dutyRole ? `${dutyRole} porto dienstrol aangenomen` : "Porto dienstrol neergelegd")
+          .catch((error) => console.error(`[porto] Discord nickname queue voor dienstrol mislukt: ${error.message}`));
+        await sendPortoState(res, state, person, unit);
+      } catch (error) {
+        console.error(`[porto] Dienstrol bijwerken mislukt: ${error.stack || error.message}`);
+        sendJson(res, 500, { error: "Dienstrol kon niet worden opgeslagen. Controleer de porto logs voor details." });
       }
-      unit.dutyRole = dutyRole;
-      unit.updatedAt = now;
-      changedUnits.set(unit.id, unit);
-      await persistPortoState(state, { units: state.portoUnits });
-      await enqueuePortoDiscordNicknames(state, [...changedUnits.values()], dutyRole ? `${dutyRole} porto dienstrol aangenomen` : "Porto dienstrol neergelegd");
-      await sendPortoState(res, state, person, unit);
       return true;
     }
 
