@@ -230,7 +230,7 @@ function isEditingOpsRequest() {
   );
 }
 
-function renderOpsRequests() {
+function renderOpsRequests({ force = false } = {}) {
   const panel = $("#portoOpsPanel");
   const list = $("#portoOpsRequests");
   const count = $("#portoOpsCount");
@@ -240,7 +240,7 @@ function renderOpsRequests() {
   if (!showPanel) return;
   count.textContent = `${portoOpsRequests.length} verzoek${portoOpsRequests.length === 1 ? "" : "en"}`;
   // De OPS-poll ververst elke paar seconden; tijdens kiezen in een dropdown mag de DOM niet vervangen worden.
-  if (isEditingOpsRequest()) return;
+  if (!force && isEditingOpsRequest()) return;
   if (!portoOpsRequests.length) {
     list.innerHTML = '<div class="porto-ops-empty">Geen open Status 0-aanmeldingen.</div>';
     return;
@@ -684,7 +684,7 @@ function renderOpsLog() {
     : `<div class="porto-ops-empty">Nog geen ${escapeHtml(portoOperatorLabel)} diensten gelogd.</div>`;
 }
 
-function renderOpsPanel() {
+function renderOpsPanel({ forceRequests = false } = {}) {
   const opsPanel = $("#portoOpsPanel");
   if (portoViewingOpsLog) {
     if (opsPanel) opsPanel.hidden = true;
@@ -696,7 +696,7 @@ function renderOpsPanel() {
   if (dutyViewButton) dutyViewButton.hidden = !(portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser());
   renderOpsStatus();
   renderOpsLogAccess();
-  renderOpsRequests();
+  renderOpsRequests({ force: forceRequests });
   renderDiscordChannels();
   renderOpsUnits();
   const mapCard = $("#portoMapCard");
@@ -772,7 +772,7 @@ async function assignPortoUnit(unitId, assignment) {
   document.activeElement?.blur?.();
   renderVehicleRanges();
   renderDutyPanel();
-  renderOpsPanel();
+  renderOpsPanel({ forceRequests: true });
 }
 
 async function rejectPortoRequest(unitId) {

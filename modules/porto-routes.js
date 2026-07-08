@@ -1493,7 +1493,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       unit.lastSeenAt = unit.lastSeenAt || unit.assignedAt;
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
-      await enqueuePortoDiscordNicknames(state, [unit], "Porto indeling actief");
+      enqueuePortoDiscordNicknames(state, [unit], "Porto indeling actief")
+        .catch((error) => console.error(`[porto] Discord nickname queue na indeling mislukt: ${error.message}`));
       await sendPortoState(res, state, person, unit);
       return true;
     }
