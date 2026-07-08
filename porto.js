@@ -21,10 +21,12 @@ const portoOperatorTraining = portoRuntimeConfig.operatorTraining || portoOperat
 const profileTrainings = portoRuntimeConfig.profileTrainings || ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
 const profileOperational = portoRuntimeConfig.profileOperational || ["OPS", "OPCO", "OVD"];
 const portoDutyRoleSuffix = portoOrganization.key === "politie" ? "P" : "K";
-const portoDutyRoles = [
-  { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${portoDutyRoleSuffix}` },
-  { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${portoDutyRoleSuffix}` }
-];
+const portoDutyRoles = portoOrganization.key === "politie"
+  ? []
+  : [
+      { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${portoDutyRoleSuffix}` },
+      { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${portoDutyRoleSuffix}` }
+    ];
 const portoStatuses = [
   { code: "1", title: "Status 1", label: "Beschikbaar", className: "available" },
   { code: "2", title: "Status 2", label: "Aanrijdend", className: "driving" },
@@ -106,7 +108,7 @@ function applyPortoBranding() {
   const releaseWorkspaceButton = $("#portoOpsReleaseWorkspaceBtn");
   if (releaseWorkspaceButton) releaseWorkspaceButton.textContent = `${portoOperatorLabel} neerleggen`;
   const showOpsViewButton = $("#portoShowOpsViewBtn");
-  if (showOpsViewButton) showOpsViewButton.textContent = portoOrganization.key === "politie" ? "OVD/OPCO/OC overzicht" : "OVD/OPCO overzicht";
+  if (showOpsViewButton) showOpsViewButton.textContent = portoOrganization.key === "politie" ? "OC overzicht" : "OVD/OPCO overzicht";
   const opsPanelTitle = document.querySelector("#portoOpsPanel h2");
   if (opsPanelTitle) opsPanelTitle.textContent = `${portoOperatorLabel} Bediening`;
   const opsLogTitle = document.querySelector("#portoOpsLogPage h2");

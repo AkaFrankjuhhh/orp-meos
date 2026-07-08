@@ -55,10 +55,12 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const pendingAutoAssignMs = 60000;
   const recentlyEndedPortoMembers = new Map();
   const dutyRoleSuffix = organization.key === "politie" ? "P" : "K";
-  const dutyRoleDefinitions = [
-    { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${dutyRoleSuffix}` },
-    { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${dutyRoleSuffix}` }
-  ];
+  const dutyRoleDefinitions = organization.key === "politie"
+    ? []
+    : [
+        { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${dutyRoleSuffix}` },
+        { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${dutyRoleSuffix}` }
+      ];
 
   function portoMemberKey(memberId) {
     return String(memberId || "").trim();
@@ -915,6 +917,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
     if (url.pathname === "/api/porto/duty-role" && req.method === "POST") {
       try {
+        if (!dutyRoleDefinitions.length) {
+          sendJson(res, 404, { error: "Dienstrollen zijn niet beschikbaar voor deze organisatie." });
+          return true;
+        }
         const context = await requireActivePerson(req, res);
         if (!context) return true;
         const { state, person } = context;
