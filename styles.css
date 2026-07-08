@@ -109,8 +109,8 @@ button {
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 280px;
-  padding: 24px;
+  width: 260px;
+  padding: 22px;
   background: linear-gradient(180deg, #0e3d6e, #082947);
   border-right: 1px solid var(--line);
   display: flex;
@@ -228,7 +228,7 @@ button {
 }
 
 .shell {
-  margin-left: 280px;
+  margin-left: 260px;
   padding: 28px;
 }
 
