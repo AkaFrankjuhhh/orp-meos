@@ -1219,7 +1219,7 @@ function identifyPayload() {
       },
       presence: {
         status: "online",
-        activities: [{ name: "ORP Defensie", type: 3 }],
+        activities: [{ name: "ORP - Overheid Medewerkers", type: 3 }],
         afk: false
       }
     }
