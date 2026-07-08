@@ -186,28 +186,31 @@ async function readPostgresState() {
     );
 
     const portoResult = await client.query("select * from porto_units order by requested_at nulls last, id asc");
-    const portoUnits = portoResult.rows.map((row) => ({
-      ...parseJson(row.raw, {}),
-      id: row.id,
-      memberId: row.member_id || "",
-      name: row.name || "",
-      rank: row.rank || "",
-      serviceNumber: row.service_number || "",
-      phone: row.phone || "",
-      status: row.status || "",
-      statusDetail: row.status_detail || "",
-      vehicleNumber: row.vehicle_number || "",
-      vehicleCode: row.vehicle_code || "",
-      vehicleType: row.vehicle_type || "",
-      vehicleName: row.vehicle_name || "",
-      dutyRole: ["OVD", "OPCO"].includes(String(raw.dutyRole || "").trim()) ? String(raw.dutyRole).trim() : "",
-      linkedWith: parseJson(row.linked_with, []),
-      active: row.active !== false,
-      requestedAt: iso(row.requested_at),
-      assignedAt: iso(row.assigned_at),
-      endedAt: iso(row.ended_at),
-      lastSeenAt: iso(row.last_seen_at)
-    }));
+    const portoUnits = portoResult.rows.map((row) => {
+      const raw = parseJson(row.raw, {});
+      return {
+        ...raw,
+        id: row.id,
+        memberId: row.member_id || "",
+        name: row.name || "",
+        rank: row.rank || "",
+        serviceNumber: row.service_number || "",
+        phone: row.phone || "",
+        status: row.status || "",
+        statusDetail: row.status_detail || "",
+        vehicleNumber: row.vehicle_number || "",
+        vehicleCode: row.vehicle_code || "",
+        vehicleType: row.vehicle_type || "",
+        vehicleName: row.vehicle_name || "",
+        dutyRole: ["OVD", "OPCO"].includes(String(raw.dutyRole || "").trim()) ? String(raw.dutyRole).trim() : "",
+        linkedWith: parseJson(row.linked_with, []),
+        active: row.active !== false,
+        requestedAt: iso(row.requested_at),
+        assignedAt: iso(row.assigned_at),
+        endedAt: iso(row.ended_at),
+        lastSeenAt: iso(row.last_seen_at)
+      };
+    });
 
     const activityResult = await client.query("select message from activity_log order by position nulls last, id asc");
     const activity = activityResult.rows.map((row) => row.message);
