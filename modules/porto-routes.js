@@ -282,6 +282,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         personId: person.id,
         discordId: person.discordId,
         unitId: unit.id,
+        dutyRole: normalizedPortoDutyRole(unit.dutyRole),
+        unitUpdatedAt: unit.updatedAt || unit.assignedAt || unit.requestedAt || "",
         reason
       }, { personId: person.id, discordId: person.discordId, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
       if (discordBot?.isConfigured?.() && typeof discordBot.syncPortoNicknameForPersonIfNeeded === "function") {

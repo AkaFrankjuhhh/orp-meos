@@ -832,6 +832,16 @@ async function syncByJob(job) {
     ))
       || activePortoUnitForPerson(state, person);
     if (!unit) return syncPerson(person, `Discord bot job ${job.id}: Porto dienst beeindigd`);
+    if (Object.prototype.hasOwnProperty.call(job.payload || {}, "dutyRole")) {
+      const expectedDutyRole = String(job.payload?.dutyRole || "").trim();
+      const currentDutyRole = String(unit.dutyRole || "").trim();
+      if (expectedDutyRole !== currentDutyRole) {
+        return {
+          skipped: true,
+          reason: `Verouderde Porto nickname job overgeslagen: dienstrol is nu ${currentDutyRole || "geen"}`
+        };
+      }
+    }
     return bot.syncPortoNicknameForPersonIfNeeded(person, unitWithPortoNicknameContext(state, unit), `Discord bot job ${job.id}: Porto roepnummer`);
   }
   if (!person || !isCurrentPerson(person)) return { skipped: true, reason: "Geen actueel portaalprofiel gevonden" };

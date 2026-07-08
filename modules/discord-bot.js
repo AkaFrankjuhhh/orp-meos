@@ -204,6 +204,14 @@ function buildPortoNicknameDefault(person, unit = {}) {
   return truncateDiscordNickname(`${dutyPrefix || leadPrefix} ${body}`.trim());
 }
 
+function nicknameHasPortoDutyPrefix(nickname) {
+  return /^(?:OVD|OPCO)-[KP]\s+/i.test(String(nickname || "").trim());
+}
+
+function auditReasonAllowsNormalNicknameOverDuty(auditReason) {
+  return /porto dienst (?:beeindigd|be[eë]indigd)|uit dienst|status 8/i.test(String(auditReason || ""));
+}
+
 function nicknameTemplateHasPlaceholders(template) {
   return /\{(?:serviceNumber|name|formattedName|rank|symbols|symbolSeparator)\}/.test(String(template || ""));
 }
@@ -804,6 +812,9 @@ function createDiscordBotServices(options = {}) {
     const dsiProtection = await activeDsiNicknameProtection(memberId, currentNickname);
     if (dsiProtection) {
       return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
+    }
+    if (nicknameHasPortoDutyPrefix(currentNickname) && !auditReasonAllowsNormalNicknameOverDuty(auditReason)) {
+      return { ok: true, unchanged: true, nickname: currentNickname, protectedPortoDuty: true };
     }
     if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
     const result = await setNickname(memberId, desiredNickname, auditReason);
