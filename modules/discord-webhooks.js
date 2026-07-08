@@ -162,7 +162,7 @@ async function sendDiscordWebhookPayloadsWithMessageThread(webhookUrl, payloads 
   return { ...finalResult, parts };
 }
 
-function createDiscordWebhookServices({ formatDate }) {
+function createDiscordWebhookServices({ formatDate } = {}) {
   const organization = currentOrganization();
   const orgEnvPrefix = String(organization.key || "defensie").trim().toUpperCase();
 
