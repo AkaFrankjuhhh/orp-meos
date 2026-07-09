@@ -53,16 +53,28 @@ function isManualHourEntry(entry) {
   return String(entry?.id || "").startsWith("manual-") || source === "handmatig" || source === "manual";
 }
 
+function hourValueForEntry(entry) {
+  return Number(entry?.hours) || Number(entry?.minutes || 0) / 60 || 0;
+}
+
+function manualHourEntryFor(personId, weekYear, weekNumber) {
+  return hourEntriesFor(personId, weekYear, weekNumber).find(isManualHourEntry) || null;
+}
+
 function effectiveHourEntryFor(personId, weekYear, weekNumber) {
   const entries = hourEntriesFor(personId, weekYear, weekNumber);
-  const manual = entries.find(isManualHourEntry);
-  if (manual) return manual;
   if (!entries.length) return null;
-  const hours = entries.reduce((sum, entry) => sum + (Number(entry.hours) || Number(entry.minutes || 0) / 60 || 0), 0);
+  const manual = entries.find(isManualHourEntry);
+  const clockHours = entries
+    .filter((entry) => !isManualHourEntry(entry))
+    .reduce((sum, entry) => sum + hourValueForEntry(entry), 0);
+  const hours = (manual ? hourValueForEntry(manual) : 0) + clockHours;
   return {
-    ...entries[0],
+    ...(manual || entries[0]),
     id: `effective-${personId}-${weekYear}-${weekNumber}`,
-    hours
+    hours,
+    manualHours: manual ? hourValueForEntry(manual) : 0,
+    clockHours
   };
 }
 
@@ -161,19 +173,25 @@ function renderProfileHours(person) {
   const total = manualHoursForMonth(person);
   const currentWeek = currentHourWeek();
   const currentEntry = effectiveHourEntryFor(person.id, currentWeek.weekYear, currentWeek.weekNumber);
+  const currentManualEntry = manualHourEntryFor(person.id, currentWeek.weekYear, currentWeek.weekNumber);
   $("#profileMonthHours").textContent = `${displayHourValue(total)} uur`;
   $("#profileHoursCurrentWeekLabel").textContent = `Week ${currentWeek.weekNumber}`;
   $("#profileHoursWeekYear").value = currentWeek.weekYear;
   $("#profileHoursWeekNumber").value = currentWeek.weekNumber;
   $("#profileHoursPersonId").value = person.id;
-  $("#profileHoursInput").value = currentEntry ? displayHourValue(currentEntry.hours) : "";
+  $("#profileHoursInput").value = currentManualEntry ? displayHourValue(currentManualEntry.hours) : "";
   $("#profileHoursEntry").hidden = !canEdit;
   $("#profileHoursWeeks").innerHTML = recentHourWeeks(4)
     .map((week) => {
       const entry = effectiveHourEntryFor(person.id, week.weekYear, week.weekNumber);
       const hours = entry ? Number(entry.hours) || 0 : 0;
+      const manualBase = Number(entry?.manualHours || 0);
+      const clockHours = Number(entry?.clockHours || 0);
+      const title = entry && clockHours
+        ? `Handmatige basis: ${displayHourValue(manualBase)} uur + porto: ${displayHourValue(clockHours)} uur`
+        : "";
       return `
-        <div class="manual-hours-week" style="--hours-tone:${hourToneColor(hours)}">
+        <div class="manual-hours-week" style="--hours-tone:${hourToneColor(hours)}"${title ? ` title="${escapeHtml(title)}"` : ""}>
           <span>Week ${week.weekNumber}</span>
           <strong>${displayHourValue(hours)} uur</strong>
         </div>
@@ -280,7 +298,7 @@ function renderBulkHoursRows(week) {
   $("#bulkHoursWeekNumber").value = week.weekNumber;
   $("#bulkHoursRows").innerHTML = sortedActivePeopleForHours()
     .map((person) => {
-      const entry = effectiveHourEntryFor(person.id, week.weekYear, week.weekNumber);
+      const entry = manualHourEntryFor(person.id, week.weekYear, week.weekNumber);
       return `
         <label class="bulk-hours-row">
           <span>

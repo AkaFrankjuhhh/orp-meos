@@ -54,6 +54,7 @@ const pageRouteMap = {
   dashboard: "/",
   medewerkers: "/medewerkers",
   afwezigheid: "/afwezigheid",
+  "beschikbaarheids-agenda": "/beschikbaarheids-agenda",
   "i8-opstellen": "/i8-formulier",
   "ontslag-formulier": "/ontslag-formulier",
   "i8-controleren": "/i8-controleren",
@@ -171,6 +172,7 @@ function enhanceSidebarIcons() {
     dashboard: "dashboard",
     medewerkers: "users",
     afwezigheid: "calendar",
+    "beschikbaarheids-agenda": "calendar",
     "i8-opstellen": "file",
     "ontslag-formulier": "clipboard",
     "i8-controleren": "checklist",
@@ -567,6 +569,37 @@ function startOfWeek(date = new Date()) {
   return start;
 }
 
+function dateOnly(date) {
+  const value = date instanceof Date ? date : new Date(`${date}T00:00:00`);
+  if (Number.isNaN(value.getTime())) return "";
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+function addDays(date, days) {
+  const value = date instanceof Date ? new Date(date) : new Date(`${date}T00:00:00`);
+  value.setDate(value.getDate() + days);
+  return dateOnly(value);
+}
+
+function datesBetween(from, to) {
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return [];
+  const dates = [];
+  for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+    dates.push(dateOnly(date));
+  }
+  return dates;
+}
+
+function isoWeekNumber(date) {
+  const value = date instanceof Date ? new Date(date) : new Date(`${date}T00:00:00`);
+  value.setHours(0, 0, 0, 0);
+  value.setDate(value.getDate() + 3 - ((value.getDay() + 6) % 7));
+  const week1 = new Date(value.getFullYear(), 0, 4);
+  return 1 + Math.round(((value - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+
 function opsLogEntrySeconds(entry) {
   if (Number.isFinite(Number(entry.durationSeconds))) return Math.max(0, Number(entry.durationSeconds));
   const start = Date.parse(entry.startedAt || "");
@@ -950,6 +983,7 @@ function pageTitle(page) {
     "mentor-checklist": "Mentor-Checklist",
     "mentor-logboek": "Mentor-Logboek",
     afwezigheid: "Afwezigheid",
+    "beschikbaarheids-agenda": "Beschikbaarheids-agenda",
     "i8-opstellen": "I8-Formulier",
     "ontslag-formulier": "Ontslag-Formulier",
     "i8-controleren": "I8-Controleren",
@@ -966,7 +1000,7 @@ function pageTitle(page) {
 }
 
 function validPage(page) {
-  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "beschikbaarheids-agenda", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
   return visiblePages.has(page) ? page : "dashboard";
 }
 
@@ -1477,6 +1511,7 @@ function renderLiveScope(scope = "state") {
     renderI8Forms();
     renderOvJLeadershipLog();
     renderAbsenceOverview();
+    renderAvailabilityAgenda();
     renderResignationOverview();
     renderLogbook();
   }
@@ -1504,6 +1539,7 @@ async function refreshReviewCounters() {
     const page = activePageId();
     if (page === "i8-controleren") renderI8Forms();
     if (page === "afwezigheid-overzicht") renderAbsenceOverview();
+    if (page === "beschikbaarheids-agenda") renderAvailabilityAgenda();
     if (page === "ontslag-overzicht") renderResignationOverview();
     if (page === "blacklist") renderBlacklist();
     if (page === "dashboard") renderDashboard();
@@ -1693,6 +1729,76 @@ function closeNotificationPanel() {
   if (bell) bell.setAttribute("aria-expanded", "false");
 }
 
+function absenceAgendaEntries() {
+  const absences = Array.isArray(state.absences) ? state.absences : [];
+  const peopleById = new Map((state.people || []).map((person) => [String(person.id), person]));
+  const days = new Map();
+  absences
+    .filter((absence) => String(absence.status || "").toLowerCase() !== "afgekeurd")
+    .forEach((absence) => {
+      const person = peopleById.get(String(absence.memberId)) || {};
+      const entry = {
+        ...absence,
+        name: absence.name || person.name || "Onbekend",
+        rank: absence.rank || person.rank || "",
+        serviceNumber: absence.serviceNumber || person.serviceNumber || "",
+        reason: absence.reason || "-"
+      };
+      datesBetween(absence.from, absence.to).forEach((date) => {
+        if (!days.has(date)) days.set(date, []);
+        days.get(date).push(entry);
+      });
+    });
+  for (const entries of days.values()) {
+    entries.sort((a, b) =>
+      String(a.serviceNumber || "").localeCompare(String(b.serviceNumber || ""), "nl", { numeric: true }) ||
+      String(a.name || "").localeCompare(String(b.name || ""), "nl", { sensitivity: "base" })
+    );
+  }
+  return days;
+}
+
+function renderAvailabilityAgenda() {
+  const container = $("#availabilityAgenda");
+  const summary = $("#availabilityAgendaSummary");
+  if (!container) return;
+  const availabilityDays = absenceAgendaEntries();
+  const todayDate = dateOnly(today || new Date());
+  const weekStart = dateOnly(startOfWeek(new Date(`${todayDate}T00:00:00`)));
+  const weeks = Array.from({ length: 6 }, (_, weekIndex) => {
+    const start = addDays(weekStart, weekIndex * 7);
+    const days = Array.from({ length: 7 }, (_, dayIndex) => addDays(start, dayIndex));
+    return { start, days };
+  });
+  if (summary) summary.textContent = `${weeks.length} weken`;
+  container.innerHTML = weeks.map((week) => `
+    <section class="agenda-week">
+      <div class="agenda-week-number">
+        <span>Week</span>
+        <strong>${escapeHtml(String(isoWeekNumber(week.start)))}</strong>
+      </div>
+      <div class="agenda-days">
+        ${week.days.map((date) => {
+          const dayAbsences = availabilityDays.get(date) || [];
+          return `
+            <article class="agenda-day ${date === todayDate ? "today" : ""}">
+              <header>
+                <span>${escapeHtml(new Intl.DateTimeFormat("nl-NL", { weekday: "short" }).format(new Date(`${date}T00:00:00`)))}</span>
+                <strong>${escapeHtml(formatDate(date).slice(0, 5))}</strong>
+              </header>
+              <div class="agenda-day-lines">
+                ${dayAbsences.map((absence) => `
+                  <span title="${escapeHtml(`${absence.rank || "-"} - ${absence.serviceNumber || "-"} - ${absence.reason || "-"}`)}">${escapeHtml(absence.name || "Onbekend")}</span>
+                `).join("") || "<em>Geen afwezigheid</em>"}
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `).join("");
+}
+
 function toggleNotificationPanel() {
   const panel = $("#notificationPanel");
   const bell = $("#notificationBell");
@@ -1728,6 +1834,7 @@ function render() {
   renderOvJLeadershipLog();
   renderOpsTimes();
   renderAbsenceOverview();
+  renderAvailabilityAgenda();
   renderResignationOverview();
   DefensiePortalUI.bindAutoGrowingTextareas?.();
 }

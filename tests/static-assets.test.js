@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260708-lockscreen-cycle/);
+  assert.match(html, /app\.js\?v=20260709-availability-agenda/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -103,6 +103,42 @@ test("archived resignation forms are not counted as open", () => {
   assert.match(appCode, /linkedProfile && !isCurrentProfile\(linkedProfile\)/);
   assert.match(archiveCode, /const openForms = allForms\.filter\(\(form\) => !isHandledResignationForm\(form\)\)/);
   assert.match(routesCode, /al gearchiveerd ontslagformulier/);
+});
+
+test("portal exposes the availability agenda for defensie and police", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(html, /data-page="beschikbaarheids-agenda"/);
+  assert.match(html, /id="availabilityAgenda"/);
+  assert.match(appCode, /"beschikbaarheids-agenda": "\/beschikbaarheids-agenda"/);
+  assert.match(appCode, /function renderAvailabilityAgenda\(/);
+  assert.match(appCode, /absenceAgendaEntries/);
+  assert.match(serverCode, /"beschikbaarheids-agenda"/);
+  assert.match(styles, /\.availability-agenda/);
+  assert.match(styles, /\.agenda-week/);
+  assert.match(styles, /\.agenda-day\.today/);
+});
+
+test("porto exposes the modern dispatcher test UI beside the classic UI", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
+  const portoCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
+  const opsCode = fs.readFileSync(path.join(process.cwd(), "porto", "ops.js"), "utf8");
+  const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
+
+  assert.match(html, /data-porto-ui-choice="classic"/);
+  assert.match(html, /data-porto-ui-choice="modern"/);
+  assert.match(html, /id="portoModernDutyDashboard"/);
+  assert.match(html, /id="portoModernOpsDashboard"/);
+  assert.match(portoCode, /PORTO_UI_MODE_KEY/);
+  assert.match(portoCode, /function bindPortoUiToggle/);
+  assert.match(opsCode, /function renderModernOpsDashboard/);
+  assert.match(dutyCode, /function renderModernDutyDashboard/);
+  assert.match(styles, /body\[data-porto-ui="modern"\]\.porto-duty-workspace/);
+  assert.match(styles, /\.porto-modern-ops-dashboard/);
 });
 
 test("I8 create form keeps a browser draft until server save succeeds", () => {

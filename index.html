@@ -87,7 +87,7 @@
       }
     </style>
     <link rel="stylesheet" href="/shared.css?v=20260708-lockscreen-cycle" />
-    <link rel="stylesheet" href="/personeelsportaal.css?v=20260704-calm-toolbar-spacing" />
+    <link rel="stylesheet" href="/personeelsportaal.css?v=20260709-availability-agenda" />
   <script src="/portal-boot.js?v=20260628-csp-cleanup" defer></script>
   <script src="/boot-failsafe.js?v=20260627-loader-failsafe" defer></script>
   <script src="/portal-loader-failsafe.js?v=20260627-loader-failsafe" defer></script>
@@ -146,6 +146,7 @@
         <button class="nav-item active" data-nav-icon="D" data-page="dashboard" type="button">Dashboard</button>
         <button class="nav-item" data-nav-icon="M" data-page="medewerkers" type="button">Medewerkers</button>
         <button class="nav-item" data-nav-icon="A" data-page="afwezigheid" type="button">Afwezigheid</button>
+        <button class="nav-item" data-nav-icon="KA" data-page="beschikbaarheids-agenda" type="button">Beschikbaarheids-agenda</button>
         <button class="nav-item" data-nav-icon="I8" data-page="i8-opstellen" type="button">I8-Formulier</button>
         <button class="nav-item" data-nav-icon="O" data-page="ontslag-formulier" type="button">Ontslag-Formulier</button>
         <div class="nav-divider" aria-hidden="true"></div>
@@ -571,6 +572,16 @@
             <button class="primary" type="submit">Afwezigheid opslaan</button>
           </form>
         </div>
+      </section>
+
+      <section id="beschikbaarheids-agenda" class="page">
+        <section class="panel availability-agenda-panel">
+          <div class="panel-head">
+            <h2>Beschikbaarheids-agenda</h2>
+            <span id="availabilityAgendaSummary" class="muted">6 weken</span>
+          </div>
+          <div class="availability-agenda" id="availabilityAgenda"></div>
+        </section>
       </section>
 
       <section id="i8-opstellen" class="page">
@@ -1068,6 +1079,6 @@
     <script src="/personeelsportaal/absence.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/archive.js?v=20260705-resignation-archive-state"></script>
     <script src="/personeelsportaal-data.js?v=20260628-deep-route-assets"></script>
-    <script src="/app.js?v=20260708-lockscreen-cycle"></script>
+    <script src="/app.js?v=20260709-availability-agenda"></script>
 </body>
 </html>

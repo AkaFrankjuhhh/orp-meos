@@ -173,6 +173,89 @@ function renderUnitMemberBar() {
   }).join("");
 }
 
+function modernDutyMembers() {
+  const members = [...(portoDuty?.unitMembers || [])];
+  if (!members.length && (portoDuty || portoProfile)) {
+    members.push({
+      name: portoProfile?.name || portoDuty?.name,
+      rank: portoProfile?.rank || portoDuty?.rank,
+      serviceNumber: portoProfile?.serviceNumber || portoDuty?.serviceNumber,
+      phone: portoProfile?.portoPhone || portoDuty?.phone,
+      avatar: portoProfile?.avatar || portoDuty?.avatar,
+      completedTrainings: Array.isArray(portoProfile?.completedTrainings) ? portoProfile.completedTrainings : [],
+      completedOperational: Array.isArray(portoProfile?.completedOperational) ? portoProfile.completedOperational : [],
+      specializations: [
+        ...(Array.isArray(portoProfile?.completedTrainings) ? portoProfile.completedTrainings : []),
+        ...(Array.isArray(portoProfile?.completedOperational) ? portoProfile.completedOperational : [])
+      ],
+      dutyRole: portoDuty?.dutyRole || ""
+    });
+  }
+  return members.slice(0, 3);
+}
+
+function modernOccupancyBars(count) {
+  return Array.from({ length: 3 }, (_, index) => `<span class="${index < count ? "filled" : ""}"></span>`).join("");
+}
+
+function renderModernDutyDashboard() {
+  const container = $("#portoModernDutyDashboard");
+  if (!container || !portoDuty || !portoProfile) return;
+  const members = modernDutyMembers();
+  const vehicleName = portoDuty.vehicleName || portoDuty.vehicleType || "Onvoertuig";
+  const status = portoStatuses.find((entry) => entry.code === String(portoDuty.status)) || portoStatuses[0];
+  const memberNames = members.map((member) => member.name).filter(Boolean).join(" + ") || portoProfile.name || "Onbekend";
+  const statusButtons = portoStatuses.map((entry) => `
+    <button class="porto-modern-status-button ${escapeHtml(entry.className)} ${entry.code === String(portoDuty.status) ? "active" : ""}" type="button" data-modern-status="${escapeHtml(entry.code)}">
+      <span>${escapeHtml(entry.code)}</span>
+      <strong>${escapeHtml(entry.label)}</strong>
+    </button>`).join("");
+  const memberCards = members.map((member, index) => {
+    const nameClass = typeof memberNameClass === "function" ? memberNameClass(member) : "porto-member-name";
+    const title = typeof memberNameTitle === "function" ? memberNameTitle(member) : "";
+    return `
+      <article class="porto-modern-duty-member"${title ? ` title="${escapeHtml(title)}"` : ""}>
+        <span>Eenheid ${index + 1}</span>
+        <div class="porto-modern-duty-member-main">
+          ${typeof memberAvatarHtml === "function" ? memberAvatarHtml(member) : ""}
+          <strong class="${escapeHtml(nameClass)}">${escapeHtml(member.name || "Onbekend")}</strong>
+        </div>
+        <dl>
+          <div><dt>Rang</dt><dd>${escapeHtml(member.rank || "-")} - ${escapeHtml(member.serviceNumber || "-")}</dd></div>
+          <div><dt>Telefoonnummer</dt><dd>${escapeHtml(member.phone || "Niet ingevuld")}</dd></div>
+        </dl>
+      </article>`;
+  }).join("");
+  container.hidden = portoUiMode !== "modern";
+  container.innerHTML = `
+    <section class="porto-modern-duty-card">
+      <header class="porto-modern-duty-head">
+        <div class="porto-modern-duty-avatars">
+          ${members.map((member) => typeof memberAvatarHtml === "function" ? memberAvatarHtml(member) : "").join("")}
+        </div>
+        <div class="porto-modern-duty-title">
+          <span>Huidige status</span>
+          <h1>${escapeHtml(portoDuty.vehicleNumber || "-")} <b></b> ${escapeHtml(memberNames)}</h1>
+          <strong class="status-${escapeHtml(status.className)}">${escapeHtml(status.title)} - ${escapeHtml(status.label)}</strong>
+        </div>
+        <div class="porto-modern-radio-icon" aria-hidden="true">▦</div>
+      </header>
+      <section class="porto-modern-duty-meta-grid">
+        <article><span>Kanaal</span><strong>${escapeHtml(portoDuty.discordChannelLabel || "Porto kanaal")}</strong></article>
+        <article><span>Voertuig</span><strong>${escapeHtml(vehicleName)}</strong></article>
+        <article><span>Bezetting</span><strong>${members.length} / 3</strong><div>${modernOccupancyBars(members.length)}</div></article>
+        <article><span>Koppeling</span><strong>${members.length > 1 ? "Actief" : "Solo"}</strong></article>
+      </section>
+      <section class="porto-modern-duty-members">${memberCards}</section>
+      <h2>Statussen</h2>
+      <section class="porto-modern-status-grid">${statusButtons}</section>
+      <footer class="porto-modern-duty-actions">
+        <button class="porto-modern-secondary" type="button" data-phonebook-open>Telefoonnummers</button>
+        <button class="porto-modern-secondary" type="button" id="portoModernOpsOverviewBtn">${escapeHtml(portoOrganization.key === "politie" ? "OC overzicht" : "OVD/OPCO/OC overzicht")}</button>
+      </footer>
+    </section>`;
+}
+
 function personOperationalValues(person = portoProfile) {
   return new Set([
     ...(Array.isArray(person?.completedOperational) ? person.completedOperational : []),
@@ -300,6 +383,7 @@ function renderDutyPanel() {
   setPortoDutyPolling((waitingForOps || assignedDuty) && !opsWorkspace);
   renderPortoWorkspaceMode();
   if (!assignedDuty || opsWorkspace || !portoProfile) return;
+  renderModernDutyDashboard();
   renderDutyAssignment();
   renderUnitMemberBar();
   renderDutyRolePanel();

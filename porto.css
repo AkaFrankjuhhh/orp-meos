@@ -23,8 +23,690 @@
   min-height: 76px;
   padding: 14px 28px;
   display: flex;
+  gap: 14px;
   justify-content: flex-end;
   align-items: center;
+}
+
+/* Nieuwe Porto test-UI. De klassieke UI blijft intact en wordt alleen verborgen in deze modus. */
+body[data-porto-ui="modern"].porto-duty-workspace .porto-duty-panel > :not(#portoModernDutyDashboard),
+body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel > :not(#portoModernOpsDashboard) {
+  display: none !important;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-status-center,
+body[data-porto-ui="modern"].porto-ops-workspace .porto-status-center {
+  place-items: start center;
+  align-content: start;
+  padding: clamp(82px, 8vh, 112px) clamp(16px, 3vw, 48px) 28px;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-duty-panel,
+body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
+  width: min(1880px, calc(100vw - 44px));
+  min-height: 0;
+  height: auto;
+  padding-top: 0;
+  margin: 0;
+}
+
+.porto-modern-duty-dashboard,
+.porto-modern-ops-dashboard {
+  width: 100%;
+  color: #f8fafc;
+}
+
+.porto-modern-duty-card,
+.porto-modern-ops-dashboard {
+  border: 1px solid rgba(59, 130, 246, 0.32);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 28% 0%, rgba(59, 130, 246, 0.22), transparent 34%),
+    linear-gradient(180deg, rgba(9, 24, 45, 0.88), rgba(5, 13, 26, 0.84));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+.porto-modern-duty-card {
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  padding: clamp(20px, 2.5vw, 34px);
+}
+
+.porto-modern-duty-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+}
+
+.porto-modern-duty-avatars,
+.porto-modern-ops-avatars {
+  display: flex;
+  align-items: center;
+}
+
+.porto-modern-duty-avatars .porto-modern-member-avatar,
+.porto-modern-duty-avatars .porto-modern-member-initial {
+  width: 82px;
+  height: 82px;
+  margin-right: -18px;
+  border: 2px solid #0b8cff;
+  box-shadow: 0 0 22px rgba(37, 99, 235, 0.42);
+}
+
+.porto-modern-duty-title span {
+  color: #82b8ff;
+  font-size: 13px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.porto-modern-duty-title h1 {
+  margin: 8px 0;
+  color: #f8fafc;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.1;
+}
+
+.porto-modern-duty-title h1 b {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin: 0 14px 4px;
+  border-radius: 50%;
+  background: #1688ff;
+  box-shadow: 0 0 18px rgba(22, 136, 255, 0.8);
+}
+
+.porto-modern-duty-title > strong {
+  color: #35f36f;
+  font-size: 18px;
+}
+
+.porto-modern-radio-icon {
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(22, 136, 255, 0.42);
+  border-radius: 50%;
+  color: #1688ff;
+  font-size: 40px;
+  box-shadow: 0 0 0 14px rgba(22, 136, 255, 0.08);
+}
+
+.porto-modern-duty-meta-grid {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(5, 13, 26, 0.48);
+}
+
+.porto-modern-duty-meta-grid article {
+  min-height: 86px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 18px 22px;
+  border-right: 1px solid rgba(59, 130, 246, 0.18);
+}
+
+.porto-modern-duty-meta-grid article:last-child {
+  border-right: 0;
+}
+
+.porto-modern-duty-meta-grid span,
+.porto-modern-duty-member > span,
+.porto-modern-selected-unit dt {
+  color: #84b4e8;
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.porto-modern-duty-meta-grid strong,
+.porto-modern-duty-member dd,
+.porto-modern-selected-unit dd {
+  color: #f8fafc;
+  font-weight: 900;
+}
+
+.porto-modern-duty-meta-grid div {
+  display: flex;
+  gap: 8px;
+}
+
+.porto-modern-duty-meta-grid div span {
+  width: 32px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(30, 64, 175, 0.7);
+}
+
+.porto-modern-duty-meta-grid div span.filled {
+  background: #1688ff;
+}
+
+.porto-modern-duty-members {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.porto-modern-duty-member {
+  min-height: 160px;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(0, 49, 92, 0.52), rgba(5, 13, 26, 0.6));
+}
+
+.porto-modern-duty-member-main,
+.porto-modern-selected-member {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.porto-modern-member-avatar,
+.porto-modern-member-initial {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(37, 99, 235, 0.28);
+  color: #eaf4ff;
+  font-weight: 1000;
+}
+
+.porto-modern-duty-member dl,
+.porto-modern-selected-unit dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.porto-modern-duty-member dl div,
+.porto-modern-selected-unit dl div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.porto-modern-duty-card h2 {
+  margin: 18px 0 12px;
+  color: #82b8ff;
+  font-size: 16px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.porto-modern-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.porto-modern-status-button {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(59, 130, 246, 0.34);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0, 83, 174, 0.55), rgba(6, 22, 45, 0.78));
+  color: #f8fafc;
+  cursor: pointer;
+}
+
+.porto-modern-status-button span {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 24px;
+  font-weight: 1000;
+}
+
+.porto-modern-status-button strong {
+  font-size: 16px;
+}
+
+.porto-modern-status-button.available { border-color: rgba(34, 197, 94, 0.56); box-shadow: inset 0 0 34px rgba(22, 163, 74, 0.22); }
+.porto-modern-status-button.speech { border-color: rgba(245, 158, 11, 0.58); box-shadow: inset 0 0 34px rgba(245, 158, 11, 0.22); }
+.porto-modern-status-button.urgent { border-color: rgba(239, 68, 68, 0.66); box-shadow: inset 0 0 34px rgba(239, 68, 68, 0.26); }
+.porto-modern-status-button.unavailable,
+.porto-modern-status-button.offduty { opacity: 0.78; }
+.porto-modern-status-button:hover,
+.porto-modern-status-button.active {
+  transform: translateY(-1px);
+  border-color: rgba(96, 165, 250, 0.92);
+}
+
+.porto-modern-duty-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.porto-modern-primary,
+.porto-modern-secondary {
+  min-height: 50px;
+  border: 1px solid rgba(59, 130, 246, 0.34);
+  border-radius: 12px;
+  background: rgba(8, 23, 44, 0.82);
+  color: #f8fafc;
+  padding: 0 18px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.porto-modern-primary {
+  background: linear-gradient(135deg, #1457a8, #0d69c8);
+}
+
+.porto-modern-ops-dashboard {
+  display: grid;
+  gap: 22px;
+  padding: clamp(18px, 2vw, 34px);
+}
+
+.porto-modern-ops-header,
+.porto-modern-ops-actions,
+.porto-modern-brand,
+.porto-modern-ops-title {
+  display: flex;
+  align-items: center;
+}
+
+.porto-modern-ops-header {
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.porto-modern-brand {
+  min-width: 280px;
+  gap: 16px;
+}
+
+.porto-modern-brand-mark {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(20, 89, 171, 0.26);
+  color: #8cc7ff;
+  font-weight: 1000;
+}
+
+.porto-modern-brand strong,
+.porto-modern-ops-title h1 {
+  color: #f8fafc;
+}
+
+.porto-modern-brand span,
+.porto-modern-ops-title p {
+  color: #a7bad1;
+}
+
+.porto-modern-ops-title {
+  align-items: flex-start;
+  flex-direction: column;
+  flex: 1;
+  padding-left: 26px;
+  border-left: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.porto-modern-ops-title h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.porto-modern-ops-title h1 span {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border: 1px solid rgba(59, 130, 246, 0.48);
+  border-radius: 8px;
+  color: #7cc1ff;
+  font-size: 13px;
+}
+
+.porto-modern-ops-actions {
+  gap: 12px;
+}
+
+.porto-modern-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.porto-modern-stat-grid article {
+  min-height: 112px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 22px 28px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(3, 32, 62, 0.78), rgba(7, 15, 30, 0.72));
+}
+
+.porto-modern-stat-grid article strong {
+  color: #f8fafc;
+  font-size: 32px;
+}
+
+.porto-modern-stat-grid article span {
+  color: #a7bad1;
+}
+
+.porto-modern-stat-grid article.available { box-shadow: inset 0 0 42px rgba(34, 197, 94, 0.12); }
+.porto-modern-stat-grid article.onscene { box-shadow: inset 0 0 42px rgba(168, 85, 247, 0.14); }
+.porto-modern-stat-grid article.urgent { box-shadow: inset 0 0 42px rgba(239, 68, 68, 0.16); }
+
+.porto-modern-ops-layout {
+  display: grid;
+  grid-template-columns: minmax(720px, 1fr) minmax(360px, 520px);
+  gap: 26px;
+}
+
+.porto-modern-ops-list,
+.porto-modern-selected-unit,
+.porto-modern-ops-footer {
+  border: 1px solid rgba(59, 130, 246, 0.26);
+  border-radius: 16px;
+  background: rgba(6, 18, 35, 0.58);
+}
+
+.porto-modern-ops-list {
+  padding: 22px;
+}
+
+.porto-modern-ops-list > header {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.porto-modern-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.porto-modern-filter-row span {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  border-radius: 10px;
+  background: rgba(10, 35, 68, 0.62);
+  padding: 0 14px;
+  color: #dbeafe;
+  font-weight: 900;
+}
+
+.porto-modern-requests {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.porto-modern-request-row,
+.porto-modern-ops-row {
+  display: grid;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 12px;
+  background: rgba(5, 13, 26, 0.44);
+}
+
+.porto-modern-request-row {
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 1fr) minmax(180px, 0.8fr) auto;
+  padding: 12px;
+}
+
+.porto-modern-request-row select {
+  min-height: 42px;
+  border: 1px solid rgba(59, 130, 246, 0.32);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.86);
+  color: #e5eefc;
+  padding: 0 10px;
+  font-weight: 900;
+}
+
+.porto-modern-unit-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.porto-modern-ops-row {
+  grid-template-columns: 22px 110px minmax(140px, 1fr) 128px 128px minmax(160px, 0.8fr) 36px;
+  min-height: 80px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.porto-modern-ops-row.selected {
+  border-color: rgba(96, 165, 250, 0.92);
+  box-shadow: inset 4px 0 0 #22c55e;
+}
+
+.porto-modern-ops-row strong {
+  font-size: 22px;
+}
+
+.porto-modern-status-light {
+  width: 15px;
+  height: 15px;
+  display: inline-block;
+  border-radius: 50%;
+  background: #64748b;
+  box-shadow: 0 0 0 5px rgba(100, 116, 139, 0.14);
+}
+
+.porto-modern-status-light.available { background: #5ee866; box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18); }
+.porto-modern-status-light.driving { background: #2ea8ff; box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.18); }
+.porto-modern-status-light.onscene { background: #a855f7; box-shadow: 0 0 0 5px rgba(168, 85, 247, 0.18); }
+.porto-modern-status-light.speech,
+.porto-modern-status-light.urgent { background: #ef4444; box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.18); }
+
+.porto-modern-ops-avatars .porto-modern-member-avatar,
+.porto-modern-ops-avatars .porto-modern-member-initial {
+  margin-right: -8px;
+  border: 1px solid rgba(59, 130, 246, 0.55);
+}
+
+.porto-modern-ops-avatars > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.92);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.porto-modern-row-arrow {
+  border: 0;
+  background: transparent;
+  color: #cfe7ff;
+  font-size: 30px;
+  cursor: pointer;
+}
+
+.porto-modern-selected-unit {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+  padding: 26px;
+  box-shadow: inset 4px 0 0 #22c55e;
+}
+
+.porto-modern-selected-unit header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.porto-modern-selected-unit h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 28px;
+}
+
+.porto-modern-selected-unit h2 small {
+  color: #dbeafe;
+  font-size: 18px;
+}
+
+.porto-modern-selected-unit dl {
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.porto-modern-selected-unit section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 14px;
+  background: rgba(4, 12, 24, 0.36);
+}
+
+.porto-modern-selected-unit h3 {
+  margin: 0;
+  color: #82b8ff;
+}
+
+.porto-modern-selected-member span:not(.porto-modern-status-light) {
+  color: #9fb8d6;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.porto-modern-ops-footer {
+  min-height: 68px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 18px;
+  color: #a7bad1;
+}
+
+.porto-modern-ops-footer button {
+  margin-left: auto;
+}
+
+@media (max-width: 1180px) {
+  .porto-modern-ops-layout,
+  .porto-modern-stat-grid,
+  .porto-modern-duty-meta-grid,
+  .porto-modern-duty-members {
+    grid-template-columns: 1fr;
+  }
+
+  .porto-modern-ops-header,
+  .porto-modern-duty-head {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .porto-modern-ops-title {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .porto-modern-duty-meta-grid article {
+    border-right: 0;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.18);
+  }
+}
+
+@media (max-width: 760px) {
+  body[data-porto-ui="modern"].porto-duty-workspace .porto-duty-panel,
+  body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
+    width: min(100% - 20px, 560px);
+  }
+
+  .porto-modern-ops-row,
+  .porto-modern-request-row {
+    grid-template-columns: 1fr;
+  }
+
+  .porto-modern-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .porto-modern-duty-actions,
+  .porto-modern-ops-actions {
+    flex-direction: column;
+  }
+}
+
+.porto-ui-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 5px 6px 5px 10px;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 10px;
+  background: rgba(8, 14, 26, 0.7);
+  color: #e5eefc;
+  pointer-events: auto;
+  backdrop-filter: blur(12px);
+}
+
+.porto-ui-switch span {
+  color: #9fb8d6;
+  font-size: 11px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.porto-ui-switch button {
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #c7d6ea;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.porto-ui-switch button:hover,
+.porto-ui-switch button.is-active {
+  border-color: rgba(59, 130, 246, 0.62);
+  background: rgba(59, 130, 246, 0.18);
+  color: #f8fafc;
 }
 
 .porto-empty {
@@ -47,6 +729,10 @@
 
   .porto-topbar .profile-chip {
     width: 100%;
+  }
+
+  .porto-ui-switch {
+    order: 2;
   }
 }
 

@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Porto-Systeem | Defensie Oranjestad</title>
     <link rel="stylesheet" href="shared.css?v=20260703-calm-arial" />
-    <link rel="stylesheet" href="porto.css?v=20260707-auto-assign" />
+    <link rel="stylesheet" href="porto.css?v=20260709-modern-porto-ui" />
   </head>
   <body class="porto-blank porto-locked">
     <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
@@ -26,6 +26,11 @@
     </section>
 
     <header class="porto-topbar" aria-label="Porto profielbalk">
+      <section class="porto-ui-switch" aria-label="Porto UI kiezen">
+        <span>UI</span>
+        <button type="button" data-porto-ui-choice="classic" aria-pressed="false">Klassiek</button>
+        <button type="button" data-porto-ui-choice="modern" aria-pressed="false">Nieuw</button>
+      </section>
       <section class="profile-chip" aria-label="Ingelogd profiel">
         <button id="portoProfileOpenBtn" class="profile-open" type="button" aria-label="Open persoonlijk profiel">
           <img id="portoCurrentAvatar" alt="" />
@@ -109,6 +114,7 @@
         </section>
 
         <section id="portoDutyPanel" class="porto-duty-panel" aria-label="Porto bediening" hidden>
+          <section id="portoModernDutyDashboard" class="porto-modern-duty-dashboard" hidden></section>
           <div class="porto-view-switch-row">
             <button id="portoShowOpsViewBtn" class="porto-ops-action ghost" type="button" hidden>OVD/OPCO overzicht</button>
             <button class="porto-ops-action ghost" type="button" data-phonebook-open>Telefoonnummers</button>
@@ -160,6 +166,7 @@
         </section>
       
         <section id="portoOpsPanel" class="porto-duty-panel porto-ops-panel" aria-label="OPS bediening" hidden>
+          <section id="portoModernOpsDashboard" class="porto-modern-ops-dashboard" hidden></section>
           <div class="porto-ops-grid">
             <div class="porto-ops-left-stack">
               <div class="porto-duty-card">
@@ -299,9 +306,9 @@
     <script src="porto/module-registry.js?v=20260518-module-split"></script>
     <script src="porto/audio.js?v=20260606-self-vehicle-audio"></script>
     <script src="porto/map.js?v=20260518-module-split"></script>
-    <script src="porto/ops.js?v=20260707-auto-assign"></script>
-    <script src="porto/duty.js?v=20260707-auto-assign"></script>
+    <script src="porto/ops.js?v=20260709-modern-porto-ui"></script>
+    <script src="porto/duty.js?v=20260709-modern-porto-ui"></script>
     <script src="porto/profile.js?v=20260602-throttled-status"></script>
-    <script src="porto.js?v=20260707-auto-assign"></script>
+    <script src="porto.js?v=20260709-modern-porto-ui"></script>
   </body>
 </html>

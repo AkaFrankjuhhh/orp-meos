@@ -117,6 +117,8 @@ function renderOpsStatus() {
     durationBadge.hidden = !portoCurrentOps;
     durationBadge.textContent = `${isCurrentOpsUser() ? `Jouw ${portoOperatorLabel} duur` : `${portoOperatorLabel} duur`}: ${duration}`;
   }
+  const modernDuration = $("#portoModernOpsDuration");
+  if (modernDuration) modernDuration.textContent = `${isCurrentOpsUser() ? `Jouw ${portoOperatorLabel} duur` : `${portoOperatorLabel} duur`}: ${duration}`;
   claimButton.hidden = Boolean(portoCurrentOps) || !portoCanTakeOps;
   releaseButton.hidden = !portoCurrentOps || !portoCanManageOps;
 }
@@ -494,6 +496,142 @@ function renderOpsUnits() {
   renderSideTaskOverview();
 }
 
+function modernStatusBuckets(units) {
+  const members = (units || []).flatMap((unit) => unit.members || []);
+  return {
+    totalUnits: (units || []).length,
+    available: members.filter((member) => String(member.status) === "1").length,
+    onscene: members.filter((member) => String(member.status) === "3").length,
+    action: members.filter((member) => ["6", "7"].includes(String(member.status))).length
+  };
+}
+
+function modernOpsUnitStatus(unit) {
+  const member = primaryOpsMember(unit);
+  return portoStatuses.find((entry) => entry.code === String(member.status)) || { label: "Onbekend", className: "pending" };
+}
+
+function modernOpsSelectedUnit(units) {
+  const list = units || [];
+  if (!list.length) {
+    portoSelectedModernOpsUnitId = "";
+    return null;
+  }
+  const selected = list.find((unit) => String(primaryOpsMemberId(unit) || unit.vehicleNumber) === String(portoSelectedModernOpsUnitId));
+  const next = selected || list[0];
+  portoSelectedModernOpsUnitId = String(primaryOpsMemberId(next) || next.vehicleNumber || "");
+  return next;
+}
+
+function modernOpsAvatarStack(unit) {
+  const members = (unit.members || []).slice(0, 2);
+  const overflow = Math.max(0, (unit.members || []).length - members.length);
+  return `
+    <div class="porto-modern-ops-avatars">
+      ${members.map((member) => typeof memberAvatarHtml === "function" ? memberAvatarHtml(member) : "").join("")}
+      ${overflow ? `<span>+${overflow}</span>` : ""}
+    </div>`;
+}
+
+function renderModernOpsDashboard() {
+  const container = $("#portoModernOpsDashboard");
+  if (!container) return;
+  const showPanel = Boolean(canUseOpsWorkspace() && portoCanManageOps && portoUiMode === "modern");
+  container.hidden = !showPanel;
+  if (!showPanel) return;
+  const units = sortedOpsUnitGroups(portoActiveUnits);
+  const selectedUnit = modernOpsSelectedUnit(units);
+  const stats = modernStatusBuckets(units);
+  const requestCount = portoOpsRequests.length;
+  const rows = units.length ? units.map((unit) => {
+    const primary = primaryOpsMember(unit);
+    const actionId = primaryOpsMemberId(unit);
+    const status = modernOpsUnitStatus(unit);
+    const selected = String(actionId || unit.vehicleNumber) === String(portoSelectedModernOpsUnitId);
+    return `
+      <article class="porto-modern-ops-row ${selected ? "selected" : ""}" data-modern-ops-unit="${escapeHtml(actionId)}">
+        <span class="porto-modern-status-light ${escapeHtml(statusClassName(primary))}"></span>
+        <strong>${escapeHtml(unit.vehicleNumber || "-")}</strong>
+        <span>${escapeHtml(opsUnitVehicleLine(unit))}</span>
+        <button class="porto-status-pill ${escapeHtml(status.className)}" type="button" data-ops-status-unit="${escapeHtml(actionId)}">${escapeHtml(status.label)}</button>
+        ${modernOpsAvatarStack(unit)}
+        <small>${escapeHtml(unit.discordChannelLabel || "Ops centrum")}<br>${escapeHtml(unit.discordChannelStatus || unit.discordChannelName || "Porto-kanaal")}</small>
+        <button class="porto-modern-row-arrow" type="button" data-ops-open-menu="${escapeHtml(actionId)}" aria-label="Acties">&rsaquo;</button>
+      </article>`;
+  }).join("") : '<div class="porto-ops-empty">Geen actieve eenheden.</div>';
+  const requestRows = portoOpsRequests.length ? portoOpsRequests.map((request) => `
+    <article class="porto-modern-request-row" data-ops-request="${escapeHtml(request.id)}">
+      <strong>${escapeHtml(request.serviceNumber || "-")} - ${escapeHtml(request.name || "Onbekend")}</strong>
+      <span>${escapeHtml(request.rank || "-")} ${request.requestNote ? `- ${request.requestNote}` : ""}</span>
+      <select data-category-select="${escapeHtml(request.id)}">${vehicleCategoryOptionsHtml()}</select>
+      <button class="porto-ops-assign" type="button" data-assign-unit="${escapeHtml(request.id)}">Indelen</button>
+    </article>`).join("") : '<div class="porto-ops-empty">Geen open Status 0-aanmeldingen.</div>';
+  const selectedMembers = selectedUnit ? (selectedUnit.members || []) : [];
+  const selectedStatus = selectedUnit ? modernOpsUnitStatus(selectedUnit) : null;
+  container.innerHTML = `
+    <header class="porto-modern-ops-header">
+      <div class="porto-modern-brand">
+        <span class="porto-modern-brand-mark">${escapeHtml(portoOrganization.key === "politie" ? "P" : "KM")}</span>
+        <div><strong>${escapeHtml(portoOrganization.key === "politie" ? "ORANJESTAD POLITIE" : "KONINKLIJKE MARECHAUSSEE")}</strong><span>FiveM Roleplay</span></div>
+      </div>
+      <div class="porto-modern-ops-title"><h1>${escapeHtml(portoOperatorLabel)} Dispatcher <span>v5</span></h1><p>Real-time eenheden overzicht en aansturing</p></div>
+      <div class="porto-modern-ops-actions">
+        <button class="porto-ops-action ghost" type="button" data-phonebook-open>Telefoonnummers</button>
+        <span id="portoModernOpsDuration" class="porto-ops-duration-badge">${escapeHtml(formatPortoDuration(opsElapsedSeconds(portoCurrentOps)))}</span>
+        <button class="porto-ops-action ghost" type="button" data-modern-ops-release>${escapeHtml(portoOperatorLabel)} neerleggen</button>
+      </div>
+    </header>
+    <section class="porto-modern-stat-grid">
+      <article><span>Totaal eenheden</span><strong>${stats.totalUnits}</strong></article>
+      <article class="available"><span>Beschikbaar</span><strong>${stats.available}</strong></article>
+      <article class="onscene"><span>Ter plaatse</span><strong>${stats.onscene}</strong></article>
+      <article class="urgent"><span>Actie nodig</span><strong>${stats.action + requestCount}</strong></article>
+    </section>
+    <section class="porto-modern-ops-layout">
+      <article class="porto-modern-ops-list">
+        <header>
+          <h2>Eenheden overzicht</h2>
+          <div class="porto-modern-filter-row">
+            <span>Alles ${stats.totalUnits}</span>
+            <span>Beschikbaar ${stats.available}</span>
+            <span>Ter plaatse ${stats.onscene}</span>
+            <span>Actie nodig ${stats.action + requestCount}</span>
+          </div>
+        </header>
+        <section class="porto-modern-requests">${requestRows}</section>
+        <section class="porto-modern-unit-rows">${rows}</section>
+      </article>
+      <aside class="porto-modern-selected-unit">
+        ${selectedUnit ? `
+          <header><span class="porto-modern-status-light ${escapeHtml(statusClassName(primaryOpsMember(selectedUnit)))}"></span><h2>${escapeHtml(selectedUnit.vehicleNumber || "-")} <small>${escapeHtml(selectedUnit.vehicleCode || portoOperatorLabel)}</small></h2><span class="porto-status-pill ${escapeHtml(selectedStatus.className)}">${escapeHtml(selectedStatus.label)}</span></header>
+          <dl>
+            <div><dt>Status</dt><dd>${escapeHtml(memberStatusLabel(primaryOpsMember(selectedUnit)))}</dd></div>
+            <div><dt>Kanaal</dt><dd>${escapeHtml(selectedUnit.discordChannelLabel || "Porto-kanaal")}</dd></div>
+            <div><dt>Voertuig</dt><dd>${escapeHtml(opsUnitVehicleLine(selectedUnit))}</dd></div>
+            <div><dt>Leden</dt><dd>${selectedMembers.length}/3 personen</dd></div>
+          </dl>
+          <section>
+            <h3>Personeel</h3>
+            ${selectedMembers.map((member) => `
+              <article class="porto-modern-selected-member" data-ops-unit-member="${escapeHtml(member.id)}">
+                ${memberAvatarHtml(member)}
+                <div><strong class="${escapeHtml(memberNameClass(member))}">${escapeHtml(member.name || "Onbekend")}</strong><span>${escapeHtml(member.serviceNumber || "-")} - ${visibleModernSpecializations(member).join(" / ") || "Geen specialisaties"}</span></div>
+                <span class="porto-modern-status-light ${escapeHtml(statusClassName(member))}"></span>
+              </article>`).join("")}
+          </section>
+          <button class="porto-modern-primary" type="button" data-ops-status-unit="${escapeHtml(primaryOpsMemberId(selectedUnit))}">Status wijzigen</button>
+          <button class="porto-modern-secondary" type="button" data-ops-open-menu="${escapeHtml(primaryOpsMemberId(selectedUnit))}">Verplaatsen / acties</button>
+        ` : '<p class="muted">Selecteer een eenheid.</p>'}
+      </aside>
+    </section>
+    <footer class="porto-modern-ops-footer">
+      <span>Status up-to-date</span>
+      <span>Actieve meldingen ${requestCount}</span>
+      <span>Totaal eenheden ${stats.totalUnits}</span>
+      <button class="porto-modern-secondary" type="button" data-modern-refresh>Ververs gegevens</button>
+    </footer>`;
+}
+
 function captureActiveDiscordChannelStatusInput() {
   const activeInput = document.activeElement;
   if (!activeInput?.matches?.("[data-discord-channel-status]")) return null;
@@ -696,6 +834,7 @@ function renderOpsPanel({ forceRequests = false } = {}) {
   if (dutyViewButton) dutyViewButton.hidden = !(portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser());
   renderOpsStatus();
   renderOpsLogAccess();
+  renderModernOpsDashboard();
   renderOpsRequests({ force: forceRequests });
   renderDiscordChannels();
   renderOpsUnits();

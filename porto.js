@@ -81,6 +81,9 @@ let portoAutoAssignTimer = null;
 let portoAutoAssignUnitId = "";
 const PORTO_AUTO_REFRESH_MS = 8000;
 const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
+const PORTO_UI_MODE_KEY = "orp-porto-ui-mode";
+let portoUiMode = "classic";
+let portoSelectedModernOpsUnitId = "";
 
 function applyPortoBranding() {
   const organizationKey = portoOrganization.key || "defensie";
@@ -133,6 +136,32 @@ function portoStorageSet(key, value) {
   } catch {
     // Opslaan van voorkeuren is handig, maar mag de Porto nooit blokkeren.
   }
+}
+
+function storedPortoUiMode() {
+  return portoStorageGet(PORTO_UI_MODE_KEY, "classic") === "modern" ? "modern" : "classic";
+}
+
+function applyPortoUiMode(mode) {
+  portoUiMode = mode === "modern" ? "modern" : "classic";
+  document.body.dataset.portoUi = portoUiMode;
+  portoStorageSet(PORTO_UI_MODE_KEY, portoUiMode);
+  document.querySelectorAll("[data-porto-ui-choice]").forEach((button) => {
+    const active = button.dataset.portoUiChoice === portoUiMode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  if (typeof renderDutyPanel === "function") renderDutyPanel();
+  if (typeof renderOpsPanel === "function") renderOpsPanel({ forceRequests: true });
+}
+
+function bindPortoUiToggle() {
+  applyPortoUiMode(storedPortoUiMode());
+  document.querySelector(".porto-ui-switch")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-porto-ui-choice]");
+    if (!button) return;
+    applyPortoUiMode(button.dataset.portoUiChoice);
+  });
 }
 
 function portoRankSortIndex(rank) {
@@ -522,6 +551,49 @@ $("#portoOpsRequests").addEventListener("contextmenu", async (event) => {
   if (!request?.dataset.opsRequest) return;
   await openPortoRequestContextMenu(event, request.dataset.opsRequest);
 });
+$("#portoModernOpsDashboard")?.addEventListener("click", async (event) => {
+  const releaseButton = event.target.closest("[data-modern-ops-release]");
+  if (releaseButton) {
+    await updatePortoOps("release");
+    return;
+  }
+  const refreshButton = event.target.closest("[data-modern-refresh]");
+  if (refreshButton) {
+    await loadPortoDuty({ includePhonebook: true });
+    return;
+  }
+  const menuButton = event.target.closest("[data-ops-open-menu]");
+  if (menuButton?.dataset.opsOpenMenu) {
+    openPortoOpsContextMenu(event, menuButton.dataset.opsOpenMenu);
+    return;
+  }
+  const statusButton = event.target.closest("[data-ops-status-unit]");
+  if (statusButton?.dataset.opsStatusUnit) {
+    await chooseOpsStatusUpdate(statusButton.dataset.opsStatusUnit, event);
+    return;
+  }
+  const assignButton = event.target.closest("[data-assign-unit]");
+  if (assignButton) {
+    const request = assignButton.closest("[data-ops-request]");
+    const select = request?.querySelector("[data-category-select]");
+    await assignPortoUnit(assignButton.dataset.assignUnit, { vehiclePrefix: select?.value || "" });
+    return;
+  }
+  const row = event.target.closest("[data-modern-ops-unit]");
+  if (row?.dataset.modernOpsUnit && !event.target.closest("button, select")) {
+    portoSelectedModernOpsUnitId = row.dataset.modernOpsUnit;
+    renderOpsPanel();
+  }
+});
+$("#portoModernOpsDashboard")?.addEventListener("contextmenu", async (event) => {
+  const row = event.target.closest("[data-modern-ops-unit]");
+  if (row?.dataset.modernOpsUnit) {
+    event.preventDefault();
+    openPortoOpsContextMenu(event, row.dataset.modernOpsUnit);
+    return;
+  }
+  await handleOpsUnitContextMenu(event);
+});
 let portoDiscordChannelStatusSavePending = false;
 
 async function saveDiscordChannelStatus(button) {
@@ -692,6 +764,22 @@ $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
 
 document.addEventListener("click", (event) => {
   if (event.target.closest("[data-duty-ops-claim]")) updatePortoOps("claim");
+  if (event.target.closest("#portoModernOpsOverviewBtn")) {
+    portoOpsViewMode = "ops";
+    renderDutyPanel();
+    renderOpsPanel();
+  }
+  const modernStatusButton = event.target.closest("[data-modern-status]");
+  if (modernStatusButton) {
+    const status = modernStatusButton.dataset.modernStatus;
+    if (status === "4") {
+      $("#portoStatus4Choices").hidden = false;
+      updatePortoStatus("4");
+    } else {
+      $("#portoStatus4Choices").hidden = true;
+      updatePortoStatus(status);
+    }
+  }
   if (!event.target.closest("#portoOpsUnitContextMenu")) closePortoOpsContextMenu();
 });
 
@@ -725,7 +813,7 @@ $("#portoDutyRoleActions")?.addEventListener("click", (event) => {
 });
 
 applyPortoBranding();
-window.DefensiePortalUI?.ensureUiModeToggle?.(".porto-topbar");
+bindPortoUiToggle();
 showPortoLockError();
 renderStatusButtons();
 renderVehicleRanges();
