@@ -192,6 +192,22 @@ body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
   background: #1688ff;
 }
 
+.porto-modern-vehicle-select {
+  display: grid;
+  gap: 8px;
+}
+
+.porto-modern-vehicle-select select {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid rgba(59, 130, 246, 0.34);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.82);
+  color: #f8fafc;
+  padding: 0 12px;
+  font-weight: 900;
+}
+
 .porto-modern-duty-members {
   margin-top: 16px;
   display: grid;
@@ -295,6 +311,44 @@ body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
 .porto-modern-status-button.active {
   transform: translateY(-1px);
   border-color: rgba(96, 165, 250, 0.92);
+}
+
+.porto-modern-status4-choices {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  background: rgba(5, 13, 26, 0.58);
+}
+
+.porto-modern-status4-choices > span {
+  display: block;
+  margin-bottom: 10px;
+  color: #b7d5f7;
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.porto-modern-status4-choices div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.porto-modern-status4-choices button {
+  min-height: 40px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #f8fafc;
+  padding: 0 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.porto-modern-status4-choices button:hover {
+  border-color: rgba(96, 165, 250, 0.86);
 }
 
 .porto-modern-duty-actions {
@@ -481,8 +535,21 @@ body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
 }
 
 .porto-modern-request-row {
-  grid-template-columns: minmax(180px, 1fr) minmax(140px, 1fr) minmax(180px, 0.8fr) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.8fr) minmax(170px, 0.9fr) auto;
   padding: 12px;
+}
+
+.porto-modern-request-row > div:first-child,
+.porto-modern-request-row label {
+  display: grid;
+  gap: 6px;
+}
+
+.porto-modern-request-row label span {
+  color: #84b4e8;
+  font-size: 11px;
+  font-weight: 1000;
+  text-transform: uppercase;
 }
 
 .porto-modern-request-row select {
@@ -493,6 +560,13 @@ body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
   color: #e5eefc;
   padding: 0 10px;
   font-weight: 900;
+}
+
+.porto-modern-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .porto-modern-unit-rows {

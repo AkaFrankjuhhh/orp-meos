@@ -565,10 +565,17 @@ function renderModernOpsDashboard() {
   }).join("") : '<div class="porto-ops-empty">Geen actieve eenheden.</div>';
   const requestRows = portoOpsRequests.length ? portoOpsRequests.map((request) => `
     <article class="porto-modern-request-row" data-ops-request="${escapeHtml(request.id)}">
-      <strong>${escapeHtml(request.serviceNumber || "-")} - ${escapeHtml(request.name || "Onbekend")}</strong>
-      <span>${escapeHtml(request.rank || "-")} ${request.requestNote ? `- ${request.requestNote}` : ""}</span>
-      <select data-category-select="${escapeHtml(request.id)}">${vehicleCategoryOptionsHtml()}</select>
-      <button class="porto-ops-assign" type="button" data-assign-unit="${escapeHtml(request.id)}">Indelen</button>
+      <div>
+        <strong>${escapeHtml(request.serviceNumber || "-")} - ${escapeHtml(request.name || "Onbekend")}</strong>
+        <span>${escapeHtml(request.rank || "-")} ${request.requestNote ? `- ${request.requestNote}` : ""}</span>
+      </div>
+      <label><span>Koppel aan</span><select data-link-select="${escapeHtml(request.id)}">${linkOptionsHtml()}</select></label>
+      <label><span>Kies voertuig</span><select data-category-select="${escapeHtml(request.id)}">${vehicleCategoryOptionsHtml()}</select></label>
+      <div class="porto-modern-request-actions">
+        <button class="porto-ops-assign secondary" type="button" data-link-unit="${escapeHtml(request.id)}">Koppelen</button>
+        <button class="porto-ops-assign" type="button" data-assign-unit="${escapeHtml(request.id)}">Indelen</button>
+        <button class="porto-ops-assign danger" type="button" data-reject-unit="${escapeHtml(request.id)}">Weigeren</button>
+      </div>
     </article>`).join("") : '<div class="porto-ops-empty">Geen open Status 0-aanmeldingen.</div>';
   const selectedMembers = selectedUnit ? (selectedUnit.members || []) : [];
   const selectedStatus = selectedUnit ? modernOpsUnitStatus(selectedUnit) : null;
@@ -580,6 +587,7 @@ function renderModernOpsDashboard() {
       </div>
       <div class="porto-modern-ops-title"><h1>${escapeHtml(portoOperatorLabel)} Dispatcher <span>v5</span></h1><p>Real-time eenheden overzicht en aansturing</p></div>
       <div class="porto-modern-ops-actions">
+        ${portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser() ? '<button class="porto-ops-action ghost" type="button" data-modern-duty-view>Mijn nummer</button>' : ""}
         <button class="porto-ops-action ghost" type="button" data-phonebook-open>Telefoonnummers</button>
         <span id="portoModernOpsDuration" class="porto-ops-duration-badge">${escapeHtml(modernOpsDurationText())}</span>
         <button class="porto-ops-action ghost" type="button" data-modern-ops-release>${escapeHtml(portoOperatorLabel)} neerleggen</button>

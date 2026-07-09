@@ -198,11 +198,37 @@ function modernOccupancyBars(count) {
   return Array.from({ length: 3 }, (_, index) => `<span class="${index < count ? "filled" : ""}"></span>`).join("");
 }
 
+function modernVehicleSelectHtml() {
+  const choices = portoDuty?.vehicleChoices || [];
+  const currentVehicle = portoDuty?.vehicleName || "";
+  if (!choices.length) return `<strong>${escapeHtml(portoDuty?.vehicleName || portoDuty?.vehicleType || "Onvoertuig")}</strong>`;
+  return `
+    <label class="porto-modern-vehicle-select">
+      <span>Voertuig</span>
+      <select data-modern-vehicle>
+        <option value="">Kies voertuig</option>
+        ${choices.map((vehicle) => `<option value="${escapeHtml(vehicle)}" ${vehicle === currentVehicle ? "selected" : ""}>${escapeHtml(vehicle)}</option>`).join("")}
+      </select>
+    </label>`;
+}
+
+function modernStatus4ChoicesHtml() {
+  return `
+    <section class="porto-modern-status4-choices" ${String(portoDuty?.status) === "4" ? "" : "hidden"}>
+      <span>Status 4 reden</span>
+      <div>
+        <button type="button" data-modern-status4="Staandehouding">Staandehouding</button>
+        <button type="button" data-modern-status4="Afhandeling">Afhandeling</button>
+        <button type="button" data-modern-status4="In hoofd">In hoofd</button>
+        <button type="button" data-modern-status4="Overige">Overige</button>
+      </div>
+    </section>`;
+}
+
 function renderModernDutyDashboard() {
   const container = $("#portoModernDutyDashboard");
   if (!container || !portoDuty || !portoProfile) return;
   const members = modernDutyMembers();
-  const vehicleName = portoDuty.vehicleName || portoDuty.vehicleType || "Onvoertuig";
   const status = portoStatuses.find((entry) => entry.code === String(portoDuty.status)) || portoStatuses[0];
   const memberNames = members.map((member) => member.name).filter(Boolean).join(" + ") || portoProfile.name || "Onbekend";
   const statusButtons = portoStatuses.map((entry) => `
@@ -242,13 +268,14 @@ function renderModernDutyDashboard() {
       </header>
       <section class="porto-modern-duty-meta-grid">
         <article><span>Kanaal</span><strong>${escapeHtml(portoDuty.discordChannelLabel || "Porto kanaal")}</strong></article>
-        <article><span>Voertuig</span><strong>${escapeHtml(vehicleName)}</strong></article>
+        <article>${modernVehicleSelectHtml()}</article>
         <article><span>Bezetting</span><strong>${members.length} / 3</strong><div>${modernOccupancyBars(members.length)}</div></article>
         <article><span>Koppeling</span><strong>${members.length > 1 ? "Actief" : "Solo"}</strong></article>
       </section>
       <section class="porto-modern-duty-members">${memberCards}</section>
       <h2>Statussen</h2>
       <section class="porto-modern-status-grid">${statusButtons}</section>
+      ${modernStatus4ChoicesHtml()}
       <footer class="porto-modern-duty-actions">
         <button class="porto-modern-secondary" type="button" data-phonebook-open>Telefoonnummers</button>
         <button class="porto-modern-secondary" type="button" id="portoModernOpsOverviewBtn">${escapeHtml(portoOrganization.key === "politie" ? "OC overzicht" : "OVD/OPCO/OC overzicht")}</button>

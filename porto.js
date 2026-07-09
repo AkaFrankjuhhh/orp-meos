@@ -552,6 +552,13 @@ $("#portoOpsRequests").addEventListener("contextmenu", async (event) => {
   await openPortoRequestContextMenu(event, request.dataset.opsRequest);
 });
 $("#portoModernOpsDashboard")?.addEventListener("click", async (event) => {
+  const dutyViewButton = event.target.closest("[data-modern-duty-view]");
+  if (dutyViewButton) {
+    portoOpsViewMode = "duty";
+    renderDutyPanel();
+    renderOpsPanel();
+    return;
+  }
   const releaseButton = event.target.closest("[data-modern-ops-release]");
   if (releaseButton) {
     await updatePortoOps("release");
@@ -572,11 +579,38 @@ $("#portoModernOpsDashboard")?.addEventListener("click", async (event) => {
     await chooseOpsStatusUpdate(statusButton.dataset.opsStatusUnit, event);
     return;
   }
+  const rejectButton = event.target.closest("[data-reject-unit]");
+  if (rejectButton?.dataset.rejectUnit) {
+    rejectButton.disabled = true;
+    try {
+      await rejectPortoRequest(rejectButton.dataset.rejectUnit);
+    } finally {
+      rejectButton.disabled = false;
+    }
+    return;
+  }
+  const linkButton = event.target.closest("[data-link-unit]");
+  if (linkButton?.dataset.linkUnit) {
+    const request = linkButton.closest("[data-ops-request]");
+    const select = request?.querySelector("[data-link-select]");
+    linkButton.disabled = true;
+    try {
+      await assignPortoUnit(linkButton.dataset.linkUnit, { linkToVehicleNumber: select?.value || "" });
+    } finally {
+      linkButton.disabled = false;
+    }
+    return;
+  }
   const assignButton = event.target.closest("[data-assign-unit]");
   if (assignButton) {
     const request = assignButton.closest("[data-ops-request]");
     const select = request?.querySelector("[data-category-select]");
-    await assignPortoUnit(assignButton.dataset.assignUnit, { vehiclePrefix: select?.value || "" });
+    assignButton.disabled = true;
+    try {
+      await assignPortoUnit(assignButton.dataset.assignUnit, { vehiclePrefix: select?.value || "" });
+    } finally {
+      assignButton.disabled = false;
+    }
     return;
   }
   const row = event.target.closest("[data-modern-ops-unit]");
@@ -773,14 +807,32 @@ document.addEventListener("click", (event) => {
   if (modernStatusButton) {
     const status = modernStatusButton.dataset.modernStatus;
     if (status === "4") {
-      $("#portoStatus4Choices").hidden = false;
+      const modernChoices = event.target.closest("#portoModernDutyDashboard")?.querySelector(".porto-modern-status4-choices");
+      if (modernChoices) modernChoices.hidden = false;
       updatePortoStatus("4");
     } else {
+      const modernChoices = event.target.closest("#portoModernDutyDashboard")?.querySelector(".porto-modern-status4-choices");
+      if (modernChoices) modernChoices.hidden = true;
       $("#portoStatus4Choices").hidden = true;
       updatePortoStatus(status);
     }
   }
+  const modernStatus4Button = event.target.closest("[data-modern-status4]");
+  if (modernStatus4Button) {
+    const modernChoices = modernStatus4Button.closest(".porto-modern-status4-choices");
+    if (modernChoices) modernChoices.hidden = true;
+    updatePortoStatus("4", modernStatus4Button.dataset.modernStatus4);
+  }
+  const modernVehicleSelect = event.target.closest("[data-modern-vehicle]");
+  if (modernVehicleSelect && event.type === "click") {
+    return;
+  }
   if (!event.target.closest("#portoOpsUnitContextMenu")) closePortoOpsContextMenu();
+});
+
+document.addEventListener("change", (event) => {
+  const modernVehicleSelect = event.target.closest("[data-modern-vehicle]");
+  if (modernVehicleSelect) updatePortoVehicle(modernVehicleSelect.value);
 });
 
 document.addEventListener("keydown", (event) => {
