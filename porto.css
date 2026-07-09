@@ -2806,6 +2806,8 @@ body.porto-ops-workspace .porto-ops-empty {
 }
 
 .porto-modern-member-action {
+  flex: 0 0 auto;
+  margin-left: auto;
   width: 32px;
   height: 34px;
   border: 0;

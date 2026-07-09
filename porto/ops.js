@@ -118,9 +118,13 @@ function renderOpsStatus() {
     durationBadge.textContent = `${isCurrentOpsUser() ? `Jouw ${portoOperatorLabel} duur` : `${portoOperatorLabel} duur`}: ${duration}`;
   }
   const modernDuration = $("#portoModernOpsDuration");
-  if (modernDuration) modernDuration.textContent = `${isCurrentOpsUser() ? `Jouw ${portoOperatorLabel} duur` : `${portoOperatorLabel} duur`}: ${duration}`;
+  if (modernDuration) modernDuration.textContent = modernOpsDurationText(duration);
   claimButton.hidden = Boolean(portoCurrentOps) || !portoCanTakeOps;
   releaseButton.hidden = !portoCurrentOps || !portoCanManageOps;
+}
+
+function modernOpsDurationText(duration = formatPortoDuration(opsElapsedSeconds(portoCurrentOps))) {
+  return `${isCurrentOpsUser() ? `Jouw ${portoOperatorLabel} duur` : `${portoOperatorLabel} duur`}: ${duration}`;
 }
 
 function vehicleCategoryOptionsHtml() {
@@ -577,7 +581,7 @@ function renderModernOpsDashboard() {
       <div class="porto-modern-ops-title"><h1>${escapeHtml(portoOperatorLabel)} Dispatcher <span>v5</span></h1><p>Real-time eenheden overzicht en aansturing</p></div>
       <div class="porto-modern-ops-actions">
         <button class="porto-ops-action ghost" type="button" data-phonebook-open>Telefoonnummers</button>
-        <span id="portoModernOpsDuration" class="porto-ops-duration-badge">${escapeHtml(formatPortoDuration(opsElapsedSeconds(portoCurrentOps)))}</span>
+        <span id="portoModernOpsDuration" class="porto-ops-duration-badge">${escapeHtml(modernOpsDurationText())}</span>
         <button class="porto-ops-action ghost" type="button" data-modern-ops-release>${escapeHtml(portoOperatorLabel)} neerleggen</button>
       </div>
     </header>
@@ -617,6 +621,7 @@ function renderModernOpsDashboard() {
                 ${memberAvatarHtml(member)}
                 <div><strong class="${escapeHtml(memberNameClass(member))}">${escapeHtml(member.name || "Onbekend")}</strong><span>${escapeHtml(member.serviceNumber || "-")} - ${visibleModernSpecializations(member).join(" / ") || "Geen specialisaties"}</span></div>
                 <span class="porto-modern-status-light ${escapeHtml(statusClassName(member))}"></span>
+                <button class="porto-modern-member-action" type="button" data-ops-open-menu="${escapeHtml(member.id)}" aria-label="Acties voor ${escapeHtml(member.name || "persoon")}">&rsaquo;</button>
               </article>`).join("")}
           </section>
           <button class="porto-modern-primary" type="button" data-ops-status-unit="${escapeHtml(primaryOpsMemberId(selectedUnit))}">Status wijzigen</button>
