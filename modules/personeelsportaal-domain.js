@@ -250,8 +250,19 @@ function savePerson(state, payload) {
   person.extraFunctions = normalizeOvcFunctionBadges(person.extraFunctions);
   const requestedRank = person.rank;
   const requestedRankDate = person.rankDate;
-  const requestedServiceNumber = person.serviceNumber;
+  let requestedServiceNumber = person.serviceNumber;
   const isOvcOnlyProfile = hasOvcFunctionBadge(person) && !person.rank && !person.serviceNumber;
+
+  if (
+    organization.key === "politie" &&
+    existing &&
+    existing.rank !== person.rank &&
+    !isOvcOnlyProfile &&
+    ranks.includes(person.rank)
+  ) {
+    assignFirstAvailableServiceNumber(state, person);
+    requestedServiceNumber = person.serviceNumber;
+  }
 
   if (!person.name || !person.discordId || (!isOvcOnlyProfile && (!ranks.includes(person.rank) || !person.serviceNumber))) {
     return { error: "Naam, Discord ID, rang en dienstnummer zijn verplicht." };

@@ -2464,7 +2464,9 @@ function wireEvents() {
       render();
     }
   });
-  $("#memberRank").addEventListener("change", () => fillServiceSelect());
+  $("#memberRank").addEventListener("change", () => {
+    fillServiceSelect("", { autoSelectFirst: organizationKey === "politie" });
+  });
 
   $("#peopleList").addEventListener("click", async (event) => {
     const menuButton = event.target.closest(".card-menu");

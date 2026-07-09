@@ -54,6 +54,41 @@ test("police can save a custom call sign in the correct rank prefix", () => {
   assert.equal(result.person.serviceNumber, "26-99");
 });
 
+test("police edit rank automatically moves the call sign to the new rank range", () => {
+  const { savePerson } = loadDomainForOrganization("politie");
+  const state = {
+    people: [{
+      id: "p1",
+      name: "Rang Wissel",
+      discordId: "123",
+      rank: "Hoofdagent",
+      serviceNumber: "26-53",
+      status: "Actief",
+      hiredDate: "2026-06-29",
+      rankDate: "2026-06-29",
+      promotionDate: "2026-06-29",
+      rankHistory: []
+    }],
+    activity: []
+  };
+
+  const result = savePerson(state, {
+    id: "p1",
+    name: "Rang Wissel",
+    discordId: "123",
+    rank: "Brigadier",
+    serviceNumber: "26-53",
+    hiredDate: "2026-06-29",
+    rankDate: "2026-07-09",
+    promotionDate: "2026-07-09"
+  });
+
+  assert.equal(result.error, undefined);
+  assert.equal(result.person.rank, "Brigadier");
+  assert.equal(result.person.serviceNumber, "25-33");
+  assert.equal(result.person.rankHistory.at(-1).serviceNumber, "25-33");
+});
+
 test("police custom call sign must still match the rank prefix and be unique", () => {
   const { savePerson } = loadDomainForOrganization("politie");
   const state = {

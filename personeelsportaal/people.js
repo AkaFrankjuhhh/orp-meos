@@ -76,15 +76,21 @@ function fillRestoreRankSelect(selected = "") {
   if (selected && ranks.includes(selected)) select.value = selected;
 }
 
-function fillServiceSelect(selected = "") {
+function firstAvailableServiceNumberForRank(rank, currentId = "") {
+  return getAvailableServiceNumbers(rank, "Geen", currentId)[0] || "";
+}
+
+function fillServiceSelect(selected = "", config = {}) {
   const rank = $("#memberRank").value;
   const currentId = $("#memberId").value;
   const numbers = getAvailableServiceNumbers(rank, "Geen", currentId);
-  if (selected && !numbers.includes(selected)) numbers.unshift(selected);
   const field = $("#memberService");
   const options = $("#memberServiceOptions");
+  const shouldAutoSelect = Boolean(config?.autoSelectFirst);
+  const nextSelected = shouldAutoSelect ? (numbers[0] || selected || "") : selected;
+  if (nextSelected && !numbers.includes(nextSelected)) numbers.unshift(nextSelected);
   if (options) options.innerHTML = numbers.map((number) => `<option value="${escapeHtml(number)}"></option>`).join("");
-  if (field && selected) field.value = selected;
+  if (field && (nextSelected || shouldAutoSelect)) field.value = nextSelected;
 }
 
 function usesManualRecruitServiceNumber() {
