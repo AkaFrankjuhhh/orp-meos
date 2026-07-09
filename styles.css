@@ -66,7 +66,7 @@ body[data-organization="defensie"][data-login-period="night"] {
 }
 
 body[data-organization="politie"] {
-  --lockscreen-fallback-image: url("assets/lockscreen-politie.png"), url("assets/lockscreen-defensie.png");
+  --lockscreen-fallback-image: url("assets/lockscreen-politie.png"), url("assets/lockscreen-politie-day.png"), url("assets/lockscreen-defensie.png");
 }
 
 body[data-organization="politie"][data-login-period="morning"] {
