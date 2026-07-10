@@ -594,7 +594,7 @@ function renderModernOpsDashboard() {
       </div>
     </header>
     <section class="porto-modern-stat-grid">
-      <article><span>Totaal eenheden</span><strong>${stats.totalUnits}</strong></article>
+      <article class="total"><span>Totaal eenheden</span><strong>${stats.totalUnits}</strong></article>
       <article class="available"><span>Beschikbaar</span><strong>${stats.available}</strong></article>
       <article class="onscene"><span>Ter plaatse</span><strong>${stats.onscene}</strong></article>
       <article class="urgent"><span>Actie nodig</span><strong>${stats.action + requestCount}</strong></article>
