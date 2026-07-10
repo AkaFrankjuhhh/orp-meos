@@ -58,6 +58,184 @@ body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
   overflow: visible;
 }
 
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) {
+  background:
+    radial-gradient(circle at 50% 34%, rgba(0, 102, 255, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.2), rgba(2, 6, 23, 0.92)),
+    url("assets/porto-dispatch-background.png") center / cover fixed;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-topbar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 8;
+  height: 92px;
+  min-height: 92px;
+  padding: 24px clamp(24px, 3.2vw, 58px);
+  background: transparent;
+  pointer-events: none;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-ui-switch,
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .profile-chip {
+  pointer-events: auto;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-ui-switch {
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-ui-switch button {
+  min-width: 74px;
+  border-radius: 999px;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-ui-switch button.is-active {
+  background: linear-gradient(135deg, #0369ff, #00a2ff);
+  box-shadow: 0 0 22px rgba(0, 132, 255, 0.42);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .profile-chip {
+  min-height: 92px;
+  padding: 16px 18px;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 18px;
+  background: rgba(5, 13, 26, 0.58);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .profile-chip img {
+  width: 58px;
+  height: 58px;
+  border: 2px solid #008cff;
+  box-shadow: 0 0 22px rgba(0, 132, 255, 0.46);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-empty {
+  height: 100dvh;
+  background: transparent;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-brand {
+  top: clamp(86px, 13vh, 150px);
+  gap: clamp(24px, 2.8vw, 46px);
+  opacity: 1;
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.58));
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-logo {
+  width: clamp(92px, 7vw, 136px);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-title {
+  color: #0668ff;
+  font-size: clamp(54px, 5.8vw, 92px);
+  text-shadow: 0 0 26px rgba(0, 102, 255, 0.34), 0 10px 34px rgba(0, 0, 0, 0.52);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-subtitle {
+  color: rgba(56, 140, 255, 0.92);
+  font-size: clamp(28px, 2.8vw, 50px);
+  letter-spacing: 0.16em;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-center {
+  height: 100%;
+  place-items: start center;
+  align-content: start;
+  transform: none;
+  padding: clamp(280px, 34vh, 360px) clamp(18px, 3vw, 60px) 40px;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-intro {
+  width: min(880px, 94vw);
+  max-width: none;
+  gap: 22px;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-intro h1 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: clamp(38px, 3.1vw, 58px);
+  line-height: 1.05;
+  text-shadow: 0 8px 32px rgba(0, 0, 0, 0.54);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-intro p {
+  max-width: 860px;
+  color: rgba(226, 232, 240, 0.86);
+  font-size: clamp(17px, 1.1vw, 22px);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-zero-card {
+  width: min(840px, 100%);
+  gap: 24px;
+  padding: clamp(28px, 2.4vw, 46px);
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.18), transparent 35%),
+    rgba(8, 20, 40, 0.72);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-request-label {
+  gap: 16px;
+  font-size: 24px;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-request-label textarea {
+  min-height: 126px;
+  border-color: rgba(96, 165, 250, 0.42);
+  border-radius: 14px;
+  background: rgba(2, 10, 24, 0.72);
+  font-size: 18px;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-zero-card .porto-status-button {
+  min-height: 92px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  border: 1px solid rgba(59, 130, 246, 0.64);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.28), transparent 38%),
+    linear-gradient(135deg, #0066ff, #0047b8);
+  color: #fff;
+  font-size: 28px;
+  box-shadow: 0 0 36px rgba(0, 102, 255, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-zero-card .porto-status-button::after {
+  content: "Aanmelden in dienst";
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-current-ops {
+  gap: 18px;
+  color: rgba(248, 250, 252, 0.96);
+  font-size: clamp(18px, 1.2vw, 24px);
+}
+
+body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-current-ops .porto-ops-action {
+  min-height: 52px;
+  padding: 0 28px;
+  border: 1px solid rgba(96, 165, 250, 0.54);
+  background: linear-gradient(135deg, #0066ff, #0055d8);
+  box-shadow: 0 0 26px rgba(0, 102, 255, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  font-size: 18px;
+}
+
 .porto-modern-duty-dashboard,
 .porto-modern-ops-dashboard {
   width: 100%;
@@ -288,11 +466,15 @@ body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
   align-items: center;
   gap: 18px;
   padding: 18px 20px;
-  border: 1px solid rgba(59, 130, 246, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(0, 83, 174, 0.55), rgba(6, 22, 45, 0.78));
-  color: #f8fafc;
+  background:
+    radial-gradient(circle at 22% 20%, rgba(255, 255, 255, 0.24), transparent 28%),
+    linear-gradient(135deg, rgba(0, 83, 174, 0.55), rgba(6, 22, 45, 0.78));
+  color: #07111f;
   cursor: pointer;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
 }
 
 .porto-modern-status-button span {
@@ -301,7 +483,8 @@ body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1px solid currentColor;
+  border: 1px solid rgba(7, 17, 31, 0.28);
+  background: rgba(7, 17, 31, 0.08);
   font-size: 24px;
   font-weight: 1000;
 }
@@ -310,15 +493,76 @@ body[data-porto-ui="modern"].porto-ops-workspace .porto-ops-panel {
   font-size: 16px;
 }
 
-.porto-modern-status-button.available { border-color: rgba(34, 197, 94, 0.56); box-shadow: inset 0 0 34px rgba(22, 163, 74, 0.22); }
-.porto-modern-status-button.speech { border-color: rgba(245, 158, 11, 0.58); box-shadow: inset 0 0 34px rgba(245, 158, 11, 0.22); }
-.porto-modern-status-button.urgent { border-color: rgba(239, 68, 68, 0.66); box-shadow: inset 0 0 34px rgba(239, 68, 68, 0.26); }
-.porto-modern-status-button.unavailable,
-.porto-modern-status-button.offduty { opacity: 0.78; }
+.porto-modern-status-button.available {
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.24), transparent 28%),
+    linear-gradient(135deg, #7bbf5b, #4d9b3e);
+  border-color: rgba(123, 191, 91, 0.76);
+  box-shadow: 0 0 28px rgba(123, 191, 91, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.porto-modern-status-button.driving {
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.24), transparent 28%),
+    linear-gradient(135deg, #48c9d9, #1eabc2);
+  border-color: rgba(72, 201, 217, 0.76);
+  box-shadow: 0 0 28px rgba(72, 201, 217, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.porto-modern-status-button.onscene {
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.22), transparent 28%),
+    linear-gradient(135deg, #5a99ed, #3f7fdc);
+  border-color: rgba(90, 153, 237, 0.78);
+  color: #fff;
+  box-shadow: 0 0 28px rgba(90, 153, 237, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.porto-modern-status-button.unavailable {
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.34), transparent 28%),
+    linear-gradient(135deg, #e5e7eb, #b8c0ca);
+  border-color: rgba(229, 231, 235, 0.78);
+  box-shadow: 0 0 24px rgba(229, 231, 235, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+.porto-modern-status-button.transport {
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.3), transparent 28%),
+    linear-gradient(135deg, #c8dcff, #91b7f1);
+  border-color: rgba(200, 220, 255, 0.78);
+  box-shadow: 0 0 26px rgba(145, 183, 241, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+.porto-modern-status-button.speech {
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.22), transparent 28%),
+    linear-gradient(135deg, #f5a343, #e17000);
+  border-color: rgba(245, 163, 67, 0.78);
+  box-shadow: 0 0 28px rgba(225, 112, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.porto-modern-status-button.urgent {
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.2), transparent 28%),
+    linear-gradient(135deg, #ff3030, #d60000);
+  border-color: rgba(255, 48, 48, 0.82);
+  color: #fff;
+  box-shadow: 0 0 30px rgba(255, 48, 48, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+.porto-modern-status-button.offduty {
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.28), transparent 28%),
+    linear-gradient(135deg, #bababa, #8d8d8d);
+  border-color: rgba(186, 186, 186, 0.78);
+  box-shadow: 0 0 24px rgba(186, 186, 186, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+.porto-modern-status-button.onscene span,
+.porto-modern-status-button.urgent span {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .porto-modern-status-button:hover,
 .porto-modern-status-button.active {
-  transform: translateY(-1px);
-  border-color: rgba(96, 165, 250, 0.92);
+  transform: translateY(-2px);
+  filter: saturate(1.08) brightness(1.03);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.34), 0 0 0 2px rgba(255, 255, 255, 0.18) inset;
 }
 
 .porto-modern-status4-choices {
