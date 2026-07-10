@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Porto-Systeem | Defensie Oranjestad</title>
     <link rel="stylesheet" href="shared.css?v=20260709-politie-lockscreen-fallback" />
-    <link rel="stylesheet" href="porto.css?v=20260710-modern-ops-context-polish" />
+    <link rel="stylesheet" href="porto.css?v=20260710-modern-profile-dialog" />
   </head>
   <body class="porto-blank porto-locked">
     <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
@@ -233,7 +233,7 @@
 
     <dialog id="portoProfileDialog" class="porto-profile-dialog">
       <form id="portoProfileForm" method="dialog" class="dialog-form porto-profile-form">
-        <div class="panel-head">
+        <div class="panel-head porto-profile-titlebar">
           <h2>Mijn profiel</h2>
           <button class="ghost icon" type="button" id="closePortoProfileDialog">&times;</button>
         </div>
@@ -241,20 +241,23 @@
           <img id="portoProfileAvatar" alt="" />
           <div>
             <span class="person-label">Naam - Dienstnummer</span>
-            <h3 id="portoProfileNameService">-</h3>
+            <h3><span id="portoProfileNameService">-</span><span id="portoProfileServiceBadge" class="porto-profile-service-badge">-</span></h3>
             <p id="portoProfileRank" class="muted">-</p>
           </div>
         </section>
-        <label class="full">Telefoonnummer voor Porto<input id="portoPhone" type="tel" placeholder="Bijv. 06-12345678" /></label>
-        <section>
+        <section class="porto-profile-section porto-profile-phone-section">
+          <div class="porto-profile-section-title"><span aria-hidden="true">&#9742;</span><h3>Persoonsinformatie</h3></div>
+          <label class="full">Porto telefoonnummer<input id="portoPhone" type="tel" placeholder="Bijv. 06-12345678" /></label>
+        </section>
+        <section class="porto-profile-section">
           <div class="panel-head compact-head">
-            <h3>Behaalde trainingen</h3>
+            <h3><span aria-hidden="true">&#9635;</span>Behaalde trainingen</h3>
           </div>
           <div id="portoTrainingList" class="porto-training-list"></div>
         </section>
-        <section>
+        <section class="porto-profile-section">
           <div class="panel-head compact-head">
-            <h3>Operationeel</h3>
+            <h3><span aria-hidden="true">&#9670;</span>Operationeel</h3>
           </div>
           <div id="portoOperationalList" class="porto-training-list compact"></div>
         </section>

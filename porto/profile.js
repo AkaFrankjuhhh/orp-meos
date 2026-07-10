@@ -11,7 +11,8 @@ function renderQualificationList(container, items, completed) {
 function renderPortoProfileDialog() {
   if (!portoProfile) return;
   $("#portoProfileAvatar").src = avatarFor(portoProfile);
-  $("#portoProfileNameService").textContent = `${portoProfile.name || "Onbekend"} - ${portoProfile.serviceNumber || "-"}`;
+  $("#portoProfileNameService").textContent = portoProfile.name || "Onbekend";
+  $("#portoProfileServiceBadge").textContent = portoProfile.serviceNumber || "-";
   $("#portoProfileRank").textContent = portoProfile.rank || "-";
   $("#portoPhone").value = portoProfile.portoPhone || "";
   renderQualificationList($("#portoTrainingList"), profileTrainings, portoProfile.completedTrainings);
