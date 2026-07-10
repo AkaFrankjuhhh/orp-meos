@@ -1051,11 +1051,6 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const cleanedOpsEligibility = closeIneligiblePortoOpsUnits(state);
       const currentOps = activePortoOps(state);
       if (action === "claim") {
-        if (isRecentlyEnded(person.id)) {
-          if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
-          sendJson(res, 409, recentlyEndedError());
-          return true;
-        }
         if (!canServePortoOps(person)) {
           if (cleanedOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
           sendJson(res, 403, { error: `Alleen medewerkers met ${operatorTraining}-training mogen ${operatorLabel} oppakken.` });
@@ -1067,6 +1062,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           return true;
         }
         const nowIso = new Date().toISOString();
+        clearRecentlyEnded(person.id);
         state.portoCurrentOps = { memberId: person.id, name: person.name, serviceNumber: person.serviceNumber, phone: person.portoPhone || "", startedAt: currentOps?.startedAt || nowIso, active: true };
         const unit = ensureOpsUnit(state, person, nowIso);
         closeDuplicateOpsUnits(state, person, unit, nowIso);

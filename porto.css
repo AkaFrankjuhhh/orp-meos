@@ -62,16 +62,16 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   background:
     radial-gradient(circle at 50% 34%, rgba(0, 102, 255, 0.16), transparent 34%),
     linear-gradient(180deg, rgba(2, 6, 23, 0.2), rgba(2, 6, 23, 0.92)),
-    url("assets/porto-dispatch-background.png") center / cover fixed;
+    url("assets/porto-status-modern-background.png") center / cover fixed;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-topbar {
   position: fixed;
-  inset: 0 0 auto;
+  inset: 18px 0 auto;
   z-index: 8;
   height: 92px;
   min-height: 92px;
-  padding: 24px clamp(24px, 3.2vw, 58px);
+  padding: 0 clamp(24px, 3.2vw, 58px);
   background: transparent;
   pointer-events: none;
 }
