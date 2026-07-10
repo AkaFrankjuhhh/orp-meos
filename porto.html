@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Porto-Systeem | Defensie Oranjestad</title>
     <link rel="stylesheet" href="shared.css?v=20260709-politie-lockscreen-fallback" />
-    <link rel="stylesheet" href="porto.css?v=20260710-modern-status-bg" />
+    <link rel="stylesheet" href="porto.css?v=20260710-modern-ops-context-polish" />
   </head>
   <body class="porto-blank porto-locked">
     <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
@@ -107,9 +107,10 @@
           <div class="porto-pending-card">
             <div class="porto-spinner" aria-hidden="true"></div>
             <h2>Uw aanmelding wordt verwerkt</h2>
-            <button id="portoCancelPendingBtn" class="porto-pending-cancel" type="button">Aanmelding annuleren</button>
-            <button id="portoManagementBypassBtn" class="porto-management-bypass" type="button" hidden>Kader Bypass</button>
-            <button id="portoDevBypassBtn" class="porto-dev-bypass" type="button" hidden>Dev bypass</button>
+            <p>Even geduld, uw aanvraag wordt gecontroleerd door het systeem.</p>
+            <button id="portoCancelPendingBtn" class="porto-pending-cancel" type="button"><span aria-hidden="true">&#9826;</span>Aanmelding annuleren</button>
+            <button id="portoManagementBypassBtn" class="porto-management-bypass" type="button" hidden><span aria-hidden="true">&#9817;</span>Kader Bypass</button>
+            <button id="portoDevBypassBtn" class="porto-dev-bypass" type="button" hidden><span aria-hidden="true">&lt;/&gt;</span>Dev bypass</button>
           </div>
         </section>
 
@@ -306,9 +307,9 @@
     <script src="porto/module-registry.js?v=20260518-module-split"></script>
     <script src="porto/audio.js?v=20260606-self-vehicle-audio"></script>
     <script src="porto/map.js?v=20260518-module-split"></script>
-    <script src="porto/ops.js?v=20260710-modern-ops-polish"></script>
+    <script src="porto/ops.js?v=20260710-modern-ops-header"></script>
     <script src="porto/duty.js?v=20260709-modern-porto-parity"></script>
     <script src="porto/profile.js?v=20260602-throttled-status"></script>
-    <script src="porto.js?v=20260709-modern-porto-parity"></script>
+    <script src="porto.js?v=20260710-modern-ops-header"></script>
   </body>
 </html>

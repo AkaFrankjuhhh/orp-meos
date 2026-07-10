@@ -359,7 +359,7 @@ function memberInitial(name) {
 }
 
 function memberAvatarHtml(member) {
-  const avatar = String(member?.avatar || "").trim();
+  const avatar = String(member?.avatar || member?.avatarUrl || "").trim();
   if (!avatar) return `<span class="porto-modern-member-initial">${escapeHtml(memberInitial(member?.name))}</span>`;
   return `<img class="porto-modern-member-avatar" src="${escapeHtml(avatar)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
 }
@@ -579,18 +579,28 @@ function renderModernOpsDashboard() {
     </article>`).join("") : '<div class="porto-ops-empty">Geen open Status 0-aanmeldingen.</div>';
   const selectedMembers = selectedUnit ? (selectedUnit.members || []) : [];
   const selectedStatus = selectedUnit ? modernOpsUnitStatus(selectedUnit) : null;
+  const modernBrandMark = portoOrganization.key === "politie"
+    ? '<span class="porto-modern-brand-letter">P</span>'
+    : '<img src="assets/defensielogo-wall-clean.png" alt="" />';
+  const modernProfileCard = portoProfile ? `
+        <button class="porto-modern-ops-profile" type="button" data-modern-profile-open>
+          ${memberAvatarHtml(portoProfile)}
+          <span><strong>${escapeHtml(portoProfile.name || "-")}</strong><small>${escapeHtml(portoProfile.serviceNumber || "-")}</small></span>
+          <b aria-hidden="true">v</b>
+        </button>` : "";
   container.innerHTML = `
     <header class="porto-modern-ops-header">
       <div class="porto-modern-brand">
-        <span class="porto-modern-brand-mark">${escapeHtml(portoOrganization.key === "politie" ? "P" : "KM")}</span>
+        <span class="porto-modern-brand-mark">${modernBrandMark}</span>
         <div><strong>${escapeHtml(portoOrganization.key === "politie" ? "ORANJESTAD POLITIE" : "KONINKLIJKE MARECHAUSSEE")}</strong><span>FiveM Roleplay</span></div>
       </div>
       <div class="porto-modern-ops-title"><h1>${escapeHtml(portoOperatorLabel)} Dispatcher <span>v5</span></h1><p>Real-time eenheden overzicht en aansturing</p></div>
       <div class="porto-modern-ops-actions">
         ${portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser() ? '<button class="porto-ops-action ghost" type="button" data-modern-duty-view>Mijn nummer</button>' : ""}
-        <button class="porto-ops-action ghost" type="button" data-phonebook-open>Telefoonnummers</button>
-        <span id="portoModernOpsDuration" class="porto-ops-duration-badge">${escapeHtml(modernOpsDurationText())}</span>
-        <button class="porto-ops-action ghost" type="button" data-modern-ops-release>${escapeHtml(portoOperatorLabel)} neerleggen</button>
+        <button class="porto-ops-action ghost" type="button" data-phonebook-open><span aria-hidden="true">&#9742;</span> Telefoonnummers</button>
+        <span id="portoModernOpsDuration" class="porto-ops-duration-badge"><span aria-hidden="true">&#9201;</span> ${escapeHtml(modernOpsDurationText())}</span>
+        <button class="porto-ops-action ghost danger" type="button" data-modern-ops-release><span aria-hidden="true">&#9888;</span> ${escapeHtml(portoOperatorLabel)} neerleggen</button>
+        ${modernProfileCard}
       </div>
     </header>
     <section class="porto-modern-stat-grid">

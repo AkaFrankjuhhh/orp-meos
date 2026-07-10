@@ -559,6 +559,11 @@ $("#portoModernOpsDashboard")?.addEventListener("click", async (event) => {
     renderOpsPanel();
     return;
   }
+  const profileButton = event.target.closest("[data-modern-profile-open]");
+  if (profileButton) {
+    openPortoProfileDialog();
+    return;
+  }
   const releaseButton = event.target.closest("[data-modern-ops-release]");
   if (releaseButton) {
     await updatePortoOps("release");
