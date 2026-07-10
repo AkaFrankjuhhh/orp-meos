@@ -286,7 +286,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     const normalized = normalizeDiscordId(discordId);
     if (!normalized) return null;
     return (state.people || []).find((person) => (
-      person.id !== excludedPersonId && normalizeDiscordId(person.discordId) === normalized
+      person.id !== excludedPersonId &&
+      isCurrentPerson(person) &&
+      normalizeDiscordId(person.discordId) === normalized
     )) || null;
   }
 
@@ -1714,7 +1716,7 @@ function createPersoneelsportaalRouteHandler(deps) {
 
     const existingProfile = existingProfileForDiscordId(state, discordId);
     if (existingProfile) {
-      sendJson(res, 409, { error: "Er bestaat al een profiel met deze Discord ID. Heractiveer het bestaande profiel in plaats van een tweede profiel aan te maken." });
+      sendJson(res, 409, { error: "Er bestaat al een actief profiel met deze Discord ID." });
       return;
     }
     const rank = defaultRecruitRank || ranks[ranks.length - 1];

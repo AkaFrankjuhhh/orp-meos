@@ -38,6 +38,7 @@ const requiredRoleRetryMs = Math.max(60000, Number(process.env.DISCORD_REQUIRED_
 const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toLowerCase() !== "false";
 const organization = currentOrganization();
 const leaveLogWebhookConfigured = Boolean(discordLeaveLogWebhookUrl(organization));
+const blockedPortalStatusSql = "lower(coalesce(people.status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')";
 const guildMembersIntent = String(process.env.DISCORD_GATEWAY_GUILD_MEMBERS_INTENT || "false").toLowerCase() === "true" || leaveLogWebhookConfigured;
 const voiceStatesIntent = String(process.env.DISCORD_GATEWAY_VOICE_STATES_INTENT || "true").toLowerCase() !== "false";
 const bot = createDiscordBotServices();
@@ -795,7 +796,12 @@ async function findPortalPersonByDiscordId(discordId) {
   try {
     return await withClient(async (client) => {
       const result = await client.query(
-        "select id, name, rank, service_number, status, discord_roles from people where discord_id = $1 limit 1",
+        `select id, name, rank, service_number, status, discord_roles
+         from people
+         where discord_id = $1
+           and ${blockedPortalStatusSql}
+         order by updated_at desc nulls last
+         limit 1`,
         [normalizedDiscordId]
       );
       const row = result.rows[0];
@@ -820,6 +826,7 @@ async function reconcilePortoVoiceChannelsFromGatewaySnapshot() {
       left join people on people.id = units.member_id
       where units.active = true
         and coalesce(units.vehicle_number, '') <> ''
+        and (people.id is null or ${blockedPortalStatusSql})
       order by units.vehicle_number, units.updated_at desc nulls last
     `);
     const vehicles = new Map();
@@ -911,6 +918,7 @@ async function updatePortoVoiceChannelFromDiscord(discordId, channelId) {
       where units.active = true
         and coalesce(units.vehicle_number, '') <> ''
         and people.discord_id = $1
+        and ${blockedPortalStatusSql}
       order by units.updated_at desc nulls last, units.assigned_at desc nulls last
       limit 1
     `, [String(discordId)]);
@@ -1011,7 +1019,7 @@ async function updatePortalDiscordSyncStatus(person, state, message, reason) {
         raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('discordSyncStatus', $3::jsonb),
         updated_at = now()
       where ($1 <> '' and id = $1)
-         or ($2 <> '' and discord_id = $2)
+         or ($1 = '' and $2 <> '' and discord_id = $2 and ${blockedPortalStatusSql})
     `, [person.id || "", person.discordId || "", JSON.stringify(statusPayload)]);
     await client.query("select pg_notify($1, $2)", ["orp_app_events", JSON.stringify({
       scope: "people",

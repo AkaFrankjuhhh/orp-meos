@@ -1,6 +1,7 @@
 "use strict";
 
 const { splitRangeByOperationalWeeks } = require("./operational-weeks");
+const { isCurrentPerson } = require("./person-status");
 
 const PORTO_DUTY_HOURS_SOURCE = "porto-duty-clock";
 const PORTO_DUTY_HOURS_ENTERED_BY_ID = "system:porto-duty-clock";
@@ -76,6 +77,7 @@ function peopleIndexes(people) {
   for (const person of Array.isArray(people) ? people : []) {
     if (!person || !person.id) continue;
     byId.set(String(person.id), person);
+    if (!isCurrentPerson(person)) continue;
     if (person.discordId) byDiscordId.set(normalize(person.discordId), person);
     if (person.serviceNumber) byServiceNumber.set(normalize(person.serviceNumber), person);
     if (person.name) byName.set(normalize(person.name), person);

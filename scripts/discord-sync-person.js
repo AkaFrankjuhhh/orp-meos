@@ -5,6 +5,7 @@ loadEnv();
 const { readPostgresState } = require("../modules/postgres-state");
 const { createDiscordBotServices } = require("../modules/discord-bot");
 const { currentOrganization, organizationMainRoleId } = require("../modules/organizations");
+const { isCurrentPerson } = require("../modules/person-status");
 
 function argValue(name) {
   const prefix = `${name}=`;
@@ -81,15 +82,17 @@ async function main() {
     }
     throw new Error(`Geen profiel gevonden voor "${query}". Probeer --query "dienstnummer" of --discord "Discord ID".`);
   }
-  if (matches.length > 1) {
+  const currentMatches = matches.filter(isCurrentPerson);
+  const effectiveMatches = currentMatches.length ? currentMatches : matches;
+  if (effectiveMatches.length > 1) {
     console.log(`Meerdere profielen gevonden voor "${query}":`);
-    for (const person of matches) {
+    for (const person of effectiveMatches) {
       console.log(`- ${person.serviceNumber || "-"} ${person.name || "-"} discord=${person.discordId || "-"} status=${person.status || "-"}`);
     }
     throw new Error("Maak de query specifieker met --service of --discord.");
   }
 
-  const person = matches[0];
+  const person = effectiveMatches[0];
   const completed = new Set([
     ...(Array.isArray(person.completedTrainings) ? person.completedTrainings : []),
     ...(Array.isArray(person.completedOperational) ? person.completedOperational : [])

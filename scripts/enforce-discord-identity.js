@@ -6,6 +6,7 @@ const { withClient, closePool } = require("../modules/db");
       select discord_id
       from people
       where coalesce(trim(discord_id), '') <> ''
+        and lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')
       group by discord_id
       having count(*) > 1
     `);
@@ -13,12 +14,13 @@ const { withClient, closePool } = require("../modules/db");
       throw new Error("Er zijn nog dubbele Discord IDs. Draai eerst: npm run db:discord-identity:check");
     }
     await client.query(`
-      create unique index if not exists people_discord_id_unique_idx
+      create unique index if not exists people_current_discord_id_unique_idx
       on people(discord_id)
       where coalesce(trim(discord_id), '') <> ''
+        and lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')
     `);
   });
-  console.log("Unieke Discord-ID bescherming is ingeschakeld.");
+  console.log("Unieke Discord-ID bescherming is ingeschakeld voor actuele profielen.");
 })().catch((error) => {
   console.error(error.message);
   process.exitCode = 1;
