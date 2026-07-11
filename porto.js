@@ -57,6 +57,7 @@ let portoPhonebookView = [];
 let portoPhonebookSignature = "";
 let portoPhonebookLastRenderKey = "";
 let portoPhonebookRenderTimer = null;
+let portoPhonebookRenderVersion = 0;
 let portoDiscordChannels = [];
 let portoDiscordChannelGroups = [];
 let portoMapEnabled = false;
@@ -234,12 +235,30 @@ function renderPortoPhonebook() {
   const renderKey = `${portoPhonebookSignature}|${query}`;
   if (renderKey === portoPhonebookLastRenderKey) return;
   portoPhonebookLastRenderKey = renderKey;
+  const renderVersion = ++portoPhonebookRenderVersion;
   const entries = portoPhonebookView.filter((person) => !query || person.searchText.includes(query));
   if (!entries.length) {
     rows.innerHTML = '<div class="porto-phonebook-empty">Geen personen gevonden.</div>';
     return;
   }
-  rows.innerHTML = entries.map(portoPhonebookRowHtml).join("");
+  const firstBatchSize = 80;
+  const chunkSize = 160;
+  rows.innerHTML = entries.slice(0, firstBatchSize).map(portoPhonebookRowHtml).join("");
+  let index = firstBatchSize;
+  const appendChunk = () => {
+    if (renderVersion !== portoPhonebookRenderVersion || index >= entries.length) return;
+    const nextIndex = Math.min(index + chunkSize, entries.length);
+    rows.insertAdjacentHTML("beforeend", entries.slice(index, nextIndex).map(portoPhonebookRowHtml).join(""));
+    index = nextIndex;
+    if (index < entries.length) {
+      if ("requestIdleCallback" in window) window.requestIdleCallback(appendChunk, { timeout: 120 });
+      else window.setTimeout(appendChunk, 16);
+    }
+  };
+  if (index < entries.length) {
+    if ("requestIdleCallback" in window) window.requestIdleCallback(appendChunk, { timeout: 120 });
+    else window.setTimeout(appendChunk, 16);
+  }
 }
 
 function schedulePortoPhonebookRender() {
@@ -247,7 +266,7 @@ function schedulePortoPhonebookRender() {
   portoPhonebookRenderTimer = window.setTimeout(() => {
     portoPhonebookRenderTimer = null;
     renderPortoPhonebook();
-  }, 120);
+  }, 40);
 }
 
 function openPortoPhonebook() {
@@ -625,13 +644,16 @@ $("#portoModernOpsDashboard")?.addEventListener("click", async (event) => {
   }
 });
 $("#portoModernOpsDashboard")?.addEventListener("contextmenu", async (event) => {
+  if (event.target.closest("[data-ops-status-unit], [data-ops-number-unit], [data-ops-vehicle-unit], [data-ops-unit-member], [data-ops-unit-card]")) {
+    await handleOpsUnitContextMenu(event);
+    return;
+  }
   const row = event.target.closest("[data-modern-ops-unit]");
   if (row?.dataset.modernOpsUnit) {
     event.preventDefault();
     openPortoOpsContextMenu(event, row.dataset.modernOpsUnit);
     return;
   }
-  await handleOpsUnitContextMenu(event);
 });
 let portoDiscordChannelStatusSavePending = false;
 
@@ -755,6 +777,12 @@ $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
   if (action === "discord-channel") {
     closePortoOpsContextMenu();
     await chooseOpsDiscordChannelUpdate(unitId, event);
+    return;
+  }
+
+  if (action === "number") {
+    closePortoOpsContextMenu();
+    await chooseOpsNumberUpdate(unitId, event);
     return;
   }
 

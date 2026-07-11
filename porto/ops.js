@@ -537,6 +537,16 @@ function modernOpsAvatarStack(unit) {
     </div>`;
 }
 
+function modernOpsChannelDisplay(unit) {
+  const key = String(unit?.discordChannelKey || "").trim();
+  const channel = (portoDiscordChannels || []).find((entry) => entry.configured && entry.key === key);
+  if (!channel) return { label: "Onbekend", detail: "Geen officieel kanaal" };
+  return {
+    label: unit.discordChannelLabel || channel.label || "Porto-kanaal",
+    detail: unit.discordChannelStatus || unit.discordChannelName || "Officieel kanaal"
+  };
+}
+
 function renderModernOpsDashboard() {
   const container = $("#portoModernOpsDashboard");
   if (!container) return;
@@ -551,15 +561,16 @@ function renderModernOpsDashboard() {
     const primary = primaryOpsMember(unit);
     const actionId = primaryOpsMemberId(unit);
     const status = modernOpsUnitStatus(unit);
+    const channel = modernOpsChannelDisplay(unit);
     const selected = String(actionId || unit.vehicleNumber) === String(portoSelectedModernOpsUnitId);
     return `
       <article class="porto-modern-ops-row ${selected ? "selected" : ""}" data-modern-ops-unit="${escapeHtml(actionId)}">
         <span class="porto-modern-status-light ${escapeHtml(statusClassName(primary))}"></span>
         <strong>${escapeHtml(unit.vehicleNumber || "-")}</strong>
-        <span>${escapeHtml(opsUnitVehicleLine(unit))}</span>
+        <span data-ops-vehicle-unit="${escapeHtml(actionId)}" title="Rechtermuisknop voor voertuig/functie wijzigen">${escapeHtml(opsUnitVehicleLine(unit))}</span>
         <button class="porto-status-pill ${escapeHtml(status.className)}" type="button" data-ops-status-unit="${escapeHtml(actionId)}">${escapeHtml(status.label)}</button>
         ${modernOpsAvatarStack(unit)}
-        <small>${escapeHtml(unit.discordChannelLabel || "Ops centrum")}<br>${escapeHtml(unit.discordChannelStatus || unit.discordChannelName || "Porto-kanaal")}</small>
+        <small>${escapeHtml(channel.label)}<br>${escapeHtml(channel.detail)}</small>
         <button class="porto-modern-row-arrow" type="button" data-ops-open-menu="${escapeHtml(actionId)}" aria-label="Acties">&rsaquo;</button>
       </article>`;
   }).join("") : '<div class="porto-ops-empty">Geen actieve eenheden.</div>';
@@ -579,6 +590,7 @@ function renderModernOpsDashboard() {
     </article>`).join("") : '<div class="porto-ops-empty">Geen open Status 0-aanmeldingen.</div>';
   const selectedMembers = selectedUnit ? (selectedUnit.members || []) : [];
   const selectedStatus = selectedUnit ? modernOpsUnitStatus(selectedUnit) : null;
+  const selectedChannel = selectedUnit ? modernOpsChannelDisplay(selectedUnit) : null;
   const modernBrandMark = portoOrganization.key === "politie"
     ? '<span class="porto-modern-brand-letter">P</span>'
     : '<img src="assets/defensielogo-wall-clean.png" alt="" />';
@@ -628,7 +640,7 @@ function renderModernOpsDashboard() {
           <header><span class="porto-modern-status-light ${escapeHtml(statusClassName(primaryOpsMember(selectedUnit)))}"></span><h2>${escapeHtml(selectedUnit.vehicleNumber || "-")} <small>${escapeHtml(selectedUnit.vehicleCode || portoOperatorLabel)}</small></h2><span class="porto-status-pill ${escapeHtml(selectedStatus.className)}">${escapeHtml(selectedStatus.label)}</span></header>
           <dl>
             <div><dt>Status</dt><dd>${escapeHtml(memberStatusLabel(primaryOpsMember(selectedUnit)))}</dd></div>
-            <div><dt>Kanaal</dt><dd>${escapeHtml(selectedUnit.discordChannelLabel || "Porto-kanaal")}</dd></div>
+            <div><dt>Kanaal</dt><dd>${escapeHtml(selectedChannel.label)}</dd></div>
             <div><dt>Voertuig</dt><dd>${escapeHtml(opsUnitVehicleLine(selectedUnit))}</dd></div>
             <div><dt>Leden</dt><dd>${selectedMembers.length}/3 personen</dd></div>
           </dl>
@@ -646,13 +658,7 @@ function renderModernOpsDashboard() {
           <button class="porto-modern-secondary" type="button" data-ops-open-menu="${escapeHtml(primaryOpsMemberId(selectedUnit))}">Verplaatsen / acties</button>
         ` : '<p class="muted">Selecteer een eenheid.</p>'}
       </aside>
-    </section>
-    <footer class="porto-modern-ops-footer">
-      <span>Status up-to-date</span>
-      <span>Actieve meldingen ${requestCount}</span>
-      <span>Totaal eenheden ${stats.totalUnits}</span>
-      <button class="porto-modern-secondary" type="button" data-modern-refresh>Ververs gegevens</button>
-    </footer>`;
+    </section>`;
 }
 
 function captureActiveDiscordChannelStatusInput() {

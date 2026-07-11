@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
     <title>Porto-Systeem | Defensie Oranjestad</title>
     <link rel="stylesheet" href="shared.css?v=20260709-politie-lockscreen-fallback" />
-    <link rel="stylesheet" href="porto.css?v=20260710-modern-profile-dialog" />
+    <link rel="stylesheet" href="porto.css?v=20260711-compact-ops-header" />
   </head>
   <body class="porto-blank porto-locked">
     <section id="portoLockscreen" class="lockscreen porto-lockscreen" aria-label="Aanmelden Porto-Systeem">
@@ -300,6 +300,7 @@
       <span class="porto-ops-context-phone" data-ops-context-phone>Geen telefoonnummer</span>
       <button type="button" data-ops-context-action="copy-phone">Telefoon kopiëren</button>
       <button type="button" data-ops-context-action="discord-channel">Porto-kanaal</button>
+      <button type="button" data-ops-context-action="number">Nummer wijzigen</button>
       <button type="button" data-ops-context-action="link">Koppelen aan</button>
       <button type="button" data-ops-context-action="unlink">Loskoppelen</button>
       <button type="button" class="danger-option" data-ops-context-action="offduty">Uit dienst melden</button>
@@ -310,9 +311,9 @@
     <script src="porto/module-registry.js?v=20260518-module-split"></script>
     <script src="porto/audio.js?v=20260606-self-vehicle-audio"></script>
     <script src="porto/map.js?v=20260518-module-split"></script>
-    <script src="porto/ops.js?v=20260710-modern-ops-header"></script>
+    <script src="porto/ops.js?v=20260711-context-number-change"></script>
     <script src="porto/duty.js?v=20260709-modern-porto-parity"></script>
     <script src="porto/profile.js?v=20260602-throttled-status"></script>
-    <script src="porto.js?v=20260710-modern-ops-header"></script>
+    <script src="porto.js?v=20260711-modern-context-actions"></script>
   </body>
 </html>

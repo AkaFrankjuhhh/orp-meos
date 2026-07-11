@@ -67,11 +67,11 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-topbar {
   position: fixed;
-  inset: 18px 0 auto;
+  inset: 14px 0 auto;
   z-index: 8;
-  height: 92px;
-  min-height: 92px;
-  padding: 0 clamp(24px, 3.2vw, 58px);
+  height: 78px;
+  min-height: 78px;
+  padding: 0 28px;
   background: transparent;
   pointer-events: none;
 }
@@ -82,14 +82,14 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-ui-switch {
-  min-height: 42px;
+  min-height: 36px;
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-ui-switch button {
-  min-width: 74px;
+  min-width: 64px;
   border-radius: 999px;
 }
 
@@ -99,8 +99,8 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .profile-chip {
-  min-height: 92px;
-  padding: 16px 18px;
+  min-height: 74px;
+  padding: 12px 14px;
   border: 1px solid rgba(96, 165, 250, 0.24);
   border-radius: 18px;
   background: rgba(5, 13, 26, 0.58);
@@ -109,73 +109,78 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .profile-chip img {
-  width: 58px;
-  height: 58px;
+  width: 50px;
+  height: 50px;
   border: 2px solid #d99a37;
   box-shadow: 0 0 22px rgba(217, 154, 55, 0.32);
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-empty {
   height: 100dvh;
+  min-height: 720px;
+  display: grid;
+  align-items: start;
   background: transparent;
+  overflow: auto;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-brand {
-  top: clamp(86px, 13vh, 150px);
-  gap: clamp(24px, 2.8vw, 46px);
+  top: 108px;
+  gap: 34px;
   opacity: 1;
   filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.58));
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-logo {
-  width: clamp(92px, 7vw, 136px);
+  width: 118px;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-title {
   color: #f8fafc;
-  font-size: clamp(54px, 5.8vw, 92px);
+  font-size: 76px;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.16), 0 10px 34px rgba(0, 0, 0, 0.58);
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-subtitle {
   color: rgba(217, 154, 55, 0.96);
-  font-size: clamp(28px, 2.8vw, 50px);
+  font-size: 40px;
   letter-spacing: 0.16em;
   text-shadow: 0 0 18px rgba(217, 154, 55, 0.28), 0 8px 28px rgba(0, 0, 0, 0.54);
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-center {
-  height: 100%;
+  height: auto;
+  min-height: 100dvh;
   place-items: start center;
   align-content: start;
   transform: none;
-  padding: clamp(280px, 34vh, 360px) clamp(18px, 3vw, 60px) 40px;
+  padding: 286px 28px 40px;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-intro {
-  width: min(880px, 94vw);
-  max-width: none;
-  gap: 22px;
+  width: min(820px, 100%);
+  max-width: calc(100vw - 56px);
+  gap: 18px;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-intro h1 {
   margin: 0;
   color: #f8fafc;
-  font-size: clamp(38px, 3.1vw, 58px);
+  font-size: 44px;
   line-height: 1.05;
   text-shadow: 0 8px 32px rgba(0, 0, 0, 0.54);
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-intro p {
-  max-width: 860px;
+  max-width: 760px;
   color: rgba(226, 232, 240, 0.86);
-  font-size: clamp(17px, 1.1vw, 22px);
+  font-size: 18px;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-zero-card {
-  width: min(840px, 100%);
-  gap: 24px;
-  padding: clamp(28px, 2.4vw, 46px);
+  width: min(640px, 100%);
+  gap: 16px;
+  padding: 26px;
   border: 1px solid rgba(226, 232, 240, 0.16);
   border-radius: 22px;
   background:
@@ -186,22 +191,22 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-request-label {
-  gap: 16px;
-  font-size: 24px;
+  gap: 10px;
+  font-size: 19px;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-request-label textarea {
-  min-height: 126px;
+  min-height: 84px;
   border-color: rgba(226, 232, 240, 0.2);
   border-radius: 14px;
   background: rgba(3, 7, 14, 0.68);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-zero-card .porto-status-button {
-  min-height: 92px;
+  min-height: 64px;
   display: grid;
   place-items: center;
   gap: 4px;
@@ -211,30 +216,100 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
     radial-gradient(circle at 50% 0%, rgba(226, 232, 240, 0.18), transparent 40%),
     linear-gradient(135deg, #315d84, #173a59);
   color: #fff;
-  font-size: 28px;
+  font-size: 22px;
   box-shadow: 0 0 30px rgba(49, 93, 132, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-zero-card .porto-status-button::after {
   content: "Aanmelden in dienst";
   color: rgba(226, 232, 240, 0.82);
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-current-ops {
-  gap: 18px;
+  gap: 16px;
   color: rgba(248, 250, 252, 0.96);
-  font-size: clamp(18px, 1.2vw, 24px);
+  font-size: 20px;
 }
 
 body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-current-ops .porto-ops-action {
-  min-height: 52px;
-  padding: 0 28px;
+  min-height: 46px;
+  padding: 0 24px;
   border: 1px solid rgba(125, 165, 204, 0.5);
   background: linear-gradient(135deg, #315d84, #173a59);
   box-shadow: 0 0 24px rgba(49, 93, 132, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  font-size: 18px;
+  font-size: 16px;
+}
+
+@media (max-width: 1120px), (max-height: 820px) {
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-brand {
+    top: 92px;
+    gap: 24px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-logo {
+    width: 86px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-title {
+    font-size: 56px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-subtitle {
+    font-size: 30px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-center {
+    padding-top: 224px;
+  }
+}
+
+@media (max-width: 760px) {
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-topbar {
+    position: static;
+    height: auto;
+    min-height: 0;
+    padding: 12px 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-brand {
+    position: relative;
+    top: auto;
+    margin: 24px auto 0;
+    gap: 16px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-logo {
+    width: 62px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-title {
+    font-size: 38px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-wall-subtitle {
+    font-size: 20px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-center {
+    min-height: 0;
+    padding: 28px 14px 34px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-intro {
+    max-width: 100%;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-intro h1 {
+    font-size: 32px;
+  }
+
+  body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace) .porto-status-zero-card {
+    padding: 20px;
+  }
 }
 
 .porto-modern-duty-dashboard,
@@ -629,8 +704,8 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
 .porto-modern-ops-dashboard {
   display: grid;
-  gap: clamp(18px, 1.35vw, 26px);
-  padding: clamp(22px, 1.55vw, 34px);
+  gap: clamp(12px, 0.95vw, 18px);
+  padding: clamp(16px, 1.15vw, 24px);
   min-height: calc(100dvh - 28px);
   overflow: hidden;
 }
@@ -645,26 +720,26 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
 .porto-modern-ops-header {
   display: grid;
-  grid-template-columns: minmax(320px, 0.68fr) minmax(360px, 1fr) minmax(560px, auto);
-  gap: clamp(22px, 1.8vw, 40px);
-  min-height: 82px;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(300px, 1fr) minmax(500px, auto);
+  gap: clamp(18px, 1.45vw, 32px);
+  min-height: 56px;
   align-items: center;
 }
 
 .porto-modern-brand {
   min-width: 0;
-  gap: 16px;
-  padding-right: clamp(20px, 1.7vw, 34px);
+  gap: 12px;
+  padding-right: clamp(16px, 1.35vw, 28px);
   border-right: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .porto-modern-brand-mark {
-  width: 58px;
-  height: 58px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(96, 165, 250, 0.42);
-  border-radius: 18px;
+  border-radius: 14px;
   background:
     radial-gradient(circle at 45% 28%, rgba(59, 130, 246, 0.36), transparent 34%),
     rgba(9, 31, 61, 0.68);
@@ -675,14 +750,14 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 .porto-modern-brand-mark img {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   filter: drop-shadow(0 0 10px rgba(96, 165, 250, 0.38));
 }
 
 .porto-modern-brand-letter {
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .porto-modern-brand strong,
@@ -697,7 +772,15 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
 .porto-modern-brand div {
   display: grid;
-  gap: 4px;
+  gap: 2px;
+}
+
+.porto-modern-brand strong {
+  font-size: 14px;
+}
+
+.porto-modern-brand span {
+  font-size: 12px;
 }
 
 .porto-modern-ops-title {
@@ -710,22 +793,26 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
 .porto-modern-ops-title h1 {
   margin: 0;
-  font-size: clamp(28px, 1.55vw, 34px);
+  font-size: clamp(24px, 1.25vw, 30px);
   letter-spacing: 0;
 }
 
 .porto-modern-ops-title h1 span {
   display: inline-flex;
   margin-left: 8px;
-  padding: 4px 8px;
+  padding: 2px 7px;
   border: 1px solid rgba(59, 130, 246, 0.48);
   border-radius: 8px;
   color: #7cc1ff;
+  font-size: 12px;
+}
+
+.porto-modern-ops-title p {
   font-size: 13px;
 }
 
 .porto-modern-ops-actions {
-  gap: 14px;
+  gap: 10px;
   justify-content: flex-end;
   flex-wrap: wrap;
 }
@@ -733,7 +820,7 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 .porto-modern-ops-actions .porto-ops-action,
 .porto-modern-ops-actions .porto-ops-duration-badge,
 .porto-modern-ops-profile {
-  min-height: 54px;
+  min-height: 42px;
   border-radius: 8px;
   border: 1px solid rgba(96, 165, 250, 0.24);
   background: rgba(4, 16, 31, 0.62);
@@ -744,14 +831,15 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 .porto-modern-ops-actions .porto-ops-action {
   display: inline-flex;
   align-items: center;
-  gap: 11px;
-  padding: 0 22px;
+  gap: 8px;
+  padding: 0 15px;
   color: #f8fafc;
+  font-size: 12px;
 }
 
 .porto-modern-ops-actions .porto-ops-action span {
   color: #38bdf8;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .porto-modern-ops-actions .porto-ops-action.danger {
@@ -764,35 +852,36 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 .porto-modern-ops-actions .porto-ops-duration-badge {
-  gap: 10px;
-  padding: 0 22px;
+  gap: 8px;
+  padding: 0 15px;
   border-color: rgba(245, 158, 11, 0.38);
   background: rgba(45, 28, 8, 0.56);
   color: #facc15;
+  font-size: 12px;
 }
 
 .porto-modern-ops-profile {
   display: grid;
-  grid-template-columns: 44px minmax(96px, 1fr) auto;
+  grid-template-columns: 34px minmax(84px, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  min-width: 190px;
-  padding: 7px 12px;
+  gap: 9px;
+  min-width: 152px;
+  padding: 4px 10px;
   color: #f8fafc;
   cursor: pointer;
 }
 
 .porto-modern-ops-profile .avatar,
 .porto-modern-ops-profile img {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   object-fit: cover;
 }
 
 .porto-modern-ops-profile .porto-modern-member-initial {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -811,34 +900,35 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 .porto-modern-ops-profile strong {
   color: #f8fafc;
   font-weight: 1000;
+  font-size: 13px;
 }
 
 .porto-modern-ops-profile small {
   color: #a7bad1;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .porto-modern-ops-profile b {
   color: #cbd5e1;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .porto-modern-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: clamp(16px, 1.45vw, 26px);
+  gap: clamp(12px, 1vw, 18px);
 }
 
 .porto-modern-stat-grid article {
   position: relative;
-  min-height: 118px;
+  min-height: 78px;
   display: grid;
   align-content: center;
-  gap: 7px;
+  gap: 5px;
   overflow: hidden;
-  padding: 24px 32px 24px 108px;
+  padding: 14px 82px 14px 72px;
   border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 16px;
+  border-radius: 12px;
   background:
     radial-gradient(circle at 18% 50%, rgba(59, 130, 246, 0.22), transparent 25%),
     linear-gradient(135deg, rgba(3, 32, 62, 0.78), rgba(7, 15, 30, 0.72));
@@ -846,28 +936,29 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
 .porto-modern-stat-grid article strong {
   color: #f8fafc;
-  font-size: clamp(32px, 2.2vw, 44px);
+  font-size: clamp(26px, 1.55vw, 34px);
   line-height: 1;
 }
 
 .porto-modern-stat-grid article span {
   color: #a7bad1;
+  font-size: 12px;
 }
 
 .porto-modern-stat-grid article::before {
   content: "\1F465";
   position: absolute;
-  left: 32px;
+  left: 24px;
   top: 50%;
-  width: 50px;
-  height: 50px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   transform: translateY(-50%);
   background: rgba(59, 130, 246, 0.24);
   color: rgba(219, 234, 254, 0.95);
-  font-size: 24px;
+  font-size: 19px;
   line-height: 1;
   box-shadow: 0 0 34px rgba(59, 130, 246, 0.42);
 }
@@ -875,10 +966,10 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 .porto-modern-stat-grid article::after {
   content: "";
   position: absolute;
-  right: 26px;
+  right: 18px;
   top: 50%;
-  width: min(118px, 22%);
-  height: 32px;
+  width: min(78px, 20%);
+  height: 24px;
   transform: translateY(-50%);
   background: linear-gradient(135deg, transparent 0 20%, currentColor 22% 25%, transparent 27% 38%, currentColor 40% 44%, transparent 46% 56%, currentColor 58% 62%, transparent 64% 72%, currentColor 74% 78%, transparent 80%);
   color: rgba(96, 165, 250, 0.8);
@@ -1025,8 +1116,8 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
 .porto-modern-ops-row {
   grid-template-columns: 24px minmax(84px, 118px) minmax(130px, 1fr) minmax(112px, 148px) minmax(74px, 144px) minmax(132px, 0.84fr) 38px;
-  min-height: 86px;
-  padding: 14px 20px;
+  min-height: 64px;
+  padding: 9px 16px;
   cursor: pointer;
   min-width: 0;
 }
@@ -1078,8 +1169,8 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 .porto-modern-row-arrow {
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(96, 165, 250, 0.24);
@@ -1206,7 +1297,8 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
   .porto-modern-ops-row {
     grid-template-columns: 22px minmax(78px, 108px) minmax(130px, 1fr) minmax(110px, 132px) minmax(52px, 90px) minmax(112px, 0.78fr) 30px;
-    padding-inline: 16px;
+    min-height: 62px;
+    padding-inline: 14px;
   }
 }
 
@@ -1221,7 +1313,7 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   }
 
   .porto-modern-ops-dashboard {
-    padding: 22px;
+    padding: 18px;
   }
 
   .porto-modern-ops-layout {
@@ -1237,7 +1329,8 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   .porto-modern-ops-row {
     grid-template-columns: 22px 86px minmax(112px, 1fr) minmax(104px, 126px) minmax(44px, 62px) minmax(96px, 0.68fr) 28px;
     gap: 10px;
-    padding: 12px 14px;
+    min-height: 60px;
+    padding: 8px 12px;
   }
 
   .porto-modern-ops-row strong {
@@ -1245,8 +1338,17 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   }
 
   .porto-modern-stat-grid article {
-    min-height: 108px;
-    padding: 20px 24px 20px 96px;
+    min-height: 76px;
+    padding: 14px 70px 14px 64px;
+  }
+
+  .porto-modern-stat-grid article::before {
+    left: 20px;
+  }
+
+  .porto-modern-stat-grid article::after {
+    right: 14px;
+    width: min(66px, 18%);
   }
 }
 
@@ -4350,8 +4452,8 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 }
 
 .porto-phonebook-dialog {
-  width: min(920px, calc(100vw - 28px));
-  max-height: min(88dvh, 760px);
+  width: min(860px, calc(100vw - 28px));
+  max-height: min(86dvh, 720px);
   padding: 0;
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 16px;
@@ -4368,8 +4470,8 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 
 .porto-phonebook-form {
   display: grid;
-  gap: 18px;
-  padding: 22px;
+  gap: 14px;
+  padding: 20px 22px;
   max-height: inherit;
   overflow-y: auto;
 }
@@ -4416,8 +4518,8 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 
 .porto-phonebook-form input[type="search"] {
   width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 40px;
+  padding: 9px 12px;
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.72);
@@ -4432,7 +4534,7 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 
 .porto-phonebook-table {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .porto-phonebook-head,
@@ -4453,15 +4555,20 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 
 .porto-phonebook-rows {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .porto-phonebook-row,
 .porto-phonebook-empty {
-  padding: 12px 14px;
+  padding: 10px 14px;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 12px;
+  border-radius: 11px;
   background: rgba(15, 23, 42, 0.56);
+}
+
+.porto-phonebook-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 42px;
 }
 
 .porto-phonebook-row span {
