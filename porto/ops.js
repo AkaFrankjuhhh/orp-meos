@@ -566,7 +566,7 @@ function renderModernOpsDashboard() {
     return `
       <article class="porto-modern-ops-row ${selected ? "selected" : ""}" data-modern-ops-unit="${escapeHtml(actionId)}">
         <span class="porto-modern-status-light ${escapeHtml(statusClassName(primary))}"></span>
-        <strong>${escapeHtml(unit.vehicleNumber || "-")}</strong>
+        <strong data-ops-number-unit="${escapeHtml(actionId)}" title="Rechtermuisknop voor nummer wijzigen">${escapeHtml(unit.vehicleNumber || "-")}</strong>
         <span data-ops-vehicle-unit="${escapeHtml(actionId)}" title="Rechtermuisknop voor voertuig/functie wijzigen">${escapeHtml(opsUnitVehicleLine(unit))}</span>
         <button class="porto-status-pill ${escapeHtml(status.className)}" type="button" data-ops-status-unit="${escapeHtml(actionId)}">${escapeHtml(status.label)}</button>
         ${modernOpsAvatarStack(unit)}
@@ -637,7 +637,7 @@ function renderModernOpsDashboard() {
       </article>
       <aside class="porto-modern-selected-unit">
         ${selectedUnit ? `
-          <header><span class="porto-modern-status-light ${escapeHtml(statusClassName(primaryOpsMember(selectedUnit)))}"></span><h2>${escapeHtml(selectedUnit.vehicleNumber || "-")} <small>${escapeHtml(selectedUnit.vehicleCode || portoOperatorLabel)}</small></h2><span class="porto-status-pill ${escapeHtml(selectedStatus.className)}">${escapeHtml(selectedStatus.label)}</span></header>
+          <header><span class="porto-modern-status-light ${escapeHtml(statusClassName(primaryOpsMember(selectedUnit)))}"></span><h2 data-ops-number-unit="${escapeHtml(primaryOpsMemberId(selectedUnit))}" title="Rechtermuisknop voor nummer wijzigen">${escapeHtml(selectedUnit.vehicleNumber || "-")} <small>${escapeHtml(selectedUnit.vehicleCode || portoOperatorLabel)}</small></h2><span class="porto-status-pill ${escapeHtml(selectedStatus.className)}">${escapeHtml(selectedStatus.label)}</span></header>
           <dl>
             <div><dt>Status</dt><dd>${escapeHtml(memberStatusLabel(primaryOpsMember(selectedUnit)))}</dd></div>
             <div><dt>Kanaal</dt><dd>${escapeHtml(selectedChannel.label)}</dd></div>
@@ -764,7 +764,11 @@ async function chooseOpsNumberUpdate(unitId, anchorEvent) {
 async function chooseOpsStatusUpdate(unitId, anchorEvent) {
   const statusOptions = portoStatuses
     .filter((status) => status.code !== "8")
-    .map((status) => ({ value: status.code, label: `${status.title} - ${status.label}` }));
+    .map((status) => ({
+      value: status.code,
+      label: `${status.title} - ${status.label}`,
+      className: `porto-choice-status-option status-${status.className}`
+    }));
   const selected = await showPortoContextChoice(anchorEvent, "Status wijzigen", statusOptions);
   if (!selected) return;
   let statusDetail = "";

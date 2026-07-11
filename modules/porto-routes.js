@@ -811,6 +811,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       });
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
+      enqueuePortoDiscordNicknames(state, [unit], "Porto automatische indeling actief")
+        .catch((error) => console.error(`[porto] Discord nickname queue na automatische indeling mislukt: ${error.message}`));
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -1235,6 +1237,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           }
           await persistPortoState(state, { units: entriesToUpdate });
           await enqueuePortoChannelStatus(key, discordChannelStatus);
+          await enqueuePortoDiscordNicknames(state, entriesToUpdate, "Porto kanaalstatus aangepast");
         } else {
           const previousChannelKeys = new Set(group.map((entry) => String(entry.discordChannelKey || "").trim()).filter(Boolean));
           const carriedChannelStatus = group.map((entry) => String(entry.discordChannelStatus || "").trim()).find(Boolean) || "";
@@ -1256,6 +1259,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           }
           await persistPortoState(state, { units: [...new Set([...group, ...targetEntries])] });
           await enqueuePortoVoiceMove(state, group, key, `Porto kanaal handmatig gezet door ${person.name || operatorLabel}`);
+          await enqueuePortoDiscordNicknames(state, group, "Porto kanaal aangepast");
           if (carriedChannelStatus) await enqueuePortoChannelStatus(key, carriedChannelStatus);
           for (const previousKey of previousChannelKeys) {
             if (previousKey !== key && !state.portoUnits.some((entry) => entry.active !== false && String(entry.discordChannelKey || "").trim() === previousKey)) {

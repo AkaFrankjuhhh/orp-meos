@@ -369,9 +369,13 @@ function showPortoContextChoice(anchorEvent, title, items) {
       menu.hidden = true;
       document.body.appendChild(menu);
     }
+    const choicesHtml = items.map((item, index) => {
+      const className = item.className ? ` class="${escapeHtml(item.className)}"` : "";
+      return `<button type="button"${className} data-choice-index="${index}">${escapeHtml(item.label)}</button>`;
+    }).join("");
     menu.innerHTML = `
       <strong>${escapeHtml(title)}</strong>
-      ${items.map((item, index) => `<button type="button" data-choice-index="${index}">${escapeHtml(item.label)}</button>`).join("")}
+      ${choicesHtml}
       <button type="button" class="ghost" data-choice-cancel>Annuleren</button>`;
 
     let done = false;
@@ -830,6 +834,11 @@ $("#portoOpsUnitContextMenu")?.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("click", (event) => {
+  const modernDutyProfileButton = event.target.closest("[data-modern-profile-open]");
+  if (modernDutyProfileButton && !event.target.closest("#portoModernOpsDashboard")) {
+    openPortoProfileDialog();
+    return;
+  }
   if (event.target.closest("[data-duty-ops-claim]")) updatePortoOps("claim");
   if (event.target.closest("#portoModernOpsOverviewBtn")) {
     portoOpsViewMode = "ops";

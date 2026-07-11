@@ -198,12 +198,47 @@ function modernOccupancyBars(count) {
   return Array.from({ length: 3 }, (_, index) => `<span class="${index < count ? "filled" : ""}"></span>`).join("");
 }
 
+function modernDutyBrandLogo() {
+  return portoOrganization.key === "politie"
+    ? "assets/politie-logo.png?v=20260613-form-branding"
+    : "assets/defensielogo-transparent.png?v=20260711-modern-duty";
+}
+
+function modernDutyBrandTitle() {
+  return portoOrganization.key === "politie" ? "Politie Oranjestad" : "Koninklijke Marechaussee";
+}
+
+function modernDutyStatusIcon(code) {
+  return {
+    "1": "&#10003;",
+    "2": "&#128663;",
+    "3": "&#9906;",
+    "4": "&#8211;",
+    "5": "&#128666;",
+    "6": "&#128246;",
+    "7": "&#9888;",
+    "8": "&#9211;"
+  }[String(code)] || escapeHtml(code);
+}
+
+function modernDutyChannelLabel() {
+  return portoDuty?.discordChannelLabel || portoDuty?.discordChannelName || "Porto kanaal";
+}
+
 function modernVehicleSelectHtml() {
   const choices = portoDuty?.vehicleChoices || [];
   const currentVehicle = portoDuty?.vehicleName || "";
-  if (!choices.length) return `<strong>${escapeHtml(portoDuty?.vehicleName || portoDuty?.vehicleType || "Onvoertuig")}</strong>`;
+  if (!choices.length) {
+    return `
+    <label class="porto-modern-vehicle-select">
+      <i aria-hidden="true">&#128663;</i>
+      <span>Voertuig</span>
+      <strong>${escapeHtml(portoDuty?.vehicleName || portoDuty?.vehicleType || "Onvoertuig")}</strong>
+    </label>`;
+  }
   return `
     <label class="porto-modern-vehicle-select">
+      <i aria-hidden="true">&#128663;</i>
       <span>Voertuig</span>
       <select data-modern-vehicle>
         <option value="">Kies voertuig</option>
@@ -229,14 +264,31 @@ function renderModernDutyDashboard() {
   const container = $("#portoModernDutyDashboard");
   if (!container || !portoDuty || !portoProfile) return;
   const members = modernDutyMembers();
+  const memberCardsList = [...members];
+  while (memberCardsList.length < 3) memberCardsList.push({ empty: true });
   const status = portoStatuses.find((entry) => entry.code === String(portoDuty.status)) || portoStatuses[0];
   const memberNames = members.map((member) => member.name).filter(Boolean).join(" + ") || portoProfile.name || "Onbekend";
   const statusButtons = portoStatuses.map((entry) => `
     <button class="porto-modern-status-button ${escapeHtml(entry.className)} ${entry.code === String(portoDuty.status) ? "active" : ""}" type="button" data-modern-status="${escapeHtml(entry.code)}">
-      <span>${escapeHtml(entry.code)}</span>
+      <span>${modernDutyStatusIcon(entry.code)}</span>
+      <em>${escapeHtml(entry.code)}</em>
       <strong>${escapeHtml(entry.label)}</strong>
     </button>`).join("");
-  const memberCards = members.map((member, index) => {
+  const memberCards = memberCardsList.map((member, index) => {
+    if (member.empty) {
+      return `
+      <article class="porto-modern-duty-member empty">
+        <span>Eenheid ${index + 1}</span>
+        <div class="porto-modern-duty-member-main">
+          <span class="porto-modern-member-initial">+</span>
+          <strong>Open plek</strong>
+        </div>
+        <dl>
+          <div><dt>Rang</dt><dd>-</dd></div>
+          <div><dt>Telefoonnummer</dt><dd>Vrije positie beschikbaar</dd></div>
+        </dl>
+      </article>`;
+    }
     const nameClass = typeof memberNameClass === "function" ? memberNameClass(member) : "porto-member-name";
     const title = typeof memberNameTitle === "function" ? memberNameTitle(member) : "";
     return `
@@ -252,9 +304,27 @@ function renderModernDutyDashboard() {
         </dl>
       </article>`;
   }).join("");
+  const currentAvatar = typeof memberAvatarHtml === "function" ? memberAvatarHtml(portoProfile) : "";
+  const brandLogo = modernDutyBrandLogo();
+  const brandTitle = modernDutyBrandTitle();
+  const orgSubtitle = portoOrganization.key === "politie" ? "Oranjestad Roleplay" : "FiveM Roleplay";
   container.hidden = portoUiMode !== "modern";
   container.innerHTML = `
+    <button class="porto-modern-duty-user-chip" type="button" data-modern-profile-open aria-label="Open persoonlijk profiel">
+      ${currentAvatar}
+      <span><strong>${escapeHtml(portoProfile.name || "Profiel")}</strong><small>${escapeHtml(portoProfile.serviceNumber || "-")}</small></span>
+      <b aria-hidden="true">⌄</b>
+    </button>
     <section class="porto-modern-duty-card">
+      <header class="porto-modern-duty-shell-head">
+        <div class="porto-modern-duty-brand">
+          <span><img src="${escapeHtml(brandLogo)}" alt="" /></span>
+          <div>
+            <strong>${escapeHtml(brandTitle)}</strong>
+            <small>${escapeHtml(orgSubtitle)}</small>
+          </div>
+        </div>
+      </header>
       <header class="porto-modern-duty-head">
         <div class="porto-modern-duty-avatars">
           ${members.map((member) => typeof memberAvatarHtml === "function" ? memberAvatarHtml(member) : "").join("")}
@@ -263,14 +333,15 @@ function renderModernDutyDashboard() {
           <span>Huidige status</span>
           <h1>${escapeHtml(portoDuty.vehicleNumber || "-")} <b></b> ${escapeHtml(memberNames)}</h1>
           <strong class="status-${escapeHtml(status.className)}">${escapeHtml(status.title)} - ${escapeHtml(status.label)}</strong>
+          <small class="porto-modern-duty-linked">${members.length > 1 ? "Gekoppeld team" : "Solo eenheid"}</small>
         </div>
-        <div class="porto-modern-radio-icon" aria-hidden="true">▦</div>
+        <div class="porto-modern-radio-icon" aria-hidden="true">&#128246;</div>
       </header>
       <section class="porto-modern-duty-meta-grid">
-        <article><span>Kanaal</span><strong>${escapeHtml(portoDuty.discordChannelLabel || "Porto kanaal")}</strong></article>
+        <article><i aria-hidden="true">&#128246;</i><span>Kanaal</span><strong>${escapeHtml(modernDutyChannelLabel())}</strong></article>
         <article>${modernVehicleSelectHtml()}</article>
-        <article><span>Bezetting</span><strong>${members.length} / 3</strong><div>${modernOccupancyBars(members.length)}</div></article>
-        <article><span>Koppeling</span><strong>${members.length > 1 ? "Actief" : "Solo"}</strong></article>
+        <article><i aria-hidden="true">&#128101;</i><span>Bezetting</span><strong>${members.length} / 3</strong><div>${modernOccupancyBars(members.length)}</div></article>
+        <article><i aria-hidden="true">&#128279;</i><span>Koppeling</span><strong>${members.length > 1 ? "Actief" : "Solo"}</strong></article>
       </section>
       <section class="porto-modern-duty-members">${memberCards}</section>
       <h2>Statussen</h2>
