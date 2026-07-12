@@ -477,6 +477,7 @@ function sanitizePublicFormOverride(config, rawOverride = {}) {
   for (const key of ["title", "subtitle", "notice", "accent"]) {
     if (rawOverride[key] !== undefined) override[key] = String(rawOverride[key] || "").trim().slice(0, key === "notice" ? 900 : 220);
   }
+  if (rawOverride.closed !== undefined) override.closed = Boolean(rawOverride.closed);
   if (override.accent && !/^#[0-9a-f]{6}$/i.test(override.accent)) override.accent = config.accent || "#f59e0b";
   if (Array.isArray(rawOverride.questions)) {
     override.questions = rawOverride.questions.slice(0, 40).map(sanitizeQuestion);
@@ -489,6 +490,7 @@ function mergePublicFormConfig(config, override = {}) {
   for (const key of ["title", "subtitle", "notice", "accent"]) {
     if (override[key] !== undefined) merged[key] = override[key];
   }
+  if (override.closed !== undefined) merged.closed = Boolean(override.closed);
   if (Array.isArray(override.questions)) merged.questions = override.questions.map(sanitizeQuestion);
   return merged;
 }
@@ -514,6 +516,7 @@ function publicFormForRequest(req, url) {
 
 function publicFormClientConfig(config, profile = null) {
   if (!config) return null;
+  const canManage = canManagePublicForm(profile, config);
   const profileBackedQuestionIds = new Set(["fullName", "discord"]);
   const questions = config.internalOnly && profile
     ? (config.questions || []).filter((question) => !profileBackedQuestionIds.has(question.id))
@@ -530,15 +533,17 @@ function publicFormClientConfig(config, profile = null) {
     accent: config.accent || "#f59e0b",
     iconHref: publicFormIconHref(config),
     internalOnly: Boolean(config.internalOnly),
+    closed: Boolean(config.closed),
     managerBadges: managerBadgesForConfig(config),
-    canManage: canManagePublicForm(profile, config),
+    canManage,
     questions,
     pages: config.pages || [],
-    editable: canManagePublicForm(profile, config) ? {
+    editable: canManage ? {
       title: config.title,
       subtitle: config.subtitle || "",
       notice: config.notice || "",
       accent: config.accent || "#f59e0b",
+      closed: Boolean(config.closed),
       questions: config.questions || []
     } : null
   };

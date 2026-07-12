@@ -122,6 +122,25 @@ test("portal exposes the availability agenda for defensie and police", () => {
   assert.match(styles, /\.agenda-day\.today/);
 });
 
+test("managed public forms can be closed and reopened by form leadership", () => {
+  const formModuleCode = fs.readFileSync(path.join(process.cwd(), "modules", "public-forms.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const clientCode = fs.readFileSync(path.join(process.cwd(), "public-forms.js"), "utf8");
+  const html = fs.readFileSync(path.join(process.cwd(), "public-forms.html"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "public-forms.css"), "utf8");
+
+  assert.match(formModuleCode, /hrb: \["HRB-Leiding"\]/);
+  assert.match(formModuleCode, /dsi: \["DSI-Leiding"\]/);
+  assert.match(formModuleCode, /override\.closed = Boolean\(rawOverride\.closed\)/);
+  assert.match(formModuleCode, /closed: Boolean\(config\.closed\)/);
+  assert.match(serverCode, /Dit formulier is momenteel gesloten door de leiding/);
+  assert.match(serverCode, /readConfigOverride\?\.\(baseConfig\.slug\)/);
+  assert.match(clientCode, /function renderClosedForm/);
+  assert.match(clientCode, /function saveFormClosed/);
+  assert.match(html, /id="toggleFormClosed"/);
+  assert.match(styles, /\.form-status-pill\.closed/);
+});
+
 test("porto exposes the modern dispatcher test UI beside the classic UI", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const portoCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");

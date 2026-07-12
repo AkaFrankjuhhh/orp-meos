@@ -311,6 +311,20 @@ function renderQuestions() {
   updatePageButtons();
 }
 
+function renderClosedForm(config) {
+  const questionsElement = $("#questions");
+  questionsElement.innerHTML = `
+    <section class="form-closed-panel">
+      <h2>Formulier gesloten</h2>
+      <p>${escapeHtml(config.closedMessage || "Dit formulier is tijdelijk gesloten door de leiding. Probeer het later opnieuw.")}</p>
+    </section>
+  `;
+  $("#previousPageButton").hidden = true;
+  $("#nextPageButton").hidden = true;
+  $("#submitButton").hidden = true;
+  hideMessage();
+}
+
 function validateCurrentPage() {
   updateDraftFromVisibleFields();
   for (const question of questionsForCurrentPage()) {
@@ -354,12 +368,23 @@ function adminMessage(text, tone = "ok") {
   element.textContent = text;
 }
 
+function setFormClosedAdminUi(config) {
+  const status = $("#formClosedStatus");
+  const toggle = $("#toggleFormClosed");
+  if (!status || !toggle) return;
+  const isClosed = Boolean(config.closed);
+  status.textContent = isClosed ? "Gesloten" : "Open";
+  status.className = `form-status-pill ${isClosed ? "closed" : "open"}`;
+  toggle.textContent = isClosed ? "Openen" : "Sluiten";
+}
+
 function renderFormAdmin(config) {
   const panel = $("#formAdminPanel");
   if (!panel) return;
   panel.hidden = !config.canManage;
   if (!config.canManage) return;
   $("#formAdminAccess").textContent = `Beheer via: ${(config.managerBadges || []).join(", ") || "Kader"}`;
+  setFormClosedAdminUi(config);
   $("#adminFormTitle").value = config.editable?.title || config.title || "";
   $("#adminFormSubtitle").value = config.editable?.subtitle || "";
   $("#adminFormNotice").value = config.editable?.notice || "";
@@ -440,6 +465,22 @@ function collectAdminQuestions() {
   });
 }
 
+function buildAdminConfigPayload(closed = Boolean(formState.config?.closed)) {
+  const editable = formState.config?.editable || {};
+  const form = $("#formAdminForm");
+  const useVisibleForm = form && !form.hidden;
+  return {
+    title: useVisibleForm ? $("#adminFormTitle").value : (editable.title || formState.config?.title || ""),
+    subtitle: useVisibleForm ? $("#adminFormSubtitle").value : (editable.subtitle || formState.config?.subtitle || ""),
+    notice: useVisibleForm ? $("#adminFormNotice").value : (editable.notice || formState.config?.notice || ""),
+    accent: useVisibleForm ? $("#adminFormAccent").value : (editable.accent || formState.config?.accent || "#f59e0b"),
+    closed,
+    questions: useVisibleForm && document.querySelector(".admin-question-card")
+      ? collectAdminQuestions()
+      : (editable.questions || formState.config?.questions || [])
+  };
+}
+
 async function saveFormAdmin(event) {
   event.preventDefault();
   if (!formState.config?.canManage) return;
@@ -450,13 +491,7 @@ async function saveFormAdmin(event) {
   }
   const payload = {
     slug: formState.config.slug,
-    config: {
-      title: $("#adminFormTitle").value,
-      subtitle: $("#adminFormSubtitle").value,
-      notice: $("#adminFormNotice").value,
-      accent: $("#adminFormAccent").value,
-      questions
-    }
+    config: buildAdminConfigPayload(Boolean(formState.config.closed))
   };
   const response = await fetch("/api/public-forms/config", {
     method: "POST",
@@ -475,7 +510,38 @@ async function saveFormAdmin(event) {
   applyLoadedConfig(data.config);
 }
 
+async function saveFormClosed(nextClosed) {
+  if (!formState.config?.canManage) return;
+  const button = $("#toggleFormClosed");
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch("/api/public-forms/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: formState.config.slug,
+        config: buildAdminConfigPayload(nextClosed)
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      adminMessage(data.error || "Formulierstatus opslaan is mislukt.", "error");
+      return;
+    }
+    formState.config = data.config;
+    applyLoadedConfig(data.config);
+    adminMessage(nextClosed ? "Formulier gesloten voor nieuwe inzendingen." : "Formulier opnieuw geopend.", "ok");
+  } catch (error) {
+    adminMessage(error.message || "Formulierstatus opslaan is mislukt.", "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function bindFormAdmin() {
+  $("#toggleFormClosed")?.addEventListener("click", () => {
+    saveFormClosed(!Boolean(formState.config?.closed));
+  });
   $("#toggleFormAdmin")?.addEventListener("click", () => {
     const form = $("#formAdminForm");
     form.hidden = !form.hidden;
@@ -538,7 +604,8 @@ function applyLoadedConfig(config) {
     });
     questionsInputBound = true;
   }
-  renderQuestions();
+  if (config.closed && !config.canManage) renderClosedForm(config);
+  else renderQuestions();
   renderFormAdmin(config);
 }
 async function loadForm() {

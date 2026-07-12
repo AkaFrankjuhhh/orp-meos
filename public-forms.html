@@ -23,7 +23,11 @@
             <h2>Formulierbeheer</h2>
             <p id="formAdminAccess"></p>
           </div>
-          <button id="toggleFormAdmin" type="button" class="ghost-button">Bewerken</button>
+          <div class="form-admin-actions">
+            <span id="formClosedStatus" class="form-status-pill">Open</span>
+            <button id="toggleFormClosed" type="button" class="ghost-button">Sluiten</button>
+            <button id="toggleFormAdmin" type="button" class="ghost-button">Bewerken</button>
+          </div>
         </div>
         <form id="formAdminForm" class="form-admin-grid" hidden>
           <label>Titel<input id="adminFormTitle" type="text" /></label>

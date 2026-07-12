@@ -417,6 +417,28 @@ select:focus {
   color: #fecaca;
 }
 
+.form-closed-panel {
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  border: 1px solid rgba(248, 113, 113, 0.34);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(239, 68, 68, 0.16), rgba(15, 23, 42, 0.92)),
+    rgba(15, 23, 42, 0.78);
+}
+
+.form-closed-panel h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.form-closed-panel p {
+  margin: 0;
+  color: #fecaca;
+  line-height: 1.55;
+}
+
 .hp-field {
   position: absolute;
   left: -9999px;
@@ -457,6 +479,38 @@ select:focus {
   margin: 0;
   color: var(--muted);
   font-weight: 800;
+}
+
+.form-admin-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.form-status-pill {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.form-status-pill.open {
+  border: 1px solid rgba(34, 197, 94, 0.48);
+  background: rgba(34, 197, 94, 0.14);
+  color: #bbf7d0;
+}
+
+.form-status-pill.closed {
+  border: 1px solid rgba(248, 113, 113, 0.52);
+  background: rgba(239, 68, 68, 0.14);
+  color: #fecaca;
 }
 
 .form-admin-grid {
@@ -588,6 +642,14 @@ select:focus {
   .form-admin-grid menu {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .form-admin-actions {
+    justify-content: stretch;
+  }
+
+  .form-admin-actions > * {
+    justify-content: center;
   }
 
   .form-admin-grid {

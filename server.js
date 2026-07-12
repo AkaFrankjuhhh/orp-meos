@@ -706,7 +706,8 @@ async function handlePublicFormsApi(req, res, url) {
       sendJson(res, 403, { error: "Je hebt geen leidingrechten voor dit formulier." });
       return true;
     }
-    const override = sanitizePublicFormOverride(baseConfig, body.config || {});
+    const existingOverride = await publicFormsStore.readConfigOverride?.(baseConfig.slug);
+    const override = sanitizePublicFormOverride(baseConfig, { ...(existingOverride || {}), ...(body.config || {}) });
     await publicFormsStore.saveConfigOverride(baseConfig.slug, override, profile);
     const updatedConfig = mergePublicFormConfig(baseConfig, override);
     sendJson(res, 200, { ok: true, config: publicFormClientConfig(updatedConfig, profile) });
@@ -723,6 +724,10 @@ async function handlePublicFormsApi(req, res, url) {
     const config = await resolvePublicFormConfig(baseConfig);
     const formAuth = requirePublicFormAccess(req, res, config);
     if (!formAuth) return true;
+    if (config.closed && !canManagePublicForm(formAuth.profile, config)) {
+      sendJson(res, 403, { error: "Dit formulier is momenteel gesloten door de leiding." });
+      return true;
+    }
     if (!publicFormRateLimitAllows(req, config.slug)) {
       sendJson(res, 429, { error: "Te veel inzendingen achter elkaar. Probeer het later opnieuw." });
       return true;
