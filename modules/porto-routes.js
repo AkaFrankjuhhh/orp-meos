@@ -52,6 +52,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const status8RejoinGuardMs = Number.isFinite(configuredStatus8RejoinGuardMs)
     ? Math.max(0, configuredStatus8RejoinGuardMs)
     : 90000;
+  const configuredBrowserTimeoutMs = Number(process.env.PORTO_BROWSER_TIMEOUT_MS);
+  const portoBrowserTimeoutMs = Number.isFinite(configuredBrowserTimeoutMs)
+    ? (configuredBrowserTimeoutMs <= 0 ? 0 : Math.max(60000, configuredBrowserTimeoutMs))
+    : 15 * 60 * 1000;
+  const configuredBrowserTimeoutCheckMs = Number(process.env.PORTO_BROWSER_TIMEOUT_CHECK_MS);
+  const portoBrowserTimeoutCheckMs = Number.isFinite(configuredBrowserTimeoutCheckMs)
+    ? Math.max(30000, configuredBrowserTimeoutCheckMs)
+    : 60 * 1000;
+  let portoBrowserTimeoutTimer = null;
   const pendingAutoAssignMs = 60000;
   const recentlyEndedPortoMembers = new Map();
   const dutyRoleSuffix = organization.key === "politie" ? "P" : "K";
@@ -137,6 +146,21 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   function clearPortoDutyRole(unit) {
     if (!unit) return;
     unit.dutyRole = "";
+  }
+
+  function markPortoBrowserHeartbeat(unit, nowIso = new Date().toISOString()) {
+    if (!unit || unit.active === false) return false;
+    unit.browserHeartbeatActive = true;
+    unit.browserHeartbeatAt = nowIso;
+    unit.lastSeenAt = nowIso;
+    unit.updatedAt = nowIso;
+    return true;
+  }
+
+  function clearPortoBrowserHeartbeat(unit) {
+    if (!unit) return;
+    delete unit.browserHeartbeatActive;
+    delete unit.browserHeartbeatAt;
   }
 
   function timestampMs(value) {
@@ -498,6 +522,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         endedAt,
         updatedAt: endedAt
       });
+      clearPortoBrowserHeartbeat(opsUnit);
     }
     for (const entry of state.portoUnits || []) {
       if (entry.active === false || entry.vehicleNumber !== operatorVehicleNumber || entry.memberId === currentOps.memberId) continue;
@@ -516,6 +541,53 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       entry.memberId === currentOps.memberId
     );
     return endedCurrentOps ? releaseCurrentOps(state, currentOps, endedBy, endedAt, statusDetail) : false;
+  }
+
+  async function signOffTimedOutPortoBrowsers() {
+    if (!portoBrowserTimeoutMs) return;
+    await enqueuePortoMutation(async () => {
+      const state = await Promise.resolve(readState());
+      state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const cutoffMs = now.getTime() - portoBrowserTimeoutMs;
+      const timedOutUnits = state.portoUnits.filter((unit) => {
+        if (!unit || unit.active === false || !unit.browserHeartbeatActive) return false;
+        const heartbeatMs = timestampMs(unit.browserHeartbeatAt);
+        return heartbeatMs > 0 && heartbeatMs <= cutoffMs;
+      });
+      if (!timedOutUnits.length) return;
+
+      const actor = { id: "system", name: "Systeem" };
+      const releasedVehicleNumbers = new Set(timedOutUnits.map((unit) => unit.vehicleNumber).filter(Boolean));
+      const settingsChanged = releaseOpsIfEnded(state, timedOutUnits, actor, nowIso, "Uit dienst (browser gesloten)");
+
+      for (const unit of timedOutUnits) {
+        clearRecentlyEnded(unit.memberId);
+        Object.assign(unit, {
+          status: "8",
+          statusDetail: "Uit dienst (browser gesloten)",
+          active: false,
+          vehicleNumber: "",
+          vehicleCode: "",
+          vehicleType: "",
+          vehicleName: "",
+          operatorSlot: "",
+          dutyRole: "",
+          linkedWith: [],
+          endedById: actor.id,
+          endedByName: actor.name,
+          endedAt: nowIso,
+          updatedAt: nowIso
+        });
+        clearPortoBrowserHeartbeat(unit);
+      }
+
+      for (const releasedVehicleNumber of releasedVehicleNumbers) syncPortoLinkedNames(state, releasedVehicleNumber);
+      await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
+      await enqueueNormalDiscordNicknames(state, timedOutUnits, "Porto browser gesloten");
+      console.log(`[porto] Browser-timeout: ${timedOutUnits.length} unit(s) automatisch uit dienst gezet.`);
+    });
   }
 
   function closePendingPortoRequestsForMember(state, memberId, keepUnitId = "") {
@@ -639,6 +711,26 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       return true;
     }
 
+    if (url.pathname === "/api/porto/heartbeat" && req.method === "POST") {
+      const context = await requireActivePerson(req, res);
+      if (!context) return true;
+      const { state, person } = context;
+      state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      if (isRecentlyEnded(person.id)) {
+        sendJson(res, 200, { ok: true, active: false, recentlyEnded: true });
+        return true;
+      }
+      const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
+      if (!unit) {
+        sendJson(res, 200, { ok: true, active: false });
+        return true;
+      }
+      markPortoBrowserHeartbeat(unit);
+      await persistPortoState(state, { units: state.portoUnits });
+      sendJson(res, 200, { ok: true, active: true, unitId: unit.id });
+      return true;
+    }
+
     if (url.pathname === "/api/porto/status" && req.method === "GET") {
       const context = await requireActivePerson(req, res);
       if (!context) return true;
@@ -736,6 +828,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         unit.reviewStatus = "pending";
         unit.requestedAt = unit.requestedAt || now;
         unit.requestNote = requestNote;
+        markPortoBrowserHeartbeat(unit, now);
       }
       if (status === "8") {
         const personKey = portoMemberKey(person.id);
@@ -756,10 +849,12 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
             endedAt: now,
             updatedAt: now
           });
+          clearPortoBrowserHeartbeat(endedUnit);
         }
         for (const releasedVehicleNumber of releasedVehicleNumbers) syncPortoLinkedNames(state, releasedVehicleNumber);
         await enqueueNormalDiscordNicknames(state, endedUnits);
       } else {
+        markPortoBrowserHeartbeat(unit, now);
         closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
       }
       await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
@@ -856,6 +951,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         lastSeenAt: now,
         updatedAt: now
       });
+      markPortoBrowserHeartbeat(unit, now);
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
       await sendPortoState(res, state, person, unit);
@@ -911,6 +1007,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         lastSeenAt: now,
         updatedAt: now
       });
+      markPortoBrowserHeartbeat(unit, now);
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
       await sendPortoState(res, state, person, unit);
@@ -1202,6 +1299,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           endedAt,
           updatedAt: endedAt
         }));
+        unitsToEnd.forEach(clearPortoBrowserHeartbeat);
         syncPortoLinkedNames(state, oldVehicleNumber);
         await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
         await enqueueNormalDiscordNicknames(state, unitsToEnd);
@@ -1501,6 +1599,21 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
     return false;
   }
+
+  handlePortoApi.startBrowserTimeoutMonitor = function startBrowserTimeoutMonitor() {
+    if (portoBrowserTimeoutTimer || !portoBrowserTimeoutMs) return () => {};
+    const run = () => {
+      signOffTimedOutPortoBrowsers()
+        .catch((error) => console.error(`[porto] Browser-timeout controle mislukt: ${error.message}`));
+    };
+    portoBrowserTimeoutTimer = setInterval(run, portoBrowserTimeoutCheckMs);
+    portoBrowserTimeoutTimer.unref?.();
+    setTimeout(run, Math.min(10000, portoBrowserTimeoutCheckMs)).unref?.();
+    return () => {
+      if (portoBrowserTimeoutTimer) clearInterval(portoBrowserTimeoutTimer);
+      portoBrowserTimeoutTimer = null;
+    };
+  };
 
   return handlePortoApi;
 }

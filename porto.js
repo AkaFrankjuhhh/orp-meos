@@ -81,10 +81,13 @@ let portoSignedOffUntilStatus0 = false;
 let portoAutoAssignTimer = null;
 let portoAutoAssignUnitId = "";
 const PORTO_AUTO_REFRESH_MS = 8000;
+const PORTO_BROWSER_HEARTBEAT_INTERVAL_MS = 60 * 1000;
 const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
 const PORTO_UI_MODE_KEY = "orp-porto-ui-mode";
 let portoUiMode = "classic";
 let portoSelectedModernOpsUnitId = "";
+let portoBrowserHeartbeatTimer = null;
+let portoBrowserHeartbeatInFlight = false;
 
 function applyPortoBranding() {
   const organizationKey = portoOrganization.key || "defensie";
@@ -440,6 +443,7 @@ function setPortoLocked(locked) {
     document.body.classList.remove("porto-workspace", "porto-ops-workspace", "porto-duty-workspace");
     setPortoDutyPolling(false);
     setPortoOpsPolling(false);
+    setPortoBrowserHeartbeat(false);
   }
 }
 
@@ -467,6 +471,36 @@ function showPortoInlineError(message) {
     errorElement.hidden = true;
     portoInlineErrorTimer = null;
   }, 8000);
+}
+
+async function sendPortoBrowserHeartbeat() {
+  if (document.body.classList.contains("porto-locked") || portoBrowserHeartbeatInFlight) return;
+  portoBrowserHeartbeatInFlight = true;
+  try {
+    const response = await fetch("/api/porto/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      keepalive: true
+    });
+    if (response.status === 401 || response.status === 404) setPortoBrowserHeartbeat(false);
+  } catch {
+    // Tijdelijke netwerkfouten mogen de pagina niet verstoren; de server time-out vangt echte sluitingen af.
+  } finally {
+    portoBrowserHeartbeatInFlight = false;
+  }
+}
+
+function setPortoBrowserHeartbeat(enabled) {
+  if (!enabled) {
+    if (portoBrowserHeartbeatTimer) window.clearInterval(portoBrowserHeartbeatTimer);
+    portoBrowserHeartbeatTimer = null;
+    portoBrowserHeartbeatInFlight = false;
+    return;
+  }
+  if (portoBrowserHeartbeatTimer) return;
+  sendPortoBrowserHeartbeat();
+  portoBrowserHeartbeatTimer = window.setInterval(sendPortoBrowserHeartbeat, PORTO_BROWSER_HEARTBEAT_INTERVAL_MS);
 }
 
 // Begrens zoom en slepen zodat de kaart nooit buiten het paneel schuift.
@@ -913,7 +947,10 @@ renderStatusButtons();
 renderVehicleRanges();
 renderOpsPanel();
 loadPortoProfile().then(() => {
-  if (!document.body.classList.contains("porto-locked")) startPortoLiveUpdates();
+  if (!document.body.classList.contains("porto-locked")) {
+    startPortoLiveUpdates();
+    setPortoBrowserHeartbeat(true);
+  }
 });
 
 

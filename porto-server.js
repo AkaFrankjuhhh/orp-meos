@@ -46,6 +46,7 @@ const postgresEventBridge = createPostgresEventBridge({
 const { writeHeadSecure, sendJson, sendHtml } = createHttpResponder({ appBaseUrl });
 const readBody = createJsonBodyReader(maxBodyBytes);
 const discordBot = createDiscordBotServices();
+let stopPortoBrowserTimeoutMonitor = null;
 
 const {
   profileTrainings,
@@ -483,6 +484,7 @@ async function startServer() {
   await sessions.load?.();
   await sessions.cleanup?.();
   await postgresEventBridge.start();
+  stopPortoBrowserTimeoutMonitor = handlePortoApi.startBrowserTimeoutMonitor?.() || null;
   server.listen(port, () => {
     console.log(`${organization.label} Porto-Systeem draait op ${appBaseUrl}`);
     console.log(`Organisatie: ${organization.key}`);
@@ -500,6 +502,7 @@ startServer().catch((error) => {
 
 async function shutdown() {
   try {
+    if (typeof stopPortoBrowserTimeoutMonitor === "function") stopPortoBrowserTimeoutMonitor();
     await postgresEventBridge.stop();
     await closePool();
   } finally {
