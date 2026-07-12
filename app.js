@@ -2530,7 +2530,7 @@ function wireEvents() {
         if (!trainingStatus.ok) {
           const confirmed = await showSiteConfirm(
             `Medewerker mist: ${trainingStatus.missingLabels.join(", ")}. Wil je toch promoveren?`,
-            "Weet je het zeker, medewerker heeft niet alle trainingen"
+            "Weet je het zeker, medewerker mist promotievereisten"
           );
           if (!confirmed) return;
         }

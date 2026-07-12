@@ -2854,6 +2854,12 @@ summary {
   color: #fef08a;
 }
 
+#personeel .person-hours-badge.promotion-hours {
+  border: 1px solid rgba(96, 165, 250, 0.58);
+  background: rgba(37, 99, 235, 0.2);
+  color: #bfdbfe;
+}
+
 #personeel .training-status-pill {
   display: inline-flex;
   align-items: center;
@@ -2884,6 +2890,12 @@ summary {
   border: 1px solid rgba(248, 113, 113, 0.55);
   background: rgba(239, 68, 68, 0.18);
   color: #fca5a5;
+}
+
+#personeel .training-status-pill.is-function-missing {
+  border: 1px solid rgba(245, 158, 11, 0.58);
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
 }
 
 #personeel .person-status.active {

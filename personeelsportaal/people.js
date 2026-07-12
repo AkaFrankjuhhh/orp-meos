@@ -227,6 +227,19 @@ function personnelOpsHoursCurrentWeek(person) {
   return opsHoursForWeek(person, week);
 }
 
+function personnelServiceHoursRecentWeeks(person, count = 2) {
+  const weeks = typeof recentHourWeeks === "function" ? recentHourWeeks(count) : [];
+  return weeks.reduce((sum, week) => sum + personnelServiceHoursForWeek(person, week), 0);
+}
+
+function personnelHasTwoWeekPromotionHours(person) {
+  if ((organizationConfig?.key || "defensie") !== "defensie") return false;
+  const rank = String(person?.rank || "").trim();
+  const currentWeight = Number(rankWeight?.get?.(rank) || 0);
+  const thresholdWeight = Number(rankWeight?.get?.("Wachtmeester") || 0);
+  return currentWeight > 0 && thresholdWeight > 0 && currentWeight >= thresholdWeight;
+}
+
 function personnelOperatorLabel() {
   return typeof portalOperatorLabel !== "undefined" && portalOperatorLabel ? portalOperatorLabel : "OPS";
 }
@@ -238,9 +251,12 @@ function renderPersonnelHourBadges(person) {
   const operatorLabel = personnelOperatorLabel();
   const serviceText = typeof displayHourValue === "function" ? displayHourValue(serviceHours) : String(serviceHours);
   const opsText = typeof displayHourValue === "function" ? displayHourValue(opsHours) : String(opsHours);
+  const twoWeekPromotionHours = personnelServiceHoursRecentWeeks(person, 2);
+  const twoWeekPromotionText = typeof displayHourValue === "function" ? displayHourValue(twoWeekPromotionHours) : String(twoWeekPromotionHours);
   return `
     <span class="person-hours-badge service-hours" title="Diensturen huidige week">${escapeHtml(serviceText)}u dienst</span>
     <span class="person-hours-badge ops-hours" title="${escapeHtml(operatorLabel)} uren huidige week">${escapeHtml(opsText)}u ${escapeHtml(operatorLabel)}</span>
+    ${personnelHasTwoWeekPromotionHours(person) ? `<span class="person-hours-badge promotion-hours" title="Promotie-uren laatste 2 weken">${escapeHtml(twoWeekPromotionText)}u laatste 2 weken</span>` : ""}
   `;
 }
 
@@ -278,7 +294,11 @@ const MAJOR_LEADERSHIP_BADGES = [
 ];
 
 function requirementName(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }
 
 function listRequirementValues(value) {
@@ -331,27 +351,49 @@ function trainingRequirementLabel(requirement) {
   return String(requirement || "");
 }
 
+function isFunctionRequirement(requirement) {
+  if (requirement === PROMOTION_TASK_REQUIREMENT_KEY || requirement === MAJOR_LEADERSHIP_REQUIREMENT_KEY) return true;
+  const functionRequirementNames = new Set([
+    ...listRequirementValues(extraTasks),
+    ...listRequirementValues(extraFunctions)
+  ].map(requirementName));
+  return functionRequirementNames.has(requirementName(requirement));
+}
+
 function rankTrainingStatusFor(person, rank = person?.rank) {
   const targetRank = targetRankForAction(person, "promote") || "";
-  if ((organizationConfig?.key || "defensie") !== "defensie") return { ok: true, missingLabels: [], rank, targetRank };
+  if ((organizationConfig?.key || "defensie") !== "defensie") {
+    return { ok: true, missingLabels: [], missingTrainingLabels: [], missingFunctionLabels: [], rank, targetRank };
+  }
   const completed = completedTrainingNamesFor(person);
-  const missingLabels = [];
+  const missingTrainingLabels = [];
+  const missingFunctionLabels = [];
   for (const requirement of trainingRequirementsForRank(rank)) {
     if (requirement === PROMOTION_TASK_REQUIREMENT_KEY) {
-      if (!hasPromotionTaskBadge(person)) missingLabels.push(PROMOTION_TASK_REQUIREMENT_LABEL);
+      if (!hasPromotionTaskBadge(person)) missingFunctionLabels.push(PROMOTION_TASK_REQUIREMENT_LABEL);
       continue;
     }
     if (requirement === MAJOR_LEADERSHIP_REQUIREMENT_KEY) {
-      if (!hasMajorLeadershipBadge(person)) missingLabels.push(MAJOR_LEADERSHIP_REQUIREMENT_LABEL);
+      if (!hasMajorLeadershipBadge(person)) missingFunctionLabels.push(MAJOR_LEADERSHIP_REQUIREMENT_LABEL);
       continue;
     }
     if (!completed.has(requirementName(requirement))) {
-      missingLabels.push(trainingRequirementLabel(requirement));
+      const label = trainingRequirementLabel(requirement);
+      if (isFunctionRequirement(requirement)) {
+        missingFunctionLabels.push(label);
+      } else {
+        missingTrainingLabels.push(label);
+      }
     }
   }
+  const uniqueMissingTrainingLabels = [...new Set(missingTrainingLabels)];
+  const uniqueMissingFunctionLabels = [...new Set(missingFunctionLabels)];
+  const missingLabels = [...uniqueMissingTrainingLabels, ...uniqueMissingFunctionLabels];
   return {
     ok: missingLabels.length === 0,
-    missingLabels: [...new Set(missingLabels)],
+    missingLabels,
+    missingTrainingLabels: uniqueMissingTrainingLabels,
+    missingFunctionLabels: uniqueMissingFunctionLabels,
     rank,
     targetRank
   };
@@ -362,12 +404,30 @@ function renderTrainingRequirementBadge(person) {
   if (typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person)) return "";
   const trainingStatus = rankTrainingStatusFor(person);
   const promotionTarget = trainingStatus.targetRank || "de volgende rang";
-  const title = trainingStatus.ok
-    ? `Alle verplichte trainingen en badges voor promotie naar ${promotionTarget} zijn behaald.`
-    : `Mist voor promotie naar ${promotionTarget}: ${trainingStatus.missingLabels.join(", ")}`;
+  const tooltipParts = trainingStatus.ok
+    ? [`Alle verplichte trainingen en functies voor promotie naar ${promotionTarget} zijn behaald.`]
+    : [
+      `Promotie naar ${promotionTarget}`,
+      trainingStatus.missingTrainingLabels.length
+        ? `Mist trainingen: ${trainingStatus.missingTrainingLabels.join(", ")}`
+        : "",
+      trainingStatus.missingFunctionLabels.length
+        ? `Mist functies: ${trainingStatus.missingFunctionLabels.join(", ")}`
+        : ""
+    ].filter(Boolean);
+  const label = trainingStatus.ok
+    ? "Trainingen en Functies:"
+    : trainingStatus.missingTrainingLabels.length
+      ? "Trainingen niet behaald"
+      : "Mist een functie";
+  const className = trainingStatus.ok
+    ? "is-complete"
+    : trainingStatus.missingTrainingLabels.length
+      ? "is-missing"
+      : "is-function-missing";
   return `
-    <span class="training-status-pill ${trainingStatus.ok ? "is-complete" : "is-missing"}" title="${escapeHtml(title)}">
-      <span>Trainingen behaald:</span>
+    <span class="training-status-pill ${className}" title="${escapeHtml(tooltipParts.join("\n"))}">
+      <span>${escapeHtml(label)}</span>
       <strong aria-hidden="true">${trainingStatus.ok ? "&#10003;" : "&#10005;"}</strong>
     </span>
   `;
