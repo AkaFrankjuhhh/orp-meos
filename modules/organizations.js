@@ -132,10 +132,12 @@ const defensieExtraTasks = [
   "DNR-Leiding",
   "DNR",
   "HRB-Leiding",
-  "HRB"
+  "HRB",
+  "VID-Leiding",
+  "VID"
 ];
 
-const defensieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
+const defensieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB", "VID-Leiding", "VID"];
 const politieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR"];
 
 const politieExtraTasks = [
@@ -320,7 +322,9 @@ const organizationConfigs = {
         { key: "dnr-leiding", label: "DNR-Leiding", envKey: "DISCORD_DNR_LEIDING_ROLE_ID" },
         { key: "dnr", label: "DNR", envKey: "DISCORD_DNR_ROLE_ID" },
         { key: "hrb-leiding", label: "HRB-Leiding", envKey: "DISCORD_HRB_LEIDING_ROLE_ID" },
-        { key: "hrb", label: "HRB", envKey: "DISCORD_HRB_ROLE_ID" }
+        { key: "hrb", label: "HRB", envKey: "DISCORD_HRB_ROLE_ID" },
+        { key: "vid-leiding", label: "VID-Leiding", envKey: "DISCORD_VID_LEIDING_ROLE_ID" },
+        { key: "vid", label: "VID", envKey: "DISCORD_VID_ROLE_ID" }
       ],
       rankRoleEnvKeys: {
         "Luitenant-Generaal": "DISCORD_RANK_LUITENANT_GENERAAL_ROLE_ID",

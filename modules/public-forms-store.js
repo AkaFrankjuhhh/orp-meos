@@ -2,7 +2,7 @@ const crypto = require("node:crypto");
 const { withClient } = require("./db");
 
 let ensured = false;
-const caseNumberFormSlugs = new Set(["klachten", "interne-klacht"]);
+const caseNumberFormSlugs = new Set(["klachten", "interne-klacht", "vid"]);
 
 async function ensurePublicFormsTable() {
   if (ensured) return;
@@ -59,6 +59,23 @@ function publicFormWebhookStatus(webhookResult = {}) {
 
 function shouldAssignCaseNumber(submission) {
   return caseNumberFormSlugs.has(submission?.formSlug) && !Number(submission.caseNumber || 0);
+}
+
+function submissionFromRow(row = {}) {
+  const raw = row.raw && typeof row.raw === "object" ? row.raw : {};
+  return {
+    ...raw,
+    id: row.id || raw.id,
+    formSlug: raw.formSlug || row.form_slug,
+    formTitle: raw.formTitle || row.form_title,
+    answers: raw.answers || row.answers || {},
+    submittedAt: raw.submittedAt || row.submitted_at,
+    ip: raw.ip || row.ip || "",
+    userAgent: raw.userAgent || row.user_agent || "",
+    caseNumber: raw.caseNumber || row.case_number || null,
+    webhookStatus: row.webhook_status || raw.webhookStatus || "",
+    raw
+  };
 }
 
 function createPublicFormsStore({ storageMode, readState, writeState, afterWrite } = {}) {
@@ -171,7 +188,100 @@ function createPublicFormsStore({ storageMode, readState, writeState, afterWrite
     return override;
   }
 
-  return { saveSubmission, ensurePublicFormsTable, readConfigOverride, saveConfigOverride };
+  async function listSubmissions(slug, { limit = 500 } = {}) {
+    if (storageMode === "postgres") {
+      await ensurePublicFormsTable();
+      const result = await withClient((client) => client.query(
+        `select id, form_slug, form_title, answers, submitted_at, ip, user_agent, case_number, webhook_status, raw
+         from public_form_submissions
+         where form_slug = $1
+         order by submitted_at desc
+         limit $2`,
+        [slug, Math.max(1, Math.min(Number(limit) || 500, 1000))]
+      ));
+      return result.rows.map(submissionFromRow);
+    }
+
+    const state = await Promise.resolve(readState());
+    return (state.publicFormSubmissions || [])
+      .filter((item) => item.formSlug === slug)
+      .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0))
+      .slice(0, Math.max(1, Math.min(Number(limit) || 500, 1000)));
+  }
+
+  async function updateSubmissionRaw(id, updater, actor) {
+    if (storageMode === "postgres") {
+      await ensurePublicFormsTable();
+      let updated = null;
+      await withClient(async (client) => {
+        await client.query("begin");
+        try {
+          const result = await client.query(
+            `select id, form_slug, form_title, answers, submitted_at, ip, user_agent, case_number, webhook_status, raw
+             from public_form_submissions
+             where id = $1
+             for update`,
+            [id]
+          );
+          const current = result.rows[0] ? submissionFromRow(result.rows[0]) : null;
+          if (!current) {
+            await client.query("rollback");
+            return;
+          }
+          updated = await Promise.resolve(updater({ ...current }));
+          await client.query(
+            `update public_form_submissions
+             set answers = $2::jsonb,
+                 case_number = $3,
+                 raw = $4::jsonb
+             where id = $1`,
+            [
+              id,
+              JSON.stringify(updated.answers || {}),
+              updated.caseNumber || null,
+              JSON.stringify(updated)
+            ]
+          );
+          await client.query(`insert into audit_log(id, scope, action, target_id, target_label, actor_id, actor_name, details)
+            values($1, 'forms', 'Formulierticket bijgewerkt', $2, $3, $4, $5, $6::jsonb)`, [
+            crypto.randomUUID(),
+            id,
+            `${updated.formSlug || "form"}:${updated.caseNumber || id}`,
+            actor?.id || "",
+            actor?.name || "",
+            JSON.stringify({ slug: updated.formSlug, caseNumber: updated.caseNumber || null })
+          ]);
+          await client.query("commit");
+        } catch (error) {
+          await client.query("rollback");
+          throw error;
+        }
+      });
+      afterWrite?.();
+      return updated;
+    }
+
+    const state = await Promise.resolve(readState());
+    state.publicFormSubmissions = Array.isArray(state.publicFormSubmissions) ? state.publicFormSubmissions : [];
+    const index = state.publicFormSubmissions.findIndex((item) => item.id === id);
+    if (index < 0) return null;
+    const updated = await Promise.resolve(updater({ ...state.publicFormSubmissions[index] }));
+    state.publicFormSubmissions[index] = updated;
+    state.activity = state.activity || [];
+    state.activity.push(`${actor?.name || "Onbekend"} heeft formulierticket ${updated.formSlug || ""}:${updated.caseNumber || id} bijgewerkt.`);
+    await Promise.resolve(writeState(state));
+    afterWrite?.();
+    return updated;
+  }
+
+  return {
+    saveSubmission,
+    ensurePublicFormsTable,
+    readConfigOverride,
+    saveConfigOverride,
+    listSubmissions,
+    updateSubmissionRaw
+  };
 }
 
 module.exports = { createPublicFormsStore, ensurePublicFormsTable };

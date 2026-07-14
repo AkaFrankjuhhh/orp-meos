@@ -255,6 +255,17 @@ function savePerson(state, payload) {
 
   if (
     organization.key === "politie" &&
+    !existing &&
+    !isOvcOnlyProfile &&
+    ranks.includes(person.rank) &&
+    !person.serviceNumber
+  ) {
+    assignFirstAvailableServiceNumber(state, person);
+    requestedServiceNumber = person.serviceNumber;
+  }
+
+  if (
+    organization.key === "politie" &&
     existing &&
     existing.rank !== person.rank &&
     !isOvcOnlyProfile &&

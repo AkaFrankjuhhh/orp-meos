@@ -264,9 +264,13 @@ function createPersoneelsportaalRouteHandler(deps) {
     return state;
   }
 
-  async function sendPeopleStateAfterMutation(res, auth, state) {
+  async function persistPeopleStateMutation(state) {
     normalizeAbsenceDrivenPeopleStatuses(state, currentDateOnly());
     await Promise.resolve(peopleStorage.writeState(state));
+  }
+
+  async function sendPeopleStateAfterMutation(res, auth, state) {
+    await persistPeopleStateMutation(state);
     const permissions = permissionsForAuth(auth, state);
     sendJson(res, 200, {
       ok: true,
@@ -1762,6 +1766,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     } catch (error) {
       state.activity.push(`Aanname webhook kon niet verzonden worden voor ${result.person.name}.`);
     }
+    await persistPeopleStateMutation(state);
     await syncChangedDiscordNicknames(state, previousNicknames);
     await syncChangedDiscordRankRoles(state, previousRankRoles);
     await queuePersonDiscordSync(state, result.person, "recruitment_hire");
@@ -1816,6 +1821,7 @@ function createPersoneelsportaalRouteHandler(deps) {
         state.activity.push(`Aanname webhook kon niet verzonden worden voor ${result.person.name}.`);
       }
     }
+    await persistPeopleStateMutation(state);
     await syncChangedDiscordNicknames(state, previousNicknames);
     await syncChangedDiscordRankRoles(state, previousRankRoles);
     await queuePersonDiscordSync(state, result.person, existingBeforeSave ? "person_updated" : "person_created");
@@ -1846,6 +1852,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     applyManualAbsenceStatusSource(result.person, result.person.status);
+    await persistPeopleStateMutation(state);
     await syncChangedDiscordNicknames(state, previousNicknames);
     await syncChangedDiscordRankRoles(state, previousRankRoles);
     await queuePersonDiscordSync(state, result.person, "person_updated");
@@ -2902,6 +2909,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     if (["promote", "demote"].includes(action)) {
+      await persistPeopleStateMutation(state);
       const queuedIds = await queueChangedDiscordProfiles(state, previousNicknames, previousRankRoles, `person_${action}`);
       if (isCurrentPerson(person) && !queuedIds.has(person.id)) {
         await queuePersonDiscordSync(state, person, `person_${action}`);

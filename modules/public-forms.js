@@ -66,7 +66,13 @@ function isDsiApplicationForm(configOrSlug) {
   return slug === "dsi";
 }
 
+function isVidForm(configOrSlug) {
+  const slug = typeof configOrSlug === "string" ? configOrSlug : configOrSlug?.slug;
+  return slug === "vid";
+}
+
 function publicFormSubmissionThreadName(config, submission = {}) {
+  if (isVidForm(config)) return "";
   if (isComplaintForm(config)) return `zaaknummer ${formatCaseNumber(submission.caseNumber)}`;
   const portalName = String(submission.submittedBy?.name || "").trim();
   const fallbackName = String(
@@ -206,6 +212,24 @@ const publicFormConfigs = {
       { id: "questions", label: "Heb jij nog verdere vragen en/of opmerkingen?", type: "textarea", required: false }
     ]
   },
+  ...(organization.key === "defensie" ? {
+    vid: {
+      slug: "vid",
+      hostnames: formHosts("vid"),
+      title: "Vertrouwenspersoon Integriteit Defensie",
+      subtitle: "Fijn dat je contact opneemt. Via dit formulier kun je je aanmelden voor een gesprek met een vertrouwenspersoon. Vul je gegevens zo volledig mogelijk in, zodat we contact met je kunnen opnemen.",
+      notice: "Je kunt aangeven of je voorkeur hebt voor een bepaalde vertrouwenspersoon. We doen ons best om met die voorkeur rekening te houden, maar kunnen dit niet altijd garanderen. Als jouw voorkeur niet mogelijk is, nemen we contact met je op om samen naar een passende oplossing te kijken.\n\nAlles wat je tijdens het gesprek met de vertrouwenspersoon bespreekt, wordt vertrouwelijk behandeld.",
+      accent: "#38bdf8",
+      internalOnly: true,
+      confidentialTicket: true,
+      ticketPrefix: "VID",
+      webhookEnv: "DISCORD_FORM_VID_WEBHOOK_URL",
+      questions: [
+        { id: "preferredConfidant", label: "Eventueel voorkeur vertrouwenspersoon", type: "text", required: false, placeholder: "Naam of dienstnummer van je voorkeur" },
+        { id: "remarks", label: "Opmerkingen", type: "textarea", required: false, placeholder: "Plaats hier eventueel voor informatie voor het gesprek, of overige opmerkingen." }
+      ]
+    }
+  } : {}),
   bsb: {
     slug: "bsb",
     hostnames: bsbFormHosts(),
@@ -378,6 +402,7 @@ const publicFormManagerBadges = {
   otc: ["OTC-Leiding", "Trainer-Leiding"],
   trainer: ["Trainer-Leiding"],
   hrb: ["HRB-Leiding"],
+  vid: ["VID-Leiding"],
   bsb: ["BSB-Leiding"],
   dsi: ["DSI-Leiding"],
   "w-s": ["W&S-Leiding"],
@@ -434,9 +459,37 @@ function canManagePublicForm(profile, config) {
   for (const mapping of organization.autoFunctionByRanks || []) {
     if ((mapping.ranks || []).includes(rank)) functionBadges.add(mapping.label);
   }
-  if ((organization.permissionAliases?.kader || ["Kader"]).some((badge) => functionBadges.has(badge))) return true;
   const taskBadges = new Set(profile.badges || []);
+  if (isVidForm(config)) {
+    return managerBadgesForConfig(config).some((badge) => functionBadges.has(badge) || taskBadges.has(badge));
+  }
+  if ((organization.permissionAliases?.kader || ["Kader"]).some((badge) => functionBadges.has(badge))) return true;
   return managerBadgesForConfig(config).some((badge) => functionBadges.has(badge) || taskBadges.has(badge));
+}
+
+function profilePublicFormBadges(profile = {}) {
+  const rank = profile.rank || "";
+  const badges = new Set([
+    profile.permRole,
+    ...(profile.extraFunctions || []),
+    ...(profile.badges || [])
+  ].filter(Boolean));
+  for (const mapping of organization.autoFunctionByRanks || []) {
+    if ((mapping.ranks || []).includes(rank)) badges.add(mapping.label);
+  }
+  return badges;
+}
+
+function canViewPublicFormTickets(profile, config) {
+  if (!profile || !config) return false;
+  if (canManagePublicForm(profile, config)) return true;
+  if (!isVidForm(config)) return false;
+  const badges = profilePublicFormBadges(profile);
+  return badges.has("VID") || badges.has("VID-Leiding");
+}
+
+function canAssignPublicFormTickets(profile, config) {
+  return canManagePublicForm(profile, config);
 }
 
 function sanitizeQuestion(rawQuestion) {
@@ -534,8 +587,12 @@ function publicFormClientConfig(config, profile = null) {
     iconHref: publicFormIconHref(config),
     internalOnly: Boolean(config.internalOnly),
     closed: Boolean(config.closed),
+    ticketPrefix: config.ticketPrefix || "",
+    confidentialTicket: Boolean(config.confidentialTicket),
     managerBadges: managerBadgesForConfig(config),
     canManage,
+    canViewTickets: canViewPublicFormTickets(profile, config),
+    canAssignTickets: canAssignPublicFormTickets(profile, config),
     questions,
     pages: config.pages || [],
     editable: canManage ? {
@@ -667,6 +724,17 @@ function formatCaseNumber(value) {
   return Number.isFinite(number) && number > 0 ? String(number).padStart(3, "0") : "-";
 }
 
+function publicFormTicketNumber(config, submission = {}) {
+  const prefix = String(config?.ticketPrefix || config?.slug || "FORM").trim().toUpperCase();
+  return `${prefix}-${formatCaseNumber(submission.caseNumber)}`;
+}
+
+function publicFormTicketUrl(config, submission = {}) {
+  const host = (config?.hostnames || [])[0];
+  if (!host) return "";
+  return `https://${host}/zaken/${publicFormTicketNumber(config, submission).toLowerCase()}`;
+}
+
 function truncateDiscordText(value, maxLength) {
   const text = String(value || "-").trim() || "-";
   if (text.length <= maxLength) return text;
@@ -681,6 +749,24 @@ function buildPublicFormWebhookPayload(config, submission) {
   const maxEmbedChars = 5800;
   const maxFieldValueChars = 1000;
   const color = Number.parseInt(String(config.accent || "#f59e0b").replace("#", ""), 16) || 0xf59e0b;
+
+  if (isVidForm(config)) {
+    const ticketNumber = publicFormTicketNumber(config, submission);
+    const ticketUrl = publicFormTicketUrl(config, submission);
+    return {
+      embeds: [{
+        title: "Er is een nieuwe ticket ingeschoten",
+        color,
+        fields: [
+          { name: "Ticketnummer", value: ticketNumber, inline: true },
+          { name: "Zaaklink", value: ticketUrl ? `[Open ${ticketNumber}](${ticketUrl})` : ticketNumber, inline: true }
+        ],
+        footer: { text: footerText },
+        timestamp: submission.submittedAt
+      }]
+    };
+  }
+
   const embeds = [];
   let droppedFields = 0;
 
@@ -845,7 +931,12 @@ module.exports = {
   mergePublicFormConfig,
   sanitizePublicFormOverride,
   canManagePublicForm,
+  canViewPublicFormTickets,
+  canAssignPublicFormTickets,
+  publicFormTicketNumber,
+  publicFormTicketUrl,
   isComplaintForm,
   isDsiApplicationForm,
+  isVidForm,
   publicFormSubmissionThreadName
 };

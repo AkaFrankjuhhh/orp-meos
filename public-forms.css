@@ -112,6 +112,12 @@ body[data-form-slug="hrb"] {
   --form-bg-accent: rgba(100, 116, 139, 0.2);
 }
 
+body[data-form-slug="vid"] {
+  --form-bg-image: url("/assets/lockscreen-defensie.png?v=20260614-form-photo-refresh");
+  --form-bg-position: 42% center;
+  --form-bg-accent: rgba(56, 189, 248, 0.18);
+}
+
 body[data-form-slug="bsb"] {
   --form-bg-image: url("/assets/bsb-background.png?v=20260617-bsb-form");
   --form-bg-position: center;
@@ -624,6 +630,147 @@ select:focus {
   color: #fff;
 }
 
+.vid-tickets {
+  margin-top: 18px;
+  padding: 22px;
+}
+
+.vid-tickets[hidden] {
+  display: none;
+}
+
+.vid-ticket-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.vid-ticket-head h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.vid-ticket-head p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.vid-ticket-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.vid-ticket-card {
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(15, 23, 42, 0.9)),
+    rgba(15, 23, 42, 0.74);
+  padding: 16px;
+}
+
+.vid-ticket-card.active {
+  border-color: rgba(56, 189, 248, 0.92);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25), 0 18px 50px rgba(14, 165, 233, 0.2);
+}
+
+.vid-ticket-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.vid-ticket-topline h3 {
+  margin: 6px 0 4px;
+  font-size: 18px;
+}
+
+.vid-ticket-topline p,
+.vid-ticket-topline time {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.vid-ticket-number {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.14);
+  color: #bae6fd;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 10px;
+  text-decoration: none;
+}
+
+.vid-ticket-number:hover {
+  border-color: rgba(56, 189, 248, 0.86);
+  color: #fff;
+}
+
+.vid-ticket-details {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.vid-ticket-details div {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(71, 85, 105, 0.58);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.58);
+  padding: 12px;
+}
+
+.vid-ticket-details dt {
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.vid-ticket-details dd {
+  margin: 0;
+  color: #e5edf8;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.vid-ticket-assign {
+  min-height: 42px;
+}
+
+.vid-ticket-assigned {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.1);
+  color: #bbf7d0;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.vid-ticket-empty {
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  color: var(--muted);
+  font-weight: 900;
+  padding: 18px;
+  text-align: center;
+}
+
 @media (max-width: 720px) {
   body::after {
     bottom: 1vh;
@@ -658,5 +805,10 @@ select:focus {
 
   .admin-question-card {
     grid-template-columns: 1fr;
+  }
+
+  .vid-ticket-head,
+  .vid-ticket-topline {
+    flex-direction: column;
   }
 }

@@ -5416,8 +5416,12 @@ body[data-device="mobile"] #bulkHoursDialog .bulk-hours-row {
 
 html[data-ui-mode="calm"] .dashboard-grid {
   gap: 18px;
-  grid-template-columns: minmax(420px, 0.88fr) minmax(520px, 1.12fr);
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
   align-items: start;
+}
+
+html[data-ui-mode="calm"] .dashboard-grid > .panel {
+  min-width: 0;
 }
 
 html[data-ui-mode="calm"] .member-overview {
@@ -5457,7 +5461,8 @@ html[data-ui-mode="calm"] .member-summary {
 
 html[data-ui-mode="calm"] .member-summary div {
   min-height: 112px;
-  padding: 18px 28px;
+  min-width: 0;
+  padding: 18px clamp(14px, 2vw, 24px);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -5468,7 +5473,9 @@ html[data-ui-mode="calm"] .member-summary div + div {
 }
 
 html[data-ui-mode="calm"] .member-summary strong {
-  font-size: clamp(42px, 4vw, 54px);
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(36px, 3.4vw, 52px);
   color: #dbe7ff;
   text-shadow: 0 0 24px rgba(127, 166, 236, 0.18);
 }
@@ -5498,7 +5505,7 @@ html[data-ui-mode="calm"] .rank-legend-item {
   border: 0;
   background: transparent;
   display: grid;
-  grid-template-columns: 14px minmax(180px, 260px) minmax(160px, 1fr) 42px;
+  grid-template-columns: 14px minmax(150px, 240px) minmax(120px, 1fr) 42px;
   gap: 12px;
 }
 
@@ -5590,8 +5597,33 @@ html[data-ui-mode="calm"] textarea {
   }
 }
 
+@media (max-width: 1180px) {
+  html[data-ui-mode="calm"] .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-ui-mode="calm"] .member-overview {
+    min-height: 0;
+  }
+
+  html[data-ui-mode="calm"] .member-summary {
+    min-height: 0;
+  }
+}
+
 @media (max-width: 1320px) {
   html[data-ui-mode="calm"] .rank-legend {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  html[data-ui-mode="calm"] .member-summary {
+    grid-template-columns: 1fr;
+  }
+
+  html[data-ui-mode="calm"] .member-summary div + div {
+    border-left: 0;
+    border-top: 1px solid rgba(146, 166, 198, 0.22);
   }
 }

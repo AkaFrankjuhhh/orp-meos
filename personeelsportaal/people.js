@@ -760,7 +760,7 @@ function openMemberDialog(person = null) {
   if (memberServiceLabel) {
     memberServiceLabel.childNodes[0].nodeValue = serviceNumberLabel();
   }
-  fillServiceSelect(person?.serviceNumber || "");
+  fillServiceSelect(person?.serviceNumber || "", { autoSelectFirst: !person && organizationConfig?.key === "politie" });
   $("#memberDialog").showModal();
 }
 

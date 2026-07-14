@@ -44,7 +44,11 @@ const {
   splitPublicFormWebhookPayload,
   mergePublicFormConfig,
   sanitizePublicFormOverride,
-  canManagePublicForm
+  canManagePublicForm,
+  canViewPublicFormTickets,
+  canAssignPublicFormTickets,
+  publicFormTicketNumber,
+  publicFormTicketUrl
 } = require("./modules/public-forms");
 
 loadEnv();
@@ -674,6 +678,63 @@ function requirePublicFormAccess(req, res, config) {
   return null;
 }
 
+function publicFormProfileBadges(person = {}) {
+  return new Set([
+    person.permRole,
+    ...(person.extraFunctions || []),
+    ...(person.badges || [])
+  ].filter(Boolean));
+}
+
+function publicFormPersonDto(person = {}) {
+  return {
+    id: person.id || "",
+    name: person.name || "",
+    rank: person.rank || "",
+    serviceNumber: person.serviceNumber || "",
+    discordId: person.discordId || "",
+    discordUsername: person.discordUsername || "",
+    avatar: person.avatar || ""
+  };
+}
+
+function personHasPublicFormBadge(person, badges = []) {
+  const personBadges = publicFormProfileBadges(person);
+  return badges.some((badge) => personBadges.has(badge));
+}
+
+function publicFormTicketAssignedToProfile(submission = {}, profile = {}) {
+  const assignedTo = submission.ticket?.assignedTo || null;
+  if (!assignedTo || !profile) return false;
+  if (assignedTo.id && profile.id && assignedTo.id === profile.id) return true;
+  if (assignedTo.discordId && profile.discordId && assignedTo.discordId === profile.discordId) return true;
+  return false;
+}
+
+function publicFormTicketDto(config, submission = {}) {
+  return {
+    id: submission.id,
+    ticketNumber: publicFormTicketNumber(config, submission),
+    ticketUrl: publicFormTicketUrl(config, submission),
+    formSlug: submission.formSlug,
+    formTitle: submission.formTitle,
+    submittedAt: submission.submittedAt,
+    submittedBy: submission.submittedBy || null,
+    answers: submission.answers || {},
+    status: submission.ticket?.status || "open",
+    assignedTo: submission.ticket?.assignedTo || null,
+    assignedAt: submission.ticket?.assignedAt || "",
+    assignedBy: submission.ticket?.assignedBy || null
+  };
+}
+
+function vidAssigneeOptions(state = {}) {
+  return (state.people || [])
+    .filter((person) => person.status === "Actief" && personHasPublicFormBadge(person, ["VID", "VID-Leiding"]))
+    .map(publicFormPersonDto)
+    .sort((a, b) => `${a.serviceNumber || "zz"} ${a.name}`.localeCompare(`${b.serviceNumber || "zz"} ${b.name}`, "nl"));
+}
+
 async function handlePublicFormsApi(req, res, url) {
   if (!url.pathname.startsWith("/api/public-forms/")) return false;
 
@@ -714,6 +775,107 @@ async function handlePublicFormsApi(req, res, url) {
     return true;
   }
 
+  if (url.pathname === "/api/public-forms/submissions" && req.method === "GET") {
+    const baseConfig = publicFormFromSlug(url.searchParams.get("slug")) || publicFormForRequest(req, url);
+    if (!baseConfig) {
+      sendJson(res, 404, { error: "Formulier niet gevonden" });
+      return true;
+    }
+    const config = await resolvePublicFormConfig(baseConfig);
+    if (!config.confidentialTicket) {
+      sendJson(res, 404, { error: "Ticketformulier niet gevonden." });
+      return true;
+    }
+    const formAuth = requirePublicFormAccess(req, res, config);
+    if (!formAuth) return true;
+    const state = await Promise.resolve(peopleStorage.readState());
+    const profile = (state.people || []).find((person) => person.id === formAuth.profile.id) || formAuth.profile;
+    if (!canViewPublicFormTickets(profile, config)) {
+      sendJson(res, 403, { error: "Je hebt geen toegang tot deze tickets." });
+      return true;
+    }
+    const allTickets = await publicFormsStore.listSubmissions(config.slug, { limit: 500 });
+    const visibleTickets = canAssignPublicFormTickets(profile, config)
+      ? allTickets
+      : allTickets.filter((submission) => publicFormTicketAssignedToProfile(submission, profile));
+    sendJson(res, 200, {
+      ok: true,
+      tickets: visibleTickets.map((submission) => publicFormTicketDto(config, submission))
+    });
+    return true;
+  }
+
+  if (url.pathname === "/api/public-forms/assignees" && req.method === "GET") {
+    const baseConfig = publicFormFromSlug(url.searchParams.get("slug")) || publicFormForRequest(req, url);
+    if (!baseConfig) {
+      sendJson(res, 404, { error: "Formulier niet gevonden" });
+      return true;
+    }
+    const config = await resolvePublicFormConfig(baseConfig);
+    if (!config.confidentialTicket) {
+      sendJson(res, 404, { error: "Ticketformulier niet gevonden." });
+      return true;
+    }
+    const formAuth = requirePublicFormAccess(req, res, config);
+    if (!formAuth) return true;
+    const state = await Promise.resolve(peopleStorage.readState());
+    const profile = (state.people || []).find((person) => person.id === formAuth.profile.id) || formAuth.profile;
+    if (!canAssignPublicFormTickets(profile, config)) {
+      sendJson(res, 403, { error: "Je hebt geen leidingrechten voor dit formulier." });
+      return true;
+    }
+    sendJson(res, 200, { ok: true, assignees: vidAssigneeOptions(state) });
+    return true;
+  }
+
+  const publicFormAssignMatch = url.pathname.match(/^\/api\/public-forms\/submissions\/([^/]+)\/assign$/);
+  if (publicFormAssignMatch && req.method === "POST") {
+    const body = await readBody(req);
+    const baseConfig = publicFormFromSlug(body.slug || url.searchParams.get("slug")) || publicFormForRequest(req, url);
+    if (!baseConfig) {
+      sendJson(res, 404, { error: "Formulier niet gevonden" });
+      return true;
+    }
+    const config = await resolvePublicFormConfig(baseConfig);
+    const formAuth = requirePublicFormAccess(req, res, config);
+    if (!formAuth) return true;
+    const state = await Promise.resolve(peopleStorage.readState());
+    const profile = (state.people || []).find((person) => person.id === formAuth.profile.id) || formAuth.profile;
+    if (!canAssignPublicFormTickets(profile, config)) {
+      sendJson(res, 403, { error: "Je hebt geen leidingrechten voor dit formulier." });
+      return true;
+    }
+    const ticketId = publicFormAssignMatch[1];
+    const existingTicket = (await publicFormsStore.listSubmissions(config.slug, { limit: 1000 })).find((item) => item.id === ticketId);
+    if (!existingTicket) {
+      sendJson(res, 404, { error: "Ticket niet gevonden." });
+      return true;
+    }
+    const assignee = body.personId
+      ? (state.people || []).find((person) => person.id === body.personId && person.status === "Actief")
+      : null;
+    if (body.personId && !assignee) {
+      sendJson(res, 404, { error: "Vertrouwenspersoon niet gevonden." });
+      return true;
+    }
+    if (assignee && !personHasPublicFormBadge(assignee, ["VID", "VID-Leiding"])) {
+      sendJson(res, 400, { error: "Dit personeelslid heeft geen VID rol." });
+      return true;
+    }
+    const updatedTicket = await publicFormsStore.updateSubmissionRaw(ticketId, (submission) => ({
+      ...submission,
+      ticket: {
+        ...(submission.ticket || {}),
+        status: "open",
+        assignedTo: assignee ? publicFormPersonDto(assignee) : null,
+        assignedAt: assignee ? new Date().toISOString() : "",
+        assignedBy: publicFormPersonDto(profile)
+      }
+    }), profile);
+    sendJson(res, 200, { ok: true, ticket: publicFormTicketDto(config, updatedTicket) });
+    return true;
+  }
+
   if (url.pathname === "/api/public-forms/submit" && req.method === "POST") {
     const body = await readPublicFormSubmitBody(req);
     const baseConfig = publicFormFromSlug(body.slug) || publicFormForRequest(req, url);
@@ -747,7 +909,14 @@ async function handlePublicFormsApi(req, res, url) {
     // Sla elke inzending eerst op. Zo verdwijnt een sollicitatie niet als Discord/webhook tijdelijk faalt.
     await publicFormsStore.saveSubmission(submission, { pending: true });
     sendPublicFormWebhookInBackground(config, submission, fileValidation.cleanFiles);
-    sendJson(res, 200, { ok: true, id: submission.id, caseNumber: submission.caseNumber || null, webhook: "pending" });
+    sendJson(res, 200, {
+      ok: true,
+      id: submission.id,
+      caseNumber: submission.caseNumber || null,
+      ticketNumber: config.confidentialTicket ? publicFormTicketNumber(config, submission) : null,
+      ticketUrl: config.confidentialTicket ? publicFormTicketUrl(config, submission) : "",
+      webhook: "pending"
+    });
     return true;
   }
 

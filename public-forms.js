@@ -3,7 +3,10 @@ const formState = {
   adminQuestions: [],
   currentPageIndex: 0,
   draftAnswers: {},
-  draftKey: ""
+  draftKey: "",
+  tickets: [],
+  assignees: [],
+  requestedTicketNumber: ""
 };
 let questionsChangeBound = false;
 let questionsInputBound = false;
@@ -575,6 +578,173 @@ function bindFormAdmin() {
   $("#formAdminForm")?.addEventListener("submit", saveFormAdmin);
 }
 
+function ticketDateTime(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function ticketPersonLabel(person) {
+  if (!person) return "-";
+  const serviceNumber = person.serviceNumber ? `${person.serviceNumber} - ` : "";
+  return `${serviceNumber}${person.name || "Onbekend"}`;
+}
+
+function ticketAnswer(ticket, key) {
+  return String(ticket?.answers?.[key] || "").trim() || "-";
+}
+
+function ticketNumberFromPath() {
+  const match = String(window.location.pathname || "").match(/\/zaken\/([a-z]+-\d+)/i);
+  return match ? match[1].toUpperCase() : "";
+}
+
+function ticketPathForNumber(ticketNumber) {
+  const clean = String(ticketNumber || "").trim().toLowerCase();
+  return clean ? `/zaken/${encodeURIComponent(clean)}` : window.location.pathname;
+}
+
+function renderVidAssigneeSelect(ticket) {
+  if (!formState.config?.canAssignTickets) {
+    return `<span class="vid-ticket-assigned">${escapeHtml(ticketPersonLabel(ticket.assignedTo))}</span>`;
+  }
+  const options = [
+    `<option value="">Niet toegewezen</option>`,
+    ...formState.assignees.map((person) => (
+      `<option value="${escapeHtml(person.id)}" ${ticket.assignedTo?.id === person.id ? "selected" : ""}>${escapeHtml(ticketPersonLabel(person))}</option>`
+    ))
+  ].join("");
+  return `<select class="vid-ticket-assign" data-ticket-id="${escapeHtml(ticket.id)}">${options}</select>`;
+}
+
+function renderVidTicketCard(ticket) {
+  const submitter = ticket.submittedBy || {};
+  const isActive = formState.requestedTicketNumber && String(ticket.ticketNumber || "").toUpperCase() === formState.requestedTicketNumber;
+  return `
+    <article class="vid-ticket-card${isActive ? " active" : ""}" data-ticket-number="${escapeHtml(ticket.ticketNumber)}">
+      <div class="vid-ticket-topline">
+        <div>
+          <a class="vid-ticket-number" href="${escapeHtml(ticketPathForNumber(ticket.ticketNumber))}">${escapeHtml(ticket.ticketNumber)}</a>
+          <h3>${escapeHtml(ticketPersonLabel(submitter))}</h3>
+          <p>${escapeHtml(submitter.rank || "-")} ${submitter.discordUsername ? `&middot; ${escapeHtml(submitter.discordUsername)}` : ""}</p>
+        </div>
+        <time>${escapeHtml(ticketDateTime(ticket.submittedAt))}</time>
+      </div>
+      <dl class="vid-ticket-details">
+        <div>
+          <dt>Voorkeur vertrouwenspersoon</dt>
+          <dd>${escapeHtml(ticketAnswer(ticket, "preferredConfidant"))}</dd>
+        </div>
+        <div>
+          <dt>Opmerkingen</dt>
+          <dd>${escapeHtml(ticketAnswer(ticket, "remarks"))}</dd>
+        </div>
+        <div>
+          <dt>Gekoppeld aan</dt>
+          <dd>${renderVidAssigneeSelect(ticket)}</dd>
+        </div>
+      </dl>
+    </article>
+  `;
+}
+
+function renderVidTicketsPanel() {
+  const panel = $("#vidTicketPanel");
+  if (!panel) return;
+  const visible = formState.config?.confidentialTicket && formState.config?.canViewTickets;
+  panel.hidden = !visible;
+  if (!visible) return;
+  const cards = formState.tickets.length
+    ? formState.tickets.map(renderVidTicketCard).join("")
+    : `<div class="vid-ticket-empty">Geen VID tickets zichtbaar.</div>`;
+  panel.innerHTML = `
+    <div class="vid-ticket-head">
+      <div>
+        <p class="eyebrow">Vertrouwelijk</p>
+        <h2>VID tickets</h2>
+        <p>${formState.config.canAssignTickets ? "Wijs nieuwe gesprekken toe aan een vertrouwenspersoon." : "Alleen tickets die aan jou gekoppeld zijn worden hier getoond."}</p>
+      </div>
+      <button id="refreshVidTickets" class="ghost-button" type="button">Verversen</button>
+    </div>
+    <div class="vid-ticket-list">${cards}</div>
+  `;
+  if (formState.requestedTicketNumber) {
+    requestAnimationFrame(() => {
+      const card = panel.querySelector(`.vid-ticket-card[data-ticket-number="${CSS.escape(formState.requestedTicketNumber)}"]`);
+      card?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+}
+
+async function loadVidAssignees() {
+  if (!formState.config?.confidentialTicket || !formState.config?.canAssignTickets) {
+    formState.assignees = [];
+    return;
+  }
+  const response = await fetch(`/api/public-forms/assignees?slug=${encodeURIComponent(formState.config.slug)}`, { cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Vertrouwenspersonen laden is mislukt.");
+  formState.assignees = data.assignees || [];
+}
+
+async function loadVidTickets() {
+  if (!formState.config?.confidentialTicket || !formState.config?.canViewTickets) {
+    formState.tickets = [];
+    renderVidTicketsPanel();
+    return;
+  }
+  try {
+    await loadVidAssignees();
+    const response = await fetch(`/api/public-forms/submissions?slug=${encodeURIComponent(formState.config.slug)}`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Tickets laden is mislukt.");
+    formState.tickets = data.tickets || [];
+    renderVidTicketsPanel();
+  } catch (error) {
+    formState.tickets = [];
+    renderVidTicketsPanel();
+    showMessage(error.message || "Tickets laden is mislukt.", "error");
+  }
+}
+
+async function assignVidTicket(ticketId, personId) {
+  const response = await fetch(`/api/public-forms/submissions/${encodeURIComponent(ticketId)}/assign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug: formState.config.slug, personId })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Ticket toewijzen is mislukt.");
+  const index = formState.tickets.findIndex((ticket) => ticket.id === ticketId);
+  if (index >= 0) formState.tickets[index] = data.ticket;
+  renderVidTicketsPanel();
+}
+
+function bindVidTicketPanel() {
+  const panel = $("#vidTicketPanel");
+  if (!panel) return;
+  panel.addEventListener("click", (event) => {
+    if (event.target.closest("#refreshVidTickets")) loadVidTickets();
+  });
+  panel.addEventListener("change", async (event) => {
+    const select = event.target.closest(".vid-ticket-assign");
+    if (!select) return;
+    select.disabled = true;
+    try {
+      await assignVidTicket(select.dataset.ticketId, select.value);
+    } catch (error) {
+      showMessage(error.message || "Ticket toewijzen is mislukt.", "error");
+      renderVidTicketsPanel();
+    }
+  });
+}
+
 function applyLoadedConfig(config) {
   formState.config = config;
   formState.currentPageIndex = 0;
@@ -607,6 +777,7 @@ function applyLoadedConfig(config) {
   if (config.closed && !config.canManage) renderClosedForm(config);
   else renderQuestions();
   renderFormAdmin(config);
+  loadVidTickets();
 }
 async function loadForm() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -691,7 +862,17 @@ async function submitForm(event) {
     clearDraftAnswers();
     formState.currentPageIndex = 0;
     renderQuestions();
-    showMessage("Formulier ontvangen. De melding naar Discord wordt verwerkt.", "ok");
+    if (formState.config.confidentialTicket) {
+      const ticketNumber = data.ticketNumber || (data.caseNumber ? `${formState.config.ticketPrefix || "VID"}-${String(data.caseNumber).padStart(3, "0")}` : "");
+      if (ticketNumber) {
+        formState.requestedTicketNumber = ticketNumber.toUpperCase();
+        window.history.pushState({}, document.title, ticketPathForNumber(ticketNumber));
+      }
+      showMessage(`Ticket aangemaakt${ticketNumber ? `: ${ticketNumber}` : ""}. De VID-Leiding is geinformeerd.`, "ok");
+      loadVidTickets();
+    } else {
+      showMessage("Formulier ontvangen. De melding naar Discord wordt verwerkt.", "ok");
+    }
   } catch (error) {
     showMessage(error.message || "Formulier verzenden is mislukt.", "error");
   } finally {
@@ -721,7 +902,9 @@ $("#nextPageButton")?.addEventListener("click", () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 bindFormAdmin();
+bindVidTicketPanel();
 showAuthErrorFromUrl();
+formState.requestedTicketNumber = ticketNumberFromPath();
 loadForm().catch((error) => {
   $("#formTitle").textContent = "Formulier niet beschikbaar";
   $("#formSubtitle").textContent = "Controleer de link of probeer het later opnieuw.";

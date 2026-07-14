@@ -141,6 +141,31 @@ test("managed public forms can be closed and reopened by form leadership", () =>
   assert.match(styles, /\.form-status-pill\.closed/);
 });
 
+test("calm dashboard adapts before police counters overflow", () => {
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(styles, /html\[data-ui-mode="calm"\] \.dashboard-grid > \.panel/);
+  assert.match(styles, /@media \(max-width: 1180px\)/);
+  assert.match(styles, /html\[data-ui-mode="calm"\] \.dashboard-grid \{\s+grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(styles, /html\[data-ui-mode="calm"\] \.member-summary strong \{[\s\S]*font-size: clamp\(36px, 3\.4vw, 52px\)/);
+  assert.match(styles, /@media \(max-width: 760px\)/);
+});
+
+test("people mutations persist rank changes before queueing Discord sync", () => {
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+
+  assert.match(routesCode, /async function persistPeopleStateMutation\(state\)/);
+
+  const recruitmentBlock = routesCode.slice(routesCode.indexOf('queuePersonDiscordSync(state, result.person, "recruitment_hire"') - 240, routesCode.indexOf('queuePersonDiscordSync(state, result.person, "recruitment_hire"') + 120);
+  assert.match(recruitmentBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queuePersonDiscordSync\(state, result\.person, "recruitment_hire"\)/);
+
+  const personSaveBlock = routesCode.slice(routesCode.indexOf('queuePersonDiscordSync(state, result.person, existingBeforeSave ? "person_updated" : "person_created"') - 240, routesCode.indexOf('queuePersonDiscordSync(state, result.person, existingBeforeSave ? "person_updated" : "person_created"') + 160);
+  assert.match(personSaveBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queuePersonDiscordSync\(state, result\.person, existingBeforeSave \? "person_updated" : "person_created"\)/);
+
+  const rankActionBlock = routesCode.slice(routesCode.indexOf('if (["promote", "demote"].includes(action))'), routesCode.indexOf('} else if (action !== "io"'));
+  assert.match(rankActionBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queueChangedDiscordProfiles\(state, previousNicknames, previousRankRoles, `person_\$\{action\}`\)/);
+});
+
 test("porto exposes the modern dispatcher test UI beside the classic UI", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const portoCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
