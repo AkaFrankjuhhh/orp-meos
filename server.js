@@ -47,6 +47,7 @@ const {
   canManagePublicForm,
   canViewPublicFormTickets,
   canAssignPublicFormTickets,
+  canReviewPublicFormSubmissions,
   publicFormTicketNumber,
   publicFormTicketUrl
 } = require("./modules/public-forms");
@@ -728,6 +729,102 @@ function publicFormTicketDto(config, submission = {}) {
   };
 }
 
+function addPublicFormProfileLog(person, entry) {
+  if (!person) return null;
+  person.profileLog = Array.isArray(person.profileLog) ? person.profileLog : [];
+  const actor = entry.actor || {};
+  const logEntry = {
+    id: crypto.randomUUID(),
+    type: entry.type || "profile",
+    action: entry.action || "Profiel bijgewerkt",
+    details: entry.details || "",
+    createdAt: new Date().toISOString(),
+    actorId: actor.id || "",
+    actorName: actor.name || "Onbekend"
+  };
+  person.profileLog.unshift(logEntry);
+  person.profileLog = person.profileLog.slice(0, 150);
+  return logEntry;
+}
+
+function publicFormReviewStatus(value) {
+  const status = String(value || "").trim().toLowerCase();
+  if (["approved", "goedgekeurd", "approve"].includes(status)) return "approved";
+  if (["rejected", "afgekeurd", "reject"].includes(status)) return "rejected";
+  return "";
+}
+
+function publicFormReviewSubmissionDto(config, submission = {}) {
+  return {
+    id: submission.id,
+    submissionNumber: publicFormTicketNumber(config, submission),
+    formSlug: submission.formSlug,
+    formTitle: submission.formTitle,
+    submittedAt: submission.submittedAt,
+    submittedBy: submission.submittedBy || null,
+    answers: submission.answers || {},
+    review: submission.review || { status: "submitted" }
+  };
+}
+
+function findPublicFormSubmittedPerson(state = {}, submission = {}) {
+  const submittedBy = submission.submittedBy || {};
+  const people = Array.isArray(state.people) ? state.people : [];
+  const activePeople = people.filter((person) => person.status === "Actief");
+  if (submittedBy.id) {
+    const byId = activePeople.find((person) => person.id === submittedBy.id);
+    if (byId) return byId;
+  }
+  if (submittedBy.discordId) {
+    const byDiscord = activePeople.find((person) => person.discordId && person.discordId === submittedBy.discordId);
+    if (byDiscord) return byDiscord;
+  }
+  if (submittedBy.serviceNumber) {
+    const byNumber = activePeople.find((person) => person.serviceNumber && person.serviceNumber === submittedBy.serviceNumber);
+    if (byNumber) return byNumber;
+  }
+  if (submittedBy.name) {
+    return activePeople.find((person) => String(person.name || "").toLowerCase() === String(submittedBy.name || "").toLowerCase()) || null;
+  }
+  return null;
+}
+
+async function applyPublicFormReviewTraining(config, submission, reviewer, state) {
+  const training = String(config?.reviewTraining || "").trim();
+  if (!training) return { training: "", changed: false, person: null };
+  const person = findPublicFormSubmittedPerson(state, submission);
+  if (!person) {
+    const error = new Error("Personeelsprofiel bij deze toets niet gevonden.");
+    error.statusCode = 404;
+    throw error;
+  }
+  person.completedTrainings = Array.isArray(person.completedTrainings) ? person.completedTrainings : [];
+  const changed = !person.completedTrainings.includes(training);
+  if (changed) {
+    person.completedTrainings.push(training);
+    addPublicFormProfileLog(person, {
+      type: "training",
+      action: `${training} toets goedgekeurd`,
+      details: `${training} automatisch afgevinkt na goedkeuring van de toets.`,
+      actor: reviewer
+    });
+  }
+  if (changed) {
+    const activityMessage = `${reviewer?.name || "Onbekend"} heeft ${training} automatisch afgevinkt voor ${person.name || "Onbekend"} via ${config.title}.`;
+    if (typeof peopleStorage.writePersonQualifications === "function") {
+      await Promise.resolve(peopleStorage.writePersonQualifications(person, activityMessage));
+    } else {
+      state.activity = Array.isArray(state.activity) ? state.activity : [];
+      state.activity.push(activityMessage);
+      await Promise.resolve(peopleStorage.writeState(state));
+    }
+    if (storageMode === "postgres") {
+      enqueuePersonDiscordSync(person, "public_form_training_approved").catch((error) => logServerError("Discord sync na toetsgoedkeuring mislukt", error));
+    }
+  }
+  return { training, changed, person: publicFormPersonDto(person) };
+}
+
 function vidAssigneeOptions(state = {}) {
   return (state.people || [])
     .filter((person) => person.status === "Actief" && personHasPublicFormBadge(person, ["VID", "VID-Leiding"]))
@@ -782,25 +879,37 @@ async function handlePublicFormsApi(req, res, url) {
       return true;
     }
     const config = await resolvePublicFormConfig(baseConfig);
-    if (!config.confidentialTicket) {
-      sendJson(res, 404, { error: "Ticketformulier niet gevonden." });
+    if (!config.confidentialTicket && !config.reviewable && !config.reviewTraining) {
+      sendJson(res, 404, { error: "Inzendingenoverzicht niet gevonden." });
       return true;
     }
     const formAuth = requirePublicFormAccess(req, res, config);
     if (!formAuth) return true;
     const state = await Promise.resolve(peopleStorage.readState());
     const profile = (state.people || []).find((person) => person.id === formAuth.profile.id) || formAuth.profile;
-    if (!canViewPublicFormTickets(profile, config)) {
-      sendJson(res, 403, { error: "Je hebt geen toegang tot deze tickets." });
+    if (config.confidentialTicket) {
+      if (!canViewPublicFormTickets(profile, config)) {
+        sendJson(res, 403, { error: "Je hebt geen toegang tot deze tickets." });
+        return true;
+      }
+      const allTickets = await publicFormsStore.listSubmissions(config.slug, { limit: 500 });
+      const visibleTickets = canAssignPublicFormTickets(profile, config)
+        ? allTickets
+        : allTickets.filter((submission) => publicFormTicketAssignedToProfile(submission, profile));
+      sendJson(res, 200, {
+        ok: true,
+        tickets: visibleTickets.map((submission) => publicFormTicketDto(config, submission))
+      });
       return true;
     }
-    const allTickets = await publicFormsStore.listSubmissions(config.slug, { limit: 500 });
-    const visibleTickets = canAssignPublicFormTickets(profile, config)
-      ? allTickets
-      : allTickets.filter((submission) => publicFormTicketAssignedToProfile(submission, profile));
+    if (!canReviewPublicFormSubmissions(profile, config)) {
+      sendJson(res, 403, { error: "Je hebt geen trainerrechten voor deze toets." });
+      return true;
+    }
+    const submissions = await publicFormsStore.listSubmissions(config.slug, { limit: 500 });
     sendJson(res, 200, {
       ok: true,
-      tickets: visibleTickets.map((submission) => publicFormTicketDto(config, submission))
+      submissions: submissions.map((submission) => publicFormReviewSubmissionDto(config, submission))
     });
     return true;
   }
@@ -873,6 +982,63 @@ async function handlePublicFormsApi(req, res, url) {
       }
     }), profile);
     sendJson(res, 200, { ok: true, ticket: publicFormTicketDto(config, updatedTicket) });
+    return true;
+  }
+
+  const publicFormReviewMatch = url.pathname.match(/^\/api\/public-forms\/submissions\/([^/]+)\/review$/);
+  if (publicFormReviewMatch && req.method === "POST") {
+    const body = await readBody(req);
+    const baseConfig = publicFormFromSlug(body.slug || url.searchParams.get("slug")) || publicFormForRequest(req, url);
+    if (!baseConfig) {
+      sendJson(res, 404, { error: "Formulier niet gevonden" });
+      return true;
+    }
+    const config = await resolvePublicFormConfig(baseConfig);
+    const formAuth = requirePublicFormAccess(req, res, config);
+    if (!formAuth) return true;
+    const state = await Promise.resolve(peopleStorage.readState());
+    const profile = (state.people || []).find((person) => person.id === formAuth.profile.id) || formAuth.profile;
+    if (!canReviewPublicFormSubmissions(profile, config)) {
+      sendJson(res, 403, { error: "Je hebt geen trainerrechten voor deze toets." });
+      return true;
+    }
+    const status = publicFormReviewStatus(body.status);
+    if (!status) {
+      sendJson(res, 400, { error: "Ongeldige beoordeling." });
+      return true;
+    }
+    const submissionId = publicFormReviewMatch[1];
+    const existingSubmission = (await publicFormsStore.listSubmissions(config.slug, { limit: 1000 })).find((item) => item.id === submissionId);
+    if (!existingSubmission) {
+      sendJson(res, 404, { error: "Toetsinzending niet gevonden." });
+      return true;
+    }
+    let trainingResult = { training: "", changed: false, person: null };
+    if (status === "approved") {
+      try {
+        trainingResult = await applyPublicFormReviewTraining(config, existingSubmission, profile, state);
+      } catch (error) {
+        sendJson(res, error.statusCode || 500, { error: error.message || "Training verwerken is mislukt." });
+        return true;
+      }
+    }
+    const reviewedAt = new Date().toISOString();
+    const updatedSubmission = await publicFormsStore.updateSubmissionRaw(submissionId, (submission) => ({
+      ...submission,
+      review: {
+        status,
+        reviewedAt,
+        reviewedBy: publicFormPersonDto(profile),
+        appliedTraining: status === "approved" ? trainingResult.training : "",
+        appliedTrainingChanged: Boolean(trainingResult.changed),
+        appliedPerson: trainingResult.person || null
+      }
+    }), profile);
+    sendJson(res, 200, {
+      ok: true,
+      submission: publicFormReviewSubmissionDto(config, updatedSubmission),
+      training: trainingResult
+    });
     return true;
   }
 

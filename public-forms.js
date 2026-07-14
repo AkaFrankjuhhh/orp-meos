@@ -6,6 +6,7 @@ const formState = {
   draftKey: "",
   tickets: [],
   assignees: [],
+  reviewSubmissions: [],
   requestedTicketNumber: ""
 };
 let questionsChangeBound = false;
@@ -745,6 +746,151 @@ function bindVidTicketPanel() {
   });
 }
 
+function reviewStatusMeta(status) {
+  const value = String(status || "submitted").toLowerCase();
+  if (value === "approved") return { label: "Goedgekeurd", className: "approved" };
+  if (value === "rejected") return { label: "Afgekeurd", className: "rejected" };
+  return { label: "Ingediend", className: "submitted" };
+}
+
+function reviewConditionMatches(condition, answers = {}) {
+  if (!condition?.field) return true;
+  const value = answers[condition.field];
+  if (condition.includes !== undefined) return Array.isArray(value) ? value.includes(condition.includes) : value === condition.includes;
+  if (condition.equals !== undefined) return value === condition.equals;
+  return Array.isArray(value) ? value.length > 0 : Boolean(value);
+}
+
+function reviewAnswerValue(submission, question) {
+  const rawValue = submission?.answers?.[question.id];
+  if (Array.isArray(rawValue)) return rawValue.length ? rawValue.join(", ") : "-";
+  return String(rawValue || "").trim() || "-";
+}
+
+function renderReviewSubmissionCard(submission) {
+  const submitter = submission.submittedBy || {};
+  const statusMeta = reviewStatusMeta(submission.review?.status);
+  const canReview = statusMeta.className === "submitted";
+  const questions = (formState.config?.questions || [])
+    .filter((question) => question.type !== "file" && question.type !== "section")
+    .filter((question) => reviewConditionMatches(question.showIf, submission.answers || {}));
+  const answers = questions.map((question) => `
+    <div class="review-answer">
+      <dt>${escapeHtml(question.label)}</dt>
+      <dd>${escapeHtml(reviewAnswerValue(submission, question))}</dd>
+    </div>
+  `).join("");
+  return `
+    <article class="review-submission-card" data-submission-id="${escapeHtml(submission.id)}">
+      <div class="review-submission-topline">
+        <div>
+          <span class="review-number">${escapeHtml(submission.submissionNumber || "Toets")}</span>
+          <h3>${escapeHtml(ticketPersonLabel(submitter))}</h3>
+          <p>${escapeHtml(submitter.rank || "-")} ${submitter.discordUsername ? `&middot; ${escapeHtml(submitter.discordUsername)}` : ""}</p>
+        </div>
+        <div class="review-submission-meta">
+          <span class="review-status ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
+          <time>${escapeHtml(ticketDateTime(submission.submittedAt))}</time>
+        </div>
+      </div>
+      <dl class="review-answer-list">${answers || `<div class="review-answer"><dd>Geen antwoorden gevonden.</dd></div>`}</dl>
+      ${canReview ? `
+        <menu class="review-actions">
+          <button class="ghost-button review-reject" type="button">Afkeuren</button>
+          <button class="submit-button review-approve" type="button">Goedkeuren</button>
+        </menu>
+      ` : `
+        <p class="review-done">Beoordeeld door ${escapeHtml(submission.review?.reviewedBy?.name || "Onbekend")} op ${escapeHtml(ticketDateTime(submission.review?.reviewedAt))}.</p>
+      `}
+    </article>
+  `;
+}
+
+function renderSubmissionReviewPanel() {
+  const panel = $("#submissionReviewPanel");
+  if (!panel) return;
+  const visible = formState.config?.reviewable && formState.config?.canReviewSubmissions;
+  panel.hidden = !visible;
+  if (!visible) return;
+  const cards = formState.reviewSubmissions.length
+    ? formState.reviewSubmissions.map(renderReviewSubmissionCard).join("")
+    : `<div class="vid-ticket-empty">Geen IBT-toetsen ingediend.</div>`;
+  panel.innerHTML = `
+    <div class="review-head">
+      <div>
+        <p class="eyebrow">Trainer controle</p>
+        <h2>${escapeHtml(formState.config.title || "Toetsen")}</h2>
+        <p>Keur toetsen goed of af. Bij goedkeuring wordt ${escapeHtml(formState.config.reviewTraining || "de training")} automatisch afgevinkt.</p>
+      </div>
+      <button id="refreshReviewSubmissions" class="ghost-button" type="button">Verversen</button>
+    </div>
+    <div class="review-submission-list">${cards}</div>
+  `;
+}
+
+async function loadReviewSubmissions() {
+  if (!formState.config?.reviewable || !formState.config?.canReviewSubmissions) {
+    formState.reviewSubmissions = [];
+    renderSubmissionReviewPanel();
+    return;
+  }
+  try {
+    const response = await fetch(`/api/public-forms/submissions?slug=${encodeURIComponent(formState.config.slug)}`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Toetsen laden is mislukt.");
+    formState.reviewSubmissions = data.submissions || [];
+    renderSubmissionReviewPanel();
+  } catch (error) {
+    formState.reviewSubmissions = [];
+    renderSubmissionReviewPanel();
+    showMessage(error.message || "Toetsen laden is mislukt.", "error");
+  }
+}
+
+async function reviewSubmission(submissionId, status) {
+  const response = await fetch(`/api/public-forms/submissions/${encodeURIComponent(submissionId)}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug: formState.config.slug, status })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Toets beoordelen is mislukt.");
+  const index = formState.reviewSubmissions.findIndex((submission) => submission.id === submissionId);
+  if (index >= 0) formState.reviewSubmissions[index] = data.submission;
+  renderSubmissionReviewPanel();
+  const training = data.training?.training || formState.config.reviewTraining || "Training";
+  if (status === "approved") {
+    showMessage(data.training?.changed ? `${training} is automatisch afgevinkt.` : `${training} stond al afgevinkt.`, "ok");
+  } else {
+    showMessage("Toets afgekeurd.", "ok");
+  }
+}
+
+function bindSubmissionReviewPanel() {
+  const panel = $("#submissionReviewPanel");
+  if (!panel) return;
+  panel.addEventListener("click", async (event) => {
+    if (event.target.closest("#refreshReviewSubmissions")) {
+      loadReviewSubmissions();
+      return;
+    }
+    const card = event.target.closest(".review-submission-card");
+    if (!card) return;
+    const submissionId = card.dataset.submissionId;
+    const approveButton = event.target.closest(".review-approve");
+    const rejectButton = event.target.closest(".review-reject");
+    if (!approveButton && !rejectButton) return;
+    const buttons = [...card.querySelectorAll("button")];
+    buttons.forEach((button) => { button.disabled = true; });
+    try {
+      await reviewSubmission(submissionId, approveButton ? "approved" : "rejected");
+    } catch (error) {
+      showMessage(error.message || "Toets beoordelen is mislukt.", "error");
+      buttons.forEach((button) => { button.disabled = false; });
+    }
+  });
+}
+
 function applyLoadedConfig(config) {
   formState.config = config;
   formState.currentPageIndex = 0;
@@ -778,6 +924,7 @@ function applyLoadedConfig(config) {
   else renderQuestions();
   renderFormAdmin(config);
   loadVidTickets();
+  loadReviewSubmissions();
 }
 async function loadForm() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -870,6 +1017,9 @@ async function submitForm(event) {
       }
       showMessage(`Ticket aangemaakt${ticketNumber ? `: ${ticketNumber}` : ""}. De VID-Leiding is geinformeerd.`, "ok");
       loadVidTickets();
+    } else if (formState.config.reviewable) {
+      showMessage("Toets ontvangen. Een trainer kan deze nu beoordelen.", "ok");
+      loadReviewSubmissions();
     } else {
       showMessage("Formulier ontvangen. De melding naar Discord wordt verwerkt.", "ok");
     }
@@ -903,6 +1053,7 @@ $("#nextPageButton")?.addEventListener("click", () => {
 });
 bindFormAdmin();
 bindVidTicketPanel();
+bindSubmissionReviewPanel();
 showAuthErrorFromUrl();
 formState.requestedTicketNumber = ticketNumberFromPath();
 loadForm().catch((error) => {

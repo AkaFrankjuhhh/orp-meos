@@ -573,7 +573,8 @@ function createPersoneelsportaalRouteHandler(deps) {
 
   async function queuePersonDiscordSync(state, person, reason) {
     if (typeof enqueuePersonDiscordSync !== "function" || !person?.discordId) return;
-    if (!person.rank || !person.serviceNumber) {
+    const allowMissingServiceNumber = reason === "person_dismiss";
+    if (!allowMissingServiceNumber && (!person.rank || !person.serviceNumber)) {
       setDiscordSyncStatus(person, "skipped", "Rang of dienstnummer ontbreekt.", reason);
       return;
     }
@@ -2918,7 +2919,15 @@ function createPersoneelsportaalRouteHandler(deps) {
       await syncChangedDiscordNicknames(state, previousNicknames);
       await syncChangedDiscordRankRoles(state, previousRankRoles);
     }
-    if (isCurrentPerson(person) && ["reactivate"].includes(action)) {
+    const shouldQueueDismissSync = action === "dismiss" && !hasOvcFunctionBadge(person);
+    const shouldQueueRestoreSync = isCurrentPerson(person) && ["restore", "reactivate"].includes(action);
+    if (shouldQueueDismissSync || shouldQueueRestoreSync) {
+      await persistPeopleStateMutation(state);
+    }
+    if (shouldQueueDismissSync) {
+      await queuePersonDiscordSync(state, person, "person_dismiss");
+    }
+    if (shouldQueueRestoreSync) {
       await queuePersonDiscordSync(state, person, `person_${action}`);
     }
     await sendPeopleStateAfterMutation(res, auth, state);

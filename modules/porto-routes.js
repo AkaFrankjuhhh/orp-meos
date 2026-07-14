@@ -60,6 +60,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const portoBrowserTimeoutCheckMs = Number.isFinite(configuredBrowserTimeoutCheckMs)
     ? Math.max(30000, configuredBrowserTimeoutCheckMs)
     : 60 * 1000;
+  const configuredDiscordJobDelayMs = Number(process.env.PORTO_DISCORD_JOB_DELAY_MS);
+  const portoDiscordJobDelayMs = Number.isFinite(configuredDiscordJobDelayMs)
+    ? Math.max(0, configuredDiscordJobDelayMs)
+    : 500;
   let portoBrowserTimeoutTimer = null;
   const pendingAutoAssignMs = 60000;
   const recentlyEndedPortoMembers = new Map();
@@ -245,7 +249,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   }
 
   function delayedDiscordJobRunAfter() {
-    return new Date(Date.now() + 1500);
+    return new Date(Date.now() + portoDiscordJobDelayMs);
   }
 
   function logDirectDiscordResult(action, subject, result) {
@@ -954,6 +958,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       markPortoBrowserHeartbeat(unit, now);
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
+      enqueuePortoDiscordNicknames(state, [unit], "Porto leiding-bypass actief")
+        .catch((error) => console.error(`[porto] Discord nickname queue na leiding-bypass mislukt: ${error.message}`));
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -1010,6 +1016,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       markPortoBrowserHeartbeat(unit, now);
       syncPortoLinkedNames(state, vehicleNumber);
       await persistPortoState(state, { units: state.portoUnits });
+      enqueuePortoDiscordNicknames(state, [unit], "Porto automatische indeling actief")
+        .catch((error) => console.error(`[porto] Discord nickname queue na automatische indeling mislukt: ${error.message}`));
       await sendPortoState(res, state, person, unit);
       return true;
     }

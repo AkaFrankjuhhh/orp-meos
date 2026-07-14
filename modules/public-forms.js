@@ -213,6 +213,28 @@ const publicFormConfigs = {
     ]
   },
   ...(organization.key === "defensie" ? {
+    ibt: {
+      slug: "ibt",
+      hostnames: formHosts("ibt"),
+      title: "IBT Toets",
+      subtitle: "Maak hier je IBT-toets. Een trainer beoordeelt je inzending en keurt deze goed of af.",
+      notice: "Na goedkeuring wordt de IBT-training automatisch afgevinkt op je personeelsprofiel.",
+      accent: "#38bdf8",
+      internalOnly: true,
+      reviewable: true,
+      reviewTraining: "IBT",
+      reviewBadges: ["Trainer", "Trainer-Leiding"],
+      ticketPrefix: "IBT",
+      webhookEnv: "DISCORD_FORM_IBT_WEBHOOK_URL",
+      questions: [
+        { id: "safety", label: "Waarom is veiligheid belangrijk tijdens IBT?", type: "textarea", required: true },
+        { id: "warning", label: "Wanneer geef je een waarschuwing voordat je geweld gebruikt?", type: "textarea", required: true },
+        { id: "force", label: "Leg uit wanneer je proportioneel geweld mag gebruiken.", type: "textarea", required: true },
+        { id: "colleague", label: "Een collega raakt gewond tijdens een inzet. Wat is jouw eerste prioriteit?", type: "textarea", required: true },
+        { id: "suspect", label: "Een verdachte weigert mee te werken en loopt weg. Hoe handel je?", type: "textarea", required: true },
+        { id: "aftercare", label: "Wat doe je na een IBT-gerelateerde inzet?", type: "textarea", required: true }
+      ]
+    },
     vid: {
       slug: "vid",
       hostnames: formHosts("vid"),
@@ -402,6 +424,7 @@ const publicFormManagerBadges = {
   otc: ["OTC-Leiding", "Trainer-Leiding"],
   trainer: ["Trainer-Leiding"],
   hrb: ["HRB-Leiding"],
+  ibt: ["Trainer-Leiding"],
   vid: ["VID-Leiding"],
   bsb: ["BSB-Leiding"],
   dsi: ["DSI-Leiding"],
@@ -452,6 +475,10 @@ function managerBadgesForConfig(config) {
   return config?.managerBadges || publicFormManagerBadges[config?.slug] || ["Kader"];
 }
 
+function reviewerBadgesForConfig(config) {
+  return config?.reviewBadges || managerBadgesForConfig(config);
+}
+
 function canManagePublicForm(profile, config) {
   if (!profile || !config) return false;
   const rank = profile.rank || "";
@@ -490,6 +517,18 @@ function canViewPublicFormTickets(profile, config) {
 
 function canAssignPublicFormTickets(profile, config) {
   return canManagePublicForm(profile, config);
+}
+
+function isReviewablePublicForm(config) {
+  return Boolean(config?.reviewable || config?.reviewTraining);
+}
+
+function canReviewPublicFormSubmissions(profile, config) {
+  if (!profile || !config || !isReviewablePublicForm(config)) return false;
+  const badges = profilePublicFormBadges(profile);
+  const reviewBadges = reviewerBadgesForConfig(config);
+  if (reviewBadges.some((badge) => badges.has(badge))) return true;
+  return !config.reviewBadges && canManagePublicForm(profile, config);
 }
 
 function sanitizeQuestion(rawQuestion) {
@@ -589,10 +628,13 @@ function publicFormClientConfig(config, profile = null) {
     closed: Boolean(config.closed),
     ticketPrefix: config.ticketPrefix || "",
     confidentialTicket: Boolean(config.confidentialTicket),
+    reviewable: isReviewablePublicForm(config),
+    reviewTraining: config.reviewTraining || "",
     managerBadges: managerBadgesForConfig(config),
     canManage,
     canViewTickets: canViewPublicFormTickets(profile, config),
     canAssignTickets: canAssignPublicFormTickets(profile, config),
+    canReviewSubmissions: canReviewPublicFormSubmissions(profile, config),
     questions,
     pages: config.pages || [],
     editable: canManage ? {
@@ -933,6 +975,7 @@ module.exports = {
   canManagePublicForm,
   canViewPublicFormTickets,
   canAssignPublicFormTickets,
+  canReviewPublicFormSubmissions,
   publicFormTicketNumber,
   publicFormTicketUrl,
   isComplaintForm,

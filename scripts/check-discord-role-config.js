@@ -55,6 +55,12 @@ const badgeMappings = typeof bot.allBadgeRoleMappings === "function"
 const missingBadgeMappings = typeof bot.missingBadgeRoleMappings === "function"
   ? bot.missingBadgeRoleMappings()
   : badgeMappings.filter((mapping) => !String(mapping.roleId || "").trim());
+const separatorMappings = typeof bot.allSeparatorRoleMappings === "function"
+  ? bot.allSeparatorRoleMappings()
+  : [];
+const missingSeparatorMappings = typeof bot.missingSeparatorRoleMappings === "function"
+  ? bot.missingSeparatorRoleMappings()
+  : separatorMappings.filter((mapping) => !String(mapping.roleId || "").trim());
 
 console.log(`Organisatie: ${organization.key}`);
 console.log(`Hoofdrol: ${organizationMainRoleId(organization) || "NIET INGESTELD"}`);
@@ -135,6 +141,25 @@ if (missingBadgeMappings.length) {
   console.log("");
   console.log("Ontbrekende functie- en badgerol env keys:");
   for (const mapping of missingBadgeMappings) {
+    console.log(`${mapping.envKey}=`);
+  }
+  process.exitCode = 1;
+}
+
+if (separatorMappings.length) {
+  console.log("");
+  console.log("Scheidingsrollen:");
+  for (const mapping of separatorMappings) {
+    const state = mapping.roleId ? "ok" : "mist";
+    const value = mapping.roleId ? `=${mapping.roleId}` : "";
+    console.log(`[${state}] ${mapping.label}: ${mapping.envKey}${value}`);
+  }
+}
+
+if (missingSeparatorMappings.length) {
+  console.log("");
+  console.log("Ontbrekende scheidingsrol env keys:");
+  for (const mapping of missingSeparatorMappings) {
     console.log(`${mapping.envKey}=`);
   }
   process.exitCode = 1;

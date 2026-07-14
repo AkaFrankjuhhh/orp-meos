@@ -51,7 +51,7 @@ const profileRankLabels = {
 const configuredSideTaskBadges = window.DefensiePortalData?.sideTaskBadges;
 const profileSideTaskBadges = Array.isArray(configuredSideTaskBadges) && configuredSideTaskBadges.length
   ? configuredSideTaskBadges
-  : ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB", "VID-Leiding", "VID"];
+  : ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
 window.profileSideTaskBadges = profileSideTaskBadges;
 
 function profileRankLabel(rank) {

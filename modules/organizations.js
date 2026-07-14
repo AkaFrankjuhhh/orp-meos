@@ -134,10 +134,11 @@ const defensieExtraTasks = [
   "HRB-Leiding",
   "HRB",
   "VID-Leiding",
-  "VID"
+  "VID",
+  "Operatie"
 ];
 
-const defensieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB", "VID-Leiding", "VID"];
+const defensieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
 const politieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR"];
 
 const politieExtraTasks = [
@@ -363,6 +364,16 @@ const organizationConfigs = {
         OGM: { envKey: "DISCORD_TRAINING_NEEDED_OGM_ROLE_ID", defaultRoleId: "1499476966233870346", label: "OGM" },
         SMG: { envKey: "DISCORD_TRAINING_NEEDED_SMG_ROLE_ID", defaultRoleId: "1499477017945444452", label: "MP5" }
       },
+      separatorRoleMappings: [
+        { key: "rangen", label: "Rangen", envKey: "DISCORD_SEPARATOR_RANGEN_ROLE_ID", defaultRoleId: "1508166617358663794", always: true },
+        { key: "trainingen", label: "Trainingen", envKey: "DISCORD_SEPARATOR_TRAININGEN_ROLE_ID", defaultRoleId: "1495533318488330360", always: true },
+        { key: "porto", label: "Porto", envKey: "DISCORD_SEPARATOR_PORTO_ROLE_ID", defaultRoleId: "1424794715634536562", always: true },
+        { key: "justitie", label: "Justitie", envKey: "DISCORD_SEPARATOR_JUSTITIE_ROLE_ID", defaultRoleId: "1443756008769065000", badges: ["OvJ", "hOvJ"] },
+        { key: "justitie-defensie", label: "Justitie-Defensie", envKey: "DISCORD_JUSTITIE_DEFENSIE_ROLE_ID", envFallbackKeys: ["DISCORD_JUSTITIE_DEFENTIE_ROLE_ID"], badges: ["hOvJ"] },
+        { key: "interne-zaken", label: "Interne-Zaken", envKey: "DISCORD_SEPARATOR_INTERNE_ZAKEN_ROLE_ID", defaultRoleId: "1515081334928834641", badges: ["Interne-Zaken", "VID", "VID-Leiding"] },
+        { key: "socom", label: "SOCOM", envKey: "DISCORD_SEPARATOR_SOCOM_ROLE_ID", defaultRoleId: "1499478051715813406", badges: ["DSI", "DSI-Leiding", "HRB", "HRB-Leiding", "DNR", "DNR-Leiding", "KLu", "KLu-Leiding"] },
+        { key: "leiding", label: "Leiding", envKey: "DISCORD_SEPARATOR_LEIDING_ROLE_ID", defaultRoleId: "1423672593487233104", badges: ["Directie", "Teamchef", "Coördinator", "Afdelingscoördinator"] }
+      ],
       nicknameSymbols: defensieNicknameSymbols,
       portoOperatorLabel: "OPS"
     },
@@ -536,7 +547,12 @@ function currentOrganization() {
 }
 
 function envOrDefault(envKey, defaultValue = "") {
-  return String(process.env[envKey] || defaultValue || "").trim();
+  const envKeys = Array.isArray(envKey) ? envKey : [envKey];
+  for (const key of envKeys) {
+    const value = String(process.env[String(key || "")] || "").trim();
+    if (value) return value;
+  }
+  return String(defaultValue || "").trim();
 }
 
 function organizationMainRoleId(config = currentOrganization()) {

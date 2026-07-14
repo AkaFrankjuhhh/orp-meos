@@ -13,9 +13,47 @@ function safeJson(value, fallback = {}) {
   return value == null ? fallback : value;
 }
 
+function enabledFromEnv(value, fallback = true) {
+  if (value == null || value === "") return fallback;
+  return !["0", "false", "nee", "no", "off"].includes(String(value).trim().toLowerCase());
+}
+
 function positiveNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+async function collapsePendingDiscordSyncJobs(client, job, options = {}) {
+  if (!enabledFromEnv(options.collapsePending ?? process.env.DISCORD_SYNC_COLLAPSE_PENDING_JOBS, true)) return;
+
+  if (["sync_person", "porto_nickname"].includes(job.type) && (job.personId || job.discordId)) {
+    await client.query(`
+      DELETE FROM discord_sync_jobs
+      WHERE status = 'pending'
+        AND type = $1
+        AND (
+          ($2::text <> '' AND person_id = $2)
+          OR ($3::text <> '' AND discord_id = $3)
+        )
+    `, [job.type, job.personId || "", job.discordId || ""]);
+    return;
+  }
+
+  if (job.type === "porto_channel_status") {
+    const channelKey = String(job.payload?.channelKey || job.payload?.channelId || "").trim();
+    if (!channelKey) return;
+    await client.query(`
+      DELETE FROM discord_sync_jobs
+      WHERE status = 'pending'
+        AND type = 'porto_channel_status'
+        AND coalesce(payload->>'channelKey', payload->>'channelId', '') = $1
+    `, [channelKey]);
+    return;
+  }
+
+  if (job.type === "sync_all_active") {
+    await client.query("DELETE FROM discord_sync_jobs WHERE status = 'pending' AND type = 'sync_all_active'");
+  }
 }
 
 async function ensureDiscordSyncJobsTable() {
@@ -92,10 +130,13 @@ async function enqueueDiscordSyncJob(type, payload = {}, options = {}) {
     maxAttempts: Number(options.maxAttempts || 5),
     runAfter: options.runAfter || new Date()
   };
-  await withClient((client) => client.query(`
-    INSERT INTO discord_sync_jobs(id, type, person_id, discord_id, payload, max_attempts, run_after)
-    VALUES($1, $2, $3, $4, $5::jsonb, $6, $7)
-  `, [job.id, job.type, job.personId, job.discordId, JSON.stringify(job.payload), job.maxAttempts, job.runAfter]));
+  await withClient(async (client) => {
+    await collapsePendingDiscordSyncJobs(client, job, options);
+    await client.query(`
+      INSERT INTO discord_sync_jobs(id, type, person_id, discord_id, payload, max_attempts, run_after)
+      VALUES($1, $2, $3, $4, $5::jsonb, $6, $7)
+    `, [job.id, job.type, job.personId, job.discordId, JSON.stringify(job.payload), job.maxAttempts, job.runAfter]);
+  });
   return job;
 }
 
@@ -108,7 +149,9 @@ async function enqueuePersonDiscordSync(person, reason = "person_updated", optio
   }, {
     personId: person.id || null,
     discordId: person.discordId || null,
-    maxAttempts: options.maxAttempts
+    maxAttempts: options.maxAttempts,
+    runAfter: options.runAfter,
+    collapsePending: options.collapsePending
   });
 }
 

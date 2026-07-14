@@ -113,6 +113,10 @@ async function main() {
     ? bot.allTrainingRequirementRoleMappings()
     : [];
   const configuredTrainingRequirementMappings = trainingRequirementMappings.filter((mapping) => String(mapping.roleId || "").trim());
+  const separatorMappings = typeof bot.allSeparatorRoleMappings === "function"
+    ? bot.allSeparatorRoleMappings()
+    : [];
+  const configuredSeparatorMappings = separatorMappings.filter((mapping) => String(mapping.roleId || "").trim());
   const desiredRankRoleId = bot.rankRoleIdForPerson?.(person) || "";
   const desiredMissingConfig = allMappings.filter((mapping) => completed.has(mapping.qualification) && !String(mapping.roleId || "").trim());
   const desiredRoleIds = configuredMappings
@@ -140,6 +144,11 @@ async function main() {
   const desiredBadgeRoleIds = configuredBadgeMappings
     .filter((mapping) => assignedBadges.has(mapping.label))
     .map((mapping) => mapping.roleId);
+  const desiredMissingSeparatorConfig = separatorMappings
+    .filter((mapping) => bot.separatorRoleMatchesPerson?.(mapping, person) && !String(mapping.roleId || "").trim());
+  const desiredSeparatorRoleIds = configuredSeparatorMappings
+    .filter((mapping) => bot.separatorRoleMatchesPerson?.(mapping, person))
+    .map((mapping) => mapping.roleId);
   const member = await bot.getGuildMember(person.discordId);
   if (member.skipped) throw new Error(member.reason || "Discord member kon niet worden opgehaald.");
   const currentRoleIds = (member.data?.roles || []).map(String);
@@ -159,6 +168,10 @@ async function main() {
   const extraManagedBadgeRoleIds = configuredBadgeMappings
     .map((mapping) => mapping.roleId)
     .filter((roleId) => currentRoleIds.includes(roleId) && !desiredBadgeRoleIds.includes(roleId));
+  const missingSeparatorRoleIds = desiredSeparatorRoleIds.filter((roleId) => !currentRoleIds.includes(roleId));
+  const extraManagedSeparatorRoleIds = configuredSeparatorMappings
+    .map((mapping) => mapping.roleId)
+    .filter((roleId) => currentRoleIds.includes(roleId) && !desiredSeparatorRoleIds.includes(roleId));
 
   console.log(`Organisatie: ${organization.key}`);
   console.log(`Hoofdrol (${organization.requiredRoleLabel || organization.label}): ${organizationMainRoleId(organization) || "NIET INGESTELD"}`);
@@ -215,6 +228,20 @@ async function main() {
   console.log(`Ontbrekende gewenste functie-/badgerollen: ${roleListText(missingBadgeRoleIds)}`);
   console.log(`Gewenst maar niet geconfigureerde functie-/badgerollen: ${roleListText(desiredMissingBadgeConfig.map((mapping) => mapping.envKey))}`);
   console.log(`Extra beheerde functie-/badgerollen: ${roleListText(extraManagedBadgeRoleIds)}`);
+  if (separatorMappings.length) {
+    console.log("");
+    console.log("Scheidingsrol mappings:");
+    for (const mapping of separatorMappings) {
+      const desired = bot.separatorRoleMatchesPerson?.(mapping, person) ? "ja" : "nee";
+      const configured = String(mapping.roleId || "").trim() ? "ja" : "nee";
+      const current = mapping.roleId && currentRoleIds.includes(mapping.roleId) ? "ja" : "nee";
+      console.log(`- ${mapping.label} (${mapping.envKey}=${mapping.roleId || "NIET INGESTELD"}) gewenst=${desired} configured=${configured} aanwezig=${current}`);
+    }
+    console.log("");
+    console.log(`Ontbrekende gewenste scheidingsrollen: ${roleListText(missingSeparatorRoleIds)}`);
+    console.log(`Gewenst maar niet geconfigureerde scheidingsrollen: ${roleListText(desiredMissingSeparatorConfig.map((mapping) => mapping.envKey))}`);
+    console.log(`Extra beheerde scheidingsrollen: ${roleListText(extraManagedSeparatorRoleIds)}`);
+  }
 
   if (!apply) {
     console.log("");

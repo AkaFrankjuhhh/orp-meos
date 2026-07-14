@@ -2,7 +2,7 @@ const crypto = require("node:crypto");
 const { withClient } = require("./db");
 
 let ensured = false;
-const caseNumberFormSlugs = new Set(["klachten", "interne-klacht", "vid"]);
+const caseNumberFormSlugs = new Set(["klachten", "interne-klacht", "vid", "ibt"]);
 
 async function ensurePublicFormsTable() {
   if (ensured) return;

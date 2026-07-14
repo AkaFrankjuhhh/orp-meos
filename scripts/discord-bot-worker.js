@@ -32,8 +32,8 @@ const dailySyncTime = String(process.env.DISCORD_DAILY_SYNC_TIME || "05:00").tri
 const dailySyncEnabled = String(process.env.DISCORD_DAILY_SYNC_ENABLED || "true").toLowerCase() !== "false";
 const legacyIntervalSyncEnabled = String(process.env.DISCORD_LEGACY_INTERVAL_SYNC_ENABLED || "false").toLowerCase() === "true";
 const syncIntervalMs = legacyIntervalSyncEnabled ? Number(process.env.DISCORD_NICKNAME_SYNC_INTERVAL_MS || 0) : 0;
-const jobPollMs = Number(process.env.DISCORD_JOB_POLL_INTERVAL_MS || 5000);
-const jobBatchSize = Number(process.env.DISCORD_JOB_BATCH_SIZE || 5);
+const jobPollMs = Math.max(500, Number(process.env.DISCORD_JOB_POLL_INTERVAL_MS || 1000));
+const jobBatchSize = Math.max(1, Math.min(25, Number(process.env.DISCORD_JOB_BATCH_SIZE || 8)));
 const requiredRoleRetryMs = Math.max(60000, Number(process.env.DISCORD_REQUIRED_ROLE_RETRY_MS || 300000));
 const gatewayEnabled = String(process.env.DISCORD_GATEWAY_ENABLED || "true").toLowerCase() !== "false";
 const organization = currentOrganization();
@@ -1002,8 +1002,9 @@ async function syncPersonForState(state, person, reason = "Discord bot worker sy
     const qualificationRoles = await bot.syncQualificationRolesForPersonIfNeeded(person, reason);
     const trainingNeededRoles = await bot.syncTrainingRequirementRolesForPersonIfNeeded(person, reason);
     const badgeRoles = await bot.syncBadgeRolesForPersonIfNeeded(person, reason);
+    const separatorRoles = await bot.syncSeparatorRolesForPersonIfNeeded(person, reason);
     await sleep(350);
-    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, trainingNeededRoles, badgeRoles, porto: true };
+    return { ok: true, baseRoles, nickname, rankRole, qualificationRoles, trainingNeededRoles, badgeRoles, separatorRoles, porto: true };
   }
   return syncPerson(person, reason);
 }
@@ -1061,7 +1062,8 @@ function nestedSyncFailureFromResult(result) {
     ["rangrol", result?.rankRole],
     ["kwalificatierollen", result?.qualificationRoles],
     ["benodigde trainingsrollen", result?.trainingNeededRoles],
-    ["functie- en badgerollen", result?.badgeRoles]
+    ["functie- en badgerollen", result?.badgeRoles],
+    ["scheidingsrollen", result?.separatorRoles]
   ];
   for (const [label, part] of requiredParts) {
     if (!part) continue;
@@ -1158,7 +1160,11 @@ async function syncByJob(job) {
       person,
       `Discord bot job ${job.id}: niet-actueel profiel`
     );
-    return { ok: true, inactive: true, trainingNeededRoles };
+    const separatorRoles = await bot.syncSeparatorRolesForPersonIfNeeded(
+      person,
+      `Discord bot job ${job.id}: niet-actueel profiel`
+    );
+    return { ok: true, inactive: true, trainingNeededRoles, separatorRoles };
   }
   return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
 }

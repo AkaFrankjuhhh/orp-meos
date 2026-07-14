@@ -1075,14 +1075,22 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 .porto-modern-request-row {
-  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.8fr) minmax(170px, 0.9fr) auto;
-  padding: 12px;
+  grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.05fr) minmax(260px, 1.12fr) minmax(282px, auto);
+  padding: 14px;
 }
 
 .porto-modern-request-row > div:first-child,
 .porto-modern-request-row label {
   display: grid;
   gap: 6px;
+  min-width: 0;
+}
+
+.porto-modern-request-row > div:first-child strong,
+.porto-modern-request-row > div:first-child span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .porto-modern-request-row label span {
@@ -1093,6 +1101,8 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 .porto-modern-request-row select {
+  width: 100%;
+  min-width: 0;
   min-height: 42px;
   border: 1px solid rgba(59, 130, 246, 0.32);
   border-radius: 10px;
@@ -1106,7 +1116,12 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.porto-modern-request-actions .porto-ops-assign {
+  min-width: 94px;
 }
 
 .porto-modern-unit-rows {
@@ -1251,7 +1266,35 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   color: #82b8ff;
 }
 
+.porto-modern-selected-member {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 18px 28px;
+  gap: 12px;
+  align-items: center;
+  min-height: 56px;
+  padding: 8px 0;
+}
+
+.porto-modern-selected-member > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.porto-modern-selected-member .porto-modern-member-avatar,
+.porto-modern-selected-member .porto-modern-member-initial {
+  width: 34px;
+  height: 34px;
+}
+
+.porto-modern-selected-member strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .porto-modern-selected-member span:not(.porto-modern-status-light) {
+  display: block;
   color: #9fb8d6;
   font-size: 12px;
   font-weight: 800;
@@ -1382,6 +1425,15 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 
   .porto-modern-ops-actions {
     grid-column: auto;
+    justify-content: flex-start;
+  }
+
+  .porto-modern-request-row {
+    grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
+  }
+
+  .porto-modern-request-actions {
+    grid-column: 1 / -1;
     justify-content: flex-start;
   }
 
@@ -4328,6 +4380,8 @@ body.porto-ops-workspace .porto-ops-empty {
 /* Porto visibility guard: panels met het hidden-attribuut mogen nooit door display:grid/flex regels zichtbaar worden. */
 #portoStatusIntro[hidden],
 #portoPendingPanel[hidden],
+#portoModernDutyDashboard[hidden],
+#portoModernOpsDashboard[hidden],
 #portoDutyPanel[hidden],
 #portoOpsPanel[hidden],
 #portoOpsLogPage[hidden],
