@@ -368,6 +368,7 @@ const organizationConfigs = {
         { key: "rangen", label: "Rangen", envKey: "DISCORD_SEPARATOR_RANGEN_ROLE_ID", defaultRoleId: "1508166617358663794", always: true },
         { key: "trainingen", label: "Trainingen", envKey: "DISCORD_SEPARATOR_TRAININGEN_ROLE_ID", defaultRoleId: "1495533318488330360", always: true },
         { key: "porto", label: "Porto", envKey: "DISCORD_SEPARATOR_PORTO_ROLE_ID", defaultRoleId: "1424794715634536562", always: true },
+        { key: "extra", label: "Extra", envKey: "DISCORD_SEPARATOR_EXTRA_ROLE_ID", defaultRoleId: "1526710886511939794", always: true },
         { key: "justitie", label: "Justitie", envKey: "DISCORD_SEPARATOR_JUSTITIE_ROLE_ID", defaultRoleId: "1443756008769065000", badges: ["OvJ", "hOvJ"] },
         { key: "justitie-defensie", label: "Justitie-Defensie", envKey: "DISCORD_JUSTITIE_DEFENSIE_ROLE_ID", envFallbackKeys: ["DISCORD_JUSTITIE_DEFENTIE_ROLE_ID"], badges: ["hOvJ"] },
         { key: "interne-zaken", label: "Interne-Zaken", envKey: "DISCORD_SEPARATOR_INTERNE_ZAKEN_ROLE_ID", defaultRoleId: "1515081334928834641", badges: ["Interne-Zaken", "VID", "VID-Leiding"] },
