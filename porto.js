@@ -81,7 +81,7 @@ let portoSignedOffUntilStatus0 = false;
 let portoAutoAssignTimer = null;
 let portoAutoAssignUnitId = "";
 const PORTO_AUTO_REFRESH_MS = 8000;
-const PORTO_BROWSER_HEARTBEAT_INTERVAL_MS = 60 * 1000;
+const PORTO_BROWSER_HEARTBEAT_INTERVAL_MS = 30 * 1000;
 const PORTO_OPS_LAYOUT_KEY = "orp-porto-ops-layout";
 const PORTO_UI_MODE_KEY = "orp-porto-ui-mode";
 let portoUiMode = "classic";
@@ -491,6 +491,25 @@ async function sendPortoBrowserHeartbeat() {
   }
 }
 
+function sendPortoBrowserClosedSignal() {
+  if (document.body.classList.contains("porto-locked") || portoSignedOffUntilStatus0) return;
+  const payload = "{}";
+  if (navigator.sendBeacon) {
+    try {
+      const blob = new Blob([payload], { type: "application/json" });
+      if (navigator.sendBeacon("/api/porto/browser-closed", blob)) return;
+    } catch {
+      // Fallback hieronder gebruikt keepalive fetch.
+    }
+  }
+  fetch("/api/porto/browser-closed", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    keepalive: true
+  }).catch(() => {});
+}
+
 function setPortoBrowserHeartbeat(enabled) {
   if (!enabled) {
     if (portoBrowserHeartbeatTimer) window.clearInterval(portoBrowserHeartbeatTimer);
@@ -502,6 +521,14 @@ function setPortoBrowserHeartbeat(enabled) {
   sendPortoBrowserHeartbeat();
   portoBrowserHeartbeatTimer = window.setInterval(sendPortoBrowserHeartbeat, PORTO_BROWSER_HEARTBEAT_INTERVAL_MS);
 }
+
+window.addEventListener("pagehide", sendPortoBrowserClosedSignal);
+window.addEventListener("beforeunload", sendPortoBrowserClosedSignal);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") sendPortoBrowserHeartbeat();
+});
+window.addEventListener("focus", sendPortoBrowserHeartbeat);
+window.addEventListener("online", sendPortoBrowserHeartbeat);
 
 // Begrens zoom en slepen zodat de kaart nooit buiten het paneel schuift.
 document.addEventListener("pointerdown", PortoAudio.unlock, { once: true });
@@ -885,7 +912,6 @@ document.addEventListener("click", (event) => {
     if (status === "4") {
       const modernChoices = event.target.closest("#portoModernDutyDashboard")?.querySelector(".porto-modern-status4-choices");
       if (modernChoices) modernChoices.hidden = false;
-      updatePortoStatus("4");
     } else {
       const modernChoices = event.target.closest("#portoModernDutyDashboard")?.querySelector(".porto-modern-status4-choices");
       if (modernChoices) modernChoices.hidden = true;
@@ -919,7 +945,6 @@ $("#portoStatusGrid").addEventListener("click", (event) => {
   if (!button || button.disabled) return;
   if (button.dataset.status === "4") {
     $("#portoStatus4Choices").hidden = false;
-    updatePortoStatus("4");
     return;
   }
   $("#portoStatus4Choices").hidden = true;

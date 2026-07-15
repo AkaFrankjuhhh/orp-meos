@@ -60,6 +60,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const portoBrowserTimeoutCheckMs = Number.isFinite(configuredBrowserTimeoutCheckMs)
     ? Math.max(30000, configuredBrowserTimeoutCheckMs)
     : 60 * 1000;
+  const configuredBrowserHardTimeoutMs = Number(process.env.PORTO_BROWSER_HARD_TIMEOUT_MS);
+  const portoBrowserHardTimeoutMs = Number.isFinite(configuredBrowserHardTimeoutMs)
+    ? (configuredBrowserHardTimeoutMs <= 0 ? 0 : Math.max(portoBrowserTimeoutMs || 60000, configuredBrowserHardTimeoutMs))
+    : 60 * 60 * 1000;
   const configuredDiscordJobDelayMs = Number(process.env.PORTO_DISCORD_JOB_DELAY_MS);
   const portoDiscordJobDelayMs = Number.isFinite(configuredDiscordJobDelayMs)
     ? Math.max(0, configuredDiscordJobDelayMs)
@@ -158,6 +162,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     unit.browserHeartbeatAt = nowIso;
     unit.lastSeenAt = nowIso;
     unit.updatedAt = nowIso;
+    delete unit.browserCloseSuspectedAt;
+    return true;
+  }
+
+  function markPortoBrowserClosed(unit, nowIso = new Date().toISOString()) {
+    if (!unit || unit.active === false) return false;
+    unit.browserHeartbeatActive = true;
+    unit.browserCloseSuspectedAt = nowIso;
+    unit.updatedAt = nowIso;
     return true;
   }
 
@@ -165,6 +178,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     if (!unit) return;
     delete unit.browserHeartbeatActive;
     delete unit.browserHeartbeatAt;
+    delete unit.browserCloseSuspectedAt;
   }
 
   function timestampMs(value) {
@@ -273,6 +287,35 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return new Set(configuredPortoDiscordChannels().filter((channel) => channel.configured).map((channel) => channel.key));
   }
 
+  function uniquePortoUnits(units = []) {
+    const byId = new Map();
+    for (const unit of units || []) {
+      if (!unit?.id || byId.has(unit.id)) continue;
+      byId.set(unit.id, unit);
+    }
+    return [...byId.values()];
+  }
+
+  function activeUnitsForVehicle(state, vehicleNumber) {
+    const number = String(vehicleNumber || "").trim();
+    if (!number) return [];
+    return (state.portoUnits || []).filter((entry) => entry.active !== false && entry.vehicleNumber === number);
+  }
+
+  function affectedActiveVehicleUnits(state, vehicleNumbers = [], extraUnits = []) {
+    return uniquePortoUnits([
+      ...(extraUnits || []),
+      ...vehicleNumbers.flatMap((vehicleNumber) => activeUnitsForVehicle(state, vehicleNumber))
+    ]).filter((unit) => unit.active !== false && unit.vehicleNumber);
+  }
+
+  function vehicleNumbersFromUnits(units = []) {
+    return [...new Set((units || [])
+      .map((unit) => unit?.previousVehicleNumber || unit?.vehicleNumber || "")
+      .map((vehicleNumber) => String(vehicleNumber || "").trim())
+      .filter(Boolean))];
+  }
+
   function unitWithPortoNicknameContext(state, unit) {
     if (!unit) return unit;
     return {
@@ -305,7 +348,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   async function enqueuePortoDiscordNicknames(state, units, reason = "Porto roepnummer aangepast") {
     const byId = peopleById(state);
-    for (const unit of units || []) {
+    for (const unit of uniquePortoUnits(units)) {
       const person = byId.get(unit.memberId);
       if (!person?.discordId) continue;
       await enqueueDiscordSyncJob("porto_nickname", {
@@ -326,7 +369,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   async function enqueueNormalDiscordNicknames(state, units, reason = "Porto dienst beeindigd") {
     const byId = peopleById(state);
-    for (const unit of units || []) {
+    for (const unit of uniquePortoUnits(units)) {
       const person = byId.get(unit.memberId);
       if (!person?.discordId) continue;
       await enqueueDiscordSyncJob("sync_person", {
@@ -404,7 +447,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   }
 
   function closeDuplicateOpsUnits(state, person, keepUnit, nowIso = new Date().toISOString()) {
-    let changed = false;
+    const closedUnits = [];
     for (const entry of state.portoUnits || []) {
       if (
         entry.id !== keepUnit.id &&
@@ -412,6 +455,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         entry.active !== false &&
         entry.vehicleNumber === operatorVehicleNumber
       ) {
+        const previousVehicleNumber = entry.vehicleNumber;
         entry.active = false;
         entry.status = "8";
         entry.statusDetail = `Dubbele ${operatorLabel}-aanmelding gesloten`;
@@ -424,22 +468,23 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         entry.linkedWith = [];
         entry.endedAt = nowIso;
         entry.updatedAt = nowIso;
-        changed = true;
+        closedUnits.push({ ...entry, previousVehicleNumber });
       }
     }
-    return changed;
+    return closedUnits;
   }
 
   function closeDuplicateActiveUnitsForMember(state, memberId, keepUnitId = "", nowIso = new Date().toISOString()) {
-    if (!memberId) return false;
+    if (!memberId) return [];
     const activeUnits = (state.portoUnits || []).filter((entry) => entry.memberId === memberId && entry.active !== false);
-    if (activeUnits.length <= 1) return false;
+    if (activeUnits.length <= 1) return [];
     const keepUnit = activeUnits.find((entry) => entry.id === keepUnitId) || activeUnits
       .slice()
       .reduce((best, entry) => preferredActiveUnit(best, entry), activeUnits[0]);
-    let changed = false;
+    const closedUnits = [];
     for (const entry of activeUnits) {
       if (entry.id === keepUnit.id) continue;
+      const previousVehicleNumber = entry.vehicleNumber;
       entry.active = false;
       entry.status = "8";
       entry.statusDetail = "Dubbele Porto-aanmelding gesloten";
@@ -452,9 +497,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       entry.linkedWith = [];
       entry.endedAt = nowIso;
       entry.updatedAt = nowIso;
-      changed = true;
+      closedUnits.push({ ...entry, previousVehicleNumber });
     }
-    return changed;
+    return closedUnits;
   }
 
   function appendOpsLog(state, ops, endedBy, endedAt = new Date().toISOString()) {
@@ -555,10 +600,13 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const now = new Date();
       const nowIso = now.toISOString();
       const cutoffMs = now.getTime() - portoBrowserTimeoutMs;
+      const hardCutoffMs = portoBrowserHardTimeoutMs ? now.getTime() - portoBrowserHardTimeoutMs : 0;
       const timedOutUnits = state.portoUnits.filter((unit) => {
         if (!unit || unit.active === false || !unit.browserHeartbeatActive) return false;
         const heartbeatMs = timestampMs(unit.browserHeartbeatAt);
-        return heartbeatMs > 0 && heartbeatMs <= cutoffMs;
+        const closeMs = timestampMs(unit.browserCloseSuspectedAt);
+        if (closeMs > 0 && closeMs <= cutoffMs && heartbeatMs <= closeMs) return true;
+        return hardCutoffMs > 0 && heartbeatMs > 0 && heartbeatMs <= hardCutoffMs;
       });
       if (!timedOutUnits.length) return;
 
@@ -588,8 +636,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }
 
       for (const releasedVehicleNumber of releasedVehicleNumbers) syncPortoLinkedNames(state, releasedVehicleNumber);
+      const remainingVehicleUnits = affectedActiveVehicleUnits(state, [...releasedVehicleNumbers]);
       await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
       await enqueueNormalDiscordNicknames(state, timedOutUnits, "Porto browser gesloten");
+      await enqueuePortoDiscordNicknames(state, remainingVehicleUnits, "Porto groep bijgewerkt");
       console.log(`[porto] Browser-timeout: ${timedOutUnits.length} unit(s) automatisch uit dienst gezet.`);
     });
   }
@@ -735,6 +785,26 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       return true;
     }
 
+    if (url.pathname === "/api/porto/browser-closed" && req.method === "POST") {
+      const context = await requireActivePerson(req, res);
+      if (!context) return true;
+      const { state, person } = context;
+      state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      if (isRecentlyEnded(person.id)) {
+        sendJson(res, 200, { ok: true, active: false, recentlyEnded: true });
+        return true;
+      }
+      const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
+      if (!unit) {
+        sendJson(res, 200, { ok: true, active: false });
+        return true;
+      }
+      markPortoBrowserClosed(unit);
+      await persistPortoState(state, { units: state.portoUnits });
+      sendJson(res, 200, { ok: true, active: true, unitId: unit.id, browserClosePending: true });
+      return true;
+    }
+
     if (url.pathname === "/api/porto/status" && req.method === "GET") {
       const context = await requireActivePerson(req, res);
       if (!context) return true;
@@ -834,12 +904,16 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         unit.requestNote = requestNote;
         markPortoBrowserHeartbeat(unit, now);
       }
+      let endedUnitsForNickname = [];
+      let duplicateUnitsClosed = [];
+      let unitsNeedingPortoSync = [];
       if (status === "8") {
         const personKey = portoMemberKey(person.id);
         const endedUnits = state.portoUnits.filter((entry) => (
           portoMemberKey(entry.memberId) === personKey && entry.active !== false
         ));
         if (!endedUnits.some((entry) => entry.id === unit.id)) endedUnits.push(unit);
+        endedUnitsForNickname = endedUnits;
         const releasedVehicleNumbers = new Set(endedUnits.map((entry) => entry.vehicleNumber).filter(Boolean));
         markRecentlyEndedUnits(endedUnits);
         const opsReleased = releaseOpsIfEnded(state, endedUnits, person, now, "Uit dienst");
@@ -856,14 +930,22 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           clearPortoBrowserHeartbeat(endedUnit);
         }
         for (const releasedVehicleNumber of releasedVehicleNumbers) syncPortoLinkedNames(state, releasedVehicleNumber);
-        await enqueueNormalDiscordNicknames(state, endedUnits);
+        unitsNeedingPortoSync = affectedActiveVehicleUnits(state, [...releasedVehicleNumbers]);
       } else {
         markPortoBrowserHeartbeat(unit, now);
-        closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
+        duplicateUnitsClosed = closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
+        const affectedVehicleNumbers = [unit.vehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)];
+        unitsNeedingPortoSync = assignedGroupStatus
+          ? affectedActiveVehicleUnits(state, affectedVehicleNumbers, group)
+          : affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
       }
       await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
-      if (status !== "8") {
-        await enqueuePortoDiscordNicknames(state, [unit], "Porto status aangepast");
+      if (status === "8") {
+        await enqueueNormalDiscordNicknames(state, endedUnitsForNickname);
+        await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto groep bijgewerkt");
+      } else {
+        await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
+        await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto status aangepast");
       }
       await sendPortoState(res, state, person, status === "8" ? null : unit, status === "8" ? { recentlyEnded: true } : {});
       return true;
@@ -909,9 +991,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         updatedAt: now
       });
       syncPortoLinkedNames(state, vehicleNumber);
+      const duplicateUnitsClosed = closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
+      for (const duplicateVehicleNumber of vehicleNumbersFromUnits(duplicateUnitsClosed)) {
+        syncPortoLinkedNames(state, duplicateVehicleNumber);
+      }
+      const affectedVehicleNumbers = [vehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)];
+      const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
       await persistPortoState(state, { units: state.portoUnits });
-      enqueuePortoDiscordNicknames(state, [unit], "Porto automatische indeling actief")
-        .catch((error) => console.error(`[porto] Discord nickname queue na automatische indeling mislukt: ${error.message}`));
+      await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
+      await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto automatische indeling actief");
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -957,9 +1045,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       });
       markPortoBrowserHeartbeat(unit, now);
       syncPortoLinkedNames(state, vehicleNumber);
+      const duplicateUnitsClosed = closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
+      for (const duplicateVehicleNumber of vehicleNumbersFromUnits(duplicateUnitsClosed)) {
+        syncPortoLinkedNames(state, duplicateVehicleNumber);
+      }
+      const affectedVehicleNumbers = [vehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)];
+      const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
       await persistPortoState(state, { units: state.portoUnits });
-      enqueuePortoDiscordNicknames(state, [unit], "Porto leiding-bypass actief")
-        .catch((error) => console.error(`[porto] Discord nickname queue na leiding-bypass mislukt: ${error.message}`));
+      await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
+      await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto leiding-bypass actief");
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -1015,9 +1109,15 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       });
       markPortoBrowserHeartbeat(unit, now);
       syncPortoLinkedNames(state, vehicleNumber);
+      const duplicateUnitsClosed = closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
+      for (const duplicateVehicleNumber of vehicleNumbersFromUnits(duplicateUnitsClosed)) {
+        syncPortoLinkedNames(state, duplicateVehicleNumber);
+      }
+      const affectedVehicleNumbers = [vehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)];
+      const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
       await persistPortoState(state, { units: state.portoUnits });
-      enqueuePortoDiscordNicknames(state, [unit], "Porto automatische indeling actief")
-        .catch((error) => console.error(`[porto] Discord nickname queue na automatische indeling mislukt: ${error.message}`));
+      await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
+      await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto automatische indeling actief");
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -1172,10 +1272,17 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         clearRecentlyEnded(person.id);
         state.portoCurrentOps = { memberId: person.id, name: person.name, serviceNumber: person.serviceNumber, phone: person.portoPhone || "", startedAt: currentOps?.startedAt || nowIso, active: true };
         const unit = ensureOpsUnit(state, person, nowIso);
-        closeDuplicateOpsUnits(state, person, unit, nowIso);
-        closeDuplicateActiveUnitsForMember(state, person.id, unit.id, nowIso);
+        const duplicateOpsUnitsClosed = closeDuplicateOpsUnits(state, person, unit, nowIso);
+        const duplicateUnitsClosed = [
+          ...duplicateOpsUnitsClosed,
+          ...closeDuplicateActiveUnitsForMember(state, person.id, unit.id, nowIso)
+        ];
+        const affectedVehicleNumbers = [operatorVehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)];
+        for (const vehicleNumber of affectedVehicleNumbers) syncPortoLinkedNames(state, vehicleNumber);
+        const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
         await persistPortoState(state, { settings: true, units: state.portoUnits });
-        await enqueuePortoDiscordNicknames(state, [unit], `${operatorLabel} roepnummer actief`);
+        await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, `Dubbele ${operatorLabel}-aanmelding gesloten`);
+        await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, `${operatorLabel} roepnummer actief`);
         await sendPortoState(res, state, person, unit);
         return true;
       }
@@ -1192,8 +1299,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         const endedAt = new Date().toISOString();
         const opsUnit = state.portoUnits.find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === operatorVehicleNumber);
         releaseCurrentOps(state, currentOps, person, endedAt, `${operatorLabel} neergelegd`);
+        syncPortoLinkedNames(state, operatorVehicleNumber);
+        const remainingOperatorUnits = activeUnitsForVehicle(state, operatorVehicleNumber);
         await persistPortoState(state, { settings: true, units: state.portoUnits });
         if (opsUnit) await enqueueNormalDiscordNicknames(state, [opsUnit], `${operatorLabel} dienst beeindigd`);
+        await enqueuePortoDiscordNicknames(state, remainingOperatorUnits, `${operatorLabel} groep bijgewerkt`);
         await sendPortoState(res, state, person, null);
         return true;
       }
@@ -1276,9 +1386,17 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           assignedAt: now,
           updatedAt: now
         });
+        const duplicateUnitsClosed = closeDuplicateActiveUnitsForMember(state, unit.memberId, unit.id, now);
+        const affectedVehicleNumbers = [oldVehicleNumber, vehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)];
         syncPortoLinkedNames(state, oldVehicleNumber);
         syncPortoLinkedNames(state, vehicleNumber);
+        for (const duplicateVehicleNumber of vehicleNumbersFromUnits(duplicateUnitsClosed)) {
+          syncPortoLinkedNames(state, duplicateVehicleNumber);
+        }
+        const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
         await persistPortoState(state, { units: state.portoUnits });
+        await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
+        await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto losgekoppeld");
         await sendPortoState(res, state, person, unit);
         return true;
       }
@@ -1309,8 +1427,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         }));
         unitsToEnd.forEach(clearPortoBrowserHeartbeat);
         syncPortoLinkedNames(state, oldVehicleNumber);
+        const remainingVehicleUnits = affectedActiveVehicleUnits(state, [oldVehicleNumber]);
         await persistPortoState(state, { units: state.portoUnits, settings: settingsChanged });
         await enqueueNormalDiscordNicknames(state, unitsToEnd);
+        await enqueuePortoDiscordNicknames(state, remainingVehicleUnits, "Porto groep bijgewerkt");
         const endedCurrentPerson = unitsToEnd.some((entry) => entry.memberId === person.id);
         const responseUnit = endedCurrentPerson ? null : state.portoUnits.find((entry) => entry.id === unit.id && entry.active !== false) || null;
         await sendPortoState(res, state, person, responseUnit, endedCurrentPerson ? { recentlyEnded: true } : {});
@@ -1397,6 +1517,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           entry.statusUpdatedByName = person.name;
         }
         await persistPortoState(state, { units: state.portoUnits });
+        await enqueuePortoDiscordNicknames(state, group, "Porto status aangepast");
         await sendPortoState(res, state, person, unit);
         return true;
       }
@@ -1463,6 +1584,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }
       const now = new Date().toISOString();
       const unitsToMove = linkToVehicleNumber ? [unit] : (currentVehicleGroup.length ? currentVehicleGroup : [unit]);
+      const duplicateUnitsClosed = [];
       const operatorLeadUnitId = vehicleNumber === operatorVehicleNumber && !linkToVehicleNumber ? unit.id : "";
       if (operatorLeadUnitId && !assertCanAssignOpsNumber(state, [unit], res)) return true;
       const vehicleDetails = selectedVehicleName
@@ -1484,12 +1606,18 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           lastSeenAt: entry.lastSeenAt || now
         });
         closePendingPortoRequestsForMember(state, entry.memberId, entry.id);
-        closeDuplicateActiveUnitsForMember(state, entry.memberId, entry.id, now);
+        duplicateUnitsClosed.push(...closeDuplicateActiveUnitsForMember(state, entry.memberId, entry.id, now));
       });
+      const affectedVehicleNumbers = [oldVehicleNumber, vehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)];
       syncPortoLinkedNames(state, oldVehicleNumber);
       syncPortoLinkedNames(state, vehicleNumber);
+      for (const duplicateVehicleNumber of vehicleNumbersFromUnits(duplicateUnitsClosed)) {
+        syncPortoLinkedNames(state, duplicateVehicleNumber);
+      }
+      const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, unitsToMove);
       await persistPortoState(state, { units: state.portoUnits });
-      await enqueuePortoDiscordNicknames(state, unitsToMove, "Porto roepnummer aangepast");
+      await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
+      await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto roepnummer aangepast");
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -1594,13 +1722,18 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         statusDetail: targetStatusDetail
       });
       closePendingPortoRequestsForMember(state, unit.memberId, unit.id);
-      closeDuplicateActiveUnitsForMember(state, unit.memberId, unit.id, assignedAt);
+      const duplicateUnitsClosed = closeDuplicateActiveUnitsForMember(state, unit.memberId, unit.id, assignedAt);
       unit.updatedAt = unit.assignedAt;
       unit.lastSeenAt = unit.lastSeenAt || unit.assignedAt;
+      const affectedVehicleNumbers = [vehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)];
       syncPortoLinkedNames(state, vehicleNumber);
+      for (const duplicateVehicleNumber of vehicleNumbersFromUnits(duplicateUnitsClosed)) {
+        syncPortoLinkedNames(state, duplicateVehicleNumber);
+      }
+      const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
       await persistPortoState(state, { units: state.portoUnits });
-      enqueuePortoDiscordNicknames(state, [unit], "Porto indeling actief")
-        .catch((error) => console.error(`[porto] Discord nickname queue na indeling mislukt: ${error.message}`));
+      await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
+      await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto indeling actief");
       await sendPortoState(res, state, person, unit);
       return true;
     }

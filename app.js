@@ -1468,7 +1468,8 @@ function hasActiveMentorChecklistInteraction() {
   const notesField = $("#mentorNotes");
   const isTypingMentorNote = activePageId() === "mentor-checklist" && notesField && document.activeElement === notesField;
   const hasUnsavedMentorNote = activePageId() === "mentor-checklist" && notesField && notesField.value.trim().length > 0;
-  return activePageId() === "mentor-checklist" && (Date.now() < mentorChecklistEditingUntil || isTypingMentorNote || hasUnsavedMentorNote);
+  const isSavingMentorChecklist = typeof isMentorChecklistSaveActive === "function" && isMentorChecklistSaveActive();
+  return activePageId() === "mentor-checklist" && (Date.now() < mentorChecklistEditingUntil || isSavingMentorChecklist || isTypingMentorNote || hasUnsavedMentorNote);
 }
 
 function hasActiveLiveEditInteraction() {

@@ -86,10 +86,25 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260709-availability-agenda/);
+  assert.match(html, /app\.js\?v=20260715-mentor-autosave/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
+});
+
+test("mentor checklist autosave is serialized against live refresh", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
+
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260715-mentor-autosave/);
+  assert.match(mentorCode, /let mentorChecklistSavePromise = null/);
+  assert.match(mentorCode, /let mentorChecklistSaveQueued = false/);
+  assert.match(mentorCode, /function isMentorChecklistSaveActive\(/);
+  assert.match(mentorCode, /if \(mentorChecklistSavePromise\) return mentorChecklistSavePromise/);
+  assert.match(mentorCode, /while \(mentorChecklistSaveQueued\)/);
+  assert.match(appCode, /isMentorChecklistSaveActive\(\)/);
+  assert.match(appCode, /isSavingMentorChecklist/);
 });
 
 test("archived resignation forms are not counted as open", () => {
@@ -185,6 +200,31 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(styles, /\.porto-modern-ops-dashboard/);
 });
 
+test("modern duty status layout stays aligned on desktop widths", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
+
+  assert.match(html, /porto\.css\?v=20260715-duty-layout/);
+  assert.match(styles, /body\[data-porto-ui="modern"\]\.porto-duty-workspace \.porto-modern-duty-meta-grid \{[\s\S]*margin-top: 0;/);
+  assert.match(styles, /\.porto-modern-duty-meta-grid article > \.porto-modern-vehicle-select \{[\s\S]*grid-column: 1 \/ -1;/);
+  const desktopBreakpointStart = styles.indexOf("@media (max-width: 1280px)");
+  const compactBreakpointStart = styles.indexOf("@media (max-width: 980px)");
+  const desktopBreakpointBlock = styles.slice(desktopBreakpointStart, compactBreakpointStart);
+  assert.doesNotMatch(desktopBreakpointBlock, /\.porto-modern-duty-meta-grid,[\s\S]*grid-template-columns: 1fr;/);
+  assert.match(styles, /@media \(max-width: 980px\) \{[\s\S]*\.porto-modern-duty-meta-grid,[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+});
+
+test("porto profile dialog scroll avoids expensive backdrop repainting", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
+
+  assert.match(html, /porto\.css\?v=20260715-duty-layout/);
+  assert.match(styles, /\.porto-profile-dialog \{[\s\S]*contain: layout paint;/);
+  assert.match(styles, /\.porto-profile-dialog::backdrop \{[\s\S]*backdrop-filter: none;/);
+  assert.match(styles, /\.porto-profile-form \{[\s\S]*overscroll-behavior: contain;/);
+  assert.match(styles, /\.porto-profile-form \{[\s\S]*scrollbar-gutter: stable;/);
+});
+
 test("I8 create form keeps a browser draft until server save succeeds", () => {
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const i8Code = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "i8.js"), "utf8");
@@ -228,7 +268,7 @@ test("mentor tests render compact rows with a detail dialog", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
   assert.match(html, /mentorTestDetailDialog/);
-  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260630-mentor-test-dialog/);
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260715-mentor-autosave/);
   assert.match(mentorCode, /data-open-mentor-test-detail/);
   assert.match(mentorCode, /function openMentorTestDetailDialog/);
 });

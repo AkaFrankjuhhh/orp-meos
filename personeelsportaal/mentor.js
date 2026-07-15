@@ -6,6 +6,9 @@ let mentorSelfTestCache = null;
 let mentorTestsReviewCache = null;
 let mentorTestTemplateCache = null;
 let pendingMentorTestPersonId = "";
+let mentorChecklistSavePromise = null;
+let mentorChecklistSaveQueued = false;
+let mentorChecklistSavePersonId = "";
 const leadershipPeriodLabels = {
   week: "Afgelopen week",
   month: "Afgelopen maand",
@@ -277,26 +280,50 @@ function mentorChecklistItemsFromDom() {
   }));
 }
 
+function isMentorChecklistSaveActive() {
+  return Boolean(mentorChecklistSavePromise || mentorChecklistSaveQueued);
+}
+
+function applyMentorChecklistItemsOptimistically(personId, items) {
+  const person = state.people.find((entry) => entry.id === personId);
+  if (!person) return;
+  const existing = mentorChecklistFor(person);
+  const allItemsCompleted = items.length > 0 && items.every((item) => item.checked);
+  person.mentorChecklist = {
+    ...(person.mentorChecklist || {}),
+    items,
+    testSent: allItemsCompleted ? existing.testSent : false,
+    testApproved: allItemsCompleted && existing.testSent ? existing.testApproved : false
+  };
+}
+
 async function saveMentorChecklistItemsFromDom() {
   if (!selectedMentorProfileId || !canManageMentorOverview()) return false;
-  const items = mentorChecklistItemsFromDom();
-  const person = state.people.find((entry) => entry.id === selectedMentorProfileId);
-  if (person) {
-    const existing = mentorChecklistFor(person);
-    const allItemsCompleted = items.length > 0 && items.every((item) => item.checked);
-    person.mentorChecklist = {
-      ...(person.mentorChecklist || {}),
-      items,
-      testSent: allItemsCompleted ? existing.testSent : false,
-      testApproved: allItemsCompleted && existing.testSent ? existing.testApproved : false
-    };
-  }
-  const saved = await saveMentorChecklist(selectedMentorProfileId, { items });
-  if (saved) {
-    renderMentorOverview();
-    renderMentorTrajectory();
-  }
-  return saved;
+  mentorChecklistSaveQueued = true;
+  mentorChecklistSavePersonId = selectedMentorProfileId;
+  mentorChecklistEditingUntil = Date.now() + 3500;
+  if (mentorChecklistSavePromise) return mentorChecklistSavePromise;
+
+  mentorChecklistSavePromise = (async () => {
+    let latestSaved = true;
+    while (mentorChecklistSaveQueued) {
+      mentorChecklistSaveQueued = false;
+      const personId = mentorChecklistSavePersonId;
+      const items = mentorChecklistItemsFromDom();
+      applyMentorChecklistItemsOptimistically(personId, items);
+      latestSaved = await saveMentorChecklist(personId, { items });
+      if (!latestSaved) break;
+      renderMentorOverview();
+      renderMentorTrajectory();
+    }
+    return latestSaved;
+  })().finally(() => {
+    mentorChecklistSavePromise = null;
+    mentorChecklistSavePersonId = "";
+    mentorChecklistEditingUntil = Date.now() + 500;
+  });
+
+  return mentorChecklistSavePromise;
 }
 
 function renderMentorPersonAudit() {
