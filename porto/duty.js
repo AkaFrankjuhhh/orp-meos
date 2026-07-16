@@ -195,6 +195,20 @@ function modernDutyMembers() {
   return members.slice(0, 3);
 }
 
+function isCurrentPortoDutyMember(member) {
+  const ownId = String(portoProfile?.id || portoDuty?.id || "").trim();
+  const memberId = String(member?.id || member?.memberId || "").trim();
+  const ownServiceNumber = String(portoProfile?.serviceNumber || portoDuty?.serviceNumber || "").trim();
+  const memberServiceNumber = String(member?.serviceNumber || "").trim();
+  const ownDiscordId = String(portoProfile?.discordId || portoDuty?.discordId || "").trim();
+  const memberDiscordId = String(member?.discordId || member?.discordID || "").trim();
+  return Boolean(
+    (ownId && memberId && ownId === memberId) ||
+    (ownServiceNumber && memberServiceNumber && ownServiceNumber === memberServiceNumber) ||
+    (ownDiscordId && memberDiscordId && ownDiscordId === memberDiscordId)
+  );
+}
+
 function modernOccupancyBars(count) {
   return Array.from({ length: 3 }, (_, index) => `<span class="${index < count ? "filled" : ""}"></span>`).join("");
 }
@@ -292,8 +306,9 @@ function renderModernDutyDashboard() {
     }
     const nameClass = typeof memberNameClass === "function" ? memberNameClass(member) : "porto-member-name";
     const title = typeof memberNameTitle === "function" ? memberNameTitle(member) : "";
+    const selfAttribute = isCurrentPortoDutyMember(member) ? ` data-modern-duty-self-card="true"` : "";
     return `
-      <article class="porto-modern-duty-member"${title ? ` title="${escapeHtml(title)}"` : ""}>
+      <article class="porto-modern-duty-member"${selfAttribute}${title ? ` title="${escapeHtml(title)}"` : ""}>
         <span>Eenheid ${index + 1}</span>
         <span class="porto-modern-duty-member-number">${escapeHtml(member.serviceNumber || "-")}</span>
         <div class="porto-modern-duty-member-main">
@@ -392,6 +407,62 @@ function renderDutyRolePanel() {
         <span>${escapeHtml(role.nicknameLabel)} voor jouw huidige roepnummer</span>
       </button>`;
   }).join("");
+}
+
+function closePortoDutyRoleContextMenu() {
+  const menu = $("#portoDutyRoleContextMenu");
+  if (menu) menu.hidden = true;
+}
+
+function ensurePortoDutyRoleContextMenu() {
+  let menu = $("#portoDutyRoleContextMenu");
+  if (menu) return menu;
+  menu = document.createElement("div");
+  menu.id = "portoDutyRoleContextMenu";
+  menu.className = "context-menu porto-ops-context-menu porto-duty-role-context-menu";
+  menu.hidden = true;
+  menu.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-duty-context-role]");
+    if (!button || button.disabled) return;
+    button.disabled = true;
+    try {
+      await updatePortoDutyRole(button.dataset.dutyContextRole || "");
+    } finally {
+      closePortoDutyRoleContextMenu();
+      button.disabled = false;
+    }
+  });
+  document.body.appendChild(menu);
+  return menu;
+}
+
+function openPortoDutyRoleContextMenu(event) {
+  const allowedRoles = allowedPortoDutyRoles();
+  const assigned = Boolean(portoDuty && String(portoDuty.status) !== "8" && portoDuty.vehicleNumber);
+  if (!assigned || !allowedRoles.length) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  const currentRole = String(portoDuty?.dutyRole || "").trim();
+  const menu = ensurePortoDutyRoleContextMenu();
+  menu.innerHTML = `
+    <strong>Dienstrol</strong>
+    <span class="porto-ops-context-phone">${escapeHtml(portoDuty.vehicleNumber || "Huidig roepnummer")}</span>
+    ${allowedRoles.map((role) => {
+      const active = currentRole === role.key;
+      return `
+        <button class="${active ? "active" : ""}" type="button" data-duty-context-role="${escapeHtml(role.key)}">
+          <span>
+            <strong>${escapeHtml(role.label)} ${active ? "neerleggen" : "aannemen"}</strong>
+            <small>${escapeHtml(role.nicknameLabel)} voor jouw huidige roepnummer</small>
+          </span>
+        </button>`;
+    }).join("")}`;
+  if (typeof positionContextMenu === "function") {
+    positionContextMenu(menu, event.clientX, event.clientY);
+  } else {
+    menu.hidden = false;
+  }
+  return true;
 }
 
 async function updatePortoDutyRole(roleKey) {

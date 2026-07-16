@@ -1116,6 +1116,18 @@ function requestHostname(req) {
 
 function redirectPublicFormAlias(req, res, url) {
   const host = requestHostname(req);
+  if (host === "vid.orpdefensie.nl") {
+    const ticketMatch = String(url.pathname || "").match(/^\/zaken\/(vid-\d+)$/i);
+    const location = ticketMatch
+      ? `https://orpdefensie.nl/forms/vid/tickets?ticket=${encodeURIComponent(ticketMatch[1].toLowerCase())}`
+      : `https://orpdefensie.nl/forms/vid${url.search}`;
+    res.writeHead(308, {
+      Location: location,
+      "Cache-Control": "no-store"
+    });
+    res.end();
+    return true;
+  }
   const canonicalDomain = process.env.OVERHEID_PUBLIC_FORM_DOMAIN || "orpoverheid.nl";
   const aliases = {
     "klachten.orpdefensie.nl": `https://klachten.${canonicalDomain}`,

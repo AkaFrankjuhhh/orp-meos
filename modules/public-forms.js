@@ -215,7 +215,7 @@ const publicFormConfigs = {
   ...(organization.key === "defensie" ? {
     ibt: {
       slug: "ibt",
-      hostnames: formHosts("ibt"),
+      hostnames: formHosts("ibt-toets", "ibt"),
       title: "IBT Toets",
       subtitle: "Maak hier je IBT-toets. Een trainer beoordeelt je inzending en keurt deze goed of af.",
       notice: "Na goedkeuring wordt de IBT-training automatisch afgevinkt op je personeelsprofiel.",
@@ -227,17 +227,25 @@ const publicFormConfigs = {
       ticketPrefix: "IBT",
       webhookEnv: "DISCORD_FORM_IBT_WEBHOOK_URL",
       questions: [
-        { id: "safety", label: "Waarom is veiligheid belangrijk tijdens IBT?", type: "textarea", required: true },
-        { id: "warning", label: "Wanneer geef je een waarschuwing voordat je geweld gebruikt?", type: "textarea", required: true },
-        { id: "force", label: "Leg uit wanneer je proportioneel geweld mag gebruiken.", type: "textarea", required: true },
-        { id: "colleague", label: "Een collega raakt gewond tijdens een inzet. Wat is jouw eerste prioriteit?", type: "textarea", required: true },
-        { id: "suspect", label: "Een verdachte weigert mee te werken en loopt weg. Hoe handel je?", type: "textarea", required: true },
-        { id: "aftercare", label: "Wat doe je na een IBT-gerelateerde inzet?", type: "textarea", required: true }
+        { id: "nameAndServiceNumber", label: "Naam + Roepnummer", type: "text", required: true, profileBacked: true },
+        { id: "ammoCount", label: "Hoeveel patronen mag je bij je hebben?", type: "text", required: true },
+        { id: "firearmScenario", label: "In welk scenario ben je bevoegd jouw vuurwapen in te zetten?", type: "textarea", required: true },
+        { id: "arrestFire", label: "Wat is aanhoudingsvuur? En waarbij moet je als ambtenaar op letten indien je dit toepast?", type: "textarea", required: true },
+        { id: "selfDefense", label: "Wat is noodweer? Wanneer pas je het toe en waar moet je op letten?", type: "textarea", required: true },
+        { id: "tireShot", label: "Wanneer kan en mag je iemand zijn band veilig lek schieten", type: "textarea", required: true },
+        { id: "btgpMeaning", label: "Waar staat BTGP voor?", type: "text", required: true },
+        { id: "btgpWhen", label: "Wanneer zet je een BTGP in?", type: "text", required: true },
+        { id: "btgpRadio", label: "Geef je altijd door in de porto als je een BTGP start?", type: "text", required: true },
+        { id: "pursuitScenario", label: "Stel je voor: Je zit in een achtervolging van een mogelijk vuurwapen gevaarlijke persoon en de verdachte crasht tegen de vangrail. Hij rent er vandoor, wat doe je?", type: "textarea", required: true },
+        { id: "proportionality", label: "Wat betekent proportioneel geweld?", type: "text", required: true },
+        { id: "subsidiarity", label: "Wat betekent subsidiariteit?", type: "text", required: true }
       ]
     },
     vid: {
       slug: "vid",
       hostnames: formHosts("vid"),
+      canonicalUrl: "https://orpdefensie.nl/forms/vid",
+      ticketsUrl: "https://orpdefensie.nl/forms/vid/tickets",
       title: "Vertrouwenspersoon Integriteit Defensie",
       subtitle: "Fijn dat je contact opneemt. Via dit formulier kun je je aanmelden voor een gesprek met een vertrouwenspersoon. Vul je gegevens zo volledig mogelijk in, zodat we contact met je kunnen opnemen.",
       notice: "Je kunt aangeven of je voorkeur hebt voor een bepaalde vertrouwenspersoon. We doen ons best om met die voorkeur rekening te houden, maar kunnen dit niet altijd garanderen. Als jouw voorkeur niet mogelijk is, nemen we contact met je op om samen naar een passende oplossing te kijken.\n\nAlles wat je tijdens het gesprek met de vertrouwenspersoon bespreekt, wordt vertrouwelijk behandeld.",
@@ -609,9 +617,9 @@ function publicFormForRequest(req, url) {
 function publicFormClientConfig(config, profile = null) {
   if (!config) return null;
   const canManage = canManagePublicForm(profile, config);
-  const profileBackedQuestionIds = new Set(["fullName", "discord"]);
+  const profileBackedQuestionIds = new Set(["fullName", "discord", "nameAndServiceNumber"]);
   const questions = config.internalOnly && profile
-    ? (config.questions || []).filter((question) => !profileBackedQuestionIds.has(question.id))
+    ? (config.questions || []).filter((question) => !profileBackedQuestionIds.has(question.id) && !question.profileBacked)
     : (config.questions || []);
   const visualScope = isComplaintForm(config) ? "overheid" : organization.key;
   return {
@@ -624,6 +632,8 @@ function publicFormClientConfig(config, profile = null) {
     notice: config.notice || "",
     accent: config.accent || "#f59e0b",
     iconHref: publicFormIconHref(config),
+    canonicalUrl: config.canonicalUrl || "",
+    ticketsUrl: config.ticketsUrl || "",
     internalOnly: Boolean(config.internalOnly),
     closed: Boolean(config.closed),
     ticketPrefix: config.ticketPrefix || "",
@@ -653,6 +663,8 @@ function applyProfileAnswersToPublicForm(config, answers = {}, profile = null) {
   const nextAnswers = { ...(answers || {}) };
   if (!config?.internalOnly || !profile) return nextAnswers;
   nextAnswers.fullName = profile.name || "";
+  const profileServiceNumber = profile.serviceNumber || profile.service_number || "";
+  nextAnswers.nameAndServiceNumber = [profile.name, profileServiceNumber].filter(Boolean).join(" - ");
   nextAnswers.discord = profile.discordUsername
     ? `${profile.discordUsername} (${profile.discordId || "Discord ID onbekend"})`
     : (profile.discordId || "");
@@ -772,9 +784,20 @@ function publicFormTicketNumber(config, submission = {}) {
 }
 
 function publicFormTicketUrl(config, submission = {}) {
+  const ticketNumber = publicFormTicketNumber(config, submission).toLowerCase();
+  if (config?.ticketsUrl && ticketNumber) {
+    try {
+      const target = new URL(config.ticketsUrl);
+      target.searchParams.set("ticket", ticketNumber);
+      return target.toString();
+    } catch {
+      const base = String(config.ticketsUrl || "").replace(/[?#].*$/, "").replace(/\/$/, "");
+      return `${base}?ticket=${encodeURIComponent(ticketNumber)}`;
+    }
+  }
   const host = (config?.hostnames || [])[0];
-  if (!host) return "";
-  return `https://${host}/zaken/${publicFormTicketNumber(config, submission).toLowerCase()}`;
+  if (!host || !ticketNumber) return "";
+  return `https://${host}/zaken/${encodeURIComponent(ticketNumber)}`;
 }
 
 function truncateDiscordText(value, maxLength) {

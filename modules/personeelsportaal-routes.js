@@ -172,7 +172,11 @@ function createPersoneelsportaalRouteHandler(deps) {
   }
 
   function profileHasFunction(profile, label) {
-    const badges = new Set([profile?.permRole, ...(profile?.extraFunctions || [])].filter(Boolean));
+    const badges = new Set([
+      profile?.permRole,
+      ...(profile?.extraFunctions || []),
+      ...(profile?.badges || [])
+    ].filter(Boolean));
     for (const mapping of organization.autoFunctionByRanks || []) {
       if (mapping.label === label && (mapping.ranks || []).includes(profile?.rank || "")) badges.add(mapping.label);
     }

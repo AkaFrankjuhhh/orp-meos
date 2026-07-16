@@ -1162,24 +1162,27 @@ function restoreSavedPage() {
 }
 
 function renderDashboard() {
-  const activePeople = state.people.filter((person) => person.status === "Actief");
+  const dashboardPeople = state.people.filter(isCurrentProfile);
+  const activePeople = dashboardPeople.filter((person) => normalizedProfileStatus(person) === "Actief");
   const absentMemberIds = new Set(
     state.absences
       .filter(absenceIsActive)
       .map((absence) => absence.memberId)
       .filter(Boolean)
   );
-  const absentCount = absentMemberIds.size;
+  const absentCount = dashboardPeople.filter((person) => (
+    normalizedProfileStatus(person) === "Afwezig" || absentMemberIds.has(person.id)
+  )).length;
   $("#statActive").textContent = activePeople.length;
   $("#statAbsent").textContent = absentCount;
-  // Het dashboard telt alleen de twee actuele groepen: aanwezig/actief en afwezig.
+  // Het dashboard telt huidig personeel inclusief afwezigheden.
   // Historische, ontslagen en non-actieve profielen horen niet in dit totaal.
-  $("#statTotal").textContent = activePeople.length + absentCount;
+  $("#statTotal").textContent = dashboardPeople.length;
 
   const rankCounts = ranks
     .map((rank) => ({
       rank,
-      count: activePeople.filter((person) => person.rank === rank).length
+      count: dashboardPeople.filter((person) => person.rank === rank).length
     }))
     .filter((item) => item.count > 0);
 
@@ -1201,14 +1204,15 @@ function renderDashboard() {
   if (!rankCounts.length) {
     rankPieSegments = [];
     $("#rankPie").style.background = "var(--surface-2)";
-    $("#rankLegend").innerHTML = '<div class="feed-item">Nog geen actieve leden.</div>';
+    $("#rankLegend").innerHTML = '<div class="feed-item">Nog geen huidige leden.</div>';
   } else {
     const sortedRankCounts = rankCounts;
+    const rankTotal = sortedRankCounts.reduce((total, item) => total + item.count, 0) || 1;
     let cursor = 0;
     rankPieSegments = [];
     const segments = sortedRankCounts.map((item) => {
       const start = cursor;
-      const end = cursor + (item.count / activePeople.length) * 100;
+      const end = cursor + (item.count / rankTotal) * 100;
       cursor = end;
       rankPieSegments.push({ rank: item.rank, count: item.count, start, end });
       return `${rankColors[item.rank]} ${start}% ${end}%`;
@@ -1254,7 +1258,7 @@ function renderDashboard() {
 
   $("#serviceRangeRows").innerHTML = rankCategories
     .map((category) => {
-      const count = activePeople.filter((person) => personInServiceRange(person, category)).length;
+      const count = dashboardPeople.filter((person) => personInServiceRange(person, category)).length;
       return `
         <div class="range-row">
           <strong>${escapeHtml(category.serviceRange)}</strong>

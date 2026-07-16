@@ -639,6 +639,58 @@ select:focus {
   display: none;
 }
 
+.vid-ticket-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.vid-ticket-entry h2 {
+  margin: 4px 0 6px;
+  font-size: 24px;
+}
+
+.vid-ticket-entry p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.vid-ticket-open-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.26), rgba(37, 99, 235, 0.16));
+  color: #fff;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 14px 30px rgba(14, 165, 233, 0.14);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.vid-ticket-open-link:hover {
+  border-color: rgba(56, 189, 248, 0.85);
+  transform: translateY(-1px);
+}
+
+.vid-ticket-open-link span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.22);
+  color: #bae6fd;
+}
+
 .vid-ticket-head {
   display: flex;
   align-items: flex-start;
@@ -966,11 +1018,16 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .vid-ticket-entry,
   .vid-ticket-head,
   .vid-ticket-topline,
   .review-head,
   .review-submission-topline {
     flex-direction: column;
+  }
+
+  .vid-ticket-open-link {
+    width: 100%;
   }
 
   .review-submission-meta {

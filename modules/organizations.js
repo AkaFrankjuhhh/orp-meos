@@ -324,8 +324,8 @@ const organizationConfigs = {
         { key: "dnr", label: "DNR", envKey: "DISCORD_DNR_ROLE_ID" },
         { key: "hrb-leiding", label: "HRB-Leiding", envKey: "DISCORD_HRB_LEIDING_ROLE_ID" },
         { key: "hrb", label: "HRB", envKey: "DISCORD_HRB_ROLE_ID" },
-        { key: "vid-leiding", label: "VID-Leiding", envKey: "DISCORD_VID_LEIDING_ROLE_ID" },
-        { key: "vid", label: "VID", envKey: "DISCORD_VID_ROLE_ID" }
+        { key: "vid-leiding", label: "VID-Leiding", envKey: "DISCORD_VID_LEIDING_ROLE_ID", defaultRoleId: "1526194681619157084" },
+        { key: "vid", label: "VID", envKey: "DISCORD_VID_ROLE_ID", defaultRoleId: "1526194281256058961" }
       ],
       rankRoleEnvKeys: {
         "Luitenant-Generaal": "DISCORD_RANK_LUITENANT_GENERAAL_ROLE_ID",

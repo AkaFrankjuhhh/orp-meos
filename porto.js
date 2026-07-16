@@ -220,14 +220,23 @@ function setPortoPhonebook(entries) {
 }
 
 function portoPhonebookRowHtml(person) {
-  const phone = person.phone || "<Geen bekend nummer>";
+  const phone = person.phone || "Geen bekend nummer";
   const phoneClass = person.phone ? "porto-phonebook-phone" : "porto-phonebook-phone missing";
   const title = person.serviceNumber ? ` title="Dienstnummer: ${escapeHtml(person.serviceNumber)}"` : "";
   return `
     <div class="porto-phonebook-row"${title}>
-      <span data-label="Rang">${escapeHtml(person.rank || "-")}</span>
-      <span data-label="Naam">${escapeHtml(person.name || "-")}</span>
-      <span data-label="Telefoonnummer" class="${phoneClass}">${escapeHtml(phone)}</span>
+      <span data-label="Rang" class="porto-phonebook-rank">
+        <span class="porto-phonebook-row-icon rank" aria-hidden="true"></span>
+        <span>${escapeHtml(person.rank || "-")}</span>
+      </span>
+      <span data-label="Naam" class="porto-phonebook-name">
+        <span class="porto-phonebook-row-icon person" aria-hidden="true"></span>
+        <span>${escapeHtml(person.name || "-")}</span>
+      </span>
+      <span data-label="Telefoonnummer" class="${phoneClass}">
+        <span class="porto-phonebook-row-icon ${person.phone ? "phone" : "warning"}" aria-hidden="true"></span>
+        <span>${escapeHtml(phone)}</span>
+      </span>
     </div>`;
 }
 
@@ -730,6 +739,12 @@ $("#portoModernOpsDashboard")?.addEventListener("contextmenu", async (event) => 
     return;
   }
 });
+$("#portoModernDutyDashboard")?.addEventListener("contextmenu", (event) => {
+  const selfCard = event.target.closest("[data-modern-duty-self-card]");
+  if (!selfCard) return;
+  if (typeof openPortoDutyRoleContextMenu === "function" && openPortoDutyRoleContextMenu(event)) return;
+  event.preventDefault();
+});
 let portoDiscordChannelStatusSavePending = false;
 
 async function saveDiscordChannelStatus(button) {
@@ -940,6 +955,9 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (!event.target.closest("#portoOpsUnitContextMenu")) closePortoOpsContextMenu();
+  if (!event.target.closest("#portoDutyRoleContextMenu") && typeof closePortoDutyRoleContextMenu === "function") {
+    closePortoDutyRoleContextMenu();
+  }
 });
 
 document.addEventListener("change", (event) => {
@@ -949,6 +967,7 @@ document.addEventListener("change", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closePortoOpsContextMenu();
+  if (event.key === "Escape" && typeof closePortoDutyRoleContextMenu === "function") closePortoDutyRoleContextMenu();
 });
 $("#portoStatusGrid").addEventListener("click", (event) => {
   const button = event.target.closest("[data-status]");

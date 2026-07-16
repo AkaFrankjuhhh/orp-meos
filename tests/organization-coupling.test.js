@@ -124,6 +124,39 @@ test("police has a DSI public form with police intake questions", () => {
   );
 });
 
+test("defence has an IBT review form on the IBT toets domain", () => {
+  const defenceForms = loadPublicFormsForOrganization("defensie");
+  const policeForms = loadPublicFormsForOrganization("politie");
+  const ibt = defenceForms.publicFormFromSlug("ibt");
+
+  assert.ok(ibt);
+  assert.equal(ibt.slug, "ibt");
+  assert.deepEqual(ibt.hostnames, ["ibt-toets.orpdefensie.nl", "ibt.orpdefensie.nl"]);
+  assert.equal(defenceForms.publicFormForRequest(
+    { headers: { host: "ibt-toets.orpdefensie.nl" } },
+    new URL("https://ibt-toets.orpdefensie.nl/")
+  ).slug, "ibt");
+  assert.equal(ibt.internalOnly, true);
+  assert.equal(ibt.reviewable, true);
+  assert.equal(ibt.reviewTraining, "IBT");
+  assert.deepEqual(ibt.reviewBadges, ["Trainer", "Trainer-Leiding"]);
+  assert.equal(ibt.webhookEnv, "DISCORD_FORM_IBT_WEBHOOK_URL");
+  assert.equal(ibt.questions.length, 12);
+  assert.ok(ibt.questions.find((question) => question.id === "nameAndServiceNumber")?.profileBacked);
+  assert.ok(ibt.questions.find((question) => question.id === "btgpMeaning"));
+  assert.ok(ibt.questions.find((question) => question.id === "subsidiarity"));
+  assert.equal(
+    defenceForms.publicFormClientConfig(ibt, { name: "Rik Klomp", serviceNumber: "74-03" })
+      .questions.some((question) => question.id === "nameAndServiceNumber"),
+    false
+  );
+  assert.equal(
+    defenceForms.applyProfileAnswersToPublicForm(ibt, {}, { name: "Rik Klomp", serviceNumber: "74-03" }).nameAndServiceNumber,
+    "Rik Klomp - 74-03"
+  );
+  assert.equal(policeForms.publicFormFromSlug("ibt"), null);
+});
+
 test("mentor tests are not hard-coded to defensie only", () => {
   const code = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
 

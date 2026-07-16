@@ -270,16 +270,20 @@
 
     <dialog id="portoPhonebookDialog" class="porto-phonebook-dialog">
       <form method="dialog" class="dialog-form porto-phonebook-form">
-        <div class="panel-head">
+        <div class="panel-head porto-phonebook-titlebar">
+          <span class="porto-phonebook-title-icon" aria-hidden="true"></span>
           <div>
             <h2>Telefoonnummers</h2>
             <p class="muted">Overzicht van alle personeelsleden.</p>
           </div>
-          <button class="ghost icon" type="button" id="closePortoPhonebookDialog">&times;</button>
+          <button class="ghost icon porto-phonebook-close" type="button" id="closePortoPhonebookDialog">&times;</button>
         </div>
-        <label class="full">
-          Zoeken
-          <input id="portoPhonebookSearch" type="search" placeholder="Zoek op rang, naam, dienstnummer of telefoonnummer" autocomplete="off" />
+        <label class="full porto-phonebook-search-label" for="portoPhonebookSearch">
+          <span>Zoeken</span>
+          <span class="porto-phonebook-search-shell">
+            <span class="porto-phonebook-search-icon" aria-hidden="true"></span>
+            <input id="portoPhonebookSearch" type="search" placeholder="Zoek op rang, naam, dienstnummer of telefoonnummer" autocomplete="off" />
+          </span>
         </label>
         <section class="porto-phonebook-table" aria-label="Telefoonnummers overzicht">
           <div class="porto-phonebook-head">

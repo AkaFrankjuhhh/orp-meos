@@ -602,13 +602,46 @@ function ticketAnswer(ticket, key) {
 }
 
 function ticketNumberFromPath() {
+  const queryTicket = String(new URLSearchParams(window.location.search).get("ticket") || "").trim();
+  if (queryTicket) return queryTicket.toUpperCase();
   const match = String(window.location.pathname || "").match(/\/zaken\/([a-z]+-\d+)/i);
   return match ? match[1].toUpperCase() : "";
 }
 
-function ticketPathForNumber(ticketNumber) {
+function pathFromConfiguredUrl(value, fallbackPath) {
+  if (!value) return fallbackPath;
+  try {
+    const url = new URL(value, window.location.origin);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return fallbackPath;
+  }
+}
+
+function formBasePath() {
+  const slug = encodeURIComponent(formState.config?.slug || "vid");
+  return pathFromConfiguredUrl(formState.config?.canonicalUrl, `/forms/${slug}`);
+}
+
+function vidTicketsPath() {
+  const slug = encodeURIComponent(formState.config?.slug || "vid");
+  return pathFromConfiguredUrl(formState.config?.ticketsUrl, `/forms/${slug}/tickets`);
+}
+
+function isVidTicketsPage() {
+  return Boolean(formState.config?.confidentialTicket)
+    && /^\/forms\/[^/]+\/tickets\/?$/i.test(String(window.location.pathname || ""));
+}
+
+function ticketPathForNumber(ticketNumber, basePath = vidTicketsPath()) {
   const clean = String(ticketNumber || "").trim().toLowerCase();
-  return clean ? `/zaken/${encodeURIComponent(clean)}` : window.location.pathname;
+  const target = new URL(basePath, window.location.origin);
+  if (clean) target.searchParams.set("ticket", clean);
+  return `${target.pathname}${target.search}${target.hash}`;
+}
+
+function ticketFormPathForNumber(ticketNumber) {
+  return ticketPathForNumber(ticketNumber, formBasePath());
 }
 
 function renderVidAssigneeSelect(ticket) {
@@ -655,12 +688,49 @@ function renderVidTicketCard(ticket) {
   `;
 }
 
+function renderVidTicketEntry() {
+  const panel = $("#vidTicketPanel");
+  if (!panel) return false;
+  const visible = formState.config?.confidentialTicket && formState.config?.canViewTickets && !isVidTicketsPage();
+  if (!visible) return false;
+  const count = formState.tickets.length;
+  const label = count === 1 ? "1 open ticket" : `${count} open tickets`;
+  panel.hidden = false;
+  panel.innerHTML = `
+    <div class="vid-ticket-entry">
+      <div>
+        <p class="eyebrow">Vertrouwelijk</p>
+        <h2>VID tickets</h2>
+        <p>${count ? `${escapeHtml(label)} zichtbaar voor jou.` : "Geen open tickets zichtbaar."}</p>
+      </div>
+      <a class="vid-ticket-open-link" href="${escapeHtml(vidTicketsPath())}">
+        Open Tickets <span>${escapeHtml(String(count))}</span>
+      </a>
+    </div>
+  `;
+  return true;
+}
+
 function renderVidTicketsPanel() {
   const panel = $("#vidTicketPanel");
   if (!panel) return;
-  const visible = formState.config?.confidentialTicket && formState.config?.canViewTickets;
+  if (renderVidTicketEntry()) return;
+  const visible = formState.config?.confidentialTicket && isVidTicketsPage();
   panel.hidden = !visible;
   if (!visible) return;
+  if (!formState.config?.canViewTickets) {
+    panel.innerHTML = `
+      <div class="vid-ticket-head">
+        <div>
+          <p class="eyebrow">Vertrouwelijk</p>
+          <h2>VID tickets</h2>
+          <p>Alleen vertrouwenspersonen kunnen deze tickets bekijken.</p>
+        </div>
+      </div>
+      <div class="vid-ticket-empty">Je hebt geen toegang tot VID tickets.</div>
+    `;
+    return;
+  }
   const cards = formState.tickets.length
     ? formState.tickets.map(renderVidTicketCard).join("")
     : `<div class="vid-ticket-empty">Geen VID tickets zichtbaar.</div>`;
@@ -893,6 +963,7 @@ function bindSubmissionReviewPanel() {
 
 function applyLoadedConfig(config) {
   formState.config = config;
+  formState.requestedTicketNumber = ticketNumberFromPath();
   formState.currentPageIndex = 0;
   loadDraftAnswers(config);
   document.body.dataset.formSlug = config.slug;
@@ -900,12 +971,15 @@ function applyLoadedConfig(config) {
   document.title = config.title;
   setPageIcon(config.iconHref);
   document.documentElement.style.setProperty("--accent", config.accent || "#f59e0b");
+  const ticketPage = isVidTicketsPage();
   $("#formEyebrow").textContent = config.eyebrow || "ORP Defensie Oranjestad";
-  $("#formTitle").textContent = config.title;
-  $("#formSubtitle").textContent = config.subtitle || "";
+  $("#formTitle").textContent = ticketPage ? "VID tickets" : config.title;
+  $("#formSubtitle").textContent = ticketPage
+    ? (config.canAssignTickets ? "Wijs nieuwe gesprekken toe aan een vertrouwenspersoon." : "Bekijk de VID tickets die aan jou gekoppeld zijn.")
+    : (config.subtitle || "");
   const notice = $("#formNotice");
-  notice.hidden = !config.notice;
-  notice.textContent = config.notice || "";
+  notice.hidden = ticketPage || !config.notice;
+  notice.textContent = ticketPage ? "" : (config.notice || "");
   const questionsElement = $("#questions");
   if (!questionsChangeBound) {
     questionsElement.addEventListener("change", () => {
@@ -920,11 +994,18 @@ function applyLoadedConfig(config) {
     });
     questionsInputBound = true;
   }
-  if (config.closed && !config.canManage) renderClosedForm(config);
-  else renderQuestions();
-  renderFormAdmin(config);
+  if (ticketPage) {
+    $("#publicForm").hidden = true;
+    const adminPanel = $("#formAdminPanel");
+    if (adminPanel) adminPanel.hidden = true;
+  } else {
+    $("#publicForm").hidden = false;
+    if (config.closed && !config.canManage) renderClosedForm(config);
+    else renderQuestions();
+    renderFormAdmin(config);
+  }
   loadVidTickets();
-  loadReviewSubmissions();
+  if (!ticketPage) loadReviewSubmissions();
 }
 async function loadForm() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -1013,7 +1094,7 @@ async function submitForm(event) {
       const ticketNumber = data.ticketNumber || (data.caseNumber ? `${formState.config.ticketPrefix || "VID"}-${String(data.caseNumber).padStart(3, "0")}` : "");
       if (ticketNumber) {
         formState.requestedTicketNumber = ticketNumber.toUpperCase();
-        window.history.pushState({}, document.title, ticketPathForNumber(ticketNumber));
+        window.history.pushState({}, document.title, ticketFormPathForNumber(ticketNumber));
       }
       showMessage(`Ticket aangemaakt${ticketNumber ? `: ${ticketNumber}` : ""}. De VID-Leiding is geinformeerd.`, "ok");
       loadVidTickets();

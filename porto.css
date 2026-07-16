@@ -488,6 +488,10 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   background: linear-gradient(180deg, rgba(0, 49, 92, 0.52), rgba(5, 13, 26, 0.6));
 }
 
+.porto-modern-duty-member[data-modern-duty-self-card] {
+  cursor: context-menu;
+}
+
 .porto-modern-duty-member-number,
 .porto-unit-service-number {
   position: absolute;
@@ -1153,7 +1157,7 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 .porto-modern-ops-row {
-  grid-template-columns: 24px minmax(84px, 118px) minmax(130px, 1fr) minmax(112px, 148px) minmax(74px, 144px) minmax(132px, 0.84fr) 38px;
+  grid-template-columns: 24px minmax(84px, 118px) minmax(148px, 260px) minmax(104px, 136px) minmax(74px, 112px) minmax(156px, 1fr) 38px;
   min-height: 64px;
   padding: 9px 16px;
   cursor: pointer;
@@ -1363,7 +1367,7 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   }
 
   .porto-modern-ops-row {
-    grid-template-columns: 22px minmax(78px, 108px) minmax(130px, 1fr) minmax(110px, 132px) minmax(52px, 90px) minmax(112px, 0.78fr) 30px;
+    grid-template-columns: 22px minmax(78px, 108px) minmax(138px, 220px) minmax(104px, 128px) minmax(52px, 82px) minmax(124px, 1fr) 30px;
     min-height: 62px;
     padding-inline: 14px;
   }
@@ -1394,7 +1398,7 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   }
 
   .porto-modern-ops-row {
-    grid-template-columns: 22px 86px minmax(112px, 1fr) minmax(104px, 126px) minmax(44px, 62px) minmax(96px, 0.68fr) 28px;
+    grid-template-columns: 22px 86px minmax(120px, 184px) minmax(100px, 122px) minmax(44px, 60px) minmax(104px, 1fr) 28px;
     gap: 10px;
     min-height: 60px;
     padding: 8px 12px;
@@ -1458,7 +1462,7 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   }
 
   .porto-modern-ops-row {
-    grid-template-columns: 22px 88px minmax(140px, 1fr) minmax(126px, 0.62fr) 90px 32px;
+    grid-template-columns: 22px 88px minmax(130px, 180px) minmax(108px, 126px) minmax(116px, 1fr) 32px;
   }
 
   .porto-modern-ops-row .porto-modern-ops-avatars {
@@ -3647,6 +3651,33 @@ body.porto-duty-workspace .porto-wall-brand {
 .porto-ops-context-menu button[data-ops-context-action="unlink"]::before { content: "\1F517"; }
 .porto-ops-context-menu button[data-ops-context-action="offduty"]::before { content: "\23FB"; color: #ff5c63; }
 
+.porto-duty-role-context-menu button[data-duty-context-role]::before {
+  content: "\2605";
+  color: #fb923c;
+}
+
+.porto-duty-role-context-menu button[data-duty-context-role].active::before {
+  content: "\2713";
+  color: #22c55e;
+}
+
+.porto-duty-role-context-menu button[data-duty-context-role].active {
+  color: #86efac;
+}
+
+.porto-duty-role-context-menu button > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.porto-duty-role-context-menu button small {
+  color: #8fb2db;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
 .porto-ops-context-menu button.danger-option {
   border-bottom: 0;
   color: #ff5c63;
@@ -5074,129 +5105,341 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 }
 
 .porto-phonebook-dialog {
-  width: min(860px, calc(100vw - 28px));
-  max-height: min(86dvh, 720px);
+  width: min(1120px, calc(100vw - 32px));
+  max-height: min(88dvh, 820px);
   padding: 0;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.96));
+  border: 0;
+  border-radius: 28px;
+  background: transparent;
   color: var(--text);
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .porto-phonebook-dialog::backdrop {
-  background: rgba(2, 6, 23, 0.72);
-  backdrop-filter: blur(7px);
+  background:
+    radial-gradient(circle at 16% 18%, rgba(37, 99, 235, 0.12), transparent 34%),
+    rgba(2, 6, 23, 0.76);
+  backdrop-filter: blur(12px);
 }
 
 .porto-phonebook-form {
   display: grid;
-  gap: 14px;
-  padding: 20px 22px;
+  gap: 20px;
+  padding: clamp(22px, 3vw, 34px) clamp(24px, 3.4vw, 38px);
+  border: 1px solid rgba(59, 130, 246, 0.54);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(37, 99, 235, 0.2), transparent 30%),
+    radial-gradient(circle at 84% 24%, rgba(15, 118, 255, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(10, 22, 43, 0.98), rgba(7, 14, 29, 0.96));
+  box-shadow:
+    0 34px 110px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 36px rgba(37, 99, 235, 0.18);
   max-height: inherit;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
-.porto-phonebook-form .panel-head {
-  display: flex;
+.porto-phonebook-titlebar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  gap: 22px;
   margin: 0;
+}
+
+.porto-phonebook-title-icon {
+  position: relative;
+  display: inline-grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid rgba(59, 130, 246, 0.56);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(37, 99, 235, 0.3), transparent 66%),
+    rgba(9, 24, 48, 0.76);
+  box-shadow: 0 0 28px rgba(37, 99, 235, 0.26);
+}
+
+.porto-phonebook-title-icon::before,
+.porto-phonebook-row-icon.phone::before {
+  content: "";
+  display: block;
+  width: 21px;
+  height: 21px;
+  border: 3px solid #2f8cff;
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-radius: 7px;
+  transform: rotate(-45deg);
 }
 
 .porto-phonebook-form .panel-head h2 {
   margin: 0;
   color: #f8fafc;
+  font-size: clamp(28px, 3.1vw, 38px);
+  line-height: 1.05;
+  letter-spacing: 0;
 }
 
 .porto-phonebook-form .muted {
-  margin: 4px 0 0;
-  color: #bfdbfe;
+  margin: 8px 0 0;
+  color: rgba(203, 213, 225, 0.92);
+  font-size: clamp(15px, 1.2vw, 18px);
 }
 
 .porto-phonebook-form .ghost.icon {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
   display: inline-grid;
   place-items: center;
   padding: 0;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(59, 130, 246, 0.58);
+  border-radius: 14px;
+  background: rgba(6, 21, 44, 0.82);
   color: #e5e7eb;
-  font-size: 22px;
+  font-size: 30px;
   line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 18px rgba(37, 99, 235, 0.18);
 }
 
-.porto-phonebook-form label.full {
+.porto-phonebook-search-label {
   display: grid;
-  gap: 8px;
-  color: #dbeafe;
+  gap: 12px;
+  color: #f8fafc;
+  font-size: 18px;
   font-weight: 800;
+}
+
+.porto-phonebook-search-shell {
+  position: relative;
+  display: block;
+}
+
+.porto-phonebook-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  border: 3px solid #60a5fa;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.porto-phonebook-search-icon::after {
+  content: "";
+  position: absolute;
+  right: -8px;
+  bottom: -5px;
+  width: 10px;
+  height: 3px;
+  border-radius: 999px;
+  background: #60a5fa;
+  transform: rotate(45deg);
 }
 
 .porto-phonebook-form input[type="search"] {
   width: 100%;
-  min-height: 40px;
-  padding: 9px 12px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 10px;
-  background: rgba(15, 23, 42, 0.72);
+  min-height: 58px;
+  padding: 15px 18px 15px 66px;
+  border: 1px solid rgba(59, 130, 246, 0.7);
+  border-radius: 16px;
+  background: rgba(4, 12, 27, 0.78);
   color: #f8fafc;
+  font-size: 18px;
+  font-weight: 700;
   outline: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.36),
+    0 0 28px rgba(37, 99, 235, 0.18);
 }
 
 .porto-phonebook-form input[type="search"]:focus {
-  border-color: rgba(245, 158, 11, 0.78);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+  border-color: rgba(96, 165, 250, 0.95);
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.3),
+    0 0 0 3px rgba(59, 130, 246, 0.18),
+    0 0 32px rgba(37, 99, 235, 0.24);
 }
 
 .porto-phonebook-table {
   display: grid;
-  gap: 7px;
+  gap: 12px;
+  min-height: 0;
+  padding: 16px 16px 14px;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 18px;
+  background: rgba(7, 16, 34, 0.56);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .porto-phonebook-head,
 .porto-phonebook-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.25fr) minmax(160px, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(240px, 1fr) minmax(260px, 0.9fr);
+  gap: 22px;
   align-items: center;
 }
 
 .porto-phonebook-head {
-  padding: 0 14px;
-  color: #93c5fd;
-  font-size: 12px;
+  padding: 0 24px 0 14px;
+  color: #3b82f6;
+  font-size: 13px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
+.porto-phonebook-head span::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 10px;
+  margin-left: 8px;
+  border-top: 2px solid rgba(147, 197, 253, 0.55);
+  border-bottom: 2px solid rgba(147, 197, 253, 0.55);
+  opacity: 0.75;
+}
+
 .porto-phonebook-rows {
   display: grid;
-  gap: 6px;
+  gap: 7px;
+  max-height: min(52dvh, 520px);
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 10px 2px 0;
+  scrollbar-color: rgba(59, 130, 246, 0.78) transparent;
+  scrollbar-width: thin;
+}
+
+.porto-phonebook-rows::-webkit-scrollbar {
+  width: 8px;
+}
+
+.porto-phonebook-rows::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.porto-phonebook-rows::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(6, 14, 29, 0.94);
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.82);
 }
 
 .porto-phonebook-row,
 .porto-phonebook-empty {
-  padding: 10px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 11px;
-  background: rgba(15, 23, 42, 0.56);
+  border: 1px solid rgba(96, 165, 250, 0.18);
+  border-radius: 13px;
+  background: linear-gradient(90deg, rgba(15, 30, 57, 0.72), rgba(8, 17, 37, 0.76));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 10px 24px rgba(2, 6, 23, 0.18);
 }
 
 .porto-phonebook-row {
+  min-height: 58px;
+  padding: 8px 14px;
   content-visibility: auto;
-  contain-intrinsic-size: 42px;
+  contain-intrinsic-size: 58px;
+}
+
+.porto-phonebook-empty {
+  padding: 18px;
+  color: #bfdbfe;
+  font-weight: 900;
+  text-align: center;
 }
 
 .porto-phonebook-row span {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-weight: 800;
+  font-weight: 700;
+}
+
+.porto-phonebook-rank,
+.porto-phonebook-name,
+.porto-phonebook-phone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.porto-phonebook-rank,
+.porto-phonebook-name {
+  color: #f8fafc;
+}
+
+.porto-phonebook-row-icon {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(14, 165, 233, 0.32);
+  border-radius: 999px;
+  background: rgba(8, 47, 92, 0.42);
+  box-shadow: inset 0 0 18px rgba(37, 99, 235, 0.16);
+}
+
+.porto-phonebook-row-icon.rank::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid #38bdf8;
+  border-radius: 4px;
+  transform: rotate(45deg);
+}
+
+.porto-phonebook-row-icon.person::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  margin-top: -8px;
+  border: 2px solid #cbd5e1;
+  border-radius: 50%;
+  box-shadow: 0 14px 0 -2px #cbd5e1;
+}
+
+.porto-phonebook-row-icon.person::after {
+  content: "";
+  position: absolute;
+  bottom: 9px;
+  width: 18px;
+  height: 9px;
+  border: 2px solid #cbd5e1;
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+}
+
+.porto-phonebook-row-icon.warning {
+  border-color: rgba(245, 158, 11, 0.46);
+  background: rgba(69, 36, 7, 0.45);
+}
+
+.porto-phonebook-row-icon.warning::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-right: 9px solid transparent;
+  border-bottom: 18px solid #f59e0b;
+  border-left: 9px solid transparent;
+}
+
+.porto-phonebook-row-icon.warning::after {
+  content: "!";
+  position: absolute;
+  top: 11px;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.porto-phonebook-phone {
+  color: #f8fafc;
 }
 
 .porto-phonebook-phone.missing {
@@ -5204,9 +5447,9 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 }
 
 .porto-phonebook-form menu {
-  display: flex;
+  display: none;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   margin: 0;
   padding: 0;
 }
@@ -5219,7 +5462,51 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 
 @media (max-width: 720px) {
   .porto-phonebook-form {
-    padding: 16px;
+    gap: 16px;
+    padding: 18px;
+    overflow-y: auto;
+  }
+
+  .porto-phonebook-titlebar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+
+  .porto-phonebook-title-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+  }
+
+  .porto-phonebook-form .panel-head h2 {
+    font-size: 25px;
+  }
+
+  .porto-phonebook-form .muted {
+    font-size: 14px;
+  }
+
+  .porto-phonebook-form .ghost.icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+  }
+
+  .porto-phonebook-form input[type="search"] {
+    min-height: 52px;
+    padding-left: 54px;
+    font-size: 15px;
+  }
+
+  .porto-phonebook-search-icon {
+    left: 17px;
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+  }
+
+  .porto-phonebook-table {
+    padding: 12px;
   }
 
   .porto-phonebook-head {
@@ -5228,10 +5515,11 @@ html[data-ui-mode="calm"] .porto-ops-summary-dot {
 
   .porto-phonebook-row {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: 10px;
+    padding: 12px;
   }
 
-  .porto-phonebook-row span::before {
+  .porto-phonebook-row > span::before {
     content: attr(data-label) ": ";
     color: #93c5fd;
     font-size: 12px;

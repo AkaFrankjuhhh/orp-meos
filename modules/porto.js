@@ -49,7 +49,7 @@ const defensiePortoVehicleRangeDefinitions = [
     prefix: "32",
     vehicleCode: "SIV",
     vehicleType: "SIV",
-    vehicles: ["SIV - Obey Argento"]
+    vehicles: ["SIV - Obey Argento", "SIV - Übermacht Cypher"]
   },
   {
     prefix: "33",
@@ -85,6 +85,8 @@ const defensiePortoVehicleRangeDefinitions = [
 
 const politiePortoVehicleChoices = [
   { name: "SIV - Obey Argento", vehicleCode: "SIV", vehicleType: "SIV" },
+  { name: "SIV - Übermacht Cypher", vehicleCode: "SIV", vehicleType: "SIV" },
+  { name: "SIV - Benefactor", vehicleCode: "SIV", vehicleType: "SIV" },
   { name: "OFR - Karin Everon", vehicleCode: "OFF-ROAD", vehicleType: "Off-Road" },
   { name: "OFR - Karin Everon Strand", vehicleCode: "OFF-ROAD", vehicleType: "Off-Road" },
   { name: "OFR - Rebla", vehicleCode: "OFF-ROAD", vehicleType: "Off-Road" },
