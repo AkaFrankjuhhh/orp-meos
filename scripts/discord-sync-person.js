@@ -144,6 +144,13 @@ async function findPeopleByDiscordCallsign(bot, people, query) {
     .map((person) => [String(person.discordId).trim(), person]));
   const matches = [];
   const seenPeople = new Set();
+  const addMemberMatch = (member) => {
+    if (needle && !discordMemberSearchText(member).includes(needle)) return;
+    const person = byDiscordId.get(discordMemberId(member));
+    if (!person || seenPeople.has(person.id || person.discordId)) return;
+    seenPeople.add(person.id || person.discordId);
+    matches.push(person);
+  };
 
   for (const variant of seenVariants) {
     let result;
@@ -154,13 +161,29 @@ async function findPeopleByDiscordCallsign(bot, people, query) {
     }
     if (result?.skipped || !Array.isArray(result?.data)) continue;
     for (const member of result.data) {
-      if (needle && !discordMemberSearchText(member).includes(needle)) continue;
-      const person = byDiscordId.get(discordMemberId(member));
-      if (!person || seenPeople.has(person.id || person.discordId)) continue;
-      seenPeople.add(person.id || person.discordId);
-      matches.push(person);
+      addMemberMatch(member);
     }
     if (matches.length) break;
+  }
+
+  if (!matches.length && callsignPrefix && typeof bot.listGuildMembers === "function") {
+    let after = "";
+    for (let page = 0; page < 20; page += 1) {
+      let result;
+      try {
+        result = await bot.listGuildMembers({ limit: 1000, after });
+      } catch (_error) {
+        break;
+      }
+      const members = Array.isArray(result?.data) ? result.data : [];
+      if (!members.length) break;
+      for (const member of members) {
+        addMemberMatch(member);
+      }
+      if (matches.length || members.length < 1000) break;
+      after = discordMemberId(members[members.length - 1]);
+      if (!after) break;
+    }
   }
 
   return uniquePeople(preferCurrentPeople(matches));

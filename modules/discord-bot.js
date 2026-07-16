@@ -536,6 +536,14 @@ function createDiscordBotServices(options = {}) {
     return discordBotFetch(`/guilds/${guildId()}/members/search?${query.toString()}`);
   }
 
+  async function listGuildMembers(options = {}) {
+    const size = Math.min(1000, Math.max(1, Number(options.limit || 1000)));
+    const query = new URLSearchParams({ limit: String(size) });
+    const after = normalizeDiscordId(options.after || "");
+    if (after) query.set("after", after);
+    return discordBotFetch(`/guilds/${guildId()}/members?${query.toString()}`);
+  }
+
   async function getGuildAuditLogs(options = {}) {
     const actionType = Number(options.actionType || 0);
     const limit = Math.min(100, Math.max(1, Number(options.limit || 10)));
@@ -1049,6 +1057,7 @@ function createDiscordBotServices(options = {}) {
     resolveVoiceChannelId,
     getGuildMember,
     searchGuildMembers,
+    listGuildMembers,
     getGuildAuditLogs,
     registerGuildCommand,
     getChannel,
