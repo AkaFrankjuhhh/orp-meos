@@ -27,11 +27,21 @@ function compactSearchText(value) {
     .trim();
 }
 
+function compactCallsign(value) {
+  return compactSearchText(value).replace(/\s+/g, "-");
+}
+
+function looksLikeDiscordId(value) {
+  return /^\d{15,25}$/.test(String(value || "").trim());
+}
+
+function looksLikeCallsign(value) {
+  return /^\d{2}-\d{2}$/i.test(String(value || "").trim());
+}
+
 function personSearchValues(person) {
   return [
-    person.id,
     person.name,
-    person.discordId,
     person.discordUsername,
     person.serviceNumber,
     person.previousServiceNumber,
@@ -50,15 +60,151 @@ function personMatches(person, query) {
   return values.some((value) => parts.every((part) => value.includes(part)));
 }
 
+function personExactValues(person) {
+  return [
+    person.name,
+    person.discordUsername,
+    person.serviceNumber,
+    person.previousServiceNumber,
+    person.raw?.name,
+    person.raw?.discordUsername
+  ].map(compactSearchText).filter(Boolean);
+}
+
+function personMatchesExact(person, query) {
+  const needle = compactSearchText(query);
+  if (!needle) return false;
+  if (looksLikeDiscordId(query) && String(person.discordId || "").trim() === String(query || "").trim()) return true;
+  return personExactValues(person).some((value) => value === needle);
+}
+
+function personMatchesService(person, query) {
+  const needle = compactCallsign(query);
+  if (!needle) return false;
+  return [person.serviceNumber, person.previousServiceNumber]
+    .map(compactCallsign)
+    .filter(Boolean)
+    .some((value) => value === needle);
+}
+
+function personMatchesDiscord(person, query) {
+  const needle = String(query || "").trim();
+  if (!needle) return false;
+  return String(person.discordId || "").trim() === needle;
+}
+
+function preferCurrentPeople(people = []) {
+  const current = people.filter(isCurrentPerson);
+  return current.length ? current : people;
+}
+
+function uniquePeople(people = []) {
+  const seen = new Set();
+  const unique = [];
+  for (const person of people) {
+    const key = person.id || person.discordId || `${person.serviceNumber || ""}:${person.name || ""}`;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(person);
+  }
+  return unique;
+}
+
+function discordMemberId(member) {
+  return String(member?.user?.id || member?.id || "").trim();
+}
+
+function discordMemberSearchText(member) {
+  return compactSearchText([
+    member?.nick,
+    member?.user?.global_name,
+    member?.user?.username
+  ].filter(Boolean).join(" "));
+}
+
+async function findPeopleByDiscordCallsign(bot, people, query) {
+  if (typeof bot.searchGuildMembers !== "function") return [];
+  const raw = String(query || "").trim();
+  if (!raw) return [];
+
+  const variants = [
+    raw,
+    `[${raw}`,
+    compactCallsign(raw),
+    `[${compactCallsign(raw)}`
+  ].filter(Boolean);
+  const seenVariants = [...new Set(variants)];
+  const needle = compactSearchText(raw);
+  const byDiscordId = new Map((people || [])
+    .filter((person) => person.discordId)
+    .map((person) => [String(person.discordId).trim(), person]));
+  const matches = [];
+  const seenPeople = new Set();
+
+  for (const variant of seenVariants) {
+    let result;
+    try {
+      result = await bot.searchGuildMembers(variant, 10);
+    } catch (_error) {
+      continue;
+    }
+    if (result?.skipped || !Array.isArray(result?.data)) continue;
+    for (const member of result.data) {
+      if (needle && !discordMemberSearchText(member).includes(needle)) continue;
+      const person = byDiscordId.get(discordMemberId(member));
+      if (!person || seenPeople.has(person.id || person.discordId)) continue;
+      seenPeople.add(person.id || person.discordId);
+      matches.push(person);
+    }
+    if (matches.length) break;
+  }
+
+  return uniquePeople(preferCurrentPeople(matches));
+}
+
+async function resolvePersonMatches({ bot, people, query, serviceQuery, discordQuery }) {
+  if (discordQuery) {
+    return {
+      mode: "Discord ID",
+      matches: preferCurrentPeople(people.filter((person) => personMatchesDiscord(person, discordQuery)))
+    };
+  }
+
+  if (serviceQuery) {
+    const exactServiceMatches = preferCurrentPeople(people.filter((person) => personMatchesService(person, serviceQuery)));
+    if (exactServiceMatches.length) return { mode: "dienstnummer", matches: exactServiceMatches };
+    const discordMatches = await findPeopleByDiscordCallsign(bot, people, serviceQuery);
+    if (discordMatches.length) return { mode: "Discord roepnummer", matches: discordMatches };
+    return { mode: "dienstnummer", matches: [] };
+  }
+
+  const exactMatches = preferCurrentPeople(people.filter((person) => personMatchesExact(person, query)));
+  if (exactMatches.length) return { mode: "exacte query", matches: exactMatches };
+
+  const discordMatches = await findPeopleByDiscordCallsign(bot, people, query);
+  if (discordMatches.length) return { mode: "Discord roepnummer", matches: discordMatches };
+
+  if (looksLikeCallsign(query) || looksLikeDiscordId(query)) {
+    return { mode: "roepnummer", matches: [] };
+  }
+
+  return {
+    mode: "fuzzy query",
+    matches: preferCurrentPeople(people.filter((person) => personMatches(person, query)))
+  };
+}
+
 function roleListText(roleIds = []) {
   return roleIds.length ? roleIds.join(", ") : "-";
 }
 
 async function main() {
-  const query = argValue("--query") || argValue("--person") || argValue("--service") || argValue("--discord") || process.argv[2] || "";
+  const serviceQuery = argValue("--service");
+  const discordQuery = argValue("--discord");
+  const query = argValue("--query") || argValue("--person") || serviceQuery || discordQuery || process.argv[2] || "";
   const apply = process.argv.includes("--apply");
   if (!query || query === "--apply") {
-    throw new Error("Gebruik: node scripts/discord-sync-person.js --query \"Orion\" [--apply]");
+    throw new Error("Gebruik: node scripts/discord-sync-person.js --query \"Orion\" [--apply], --service \"74-01\" of --discord \"123...\"");
   }
 
   const organization = currentOrganization();
@@ -68,11 +214,12 @@ async function main() {
   }
 
   const state = await readPostgresState();
-  const matches = (state.people || []).filter((person) => personMatches(person, query));
+  const people = state.people || [];
+  const { mode, matches } = await resolvePersonMatches({ bot, people, query, serviceQuery, discordQuery });
   if (!matches.length) {
     const firstToken = compactSearchText(query).split(/\s+/).find((part) => part.length >= 2) || compactSearchText(query);
     const candidates = firstToken
-      ? (state.people || []).filter((person) => personSearchValues(person).some((value) => value.includes(firstToken))).slice(0, 10)
+      ? people.filter((person) => personSearchValues(person).some((value) => value.includes(firstToken))).slice(0, 10)
       : [];
     if (candidates.length) {
       console.log(`Geen exacte match gevonden voor "${query}". Mogelijke profielen:`);
@@ -80,10 +227,9 @@ async function main() {
         console.log(`- ${person.serviceNumber || "-"} ${person.name || "-"} discord=${person.discordId || "-"} username=${person.discordUsername || "-"} status=${person.status || "-"}`);
       }
     }
-    throw new Error(`Geen profiel gevonden voor "${query}". Probeer --query "dienstnummer" of --discord "Discord ID".`);
+    throw new Error(`Geen profiel gevonden voor "${query}". Probeer --service "dienstnummer", --query "roepnummer" of --discord "Discord ID".`);
   }
-  const currentMatches = matches.filter(isCurrentPerson);
-  const effectiveMatches = currentMatches.length ? currentMatches : matches;
+  const effectiveMatches = uniquePeople(preferCurrentPeople(matches));
   if (effectiveMatches.length > 1) {
     console.log(`Meerdere profielen gevonden voor "${query}":`);
     for (const person of effectiveMatches) {
@@ -93,6 +239,7 @@ async function main() {
   }
 
   const person = effectiveMatches[0];
+  console.log(`Zoekwijze: ${mode}`);
   const completed = new Set([
     ...(Array.isArray(person.completedTrainings) ? person.completedTrainings : []),
     ...(Array.isArray(person.completedOperational) ? person.completedOperational : [])
