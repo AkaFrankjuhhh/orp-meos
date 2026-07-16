@@ -127,11 +127,15 @@ async function findPeopleByDiscordCallsign(bot, people, query) {
   const raw = String(query || "").trim();
   if (!raw) return [];
 
+  const callsignPrefix = looksLikeCallsign(raw) ? raw.split("-")[0] : "";
   const variants = [
     raw,
     `[${raw}`,
     compactCallsign(raw),
-    `[${compactCallsign(raw)}`
+    `[${compactCallsign(raw)}`,
+    compactSearchText(raw),
+    callsignPrefix,
+    callsignPrefix ? `[${callsignPrefix}` : ""
   ].filter(Boolean);
   const seenVariants = [...new Set(variants)];
   const needle = compactSearchText(raw);
@@ -144,7 +148,7 @@ async function findPeopleByDiscordCallsign(bot, people, query) {
   for (const variant of seenVariants) {
     let result;
     try {
-      result = await bot.searchGuildMembers(variant, 10);
+      result = await bot.searchGuildMembers(variant, callsignPrefix ? 100 : 10);
     } catch (_error) {
       continue;
     }
