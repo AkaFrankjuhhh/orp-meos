@@ -214,6 +214,20 @@ test("modern duty status layout stays aligned on desktop widths", () => {
   assert.match(styles, /@media \(max-width: 980px\) \{[\s\S]*\.porto-modern-duty-meta-grid,[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
 });
 
+test("porto unit member cards show service numbers separately from rank", () => {
+  const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
+
+  assert.match(dutyCode, /porto-unit-service-number/);
+  assert.match(dutyCode, /porto-modern-duty-member-number/);
+  assert.match(dutyCode, /<div><span>Rang:<\/span><strong>\$\{escapeHtml\(member\.rank \|\| "-"\)\}<\/strong><\/div>/);
+  assert.match(dutyCode, /<div><dt>Rang<\/dt><dd>\$\{escapeHtml\(member\.rank \|\| "-"\)\}<\/dd><\/div>/);
+  assert.doesNotMatch(dutyCode, /Rang \+ Dienstnummer/);
+  assert.match(styles, /\.porto-modern-duty-member-number,[\s\S]*\.porto-unit-service-number \{/);
+  assert.match(styles, /\.porto-modern-duty-member \{[\s\S]*position: relative;/);
+  assert.match(styles, /\.porto-unit-member \{[\s\S]*position: relative;/);
+});
+
 test("porto profile dialog scroll avoids expensive backdrop repainting", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
@@ -223,6 +237,24 @@ test("porto profile dialog scroll avoids expensive backdrop repainting", () => {
   assert.match(styles, /\.porto-profile-dialog::backdrop \{[\s\S]*backdrop-filter: none;/);
   assert.match(styles, /\.porto-profile-form \{[\s\S]*overscroll-behavior: contain;/);
   assert.match(styles, /\.porto-profile-form \{[\s\S]*scrollbar-gutter: stable;/);
+});
+
+test("porto browser heartbeat avoids noisy persistence and stale active screens", () => {
+  const clientCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
+  const policeEnvExample = fs.readFileSync(path.join(process.cwd(), ".env.politie.example"), "utf8");
+
+  assert.match(routesCode, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS/);
+  assert.match(routesCode, /4 \* 60 \* 60 \* 1000/);
+  assert.match(routesCode, /const heartbeatChanged = markPortoBrowserHeartbeat\(unit\);/);
+  assert.match(routesCode, /if \(heartbeatChanged\) await persistPortoState\(state, \{ units: state\.portoUnits \}\);/);
+  assert.match(clientCode, /heartbeat && heartbeat\.active === false/);
+  assert.match(clientCode, /schedulePortoLiveRefresh\("porto"\)/);
+  assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
+  assert.match(envExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
+  assert.match(policeEnvExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
+  assert.match(policeEnvExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
 });
 
 test("I8 create form keeps a browser draft until server save succeeds", () => {

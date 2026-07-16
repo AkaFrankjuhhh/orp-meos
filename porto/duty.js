@@ -160,13 +160,14 @@ function renderUnitMemberBar() {
     return member.empty ? `
     <article class="porto-unit-member empty">
       <span class="porto-unit-slot">Eenheid ${index + 1}</span>
-      <div><span>Rang + Dienstnummer:</span><strong>-</strong></div>
+      <div><span>Rang:</span><strong>-</strong></div>
       <div><span>Naam:</span><strong>-</strong></div>
       <div><span>Telefoonnummer:</span><strong>-</strong></div>
     </article>` : `
     <article class="porto-unit-member ${escapeHtml(nameClass.replace("porto-member-name", ""))}"${title ? ` title="${escapeHtml(title)}"` : ""}>
       <span class="porto-unit-slot">Eenheid ${index + 1}</span>
-      <div><span>Rang + Dienstnummer:</span><strong>${escapeHtml(member.rank || "-")} - ${escapeHtml(member.serviceNumber || "-")}</strong></div>
+      <span class="porto-unit-service-number">${escapeHtml(member.serviceNumber || "-")}</span>
+      <div><span>Rang:</span><strong>${escapeHtml(member.rank || "-")}</strong></div>
       <div><span>Naam:</span><strong class="${escapeHtml(nameClass)}">${escapeHtml(member.name || "Onbekend")}</strong></div>
       <div><span>Telefoonnummer:</span><strong>${escapeHtml(member.phone || "Niet ingevuld")}</strong></div>
     </article>`;
@@ -294,12 +295,13 @@ function renderModernDutyDashboard() {
     return `
       <article class="porto-modern-duty-member"${title ? ` title="${escapeHtml(title)}"` : ""}>
         <span>Eenheid ${index + 1}</span>
+        <span class="porto-modern-duty-member-number">${escapeHtml(member.serviceNumber || "-")}</span>
         <div class="porto-modern-duty-member-main">
           ${typeof memberAvatarHtml === "function" ? memberAvatarHtml(member) : ""}
           <strong class="${escapeHtml(nameClass)}">${escapeHtml(member.name || "Onbekend")}</strong>
         </div>
         <dl>
-          <div><dt>Rang</dt><dd>${escapeHtml(member.rank || "-")} - ${escapeHtml(member.serviceNumber || "-")}</dd></div>
+          <div><dt>Rang</dt><dd>${escapeHtml(member.rank || "-")}</dd></div>
           <div><dt>Telefoonnummer</dt><dd>${escapeHtml(member.phone || "Niet ingevuld")}</dd></div>
         </dl>
       </article>`;

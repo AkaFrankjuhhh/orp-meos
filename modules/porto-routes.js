@@ -63,7 +63,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const configuredBrowserHardTimeoutMs = Number(process.env.PORTO_BROWSER_HARD_TIMEOUT_MS);
   const portoBrowserHardTimeoutMs = Number.isFinite(configuredBrowserHardTimeoutMs)
     ? (configuredBrowserHardTimeoutMs <= 0 ? 0 : Math.max(portoBrowserTimeoutMs || 60000, configuredBrowserHardTimeoutMs))
-    : 60 * 60 * 1000;
+    : 4 * 60 * 60 * 1000;
+  const configuredBrowserHeartbeatPersistMs = Number(process.env.PORTO_BROWSER_HEARTBEAT_PERSIST_MS);
+  const portoBrowserHeartbeatPersistMs = Number.isFinite(configuredBrowserHeartbeatPersistMs)
+    ? (configuredBrowserHeartbeatPersistMs <= 0 ? 0 : Math.max(5000, configuredBrowserHeartbeatPersistMs))
+    : 45 * 1000;
   const configuredDiscordJobDelayMs = Number(process.env.PORTO_DISCORD_JOB_DELAY_MS);
   const portoDiscordJobDelayMs = Number.isFinite(configuredDiscordJobDelayMs)
     ? Math.max(0, configuredDiscordJobDelayMs)
@@ -158,6 +162,18 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   function markPortoBrowserHeartbeat(unit, nowIso = new Date().toISOString()) {
     if (!unit || unit.active === false) return false;
+    const nowMs = timestampMs(nowIso) || Date.now();
+    const previousHeartbeatMs = timestampMs(unit.browserHeartbeatAt);
+    const hadCloseSignal = Boolean(unit.browserCloseSuspectedAt);
+    const wasInactive = !unit.browserHeartbeatActive;
+    const shouldPersist =
+      hadCloseSignal ||
+      wasInactive ||
+      !previousHeartbeatMs ||
+      (portoBrowserHeartbeatPersistMs > 0 && nowMs - previousHeartbeatMs >= portoBrowserHeartbeatPersistMs);
+
+    if (!shouldPersist) return false;
+
     unit.browserHeartbeatActive = true;
     unit.browserHeartbeatAt = nowIso;
     unit.lastSeenAt = nowIso;
@@ -779,9 +795,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 200, { ok: true, active: false });
         return true;
       }
-      markPortoBrowserHeartbeat(unit);
-      await persistPortoState(state, { units: state.portoUnits });
-      sendJson(res, 200, { ok: true, active: true, unitId: unit.id });
+      const heartbeatChanged = markPortoBrowserHeartbeat(unit);
+      if (heartbeatChanged) await persistPortoState(state, { units: state.portoUnits });
+      sendJson(res, 200, { ok: true, active: true, unitId: unit.id, persisted: heartbeatChanged });
       return true;
     }
 

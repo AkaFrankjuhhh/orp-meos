@@ -483,7 +483,17 @@ async function sendPortoBrowserHeartbeat() {
       body: "{}",
       keepalive: true
     });
-    if (response.status === 401 || response.status === 404) setPortoBrowserHeartbeat(false);
+    if (response.status === 401 || response.status === 404) {
+      setPortoBrowserHeartbeat(false);
+      return;
+    }
+    if (response.ok) {
+      const heartbeat = await response.json().catch(() => null);
+      if (heartbeat && heartbeat.active === false) {
+        setPortoBrowserHeartbeat(false);
+        schedulePortoLiveRefresh("porto");
+      }
+    }
   } catch {
     // Tijdelijke netwerkfouten mogen de pagina niet verstoren; de server time-out vangt echte sluitingen af.
   } finally {
