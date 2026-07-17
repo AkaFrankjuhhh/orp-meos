@@ -204,7 +204,7 @@ test("modern duty status layout stays aligned on desktop widths", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260715-duty-layout/);
+  assert.match(html, /porto\.css\?v=20260717-responsive-stability/);
   assert.match(styles, /body\[data-porto-ui="modern"\]\.porto-duty-workspace \.porto-modern-duty-meta-grid \{[\s\S]*margin-top: 0;/);
   assert.match(styles, /\.porto-modern-duty-meta-grid article > \.porto-modern-vehicle-select \{[\s\S]*grid-column: 1 \/ -1;/);
   const desktopBreakpointStart = styles.indexOf("@media (max-width: 1280px)");
@@ -232,7 +232,7 @@ test("porto profile dialog scroll avoids expensive backdrop repainting", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260715-duty-layout/);
+  assert.match(html, /porto\.css\?v=20260717-responsive-stability/);
   assert.match(styles, /\.porto-profile-dialog \{[\s\S]*contain: layout paint;/);
   assert.match(styles, /\.porto-profile-dialog::backdrop \{[\s\S]*backdrop-filter: none;/);
   assert.match(styles, /\.porto-profile-form \{[\s\S]*overscroll-behavior: contain;/);

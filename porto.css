@@ -4681,6 +4681,724 @@ body.porto-duty-workspace .porto-status-grid {
   }
 }
 
+/* Final responsive overrides - 2026-07-17 */
+body[data-porto-ui="modern"] .porto-modern-ops-dashboard,
+body[data-porto-ui="modern"] .porto-modern-duty-card,
+body[data-porto-ui="modern"] .porto-modern-duty-status-card,
+body[data-porto-ui="modern"] .porto-modern-selected-unit,
+body[data-porto-ui="modern"] .porto-modern-ops-list,
+body[data-porto-ui="modern"] .porto-profile-form,
+body[data-porto-ui="modern"] .porto-phonebook-form,
+body[data-porto-ui="modern"] .porto-phonebook-row {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-dashboard {
+  width: min(1760px, calc(100vw - 28px));
+  max-width: 100%;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-header,
+body[data-porto-ui="modern"] .porto-modern-duty-topbar {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-actions {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-actions > *,
+body[data-porto-ui="modern"] .porto-modern-duty-user-chip,
+body[data-porto-ui="modern"] .porto-profile-chip {
+  min-height: 40px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid {
+  grid-template-columns: repeat(4, minmax(210px, 1fr));
+  gap: clamp(12px, 1.2vw, 20px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid article {
+  min-height: 104px;
+  height: auto;
+  padding-block: clamp(16px, 1.2vw, 22px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-row {
+  grid-template-columns: minmax(112px, 0.5fr) minmax(150px, 0.82fr) minmax(106px, 132px) minmax(70px, auto) minmax(120px, 0.62fr) 42px;
+  min-height: 56px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-duty-card {
+  width: min(1240px, calc(100vw - 32px));
+  max-width: 100%;
+}
+
+body[data-porto-ui="modern"] .porto-modern-duty-meta-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body[data-porto-ui="modern"] .porto-modern-duty-member-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body[data-porto-ui="modern"] .porto-modern-duty-person,
+body[data-porto-ui="modern"] .porto-modern-selected-member,
+body[data-porto-ui="modern"] .porto-modern-request-row {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-duty-person strong,
+body[data-porto-ui="modern"] .porto-modern-selected-member strong,
+body[data-porto-ui="modern"] .porto-modern-ops-row strong,
+body[data-porto-ui="modern"] .porto-modern-ops-row span {
+  overflow-wrap: anywhere;
+}
+
+body[data-porto-ui="modern"] .porto-profile-dialog {
+  width: min(900px, calc(100vw - 30px));
+  max-height: min(86dvh, 760px);
+}
+
+body[data-porto-ui="modern"] .porto-profile-form {
+  max-height: min(86dvh, 760px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+body[data-porto-ui="modern"] .porto-profile-head {
+  min-height: 0;
+}
+
+body[data-porto-ui="modern"] .porto-profile-head h3 {
+  font-size: clamp(34px, 4.8vw, 56px);
+  overflow-wrap: anywhere;
+}
+
+body[data-porto-ui="modern"] .porto-phonebook-dialog {
+  width: min(1020px, calc(100vw - 28px));
+}
+
+body[data-porto-ui="modern"] .porto-phonebook-form {
+  max-height: min(86dvh, 760px);
+  overflow: hidden;
+}
+
+body[data-porto-ui="modern"] .porto-phonebook-rows {
+  max-height: calc(min(86dvh, 760px) - 250px);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+body[data-porto-ui="modern"] .porto-context-menu {
+  max-width: min(340px, calc(100vw - 24px));
+}
+
+body[data-porto-ui="modern"] .porto-context-menu button {
+  min-height: 38px;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+@media (max-width: 1320px) {
+  body[data-porto-ui="modern"] .porto-modern-ops-header {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-actions {
+    justify-content: flex-start;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-selected-unit {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1100px) {
+  body[data-porto-ui="modern"] .porto-modern-stat-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row {
+    grid-template-columns: minmax(90px, 0.6fr) minmax(150px, 1fr) minmax(106px, 132px) minmax(70px, auto) 42px;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row .porto-modern-channel-cell {
+    grid-column: 2 / -2;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-duty-meta-grid,
+  body[data-porto-ui="modern"] .porto-modern-duty-member-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 780px) {
+  body[data-porto-ui="modern"] .porto-modern-stat-grid,
+  body[data-porto-ui="modern"] .porto-modern-ops-row,
+  body[data-porto-ui="modern"] .porto-modern-request-row {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row {
+    align-items: start;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row .porto-modern-channel-cell {
+    grid-column: auto;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-stat-grid article {
+    min-height: 88px;
+  }
+
+  body[data-porto-ui="modern"] .porto-profile-head {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  body[data-porto-ui="modern"] .porto-phonebook-head {
+    display: none;
+  }
+
+  body[data-porto-ui="modern"] .porto-phonebook-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Responsive stability layer - 2026-07-17 */
+:root {
+  --porto-safe-gutter: clamp(14px, 1.8vw, 28px);
+  --porto-panel-max: 1760px;
+  --porto-control-height: 42px;
+}
+
+body[data-porto-ui="modern"] *,
+body[data-porto-ui="modern"] *::before,
+body[data-porto-ui="modern"] *::after {
+  box-sizing: border-box;
+}
+
+body[data-porto-ui="modern"],
+body[data-porto-ui="modern"] .porto-shell,
+body[data-porto-ui="modern"] .porto-status-center,
+body[data-porto-ui="modern"] .porto-modern-ops-dashboard,
+body[data-porto-ui="modern"] .porto-modern-duty-card,
+body[data-porto-ui="modern"] .porto-phonebook-form {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-dashboard {
+  width: min(var(--porto-panel-max), calc(100vw - (var(--porto-safe-gutter) * 2)));
+  max-width: 100%;
+  margin-inline: auto;
+  padding: clamp(18px, 1.6vw, 28px);
+  overflow: visible;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-header {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.95fr) minmax(280px, 1fr) minmax(420px, auto);
+  align-items: center;
+  gap: clamp(14px, 1.5vw, 24px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-actions > * {
+  min-height: var(--porto-control-height);
+  max-width: 100%;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-profile,
+body[data-porto-ui="modern"] .porto-modern-duty-user-chip {
+  min-height: 52px;
+  max-width: min(280px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  overflow: hidden;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-profile img,
+body[data-porto-ui="modern"] .porto-modern-duty-user-chip img {
+  flex: 0 0 38px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-profile > div,
+body[data-porto-ui="modern"] .porto-modern-duty-user-chip > div {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-profile strong,
+body[data-porto-ui="modern"] .porto-modern-duty-user-chip strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-profile span,
+body[data-porto-ui="modern"] .porto-modern-duty-user-chip span {
+  line-height: 1.15;
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(210px, 1fr));
+  gap: clamp(14px, 1.4vw, 22px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid article {
+  min-height: 112px;
+  padding: clamp(18px, 1.4vw, 24px) clamp(104px, 7vw, 138px) clamp(18px, 1.4vw, 24px) clamp(86px, 5.2vw, 112px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid article::before {
+  left: clamp(22px, 2.5vw, 34px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid article::after {
+  right: clamp(18px, 2.2vw, 30px);
+  width: clamp(70px, 7vw, 112px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid strong {
+  font-size: clamp(30px, 2.8vw, 42px);
+  line-height: 1;
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid span {
+  max-width: 150px;
+  line-height: 1.25;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, clamp(340px, 27vw, 430px));
+  gap: clamp(18px, 1.5vw, 28px);
+  align-items: stretch;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-list,
+body[data-porto-ui="modern"] .porto-modern-selected-unit {
+  min-width: 0;
+  padding: clamp(18px, 1.45vw, 26px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-list {
+  min-height: min(62vh, 720px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-list > header {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-request-row {
+  grid-template-columns: minmax(180px, 0.8fr) minmax(230px, 1fr) minmax(230px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-request-row label {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-request-row select,
+body[data-porto-ui="modern"] .porto-modern-vehicle-select select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+body[data-porto-ui="modern"] .porto-modern-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-unit-rows {
+  display: grid;
+  gap: 9px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-row {
+  display: grid;
+  grid-template-columns: minmax(116px, 0.55fr) minmax(150px, 0.8fr) minmax(120px, 140px) minmax(76px, auto) minmax(128px, 0.65fr) 42px;
+  align-items: center;
+  gap: clamp(10px, 1vw, 18px);
+  min-height: 58px;
+  padding: 10px 12px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-row > * {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-row strong,
+body[data-porto-ui="modern"] .porto-modern-ops-row span {
+  overflow-wrap: anywhere;
+}
+
+body[data-porto-ui="modern"] .porto-status-pill {
+  min-width: 112px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-avatars {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-selected-member {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+body[data-porto-ui="modern"] .porto-modern-selected-member > div {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-selected-member strong,
+body[data-porto-ui="modern"] .porto-modern-selected-member span:not(.porto-modern-status-light) {
+  display: block;
+  line-height: 1.2;
+}
+
+body[data-porto-ui="modern"] .porto-modern-selected-member strong {
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body[data-porto-ui="modern"] .porto-modern-selected-member span:not(.porto-modern-status-light) {
+  overflow-wrap: anywhere;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-status-center {
+  width: 100%;
+  min-height: 100dvh;
+  padding: clamp(78px, 8vh, 116px) var(--porto-safe-gutter) clamp(28px, 4vh, 52px);
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-card {
+  width: min(1280px, calc(100vw - (var(--porto-safe-gutter) * 2)));
+  max-height: calc(100dvh - 110px);
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding: clamp(20px, 1.6vw, 30px);
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(16px, 1.6vw, 28px);
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-title {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-title h2 {
+  overflow-wrap: anywhere;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-meta-grid article {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-members {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-member {
+  min-height: 118px;
+  padding: 14px 16px !important;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-member div {
+  min-width: 0;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-status-button {
+  min-height: 74px;
+  padding: 14px 16px;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-status4-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-status4-choices[hidden] {
+  display: none !important;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-status4-choices button {
+  min-width: 132px;
+}
+
+body[data-porto-ui="modern"] .porto-pending-card {
+  width: min(520px, calc(100vw - 32px));
+  padding: clamp(24px, 3vw, 38px);
+  gap: 12px;
+}
+
+body[data-porto-ui="modern"] .porto-pending-card h2 {
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.05;
+}
+
+body[data-porto-ui="modern"] .porto-pending-card p {
+  font-size: clamp(16px, 1.8vw, 20px);
+}
+
+body[data-porto-ui="modern"] .porto-pending-card button {
+  min-height: 52px;
+}
+
+body[data-porto-ui="modern"] .porto-profile-dialog {
+  width: min(900px, calc(100vw - 30px));
+}
+
+body[data-porto-ui="modern"] .porto-profile-form {
+  max-height: min(86dvh, 760px);
+  overflow: auto;
+  padding: clamp(18px, 2vw, 26px);
+  gap: 14px;
+}
+
+body[data-porto-ui="modern"] .porto-profile-titlebar h2 {
+  font-size: clamp(28px, 3vw, 38px);
+}
+
+body[data-porto-ui="modern"] .porto-profile-head {
+  min-height: 0;
+  padding: clamp(16px, 2vw, 24px);
+  gap: clamp(16px, 2vw, 24px);
+}
+
+body[data-porto-ui="modern"] .porto-profile-head img {
+  width: clamp(88px, 10vw, 120px);
+  height: clamp(88px, 10vw, 120px);
+}
+
+body[data-porto-ui="modern"] .porto-profile-head h3 {
+  font-size: clamp(34px, 4.8vw, 56px);
+}
+
+body[data-porto-ui="modern"] .porto-profile-section {
+  padding: clamp(16px, 1.8vw, 22px);
+}
+
+body[data-porto-ui="modern"] .porto-profile-form menu {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(4, 12, 24, 0), rgba(4, 12, 24, 0.96) 30%);
+  padding-top: 14px;
+}
+
+body[data-porto-ui="modern"] .porto-phonebook-dialog {
+  width: min(1020px, calc(100vw - 28px));
+}
+
+body[data-porto-ui="modern"] .porto-phonebook-form {
+  max-height: min(86dvh, 760px);
+  overflow: hidden;
+  padding: clamp(20px, 2vw, 28px);
+  gap: 16px;
+}
+
+body[data-porto-ui="modern"] .porto-phonebook-table {
+  min-height: 0;
+  overflow: hidden;
+}
+
+body[data-porto-ui="modern"] .porto-phonebook-rows {
+  max-height: calc(min(86dvh, 760px) - 250px);
+  overflow: auto;
+}
+
+body[data-porto-ui="modern"] .porto-phonebook-head,
+body[data-porto-ui="modern"] .porto-phonebook-row {
+  grid-template-columns: minmax(180px, 0.95fr) minmax(190px, 1fr) minmax(180px, 0.85fr);
+  gap: 14px;
+}
+
+body[data-porto-ui="modern"] .context-menu.porto-ops-context-menu,
+body[data-porto-ui="modern"] .porto-choice-context-menu {
+  width: min(360px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+}
+
+body[data-porto-ui="modern"] .porto-choice-context-menu {
+  width: min(430px, calc(100vw - 24px));
+}
+
+body[data-porto-ui="modern"] .porto-ops-context-menu button,
+body[data-porto-ui="modern"] .porto-choice-context-menu button {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+@media (max-width: 1320px) {
+  body[data-porto-ui="modern"] .porto-modern-ops-header {
+    grid-template-columns: minmax(230px, 1fr) minmax(280px, 1fr);
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-selected-unit {
+    min-height: 0;
+  }
+
+  body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-members {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  body[data-porto-ui="modern"] .porto-modern-stat-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-request-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-request-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row {
+    grid-template-columns: minmax(110px, 0.7fr) minmax(160px, 1fr) minmax(116px, 140px) minmax(64px, auto) 42px;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row .porto-modern-channel,
+  body[data-porto-ui="modern"] .porto-modern-ops-row [data-modern-channel] {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  body[data-porto-ui="modern"] .porto-modern-ops-dashboard {
+    width: calc(100vw - 20px);
+    padding: 14px;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-header,
+  body[data-porto-ui="modern"] .porto-modern-request-row,
+  body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-head {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-stat-grid,
+  body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-meta-grid,
+  body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-members,
+  body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row {
+    grid-template-columns: 1fr auto;
+    gap: 8px 12px;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row > * {
+    grid-column: 1 / -1;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-row .context-menu-trigger,
+  body[data-porto-ui="modern"] .porto-modern-ops-row button:last-child {
+    grid-column: 2;
+  }
+
+  body[data-porto-ui="modern"] .porto-phonebook-head {
+    display: none;
+  }
+
+  body[data-porto-ui="modern"] .porto-phonebook-row {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-profile-head {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  body[data-porto-ui="modern"] .porto-profile-head img {
+    margin-inline: auto;
+  }
+}
+
 html[data-ui-mode="calm"] body.porto-blank {
   background:
     linear-gradient(180deg, rgba(10, 18, 32, 0.96), rgba(9, 16, 29, 0.98)),
