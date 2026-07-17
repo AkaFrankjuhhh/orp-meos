@@ -5627,3 +5627,99 @@ html[data-ui-mode="calm"] textarea {
     border-top: 1px solid rgba(146, 166, 198, 0.22);
   }
 }
+
+/* Final layout guards for the personnel portal chrome. */
+@media (min-width: 901px) {
+  .sidebar {
+    width: 264px;
+    min-width: 264px;
+    padding: 22px 18px;
+  }
+
+  .shell {
+    margin-left: 264px;
+  }
+
+  .nav-list {
+    gap: 6px;
+    padding-right: 6px;
+  }
+
+  .nav-item {
+    width: 100%;
+    min-height: 44px;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    line-height: 1.18;
+    white-space: normal;
+  }
+
+  .nav-icon {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+  }
+}
+
+.topbar-actions {
+  align-items: center;
+}
+
+.profile-chip {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-chip > [hidden] {
+  display: none !important;
+}
+
+.profile-chip .profile-open:not([hidden]) {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+}
+
+.profile-chip img,
+.profile-chip .avatar {
+  display: block;
+  width: 38px;
+  height: 38px;
+}
+
+.profile-chip .profile-open-text:not([hidden]) {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  align-self: center;
+  line-height: 1.12;
+}
+
+.profile-chip .profile-open-text strong,
+.profile-chip .profile-open-text span {
+  line-height: 1.12;
+}
+
+.profile-chip .profile-open-text strong {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-chip .small {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  white-space: nowrap;
+}
