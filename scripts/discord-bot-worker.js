@@ -63,6 +63,7 @@ const gatewayMemberRolesByUser = new Map();
 let claimIzCommandRegistered = false;
 let addTrainingCommandRegistered = false;
 let trainerInfoOverviewTimer = null;
+const handledInteractionIds = new Map();
 
 const manualTrainingRequestOptions = [
   {
@@ -103,6 +104,24 @@ function truncateDiscordContent(value, maxLength = 1900) {
   const text = String(value || "").trim();
   if (text.length <= maxLength) return text;
   return `${text.slice(0, Math.max(0, maxLength - 20)).trim()}\n...`;
+}
+
+function isUnknownInteractionError(error) {
+  const message = String(error?.message || error || "");
+  return message.includes("10062") || /Unknown interaction/i.test(message);
+}
+
+function interactionWasAlreadyHandled(interaction = {}) {
+  const interactionId = String(interaction.id || "").trim();
+  if (!interactionId) return false;
+  const now = Date.now();
+  const ttlMs = 15 * 60 * 1000;
+  for (const [id, seenAt] of handledInteractionIds.entries()) {
+    if (now - seenAt > ttlMs) handledInteractionIds.delete(id);
+  }
+  if (handledInteractionIds.has(interactionId)) return true;
+  handledInteractionIds.set(interactionId, now);
+  return false;
 }
 
 function interactionTokenRoute(interaction) {
@@ -697,10 +716,15 @@ async function handleTrainingRequestSelect(interaction) {
 }
 
 async function handleInteractionCreate(interaction = {}) {
+  if ((interaction.type === 2 || interaction.type === 3) && interactionWasAlreadyHandled(interaction)) return;
   if (interaction.type === 3 && interaction.data?.custom_id === "training_request_select") {
     try {
       await handleTrainingRequestSelect(interaction);
     } catch (error) {
+      if (isUnknownInteractionError(error)) {
+        console.warn(`[discord-bot] training dropdown dubbel of verlopen genegeerd: ${error.message}`);
+        return;
+      }
       console.error(`[discord-bot] training dropdown mislukt: ${error.message}`);
       await acknowledgeInteraction(interaction, `Training toevoegen mislukt: ${error.message}`, true).catch(() => {});
     }
@@ -718,6 +742,10 @@ async function handleInteractionCreate(interaction = {}) {
       return;
     }
   } catch (error) {
+    if (isUnknownInteractionError(error)) {
+      console.warn(`[discord-bot] /${commandName} dubbel of verlopen genegeerd: ${error.message}`);
+      return;
+    }
     console.error(`[discord-bot] /${commandName} mislukt: ${error.message}`);
     try {
       await editInteractionResponse(interaction, `Command mislukt: ${error.message}`);
