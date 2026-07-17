@@ -117,6 +117,7 @@ const publicFormConfigs = {
       { id: "fullName", label: "Volledige naam", type: "text", required: true },
       { id: "discord", label: "Discord naam + ID", type: "text", required: true },
       { id: "currentDepartment", label: "Waar ben je momenteel werkzaam?", type: "text", required: true, placeholder: "Bijv. Politie / eenheid" },
+      { id: "currentRank", label: "Wat is je huidige rang?", type: "text", required: true },
       { id: "switchReason", label: "Wat is de reden dat je wil overstappen naar Defensie?", type: "textarea", required: true },
       { id: "goal", label: "Wat wil je bereiken binnen Defensie?", type: "textarea", required: true },
       { id: "knowledge", label: "Wat weet je over Defensie?", type: "textarea", required: true }
