@@ -11,9 +11,24 @@ const DSI_COMMAND_UNITS = Object.freeze(DSI_UNITS.commandUnits || { TCO: `${DSI_
 const DSI_FIRST_REGULAR_UNIT = Number(DSI_UNITS.min || 3);
 const DSI_LAST_REGULAR_UNIT = Number(DSI_UNITS.max || 99);
 const DSI_UNIT_CAPACITY = Number(DSI_UNITS.capacity || 3);
+const DNR_UNITS = sideTaskForKey("DNR")?.dnrUnits || [];
 
 function formatDsiUnit(index) {
   return `${DSI_UNIT_PREFIX}-${String(index).padStart(2, "0")}`;
+}
+
+function dnrUnitForKey(unitKey) {
+  const key = String(unitKey || "").trim();
+  return DNR_UNITS.find((unit) => unit.key === key) || null;
+}
+
+function dnrUnitForNumber(unitNumber) {
+  const prefix = String(unitNumber || "").split("-")[0];
+  return DNR_UNITS.find((unit) => unit.prefix === prefix) || null;
+}
+
+function formatDnrUnit(prefix, index) {
+  return `${prefix}-${String(index).padStart(2, "0")}`;
 }
 
 function sideTaskDatabaseUrl() {
@@ -626,6 +641,93 @@ function createSideTasksStore() {
     return Object.values(DSI_COMMAND_UNITS).includes(unitNumber);
   }
 
+  async function assignDnrUnit(taskKey, memberId, unitKey = "", options = {}) {
+    const dnrUnit = dnrUnitForKey(unitKey);
+    if (!dnrUnit) {
+      const error = new Error("Kies een geldige DNR-eenheid.");
+      error.status = 400;
+      throw error;
+    }
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query("select pg_advisory_xact_lock(hashtext($1))", [`side-task-dnr-units:${taskKey}:${dnrUnit.key}`]);
+        const memberResult = await client.query("select * from side_task_members where task_key = $1 and id = $2 for update", [taskKey, String(memberId)]);
+        const member = memberFromRow(memberResult.rows[0]);
+        if (!member) {
+          const error = new Error("DNR-lid niet gevonden.");
+          error.status = 404;
+          throw error;
+        }
+
+        let unitNumber = member.unitNumber && dnrUnitForNumber(member.unitNumber)?.key === dnrUnit.key
+          ? member.unitNumber
+          : "";
+        if (!unitNumber) {
+          if (options.useLeadershipNumber && dnrUnit.leadershipNumber) {
+            const occupiedLeadership = await client.query(
+              `select id
+               from side_task_members
+               where task_key = $1
+                 and id <> $2
+                 and status <> '8'
+                 and unit_number = $3
+               limit 1
+               for update`,
+              [taskKey, String(memberId), String(dnrUnit.leadershipNumber)]
+            );
+            if (!occupiedLeadership.rows.length) unitNumber = String(dnrUnit.leadershipNumber);
+          }
+        }
+        if (!unitNumber) {
+          const activeUnits = await client.query(
+            `select unit_number, count(*)::int as count
+             from side_task_members
+             where task_key = $1
+               and status <> '8'
+               and unit_number ~ ($2 || '-[0-9]{2}$')
+               and unit_number <> ($2 || '-00')
+             group by unit_number`,
+            [taskKey, String(dnrUnit.prefix)]
+          );
+          const counts = new Map(activeUnits.rows.map((row) => [row.unit_number, Number(row.count || 0)]));
+          const capacity = Math.max(1, Number(dnrUnit.capacity || 1));
+          for (let index = 1; index <= 99; index += 1) {
+            const candidate = formatDnrUnit(dnrUnit.prefix, index);
+            if ((counts.get(candidate) || 0) < capacity) {
+              unitNumber = candidate;
+              break;
+            }
+          }
+        }
+        if (!unitNumber) {
+          const error = new Error(`Geen vrij ${dnrUnit.prefix}-nummer beschikbaar.`);
+          error.status = 409;
+          throw error;
+        }
+
+        const result = await client.query(
+          `update side_task_members
+           set unit_number = $3,
+               call_sign = $3,
+               status = '1',
+               status_detail = 'Beschikbaar',
+               raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('dnrUnitKey', $4::text),
+               updated_at = now()
+           where task_key = $1 and id = $2
+           returning *`,
+          [taskKey, String(memberId), unitNumber, dnrUnit.key]
+        );
+        await client.query("commit");
+        return memberFromRow(result.rows[0]);
+      } catch (error) {
+        await client.query("rollback").catch(() => {});
+        throw error;
+      }
+    });
+  }
+
   async function assignDsiUnit(taskKey, memberId, requestedUnitNumber = "") {
     await ensureSideTaskSchema();
     return withSideTaskClient(async (client) => {
@@ -787,6 +889,7 @@ function createSideTasksStore() {
     signOffTimedOutClientMembers,
     updateMemberProfile,
     assignDsiUnit,
+    assignDnrUnit,
     assignDsiCommandRole,
     deleteMember,
     listArchives,

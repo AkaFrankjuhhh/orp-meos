@@ -398,10 +398,33 @@ function shouldSyncAliasNicknameForStatus(task, status) {
 function normalizeAliasNumber(task, value) {
   const text = sanitizeText(value, 32);
   if (task.key === "DNR") {
-    const match = /^DNR-(\d{1,3})$/i.exec(text);
-    return match ? `DNR-${match[1].padStart(2, "0")}` : text.toUpperCase();
+    const match = /^(1[123])-(\d{1,2})$/i.exec(text);
+    return match ? `${match[1]}-${match[2].padStart(2, "0")}` : text.toUpperCase();
   }
   return text;
+}
+
+function dnrUnitForKey(task, unitKey) {
+  const key = String(unitKey || "").trim();
+  return (task.dnrUnits || []).find((unit) => unit.key === key) || null;
+}
+
+function dnrUnitForNumber(task, unitNumber) {
+  const prefix = String(unitNumber || "").split("-")[0];
+  return (task.dnrUnits || []).find((unit) => unit.prefix === prefix) || null;
+}
+
+function dnrUnitKeyForMember(task, member) {
+  return String(member.raw?.dnrUnitKey || dnrUnitForNumber(task, member.unitNumber)?.key || "").trim();
+}
+
+function canUseDnrLeadershipNumber(task, member, unitKey, session, portalIdentity = null) {
+  const dnrUnit = dnrUnitForKey(task, unitKey);
+  if (!dnrUnit?.leadershipNumber) return false;
+  if (dnrUnit.leadershipRank) {
+    return String(portalIdentity?.person?.rank || "").trim().toLowerCase() === String(dnrUnit.leadershipRank).toLowerCase();
+  }
+  return Boolean(session?.permissions?.canManageMembers);
 }
 
 function rankNumberFromRoles(task, member) {
@@ -426,6 +449,9 @@ function aliasNumberForTask(task, member, portalIdentity = null) {
       : member.callSign;
     return displayNumber || "";
   }
+  if (task.key === "DNR") {
+    return member.unitNumber || normalizeAliasNumber(task, member.callSign);
+  }
   return normalizeAliasNumber(task, member.callSign);
 }
 
@@ -438,6 +464,26 @@ function validateAliasProfileForStatus(task, member, nextStatus, portalIdentity 
   if (!task.allowAlias || String(nextStatus) === "8") return;
   if (task.key === "DSI") return requireDsiIdentityForStatus(member, nextStatus);
   const aliasProfile = task.aliasProfile || {};
+  if (task.key === "DNR") {
+    const unitKey = dnrUnitKeyForMember(task, member);
+    const dnrUnit = dnrUnitForKey(task, unitKey) || dnrUnitForNumber(task, member.unitNumber);
+    if (!dnrUnit) {
+      const error = new Error("Kies eerst je DNR-eenheid.");
+      error.status = 400;
+      throw error;
+    }
+    if (String(nextStatus) === "4" && !member.unitNumber) {
+      const error = new Error("Meld je eerst aan voordat je DNR-status 4 gebruikt.");
+      error.status = 400;
+      throw error;
+    }
+    if (dnrUnit.requiresAlias && !String(member.aliasName || "").trim()) {
+      const error = new Error("Vul eerst je schuilnaam in voor Tactische Recherche of UNIT SIX.");
+      error.status = 400;
+      throw error;
+    }
+    return;
+  }
   const number = aliasNumberForTask(task, member, portalIdentity);
   if (!number) {
     const error = new Error(`Vul eerst je ${aliasProfile.numberLabel || "roepnummer"} in en sla je profiel op.`);
@@ -484,8 +530,13 @@ async function applyAliasNicknameIfNeeded(task, member, nextStatus) {
   const portalIdentity = await portalIdentityForDiscordId(member.discordId);
   validateAliasProfileForStatus(task, member, nextStatus, portalIdentity);
   const number = aliasNumberForTask(task, member, portalIdentity);
+  const dnrUnit = task.key === "DNR" ? dnrUnitForKey(task, dnrUnitKeyForMember(task, member)) || dnrUnitForNumber(task, number) : null;
   const undercover = Boolean(member.raw?.undercover);
-  const displayName = task.aliasProfile?.supportsUndercover && !undercover
+  const displayName = dnrUnit
+    ? dnrUnit.requiresAlias
+      ? String(member.aliasName || "").trim() || normalAliasName(member, portalIdentity)
+      : normalAliasName(member, portalIdentity)
+    : task.aliasProfile?.supportsUndercover && !undercover
     ? normalAliasName(member, portalIdentity)
     : String(member.aliasName || "").trim() || normalAliasName(member, portalIdentity);
   const template = task.aliasProfile?.nicknameTemplate || "[{number}] {name}";
@@ -517,6 +568,7 @@ function publicMember(member) {
     callSign: member.callSign,
     aliasName: member.aliasName,
     undercover: Boolean(member.raw?.undercover),
+    dnrUnitKey: String(member.raw?.dnrUnitKey || ""),
     unitNumber: member.unitNumber,
     commandRole: member.commandRole,
     status: member.status,
@@ -561,6 +613,7 @@ function publicTask(task) {
       numberSource: task.aliasProfile.numberSource || "manual"
     } : null,
     dsiUnits: task.dsiUnits || null,
+    dnrUnits: task.dnrUnits || null,
     specialties: task.specialties.map((specialty) => ({ label: specialty.label }))
   };
 }
@@ -757,9 +810,10 @@ async function handleApi(req, res, task, url) {
     const existing = await ensureSessionMember(task, session);
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
     let member = await store.updateMemberProfile(task.key, existing.id, {
-      callSign: task.aliasProfile?.numberSource === "rank" ? existing.callSign : normalizeAliasNumber(task, body.callSign),
+      callSign: ["rank", "unit"].includes(task.aliasProfile?.numberSource) ? existing.callSign : normalizeAliasNumber(task, body.callSign),
       aliasName: sanitizeText(body.aliasName, 80),
       raw: {
+        ...(task.key === "DNR" && body.dnrUnitKey !== undefined ? { dnrUnitKey: sanitizeText(body.dnrUnitKey, 40) } : {}),
         ...(task.aliasProfile?.supportsUndercover ? { undercover: Boolean(body.undercover) } : {})
       }
     });
@@ -787,6 +841,7 @@ async function handleApi(req, res, task, url) {
         aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : member.aliasName,
         raw: {
           ...(member.raw || {}),
+          ...(task.key === "DNR" && body.dnrUnitKey !== undefined ? { dnrUnitKey: sanitizeText(body.dnrUnitKey, 40) } : {}),
           ...(task.aliasProfile?.supportsUndercover && body.undercover !== undefined ? { undercover: Boolean(body.undercover) } : {})
         }
       };
@@ -802,6 +857,12 @@ async function handleApi(req, res, task, url) {
     }
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
+    } else if (task.key === "DNR" && status === "1") {
+      const dnrUnitKey = dnrUnitKeyForMember(task, member);
+      const portalIdentity = await portalIdentityForDiscordId(member.discordId);
+      member = await store.assignDnrUnit(task.key, member.id, dnrUnitKey, {
+        useLeadershipNumber: canUseDnrLeadershipNumber(task, member, dnrUnitKey, session, portalIdentity)
+      });
     } else {
       const rankNumberIdentity = task.aliasProfile?.numberSource === "rank" && status !== "8"
         ? await portalIdentityForDiscordId(member.discordId)
@@ -810,7 +871,7 @@ async function handleApi(req, res, task, url) {
         status,
         statusDetail: statusOption(status).label,
         callSign: task.aliasProfile?.numberSource === "rank" && status !== "8" ? aliasNumberForTask(task, member, rankNumberIdentity) : member.callSign,
-        unitNumber: task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole ? "" : member.unitNumber,
+        unitNumber: ((task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole) || (task.key === "DNR" && status === "8")) ? "" : member.unitNumber,
         specialties: specialtiesForRoles(task, session.roles || [])
       });
     }
@@ -894,9 +955,10 @@ async function handleApi(req, res, task, url) {
         : body.callSign !== undefined ? normalizeAliasNumber(task, body.callSign) : existing.callSign,
       aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
       raw: {
-        ...(existing.raw || {}),
-        ...(task.aliasProfile?.supportsUndercover && body.undercover !== undefined ? { undercover: Boolean(body.undercover) } : {})
-      }
+          ...(existing.raw || {}),
+          ...(task.key === "DNR" && body.dnrUnitKey !== undefined ? { dnrUnitKey: sanitizeText(body.dnrUnitKey, 40) } : {}),
+          ...(task.aliasProfile?.supportsUndercover && body.undercover !== undefined ? { undercover: Boolean(body.undercover) } : {})
+        }
     };
     if (task.allowAlias) {
       const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(existing.discordId) : null;
@@ -915,10 +977,17 @@ async function handleApi(req, res, task, url) {
       raw: nextMemberProfile.raw,
       status,
       statusDetail: statusOption(status).label,
-      unitNumber: task.key === "DSI" && ["0", "8"].includes(status) && !existing.commandRole ? "" : existing.unitNumber
+      unitNumber: ((task.key === "DSI" && ["0", "8"].includes(status) && !existing.commandRole) || (task.key === "DNR" && status === "8")) ? "" : existing.unitNumber
     });
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
+    }
+    if (task.key === "DNR" && status === "1") {
+      const dnrUnitKey = dnrUnitKeyForMember(task, member);
+      const portalIdentity = await portalIdentityForDiscordId(member.discordId);
+      member = await store.assignDnrUnit(task.key, member.id, dnrUnitKey, {
+        useLeadershipNumber: canUseDnrLeadershipNumber(task, member, dnrUnitKey, session, portalIdentity)
+      });
     }
     if (!shouldSyncAliasNicknameForStatus(task, status)) {
       publishSideTaskUpdate(task, "member-updated", { memberId: member.id, status });

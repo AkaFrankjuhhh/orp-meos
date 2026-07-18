@@ -528,6 +528,39 @@ function canAssignPublicFormTickets(profile, config) {
   return canManagePublicForm(profile, config);
 }
 
+function publicFormConfidantOptionLabel(person = {}) {
+  const serviceNumber = String(person.serviceNumber || "").trim();
+  const rank = String(person.rank || "").trim();
+  const name = String(person.name || "").trim() || "Onbekend";
+  const suffix = rank ? ` (${rank})` : "";
+  return `${serviceNumber ? `${serviceNumber} - ` : ""}${name}${suffix}`;
+}
+
+function publicFormConfidantOptions(state = {}) {
+  return (state.people || [])
+    .filter((person) => {
+      const badges = profilePublicFormBadges(person);
+      return person.status === "Actief" && (badges.has("VID") || badges.has("VID-Leiding"));
+    })
+    .map((person) => {
+      const label = publicFormConfidantOptionLabel(person);
+      return { value: label, label };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, "nl"));
+}
+
+function withPublicFormRuntimeOptions(config, state = {}) {
+  const runtimeConfig = clonePublicFormConfig(config);
+  if (!isVidForm(runtimeConfig)) return runtimeConfig;
+  const preferredConfidantQuestion = (runtimeConfig.questions || []).find((question) => question.id === "preferredConfidant");
+  if (!preferredConfidantQuestion) return runtimeConfig;
+  preferredConfidantQuestion.type = "select";
+  preferredConfidantQuestion.options = publicFormConfidantOptions(state);
+  preferredConfidantQuestion.placeholder = "Kies een vertrouwenspersoon";
+  preferredConfidantQuestion.help = "De lijst toont actieve personeelsleden met VID of VID-Leiding.";
+  return runtimeConfig;
+}
+
 function isReviewablePublicForm(config) {
   return Boolean(config?.reviewable || config?.reviewTraining);
 }
@@ -699,6 +732,18 @@ function validatePublicFormSubmission(config, answers, files = []) {
       const values = (Array.isArray(answers?.[question.id]) ? answers[question.id] : []).map(String).filter((value) => allowedValues.has(value));
       if (question.required && !values.length) errors.push(`${question.label} is verplicht.`);
       cleanAnswers[question.id] = values;
+      continue;
+    }
+
+    if (question.type === "select") {
+      const allowedValues = new Set((question.options || []).map((option) => String(option.value || option)));
+      const value = String(answers?.[question.id] || "").trim();
+      if (question.required && !value) errors.push(`${question.label} is verplicht.`);
+      if (value && allowedValues.size && !allowedValues.has(value)) {
+        errors.push(`${question.label} bevat een onbekende keuze.`);
+        continue;
+      }
+      cleanAnswers[question.id] = value.slice(0, 500);
       continue;
     }
 
@@ -1000,6 +1045,8 @@ module.exports = {
   canViewPublicFormTickets,
   canAssignPublicFormTickets,
   canReviewPublicFormSubmissions,
+  publicFormConfidantOptions,
+  withPublicFormRuntimeOptions,
   publicFormTicketNumber,
   publicFormTicketUrl,
   isComplaintForm,

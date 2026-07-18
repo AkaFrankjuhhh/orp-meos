@@ -40,11 +40,32 @@ test("DSI members can assign ACO and TCO labels", () => {
   assert.equal(permissions.canAssignDsiCommand, true);
 });
 
-test("DNR supports manual DNR numbers and undercover alias mode", () => {
+test("DNR supports automatic recherche unit ranges", () => {
   const dnrTask = sideTaskForKey("DNR");
   assert.equal(dnrTask.allowAlias, true);
-  assert.equal(dnrTask.aliasProfile.numberPattern, "^DNR-\\d{2,3}$");
-  assert.equal(dnrTask.aliasProfile.supportsUndercover, true);
+  assert.equal(dnrTask.aliasProfile.numberSource, "unit");
+  assert.equal(dnrTask.aliasProfile.nicknameTemplate, "[{number} - ※] {name}");
+  assert.equal(dnrTask.aliasProfile.supportsUndercover, false);
+  assert.deepEqual(dnrTask.dnrUnits.map((unit) => [unit.key, unit.prefix, unit.requiresAlias]), [
+    ["technical", "11", false],
+    ["tactical", "12", true],
+    ["unit-six", "13", true]
+  ]);
+});
+
+test("DNR unit assignment is handled server-side", () => {
+  const storeCode = fs.readFileSync(path.join(process.cwd(), "modules", "side-tasks-store.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "side-tasks-server.js"), "utf8");
+  const clientCode = fs.readFileSync(path.join(process.cwd(), "side-tasks.js"), "utf8");
+
+  assert.match(storeCode, /async function assignDnrUnit/);
+  assert.match(storeCode, /options\.useLeadershipNumber/);
+  assert.match(storeCode, /dnrUnit\.leadershipNumber/);
+  assert.match(storeCode, /formatDnrUnit\(dnrUnit\.prefix, index\)/);
+  assert.match(serverCode, /function canUseDnrLeadershipNumber/);
+  assert.match(serverCode, /store\.assignDnrUnit\(task\.key, member\.id, dnrUnitKey/);
+  assert.match(clientCode, /name="dnrUnitKey"/);
+  assert.match(clientCode, /\[\$\{number\} - ※\]/);
 });
 
 test("KLu supports Eagle rank numbers", () => {

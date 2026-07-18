@@ -157,6 +157,30 @@ test("defence has an IBT review form on the IBT toets domain", () => {
   assert.equal(policeForms.publicFormFromSlug("ibt"), null);
 });
 
+test("VID form uses active confidants as preferred contact options", () => {
+  const defenceForms = loadPublicFormsForOrganization("defensie");
+  const vid = defenceForms.publicFormFromSlug("vid");
+  const runtimeVid = defenceForms.withPublicFormRuntimeOptions(vid, {
+    people: [
+      { id: "vid-1", name: "Vera Integriteit", serviceNumber: "74-10", rank: "Majoor", status: "Actief", badges: ["VID"] },
+      { id: "vid-2", name: "Levi Leiding", serviceNumber: "74-11", rank: "Kolonel", status: "Actief", badges: ["VID-Leiding"] },
+      { id: "old-vid", name: "Oud VID", serviceNumber: "74-12", rank: "Kapitein", status: "Uit dienst", badges: ["VID"] },
+      { id: "trainer", name: "Tessa Trainer", serviceNumber: "74-13", rank: "Kapitein", status: "Actief", badges: ["Trainer"] }
+    ]
+  });
+  const preferredConfidant = runtimeVid.questions.find((question) => question.id === "preferredConfidant");
+
+  assert.equal(preferredConfidant.type, "select");
+  assert.deepEqual(preferredConfidant.options.map((option) => option.label), [
+    "74-10 - Vera Integriteit (Majoor)",
+    "74-11 - Levi Leiding (Kolonel)"
+  ]);
+  assert.equal(
+    defenceForms.validatePublicFormSubmission(runtimeVid, { preferredConfidant: "Niemand uit de VID lijst" }).errors[0],
+    "Eventueel voorkeur vertrouwenspersoon bevat een onbekende keuze."
+  );
+});
+
 test("mentor tests are not hard-coded to defensie only", () => {
   const code = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
 

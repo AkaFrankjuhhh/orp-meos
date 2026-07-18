@@ -48,6 +48,7 @@ const {
   canViewPublicFormTickets,
   canAssignPublicFormTickets,
   canReviewPublicFormSubmissions,
+  withPublicFormRuntimeOptions,
   publicFormTicketNumber,
   publicFormTicketUrl
 } = require("./modules/public-forms");
@@ -712,7 +713,15 @@ function publicFormTicketAssignedToProfile(submission = {}, profile = {}) {
   return false;
 }
 
-function publicFormTicketDto(config, submission = {}) {
+function canClosePublicFormTicket(profile, config, submission = {}) {
+  if (!profile || !config || !submission) return false;
+  if (!canViewPublicFormTickets(profile, config)) return false;
+  if (canAssignPublicFormTickets(profile, config)) return true;
+  return publicFormTicketAssignedToProfile(submission, profile);
+}
+
+function publicFormTicketDto(config, submission = {}, profile = null) {
+  const status = submission.ticket?.status || "open";
   return {
     id: submission.id,
     ticketNumber: publicFormTicketNumber(config, submission),
@@ -722,10 +731,13 @@ function publicFormTicketDto(config, submission = {}) {
     submittedAt: submission.submittedAt,
     submittedBy: submission.submittedBy || null,
     answers: submission.answers || {},
-    status: submission.ticket?.status || "open",
+    status,
     assignedTo: submission.ticket?.assignedTo || null,
     assignedAt: submission.ticket?.assignedAt || "",
-    assignedBy: submission.ticket?.assignedBy || null
+    assignedBy: submission.ticket?.assignedBy || null,
+    closedAt: submission.ticket?.closedAt || "",
+    closedBy: submission.ticket?.closedBy || null,
+    canClose: status !== "closed" && canClosePublicFormTicket(profile, config, submission)
   };
 }
 
@@ -844,7 +856,9 @@ async function handlePublicFormsApi(req, res, url) {
     const config = await resolvePublicFormConfig(baseConfig);
     const formAuth = requirePublicFormAccess(req, res, config);
     if (!formAuth) return true;
-    sendJson(res, 200, publicFormClientConfig(config, formAuth.profile));
+    const state = await Promise.resolve(peopleStorage.readState());
+    const runtimeConfig = withPublicFormRuntimeOptions(config, state);
+    sendJson(res, 200, publicFormClientConfig(runtimeConfig, formAuth.profile));
     return true;
   }
 
@@ -868,7 +882,8 @@ async function handlePublicFormsApi(req, res, url) {
     const override = sanitizePublicFormOverride(baseConfig, { ...(existingOverride || {}), ...(body.config || {}) });
     await publicFormsStore.saveConfigOverride(baseConfig.slug, override, profile);
     const updatedConfig = mergePublicFormConfig(baseConfig, override);
-    sendJson(res, 200, { ok: true, config: publicFormClientConfig(updatedConfig, profile) });
+    const runtimeConfig = withPublicFormRuntimeOptions(updatedConfig, state);
+    sendJson(res, 200, { ok: true, config: publicFormClientConfig(runtimeConfig, profile) });
     return true;
   }
 
@@ -898,7 +913,7 @@ async function handlePublicFormsApi(req, res, url) {
         : allTickets.filter((submission) => publicFormTicketAssignedToProfile(submission, profile));
       sendJson(res, 200, {
         ok: true,
-        tickets: visibleTickets.map((submission) => publicFormTicketDto(config, submission))
+        tickets: visibleTickets.map((submission) => publicFormTicketDto(config, submission, profile))
       });
       return true;
     }
@@ -975,13 +990,49 @@ async function handlePublicFormsApi(req, res, url) {
       ...submission,
       ticket: {
         ...(submission.ticket || {}),
-        status: "open",
+        status: submission.ticket?.status || "open",
         assignedTo: assignee ? publicFormPersonDto(assignee) : null,
         assignedAt: assignee ? new Date().toISOString() : "",
         assignedBy: publicFormPersonDto(profile)
       }
     }), profile);
-    sendJson(res, 200, { ok: true, ticket: publicFormTicketDto(config, updatedTicket) });
+    sendJson(res, 200, { ok: true, ticket: publicFormTicketDto(config, updatedTicket, profile) });
+    return true;
+  }
+
+  const publicFormCloseMatch = url.pathname.match(/^\/api\/public-forms\/submissions\/([^/]+)\/close$/);
+  if (publicFormCloseMatch && req.method === "POST") {
+    const body = await readBody(req);
+    const baseConfig = publicFormFromSlug(body.slug || url.searchParams.get("slug")) || publicFormForRequest(req, url);
+    if (!baseConfig) {
+      sendJson(res, 404, { error: "Formulier niet gevonden" });
+      return true;
+    }
+    const config = await resolvePublicFormConfig(baseConfig);
+    const formAuth = requirePublicFormAccess(req, res, config);
+    if (!formAuth) return true;
+    const state = await Promise.resolve(peopleStorage.readState());
+    const profile = (state.people || []).find((person) => person.id === formAuth.profile.id) || formAuth.profile;
+    const ticketId = publicFormCloseMatch[1];
+    const existingTicket = (await publicFormsStore.listSubmissions(config.slug, { limit: 1000 })).find((item) => item.id === ticketId);
+    if (!existingTicket) {
+      sendJson(res, 404, { error: "Ticket niet gevonden." });
+      return true;
+    }
+    if (!canClosePublicFormTicket(profile, config, existingTicket)) {
+      sendJson(res, 403, { error: "Je mag dit ticket niet sluiten." });
+      return true;
+    }
+    const updatedTicket = await publicFormsStore.updateSubmissionRaw(ticketId, (submission) => ({
+      ...submission,
+      ticket: {
+        ...(submission.ticket || {}),
+        status: "closed",
+        closedAt: new Date().toISOString(),
+        closedBy: publicFormPersonDto(profile)
+      }
+    }), profile);
+    sendJson(res, 200, { ok: true, ticket: publicFormTicketDto(config, updatedTicket, profile) });
     return true;
   }
 
@@ -1060,13 +1111,15 @@ async function handlePublicFormsApi(req, res, url) {
       sendJson(res, 429, { error: "Te veel inzendingen achter elkaar. Probeer het later opnieuw." });
       return true;
     }
-    const fileValidation = validatePublicFormFiles(config, body.files || []);
+    const state = await Promise.resolve(peopleStorage.readState());
+    const runtimeConfig = withPublicFormRuntimeOptions(config, state);
+    const fileValidation = validatePublicFormFiles(runtimeConfig, body.files || []);
     if (fileValidation.errors.length) {
       sendJson(res, 400, { error: fileValidation.errors[0], errors: fileValidation.errors });
       return true;
     }
-    const profileAnswers = applyProfileAnswersToPublicForm(config, body.answers || {}, formAuth.profile);
-    const { cleanAnswers, errors } = validatePublicFormSubmission(config, profileAnswers, fileValidation.cleanFiles);
+    const profileAnswers = applyProfileAnswersToPublicForm(runtimeConfig, body.answers || {}, formAuth.profile);
+    const { cleanAnswers, errors } = validatePublicFormSubmission(runtimeConfig, profileAnswers, fileValidation.cleanFiles);
     if (errors.length) {
       sendJson(res, 400, { error: errors[0], errors });
       return true;

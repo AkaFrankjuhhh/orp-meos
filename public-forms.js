@@ -11,6 +11,9 @@ const formState = {
 };
 let questionsChangeBound = false;
 let questionsInputBound = false;
+let publicFormEventSource = null;
+let publicFormLiveRefreshTimer = null;
+let publicFormLiveRefreshInFlight = false;
 
 function $(selector) {
   return document.querySelector(selector);
@@ -85,6 +88,11 @@ function showAuthErrorFromUrl() {
   params.delete("authError");
   const nextQuery = params.toString();
   window.history.replaceState({}, document.title, `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
+}
+
+function publicFormConfigQuery() {
+  const pathParts = window.location.pathname.split("/").filter(Boolean);
+  return pathParts[0] === "forms" && pathParts[1] ? `?form=${encodeURIComponent(pathParts[1])}` : "";
 }
 
 function resizeAutoGrowingTextarea(textarea) {
@@ -172,6 +180,14 @@ function shouldRenderQuestionAsTextarea(question) {
   return question.type === "textarea" || multilineQuestionIds.has(question.id) || String(question.label || "").length >= 110;
 }
 
+function questionOptionValue(option) {
+  return String((option && typeof option === "object" ? option.value : option) || "");
+}
+
+function questionOptionLabel(option) {
+  return String((option && typeof option === "object" ? (option.label || option.value) : option) || "");
+}
+
 function renderQuestion(question) {
   if (question.type === "section") {
     const help = question.help ? `<p>${escapeHtml(question.help)}</p>` : "";
@@ -185,8 +201,9 @@ function renderQuestion(question) {
   if (shouldRenderQuestionAsTextarea(question)) {
     control = `<textarea ${common} placeholder="${escapeHtml(question.placeholder || "")}"></textarea>`;
   } else if (question.type === "select") {
-    const options = (question.options || []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
-    control = `<select ${common}><option value="">Kies een optie</option>${options}</select>`;
+    const placeholder = question.placeholder || "Kies een optie";
+    const options = (question.options || []).map((option) => `<option value="${escapeHtml(questionOptionValue(option))}">${escapeHtml(questionOptionLabel(option))}</option>`).join("");
+    control = `<select ${common}><option value="">${escapeHtml(placeholder)}</option>${options}</select>`;
   } else if (question.type === "checkboxGroup") {
     const options = (question.options || []).map((option) => {
       const value = option.value || option;
@@ -657,18 +674,34 @@ function renderVidAssigneeSelect(ticket) {
   return `<select class="vid-ticket-assign" data-ticket-id="${escapeHtml(ticket.id)}">${options}</select>`;
 }
 
+function vidTicketStatusMeta(ticket) {
+  const status = String(ticket?.status || "open").toLowerCase();
+  if (status === "closed") return { label: "Gesloten", className: "closed" };
+  return { label: "Open", className: "open" };
+}
+
 function renderVidTicketCard(ticket) {
   const submitter = ticket.submittedBy || {};
   const isActive = formState.requestedTicketNumber && String(ticket.ticketNumber || "").toUpperCase() === formState.requestedTicketNumber;
+  const statusMeta = vidTicketStatusMeta(ticket);
+  const closeButton = ticket.canClose
+    ? `<button class="ghost-button vid-ticket-close" type="button" data-ticket-close="${escapeHtml(ticket.id)}">Sluiten</button>`
+    : "";
   return `
-    <article class="vid-ticket-card${isActive ? " active" : ""}" data-ticket-number="${escapeHtml(ticket.ticketNumber)}">
+    <article class="vid-ticket-card${isActive ? " active" : ""}${statusMeta.className === "closed" ? " closed" : ""}" data-ticket-number="${escapeHtml(ticket.ticketNumber)}">
       <div class="vid-ticket-topline">
         <div>
-          <a class="vid-ticket-number" href="${escapeHtml(ticketPathForNumber(ticket.ticketNumber))}">${escapeHtml(ticket.ticketNumber)}</a>
+          <div class="vid-ticket-badges">
+            <a class="vid-ticket-number" href="${escapeHtml(ticketPathForNumber(ticket.ticketNumber))}">${escapeHtml(ticket.ticketNumber)}</a>
+            <span class="vid-ticket-status ${escapeHtml(statusMeta.className)}">${escapeHtml(statusMeta.label)}</span>
+          </div>
           <h3>${escapeHtml(ticketPersonLabel(submitter))}</h3>
           <p>${escapeHtml(submitter.rank || "-")} ${submitter.discordUsername ? `&middot; ${escapeHtml(submitter.discordUsername)}` : ""}</p>
         </div>
-        <time>${escapeHtml(ticketDateTime(ticket.submittedAt))}</time>
+        <div class="vid-ticket-actions">
+          <time>${escapeHtml(ticketDateTime(ticket.submittedAt))}</time>
+          ${closeButton}
+        </div>
       </div>
       <dl class="vid-ticket-details">
         <div>
@@ -683,6 +716,12 @@ function renderVidTicketCard(ticket) {
           <dt>Gekoppeld aan</dt>
           <dd>${renderVidAssigneeSelect(ticket)}</dd>
         </div>
+        ${statusMeta.className === "closed" ? `
+          <div>
+            <dt>Gesloten door</dt>
+            <dd>${escapeHtml(ticketPersonLabel(ticket.closedBy))}${ticket.closedAt ? ` op ${escapeHtml(ticketDateTime(ticket.closedAt))}` : ""}</dd>
+          </div>
+        ` : ""}
       </dl>
     </article>
   `;
@@ -693,7 +732,7 @@ function renderVidTicketEntry() {
   if (!panel) return false;
   const visible = formState.config?.confidentialTicket && formState.config?.canViewTickets && !isVidTicketsPage();
   if (!visible) return false;
-  const count = formState.tickets.length;
+  const count = formState.tickets.filter((ticket) => String(ticket.status || "open").toLowerCase() !== "closed").length;
   const label = count === 1 ? "1 open ticket" : `${count} open tickets`;
   panel.hidden = false;
   panel.innerHTML = `
@@ -797,11 +836,36 @@ async function assignVidTicket(ticketId, personId) {
   renderVidTicketsPanel();
 }
 
+async function closeVidTicket(ticketId) {
+  const response = await fetch(`/api/public-forms/submissions/${encodeURIComponent(ticketId)}/close`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug: formState.config.slug })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Ticket sluiten is mislukt.");
+  const index = formState.tickets.findIndex((ticket) => ticket.id === ticketId);
+  if (index >= 0) formState.tickets[index] = data.ticket;
+  renderVidTicketsPanel();
+}
+
 function bindVidTicketPanel() {
   const panel = $("#vidTicketPanel");
   if (!panel) return;
-  panel.addEventListener("click", (event) => {
-    if (event.target.closest("#refreshVidTickets")) loadVidTickets();
+  panel.addEventListener("click", async (event) => {
+    if (event.target.closest("#refreshVidTickets")) {
+      loadVidTickets();
+      return;
+    }
+    const closeButton = event.target.closest("[data-ticket-close]");
+    if (!closeButton) return;
+    closeButton.disabled = true;
+    try {
+      await closeVidTicket(closeButton.dataset.ticketClose);
+    } catch (error) {
+      showMessage(error.message || "Ticket sluiten is mislukt.", "error");
+      closeButton.disabled = false;
+    }
   });
   panel.addEventListener("change", async (event) => {
     const select = event.target.closest(".vid-ticket-assign");
@@ -1007,10 +1071,53 @@ function applyLoadedConfig(config) {
   loadVidTickets();
   if (!ticketPage) loadReviewSubmissions();
 }
+
+async function refreshPublicFormLive(scope = "state") {
+  if (publicFormLiveRefreshInFlight || !formState.config?.slug) return;
+  publicFormLiveRefreshInFlight = true;
+  try {
+    const form = $("#publicForm");
+    if (form && !form.hidden) updateDraftFromVisibleFields();
+    await loadForm();
+  } catch (error) {
+    showMessage(error.message || "Live update laden is mislukt.", "error");
+  } finally {
+    publicFormLiveRefreshInFlight = false;
+  }
+}
+
+function schedulePublicFormLiveRefresh(scope = "state") {
+  if (!["people", "public-forms", "state"].includes(scope)) return;
+  if (publicFormLiveRefreshTimer) window.clearTimeout(publicFormLiveRefreshTimer);
+  publicFormLiveRefreshTimer = window.setTimeout(() => {
+    publicFormLiveRefreshTimer = null;
+    refreshPublicFormLive(scope);
+  }, 500);
+}
+
+function startPublicFormLiveUpdates() {
+  if (publicFormEventSource || typeof EventSource === "undefined") return;
+  if (!formState.config?.internalOnly) return;
+  publicFormEventSource = new EventSource("/api/events");
+  publicFormEventSource.addEventListener("people:update", () => schedulePublicFormLiveRefresh("people"));
+  publicFormEventSource.addEventListener("public-forms:update", () => schedulePublicFormLiveRefresh("public-forms"));
+  publicFormEventSource.addEventListener("state:update", (event) => {
+    try {
+      const data = JSON.parse(event.data || "{}");
+      if (["people", "public-forms"].includes(data.scope)) schedulePublicFormLiveRefresh(data.scope);
+    } catch {
+      schedulePublicFormLiveRefresh("state");
+    }
+  });
+  publicFormEventSource.onerror = () => {
+    publicFormEventSource?.close();
+    publicFormEventSource = null;
+    window.setTimeout(startPublicFormLiveUpdates, 5000);
+  };
+}
+
 async function loadForm() {
-  const pathParts = window.location.pathname.split("/").filter(Boolean);
-  const formQuery = pathParts[0] === "forms" && pathParts[1] ? `?form=${encodeURIComponent(pathParts[1])}` : "";
-  const response = await fetch(`/api/public-forms/config${formQuery}`, { cache: "no-store" });
+  const response = await fetch(`/api/public-forms/config${publicFormConfigQuery()}`, { cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (response.status === 401) {
     showLoginRequired(data.loginUrl || "/api/auth/login", data.error);
@@ -1020,6 +1127,7 @@ async function loadForm() {
   const config = data;
   formState.config = config;
   applyLoadedConfig(config);
+  startPublicFormLiveUpdates();
 }
 
 function collectAnswers() {

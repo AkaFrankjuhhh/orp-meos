@@ -55,6 +55,14 @@ function loginView(message = "") {
 }
 
 function displayMemberName(member, task) {
+  if (task.key === "DNR" && (member.unitNumber || member.callSign)) {
+    const number = aliasNumberForDisplay(member, task);
+    const dnrUnit = dnrUnitForMember(member, task);
+    const name = dnrUnit?.requiresAlias && member.aliasName
+      ? member.aliasName
+      : member.displayName || member.discordId;
+    if (number) return `[${number} - ※] ${name}`;
+  }
   if (task.allowAlias && member.aliasName) {
     const number = aliasNumberForDisplay(member, task);
     const prefix = ["ACO", "TCO"].includes(member.commandRole) ? `${member.commandRole} ` : "";
@@ -63,8 +71,15 @@ function displayMemberName(member, task) {
   return member.displayName || member.discordId;
 }
 
+function dnrUnitForMember(member, task) {
+  const key = String(member?.dnrUnitKey || "").trim();
+  const prefix = String(member?.unitNumber || member?.callSign || "").split("-")[0];
+  return (task.dnrUnits || []).find((unit) => unit.key === key || unit.prefix === prefix) || null;
+}
+
 function aliasNumberForDisplay(member, task) {
   if (task.key === "KLU") return member.callSign || task.aliasProfile?.numberPlaceholder || "Eagle";
+  if (task.key === "DNR") return member.unitNumber || member.callSign || "";
   return (member.commandRole && member.unitNumber) || ((member.status === "1" || member.status === "4") && member.unitNumber)
     ? member.unitNumber
     : member.callSign;
@@ -91,6 +106,7 @@ function openProfileDraft() {
   return {
     callSign: String(fields.callSign || ""),
     aliasName: String(fields.aliasName || ""),
+    dnrUnitKey: String(fields.dnrUnitKey || ""),
     undercover: Boolean(fields.undercover)
   };
 }
@@ -99,10 +115,23 @@ function aliasProfileFields(member = {}, task = appState.me?.task || {}) {
   if (!task.allowAlias) return "";
   const profile = task.aliasProfile || {};
   const isRankNumber = profile.numberSource === "rank";
+  const isUnitNumber = profile.numberSource === "unit" && task.key === "DNR";
+  const unitOptions = (task.dnrUnits || [])
+    .map((unit) => `<option value="${escapeHtml(unit.key)}" ${unit.key === member.dnrUnitKey ? "selected" : ""}>${escapeHtml(unit.label)} (${escapeHtml(unit.prefix)}-XX)</option>`)
+    .join("");
   return `
-    <label>${escapeHtml(profile.numberLabel || "Roepnummer")}
-      <input name="callSign" value="${escapeHtml(member.callSign || "")}" placeholder="${escapeHtml(profile.numberPlaceholder || "")}" ${isRankNumber ? "readonly" : ""} />
-    </label>
+    ${isUnitNumber ? `
+      <label>${escapeHtml(profile.numberLabel || "Eenheid")}
+        <select name="dnrUnitKey" required>
+          <option value="">${escapeHtml(profile.numberPlaceholder || "Kies eenheid")}</option>
+          ${unitOptions}
+        </select>
+      </label>
+    ` : `
+      <label>${escapeHtml(profile.numberLabel || "Roepnummer")}
+        <input name="callSign" value="${escapeHtml(member.callSign || "")}" placeholder="${escapeHtml(profile.numberPlaceholder || "")}" ${isRankNumber ? "readonly" : ""} />
+      </label>
+    `}
     <label>${escapeHtml(profile.aliasLabel || "Schuilnaam")}
       <input name="aliasName" value="${escapeHtml(member.aliasName || "")}" placeholder="${escapeHtml(profile.aliasPlaceholder || "")}" />
     </label>
@@ -164,10 +193,14 @@ function topbar() {
 
 function statusPanel() {
   const { member, task } = appState.me;
+  const inlineProfile = task.key === "DNR" && task.allowAlias
+    ? `<form class="profile-form status-profile-form" data-form="profile">${aliasProfileFields(member || {}, task)}<button class="secondary-button" type="submit">Keuze opslaan</button></form>`
+    : "";
   return `
     <section class="panel">
       <h2>Mijn status</h2>
       <p class="muted">${escapeHtml(task.displayName)}</p>
+      ${inlineProfile}
       <div class="status-grid">
         ${appState.statuses.map((status) => statusButton(status, member?.status || "8")).join("")}
       </div>
@@ -198,13 +231,14 @@ function memberCard(member) {
   const specialties = member.specialties?.length
     ? member.specialties.map((label) => `<span class="specialty-chip">${escapeHtml(label)}</span>`).join("")
     : `<span class="specialty-chip">Geen specialisatie</span>`;
+  const dnrUnit = task.key === "DNR" ? dnrUnitForMember(member, task) : null;
   return `
     <article class="member-card ${statusClass === "active" ? "" : statusClass}"${task.key === "DSI" ? ` data-dsi-member="${escapeHtml(member.id)}"` : ""}>
       <div class="member-main">
         ${memberAvatar(member)}
         <div>
           <p class="member-name">${escapeHtml(displayMemberName(member, task))}</p>
-          <p class="muted">${escapeHtml(member.displayName)}${member.commandRole ? ` / ${escapeHtml(member.commandRole)}` : ""}</p>
+          <p class="muted">${escapeHtml(member.displayName)}${member.commandRole ? ` / ${escapeHtml(member.commandRole)}` : ""}${dnrUnit ? ` / ${escapeHtml(dnrUnit.label)}` : ""}</p>
           ${member.phone ? `<p class="muted">${escapeHtml(member.phone)}</p>` : ""}
         </div>
         <span class="status-pill ${statusClass}">${escapeHtml(member.statusLabel)}</span>
@@ -355,6 +389,10 @@ function memberEditModal() {
   const task = appState.me.task;
   const profile = task.aliasProfile || {};
   const isRankNumber = profile.numberSource === "rank";
+  const isUnitNumber = profile.numberSource === "unit" && task.key === "DNR";
+  const unitOptions = (task.dnrUnits || [])
+    .map((unit) => `<option value="${escapeHtml(unit.key)}" ${unit.key === member.dnrUnitKey ? "selected" : ""}>${escapeHtml(unit.label)} (${escapeHtml(unit.prefix)}-XX)</option>`)
+    .join("");
   return `
     <div class="member-edit-backdrop">
       <section class="member-edit-modal" role="dialog" aria-modal="true" aria-label="Lid aanpassen">
@@ -369,9 +407,18 @@ function memberEditModal() {
           <label>Telefoonnummer
             <input name="phone" value="${escapeHtml(member.phone || "")}" maxlength="32" />
           </label>
-          <label>${escapeHtml(profile.numberLabel || "Roepnummer")}
-            <input name="callSign" value="${escapeHtml(member.callSign || "")}" maxlength="32" ${isRankNumber ? "readonly" : ""} />
-          </label>
+          ${isUnitNumber ? `
+            <label>${escapeHtml(profile.numberLabel || "Eenheid")}
+              <select name="dnrUnitKey" required>
+                <option value="">${escapeHtml(profile.numberPlaceholder || "Kies eenheid")}</option>
+                ${unitOptions}
+              </select>
+            </label>
+          ` : `
+            <label>${escapeHtml(profile.numberLabel || "Roepnummer")}
+              <input name="callSign" value="${escapeHtml(member.callSign || "")}" maxlength="32" ${isRankNumber ? "readonly" : ""} />
+            </label>
+          `}
           <label>${escapeHtml(profile.aliasLabel || "Schuilnaam")}
             <input name="aliasName" value="${escapeHtml(member.aliasName || "")}" maxlength="80" />
           </label>

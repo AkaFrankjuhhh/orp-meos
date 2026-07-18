@@ -156,6 +156,25 @@ test("managed public forms can be closed and reopened by form leadership", () =>
   assert.match(styles, /\.form-status-pill\.closed/);
 });
 
+test("VID ticket forms refresh access and tickets through live events", () => {
+  const clientCode = fs.readFileSync(path.join(process.cwd(), "public-forms.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "public-forms.css"), "utf8");
+
+  assert.match(clientCode, /new EventSource\("\/api\/events"\)/);
+  assert.match(clientCode, /people:update/);
+  assert.match(clientCode, /public-forms:update/);
+  assert.match(clientCode, /schedulePublicFormLiveRefresh\(data\.scope\)/);
+  assert.match(clientCode, /await loadForm\(\)/);
+  assert.match(clientCode, /function closeVidTicket\(/);
+  assert.match(clientCode, /\/api\/public-forms\/submissions\/\$\{encodeURIComponent\(ticketId\)\}\/close/);
+  assert.match(clientCode, /vid-ticket-status/);
+  assert.match(serverCode, /const publicFormCloseMatch = url\.pathname\.match/);
+  assert.match(serverCode, /status: "closed"/);
+  assert.match(serverCode, /closedBy: publicFormPersonDto\(profile\)/);
+  assert.match(styles, /\.vid-ticket-status\.closed/);
+});
+
 test("calm dashboard adapts before police counters overflow", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
@@ -279,8 +298,8 @@ test("mentor test Discord embed formats submitted date and time", () => {
 
 test("side task shell serves DNR and KLu alias assets with a fresh version", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "side-tasks.html"), "utf8");
-  assert.match(html, /side-tasks\.css\?v=20260703-calm-arial/);
-  assert.match(html, /side-tasks\.js\?v=20260705-browser-heartbeat/);
+  assert.match(html, /side-tasks\.css\?v=20260718-dnr-units/);
+  assert.match(html, /side-tasks\.js\?v=20260718-dnr-units/);
 });
 
 test("side task browser heartbeat signs off closed browsers server-side", () => {

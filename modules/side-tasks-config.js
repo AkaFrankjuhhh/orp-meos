@@ -93,16 +93,42 @@ const SIDE_TASK_DEFINITIONS = {
     logoUrl: "/assets/politie-logo.png",
     allowAlias: true,
     aliasProfile: {
-      numberLabel: "DNR nummer",
-      numberPlaceholder: "DNR-01",
+      numberLabel: "DNR eenheid",
+      numberPlaceholder: "Kies eenheid",
       aliasLabel: "Schuilnaam",
       aliasPlaceholder: "Schuilnaam",
       aliasRequiredForActive: false,
-      numberPattern: "^DNR-\\d{2,3}$",
-      numberPatternHint: "Gebruik formaat DNR-01, DNR-02, DNR-03.",
-      nicknameTemplate: "[{number}] {name}",
-      supportsUndercover: true
+      numberSource: "unit",
+      nicknameTemplate: "[{number} - ※] {name}",
+      supportsUndercover: false
     },
+    dnrUnits: [
+      {
+        key: "technical",
+        label: "Technische Recherche",
+        prefix: "11",
+        capacity: 2,
+        requiresAlias: false,
+        leadershipNumber: "11-00",
+        leadershipRank: "Senior Onderzoeker"
+      },
+      {
+        key: "tactical",
+        label: "Tactische Recherche",
+        prefix: "12",
+        capacity: 2,
+        requiresAlias: true,
+        leadershipNumber: "12-00"
+      },
+      {
+        key: "unit-six",
+        label: "UNIT SIX",
+        prefix: "13",
+        capacity: 2,
+        requiresAlias: true,
+        leadershipNumber: "13-00"
+      }
+    ],
     specialties: []
   }
 };
