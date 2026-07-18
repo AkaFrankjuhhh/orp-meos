@@ -229,7 +229,7 @@ const organizationConfigs = {
       { prefix: "73", min: 1, max: 75, ranks: ["Adjudant", "Opperwachtmeester", "Wachtmeester 1ste Klasser", "Wachtmeester"] },
       { prefix: "74", min: 1, max: 100, ranks: ["Marechaussee 1ste Klasser", "Marechaussee 2de Klasser", "Marechaussee 3de Klasser", "Marechaussee 4de Klasser"] }
     ],
-    profileTrainings: ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"],
+    profileTrainings: ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG", "K9", "K9 Begeleider"],
     profileOperational: ["OPS", "OPCO", "OVD"],
     extraTasks: defensieExtraTasks,
     extraFunctions: ["Kader", "OVC", "Hoofdofficier", "Officiersraad", "Directie", "Teamchef", "Coördinator"],
@@ -427,7 +427,7 @@ const organizationConfigs = {
       { prefix: "29", min: 40, max: 99, ranks: ["Aspirant"] }
     ],
     autoSortRanks: [],
-    profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME"],
+    profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME", "K9", "K9 Begeleider"],
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
     extraFunctions: ["Korpsleiding", "Bestuur", "OVC"],

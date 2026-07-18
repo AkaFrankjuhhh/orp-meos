@@ -55,7 +55,7 @@ const rankCategories = [
 
 const rankWeight = new Map(ranks.map((rank, index) => [rank, ranks.length - index]));
 const today = new Date().toISOString().slice(0, 10);
-const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG"];
+const profileTrainings = ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG", "K9", "K9 Begeleider"];
 const profileOperational = ["OPS", "OPCO", "OVD"];
 const mentorRanks = ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"];
 const mentorChecklistGroups = [

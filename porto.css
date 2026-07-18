@@ -6568,3 +6568,138 @@ body.porto-duty-workspace .porto-duty-layout {
     font-size: 10px;
   }
 }
+
+/* Modern OPS dashboard balance - keep desktop structure usable on laptop widths. */
+body[data-porto-ui="modern"] .porto-modern-ops-dashboard {
+  width: min(1220px, calc(100vw - 40px));
+  max-width: 1220px;
+  min-height: auto;
+  margin: clamp(54px, 7vh, 86px) auto 28px;
+  padding: clamp(18px, 1.4vw, 24px);
+  gap: clamp(14px, 1.15vw, 20px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-header {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 0.9fr) minmax(420px, auto);
+  gap: clamp(14px, 1.2vw, 22px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-actions {
+  grid-column: auto;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-actions > * {
+  min-height: 38px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(10px, 1vw, 16px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid article {
+  height: clamp(92px, 9vh, 108px);
+  min-height: 0;
+  padding: 16px clamp(72px, 6vw, 104px) 16px 74px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid article::before {
+  left: clamp(20px, 2vw, 28px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid article::after {
+  right: clamp(14px, 1.6vw, 22px);
+  width: clamp(70px, 6.5vw, 100px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-stat-grid strong {
+  font-size: clamp(30px, 2.45vw, 38px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 330px);
+  gap: clamp(14px, 1.2vw, 20px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-list,
+body[data-porto-ui="modern"] .porto-modern-selected-unit {
+  padding: clamp(16px, 1.2vw, 22px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-list {
+  min-height: clamp(420px, 52vh, 640px);
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-list > header {
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: center;
+}
+
+body[data-porto-ui="modern"] .porto-modern-filter-row {
+  justify-content: flex-end;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-row {
+  grid-template-columns: 20px 92px minmax(135px, 1fr) 132px minmax(42px, auto) minmax(96px, 124px) 34px;
+  min-height: 56px;
+  padding: 8px 10px;
+  gap: 10px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-row .porto-status-pill {
+  width: 132px;
+  min-width: 132px;
+}
+
+body[data-porto-ui="modern"] .porto-modern-ops-row .porto-modern-channel,
+body[data-porto-ui="modern"] .porto-modern-ops-row .porto-modern-channel-cell,
+body[data-porto-ui="modern"] .porto-modern-ops-row [data-modern-channel],
+body[data-porto-ui="modern"] .porto-modern-ops-row small {
+  justify-self: start;
+  text-align: left;
+  line-height: 1.12;
+  overflow-wrap: normal;
+  white-space: normal;
+}
+
+body[data-porto-ui="modern"] .porto-modern-row-arrow,
+body[data-porto-ui="modern"] .porto-modern-ops-row .context-menu-trigger {
+  width: 34px;
+  height: 34px;
+}
+
+@media (max-width: 1320px) {
+  body[data-porto-ui="modern"] .porto-modern-ops-dashboard {
+    width: min(1200px, calc(100vw - 34px));
+    padding: 18px;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-header {
+    grid-template-columns: minmax(210px, 0.8fr) minmax(250px, 0.9fr) minmax(390px, auto);
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(290px, 320px);
+  }
+}
+
+@media (max-width: 1120px) {
+  body[data-porto-ui="modern"] .porto-modern-ops-header {
+    grid-template-columns: minmax(220px, 1fr) minmax(280px, 1fr);
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-ops-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-stat-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+}
