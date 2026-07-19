@@ -113,8 +113,8 @@ const SIDE_TASK_DEFINITIONS = {
         capacity: 2,
         requiresAlias: false,
         roleIds: ["1485659765429501982"],
+        leadershipRoleIds: ["1485659279263273091"],
         leadershipNumber: "11-00",
-        leadershipRank: "Senior Onderzoeker"
       },
       {
         key: "tactical",
@@ -123,6 +123,7 @@ const SIDE_TASK_DEFINITIONS = {
         capacity: 2,
         requiresAlias: true,
         roleIds: ["1485659805673586688"],
+        leadershipRoleIds: ["1485659407277752482"],
         leadershipNumber: "12-00"
       },
       {
@@ -132,6 +133,7 @@ const SIDE_TASK_DEFINITIONS = {
         capacity: 2,
         requiresAlias: true,
         roleIds: ["1506721224062144722", "1506721133100007615", "1506720813099778229"],
+        leadershipRoleIds: ["1506720813099778229"],
         leadershipNumber: "13-00"
       }
     ],
@@ -162,7 +164,8 @@ function configuredRoleIds(taskKey, suffix, fallback = []) {
 function dnrUnitsWithRuntimeConfig(task) {
   return (task.dnrUnits || []).map((unit) => ({
     ...unit,
-    roleIds: configuredRoleIds(task.key, `UNIT_${envKeyPart(unit.key)}`, unit.roleIds || [])
+    roleIds: configuredRoleIds(task.key, `UNIT_${envKeyPart(unit.key)}`, unit.roleIds || []),
+    leadershipRoleIds: configuredRoleIds(task.key, `UNIT_${envKeyPart(unit.key)}_LEADERSHIP`, unit.leadershipRoleIds || [])
   }));
 }
 
@@ -182,7 +185,10 @@ function sideTaskWithRuntimeConfig(task) {
   const acoRoleIds = roleEnv(task.key, "ACO");
   const tcoRoleIds = roleEnv(task.key, "TCO");
   const dnrUnits = dnrUnitsWithRuntimeConfig(task);
-  const dnrUnitRoleIds = dnrUnits.flatMap((unit) => unit.roleIds || []);
+  const dnrUnitRoleIds = dnrUnits.flatMap((unit) => [
+    ...(unit.roleIds || []),
+    ...(unit.leadershipRoleIds || [])
+  ]);
   const runtimeTask = {
     ...task,
     hostname: hostnameForTask(task),
@@ -275,7 +281,10 @@ function dnrUnitsForRoles(task, memberRoles, discordId) {
   if (task?.key !== "DNR") return task?.dnrUnits || [];
   const permissions = permissionsForTask(task, memberRoles, discordId);
   if (permissions.isDev || permissions.canManageMembers) return task.dnrUnits || [];
-  return (task.dnrUnits || []).filter((unit) => hasAnyRole(memberRoles, unit.roleIds || []));
+  return (task.dnrUnits || []).filter((unit) => hasAnyRole(memberRoles, [
+    ...(unit.roleIds || []),
+    ...(unit.leadershipRoleIds || [])
+  ]));
 }
 
 function canUseDnrUnit(task, memberRoles, discordId, unitKey) {

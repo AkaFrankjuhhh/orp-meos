@@ -62,18 +62,28 @@ test("DNR supports automatic recherche unit ranges", () => {
     ["tactical", ["1485659805673586688"]],
     ["unit-six", ["1506721224062144722", "1506721133100007615", "1506720813099778229"]]
   ]);
+  assert.deepEqual(dnrTask.dnrUnits.map((unit) => [unit.key, unit.leadershipNumber, unit.leadershipRoleIds]), [
+    ["technical", "11-00", ["1485659279263273091"]],
+    ["tactical", "12-00", ["1485659407277752482"]],
+    ["unit-six", "13-00", ["1506720813099778229"]]
+  ]);
 });
 
 test("DNR unit choices follow Discord unit roles", () => {
   const dnrTask = sideTaskForKey("DNR");
   const technicalRole = "1485659765429501982";
+  const technicalSeniorRole = "1485659279263273091";
   const tacticalRole = "1485659805673586688";
+  const tacticalSeniorRole = "1485659407277752482";
   const unitSixRole = "1506721224062144722";
+  const unitSixTeamchefRole = "1506720813099778229";
 
   assert.equal(permissionsForTask(dnrTask, [technicalRole], "discord-user").hasAccess, true);
   assert.equal(permissionsForTask(dnrTask, [technicalRole], "discord-user").roles.dnrUnit, true);
   assert.deepEqual(dnrUnitsForRoles(dnrTask, [technicalRole], "discord-user").map((unit) => unit.key), ["technical"]);
   assert.deepEqual(dnrUnitsForRoles(dnrTask, [tacticalRole, unitSixRole], "discord-user").map((unit) => unit.key), ["tactical", "unit-six"]);
+  assert.deepEqual(dnrUnitsForRoles(dnrTask, [technicalSeniorRole], "discord-user").map((unit) => unit.key), ["technical"]);
+  assert.deepEqual(dnrUnitsForRoles(dnrTask, [tacticalSeniorRole, unitSixTeamchefRole], "discord-user").map((unit) => unit.key), ["tactical", "unit-six"]);
   assert.equal(canUseDnrUnit(dnrTask, [unitSixRole], "discord-user", "unit-six"), true);
   assert.equal(canUseDnrUnit(dnrTask, [unitSixRole], "discord-user", "technical"), false);
 });
@@ -89,6 +99,7 @@ test("DNR unit assignment is handled server-side", () => {
   assert.match(storeCode, /formatDnrUnit\(dnrUnit\.prefix, index\)/);
   assert.match(serverCode, /function requireAllowedDnrUnit/);
   assert.match(serverCode, /function canUseDnrLeadershipNumber/);
+  assert.match(serverCode, /dnrUnit\.leadershipRoleIds/);
   assert.match(serverCode, /store\.assignDnrUnit\(task\.key, member\.id, dnrUnitKey/);
   assert.match(clientCode, /selectableDnrUnits/);
   assert.match(clientCode, /name="dnrUnitKey"/);

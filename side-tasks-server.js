@@ -8,6 +8,7 @@ const { createSessionStore, sessionMaxAgeSeconds } = require("./modules/session-
 const {
   allSideTasks,
   sideTaskForHost,
+  hasAnyRole,
   hasMembershipRole,
   specialtiesForRoles,
   permissionsForTask,
@@ -433,10 +434,7 @@ function requireAllowedDnrUnit(task, unitKey, session) {
 function canUseDnrLeadershipNumber(task, member, unitKey, session, portalIdentity = null) {
   const dnrUnit = dnrUnitForKey(task, unitKey);
   if (!dnrUnit?.leadershipNumber) return false;
-  if (dnrUnit.leadershipRank) {
-    return String(portalIdentity?.person?.rank || "").trim().toLowerCase() === String(dnrUnit.leadershipRank).toLowerCase();
-  }
-  return Boolean(session?.permissions?.canManageMembers);
+  return hasAnyRole(session?.roles || [], dnrUnit.leadershipRoleIds || []);
 }
 
 function rankNumberFromRoles(task, member) {
@@ -611,7 +609,7 @@ function publicArchive(archive) {
 function publicDnrUnits(task, session = null) {
   if (task.key !== "DNR" || !Array.isArray(task.dnrUnits)) return task.dnrUnits || null;
   const selectableKeys = new Set(dnrUnitsForRoles(task, session?.roles || [], session?.user?.id).map((unit) => unit.key));
-  return task.dnrUnits.map(({ roleIds, ...unit }) => ({
+  return task.dnrUnits.map(({ roleIds, leadershipRoleIds, ...unit }) => ({
     ...unit,
     canSelect: selectableKeys.has(unit.key)
   }));
