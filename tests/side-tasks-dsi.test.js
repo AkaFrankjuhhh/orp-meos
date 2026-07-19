@@ -2,7 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { sideTaskForKey, permissionsForTask } = require("../modules/side-tasks-config");
+const {
+  sideTaskForKey,
+  permissionsForTask,
+  dnrUnitsForRoles,
+  canUseDnrUnit
+} = require("../modules/side-tasks-config");
 const { shouldSyncDsiNicknameForStatus, requireDsiIdentityForStatus } = require("../modules/side-tasks-dsi");
 
 test("DSI nickname sync only runs for status 0, 1 and 8", () => {
@@ -46,11 +51,31 @@ test("DNR supports automatic recherche unit ranges", () => {
   assert.equal(dnrTask.aliasProfile.numberSource, "unit");
   assert.equal(dnrTask.aliasProfile.nicknameTemplate, "[{number} - ※] {name}");
   assert.equal(dnrTask.aliasProfile.supportsUndercover, false);
+  assert.deepEqual(dnrTask.roleIds.members, ["1485659456837783744"]);
   assert.deepEqual(dnrTask.dnrUnits.map((unit) => [unit.key, unit.prefix, unit.requiresAlias]), [
     ["technical", "11", false],
     ["tactical", "12", true],
     ["unit-six", "13", true]
   ]);
+  assert.deepEqual(dnrTask.dnrUnits.map((unit) => [unit.key, unit.roleIds]), [
+    ["technical", ["1485659765429501982"]],
+    ["tactical", ["1485659805673586688"]],
+    ["unit-six", ["1506721224062144722", "1506721133100007615", "1506720813099778229"]]
+  ]);
+});
+
+test("DNR unit choices follow Discord unit roles", () => {
+  const dnrTask = sideTaskForKey("DNR");
+  const technicalRole = "1485659765429501982";
+  const tacticalRole = "1485659805673586688";
+  const unitSixRole = "1506721224062144722";
+
+  assert.equal(permissionsForTask(dnrTask, [technicalRole], "discord-user").hasAccess, true);
+  assert.equal(permissionsForTask(dnrTask, [technicalRole], "discord-user").roles.dnrUnit, true);
+  assert.deepEqual(dnrUnitsForRoles(dnrTask, [technicalRole], "discord-user").map((unit) => unit.key), ["technical"]);
+  assert.deepEqual(dnrUnitsForRoles(dnrTask, [tacticalRole, unitSixRole], "discord-user").map((unit) => unit.key), ["tactical", "unit-six"]);
+  assert.equal(canUseDnrUnit(dnrTask, [unitSixRole], "discord-user", "unit-six"), true);
+  assert.equal(canUseDnrUnit(dnrTask, [unitSixRole], "discord-user", "technical"), false);
 });
 
 test("DNR unit assignment is handled server-side", () => {
@@ -62,8 +87,10 @@ test("DNR unit assignment is handled server-side", () => {
   assert.match(storeCode, /options\.useLeadershipNumber/);
   assert.match(storeCode, /dnrUnit\.leadershipNumber/);
   assert.match(storeCode, /formatDnrUnit\(dnrUnit\.prefix, index\)/);
+  assert.match(serverCode, /function requireAllowedDnrUnit/);
   assert.match(serverCode, /function canUseDnrLeadershipNumber/);
   assert.match(serverCode, /store\.assignDnrUnit\(task\.key, member\.id, dnrUnitKey/);
+  assert.match(clientCode, /selectableDnrUnits/);
   assert.match(clientCode, /name="dnrUnitKey"/);
   assert.match(clientCode, /\[\$\{number\} - ※\]/);
 });

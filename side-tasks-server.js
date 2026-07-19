@@ -11,6 +11,8 @@ const {
   hasMembershipRole,
   specialtiesForRoles,
   permissionsForTask,
+  dnrUnitsForRoles,
+  canUseDnrUnit,
   statusOption,
   statusOptionsForTask
 } = require("./modules/side-tasks-config");
@@ -418,6 +420,16 @@ function dnrUnitKeyForMember(task, member) {
   return String(member.raw?.dnrUnitKey || dnrUnitForNumber(task, member.unitNumber)?.key || "").trim();
 }
 
+function requireAllowedDnrUnit(task, unitKey, session) {
+  if (task.key !== "DNR") return;
+  const key = String(unitKey || "").trim();
+  if (!key) return;
+  if (canUseDnrUnit(task, session?.roles || [], session?.user?.id, key)) return;
+  const error = new Error("Je mist de Discord-rol voor deze DNR-eenheid.");
+  error.status = 403;
+  throw error;
+}
+
 function canUseDnrLeadershipNumber(task, member, unitKey, session, portalIdentity = null) {
   const dnrUnit = dnrUnitForKey(task, unitKey);
   if (!dnrUnit?.leadershipNumber) return false;
@@ -596,7 +608,16 @@ function publicArchive(archive) {
   };
 }
 
-function publicTask(task) {
+function publicDnrUnits(task, session = null) {
+  if (task.key !== "DNR" || !Array.isArray(task.dnrUnits)) return task.dnrUnits || null;
+  const selectableKeys = new Set(dnrUnitsForRoles(task, session?.roles || [], session?.user?.id).map((unit) => unit.key));
+  return task.dnrUnits.map(({ roleIds, ...unit }) => ({
+    ...unit,
+    canSelect: selectableKeys.has(unit.key)
+  }));
+}
+
+function publicTask(task, session = null) {
   return {
     key: task.key,
     slug: task.slug,
@@ -613,7 +634,7 @@ function publicTask(task) {
       numberSource: task.aliasProfile.numberSource || "manual"
     } : null,
     dsiUnits: task.dsiUnits || null,
-    dnrUnits: task.dnrUnits || null,
+    dnrUnits: publicDnrUnits(task, session),
     specialties: task.specialties.map((specialty) => ({ label: specialty.label }))
   };
 }
@@ -765,7 +786,7 @@ async function handleApi(req, res, task, url) {
     const member = await ensureSessionMember(task, session);
     return sendJson(res, 200, {
       user: session.user,
-      task: publicTask(task),
+      task: publicTask(task, session),
       permissions: session.permissions,
       member: member ? publicMember(member) : null,
       statuses: statusOptionsForTask(task)
@@ -809,6 +830,9 @@ async function handleApi(req, res, task, url) {
     const body = await readBody(req);
     const existing = await ensureSessionMember(task, session);
     if (!existing) return jsonError(res, 404, "Lid niet gevonden.");
+    if (task.key === "DNR" && body.dnrUnitKey !== undefined) {
+      requireAllowedDnrUnit(task, sanitizeText(body.dnrUnitKey, 40), session);
+    }
     let member = await store.updateMemberProfile(task.key, existing.id, {
       callSign: ["rank", "unit"].includes(task.aliasProfile?.numberSource) ? existing.callSign : normalizeAliasNumber(task, body.callSign),
       aliasName: sanitizeText(body.aliasName, 80),
@@ -845,6 +869,7 @@ async function handleApi(req, res, task, url) {
           ...(task.aliasProfile?.supportsUndercover && body.undercover !== undefined ? { undercover: Boolean(body.undercover) } : {})
         }
       };
+      if (task.key === "DNR") requireAllowedDnrUnit(task, dnrUnitKeyForMember(task, profilePatch), session);
       // Valideer voordat we opslaan: een incomplete browserdraft mag nooit
       // reeds opgeslagen profielgegevens leegmaken.
       const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(member.discordId) : null;
@@ -859,6 +884,7 @@ async function handleApi(req, res, task, url) {
       member = await store.assignDsiUnit(task.key, member.id);
     } else if (task.key === "DNR" && status === "1") {
       const dnrUnitKey = dnrUnitKeyForMember(task, member);
+      requireAllowedDnrUnit(task, dnrUnitKey, session);
       const portalIdentity = await portalIdentityForDiscordId(member.discordId);
       member = await store.assignDnrUnit(task.key, member.id, dnrUnitKey, {
         useLeadershipNumber: canUseDnrLeadershipNumber(task, member, dnrUnitKey, session, portalIdentity)
@@ -960,6 +986,9 @@ async function handleApi(req, res, task, url) {
           ...(task.aliasProfile?.supportsUndercover && body.undercover !== undefined ? { undercover: Boolean(body.undercover) } : {})
         }
     };
+    if (task.key === "DNR" && body.dnrUnitKey !== undefined) {
+      requireAllowedDnrUnit(task, sanitizeText(body.dnrUnitKey, 40), session);
+    }
     if (task.allowAlias) {
       const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(existing.discordId) : null;
       validateAliasProfileForStatus(task, nextMemberProfile, status, validationIdentity);
@@ -984,6 +1013,7 @@ async function handleApi(req, res, task, url) {
     }
     if (task.key === "DNR" && status === "1") {
       const dnrUnitKey = dnrUnitKeyForMember(task, member);
+      requireAllowedDnrUnit(task, dnrUnitKey, session);
       const portalIdentity = await portalIdentityForDiscordId(member.discordId);
       member = await store.assignDnrUnit(task.key, member.id, dnrUnitKey, {
         useLeadershipNumber: canUseDnrLeadershipNumber(task, member, dnrUnitKey, session, portalIdentity)

@@ -77,6 +77,10 @@ function dnrUnitForMember(member, task) {
   return (task.dnrUnits || []).find((unit) => unit.key === key || unit.prefix === prefix) || null;
 }
 
+function selectableDnrUnits(task) {
+  return (task.dnrUnits || []).filter((unit) => unit.canSelect !== false);
+}
+
 function aliasNumberForDisplay(member, task) {
   if (task.key === "KLU") return member.callSign || task.aliasProfile?.numberPlaceholder || "Eagle";
   if (task.key === "DNR") return member.unitNumber || member.callSign || "";
@@ -116,7 +120,7 @@ function aliasProfileFields(member = {}, task = appState.me?.task || {}) {
   const profile = task.aliasProfile || {};
   const isRankNumber = profile.numberSource === "rank";
   const isUnitNumber = profile.numberSource === "unit" && task.key === "DNR";
-  const unitOptions = (task.dnrUnits || [])
+  const unitOptions = selectableDnrUnits(task)
     .map((unit) => `<option value="${escapeHtml(unit.key)}" ${unit.key === member.dnrUnitKey ? "selected" : ""}>${escapeHtml(unit.label)} (${escapeHtml(unit.prefix)}-XX)</option>`)
     .join("");
   return `
@@ -390,7 +394,7 @@ function memberEditModal() {
   const profile = task.aliasProfile || {};
   const isRankNumber = profile.numberSource === "rank";
   const isUnitNumber = profile.numberSource === "unit" && task.key === "DNR";
-  const unitOptions = (task.dnrUnits || [])
+  const unitOptions = selectableDnrUnits(task)
     .map((unit) => `<option value="${escapeHtml(unit.key)}" ${unit.key === member.dnrUnitKey ? "selected" : ""}>${escapeHtml(unit.label)} (${escapeHtml(unit.prefix)}-XX)</option>`)
     .join("");
   return `

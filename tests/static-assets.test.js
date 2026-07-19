@@ -316,8 +316,8 @@ test("mentor test Discord embed formats submitted date and time", () => {
 
 test("side task shell serves DNR and KLu alias assets with a fresh version", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "side-tasks.html"), "utf8");
-  assert.match(html, /side-tasks\.css\?v=20260718-dnr-units/);
-  assert.match(html, /side-tasks\.js\?v=20260718-dnr-units/);
+  assert.match(html, /side-tasks\.css\?v=20260719-dnr-role-gate/);
+  assert.match(html, /side-tasks\.js\?v=20260719-dnr-role-gate/);
 });
 
 test("side task browser heartbeat signs off closed browsers server-side", () => {

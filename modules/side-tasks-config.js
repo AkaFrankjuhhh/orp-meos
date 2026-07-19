@@ -91,6 +91,9 @@ const SIDE_TASK_DEFINITIONS = {
     label: "DNR",
     displayName: "Dienst Nationale Recherche",
     logoUrl: "/assets/politie-logo.png",
+    roleDefaults: {
+      members: ["1485659456837783744"]
+    },
     allowAlias: true,
     aliasProfile: {
       numberLabel: "DNR eenheid",
@@ -109,6 +112,7 @@ const SIDE_TASK_DEFINITIONS = {
         prefix: "11",
         capacity: 2,
         requiresAlias: false,
+        roleIds: ["1485659765429501982"],
         leadershipNumber: "11-00",
         leadershipRank: "Senior Onderzoeker"
       },
@@ -118,6 +122,7 @@ const SIDE_TASK_DEFINITIONS = {
         prefix: "12",
         capacity: 2,
         requiresAlias: true,
+        roleIds: ["1485659805673586688"],
         leadershipNumber: "12-00"
       },
       {
@@ -126,6 +131,7 @@ const SIDE_TASK_DEFINITIONS = {
         prefix: "13",
         capacity: 2,
         requiresAlias: true,
+        roleIds: ["1506721224062144722", "1506721133100007615", "1506720813099778229"],
         leadershipNumber: "13-00"
       }
     ],
@@ -144,6 +150,22 @@ function roleEnv(taskKey, suffix) {
   return splitIds(process.env[`SIDE_TASK_${taskKey}_${suffix}_ROLE_IDS`]);
 }
 
+function envKeyPart(value) {
+  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+}
+
+function configuredRoleIds(taskKey, suffix, fallback = []) {
+  const configured = roleEnv(taskKey, suffix);
+  return configured.length ? configured : (Array.isArray(fallback) ? fallback.map(String).filter(Boolean) : splitIds(fallback));
+}
+
+function dnrUnitsWithRuntimeConfig(task) {
+  return (task.dnrUnits || []).map((unit) => ({
+    ...unit,
+    roleIds: configuredRoleIds(task.key, `UNIT_${envKeyPart(unit.key)}`, unit.roleIds || [])
+  }));
+}
+
 function devDiscordIds() {
   return splitIds(process.env.SIDE_TASK_DEV_DISCORD_IDS || process.env.DEV_DISCORD_IDS || "");
 }
@@ -159,18 +181,23 @@ function sideTaskWithRuntimeConfig(task) {
   const specialtyRoleIds = task.specialties.map((specialty) => specialty.roleId);
   const acoRoleIds = roleEnv(task.key, "ACO");
   const tcoRoleIds = roleEnv(task.key, "TCO");
-  return {
+  const dnrUnits = dnrUnitsWithRuntimeConfig(task);
+  const dnrUnitRoleIds = dnrUnits.flatMap((unit) => unit.roleIds || []);
+  const runtimeTask = {
     ...task,
     hostname: hostnameForTask(task),
     roleIds: {
-      members: roleEnv(task.key, "MEMBER"),
-      leadership: roleEnv(task.key, "LEADERSHIP"),
-      subleadership: roleEnv(task.key, "SUBLEADERSHIP"),
+      members: configuredRoleIds(task.key, "MEMBER", task.roleDefaults?.members || []),
+      leadership: configuredRoleIds(task.key, "LEADERSHIP", task.roleDefaults?.leadership || []),
+      subleadership: configuredRoleIds(task.key, "SUBLEADERSHIP", task.roleDefaults?.subleadership || []),
       aco: acoRoleIds.length ? acoRoleIds : [task.commandRoleDefaults?.ACO].filter(Boolean),
       tco: tcoRoleIds.length ? tcoRoleIds : [task.commandRoleDefaults?.TCO].filter(Boolean),
-      specialties: specialtyRoleIds
+      specialties: specialtyRoleIds,
+      dnrUnits: dnrUnitRoleIds
     }
   };
+  if (dnrUnits.length) runtimeTask.dnrUnits = dnrUnits;
+  return runtimeTask;
 }
 
 function allSideTasks() {
@@ -200,7 +227,8 @@ function hasMembershipRole(task, memberRoles) {
     ...(roleIds.subleadership || []),
     ...(roleIds.specialties || []),
     ...(roleIds.aco || []),
-    ...(roleIds.tco || [])
+    ...(roleIds.tco || []),
+    ...(roleIds.dnrUnits || [])
   ]);
 }
 
@@ -220,12 +248,13 @@ function permissionsForTask(task, memberRoles, discordId) {
   const hasAcoRole = hasAnyRole(memberRoles, roleIds.aco);
   const hasTcoRole = hasAnyRole(memberRoles, roleIds.tco);
   const hasSpecialtyRole = hasAnyRole(memberRoles, roleIds.specialties);
+  const hasDnrUnitRole = task.key === "DNR" && hasAnyRole(memberRoles, roleIds.dnrUnits);
   const canManageMembers = isDev || hasLeadershipRole || hasSubleadershipRole;
   const canManageDsiUnits = task.key === "DSI" && (canManageMembers || hasAcoRole || hasTcoRole);
   const canAssignDsiCommand = task.key === "DSI" && (canManageMembers || hasMemberRole || hasAcoRole || hasTcoRole);
   return {
     isDev,
-    hasAccess: isDev || canManageMembers || hasAcoRole || hasTcoRole || hasMemberRole || hasSpecialtyRole,
+    hasAccess: isDev || canManageMembers || hasAcoRole || hasTcoRole || hasMemberRole || hasSpecialtyRole || hasDnrUnitRole,
     canManageMembers,
     canManageDsiUnits,
     canAssignDsiCommand,
@@ -236,9 +265,24 @@ function permissionsForTask(task, memberRoles, discordId) {
       subleadership: hasSubleadershipRole,
       aco: hasAcoRole,
       tco: hasTcoRole,
-      specialty: hasSpecialtyRole
+      specialty: hasSpecialtyRole,
+      dnrUnit: hasDnrUnitRole
     }
   };
+}
+
+function dnrUnitsForRoles(task, memberRoles, discordId) {
+  if (task?.key !== "DNR") return task?.dnrUnits || [];
+  const permissions = permissionsForTask(task, memberRoles, discordId);
+  if (permissions.isDev || permissions.canManageMembers) return task.dnrUnits || [];
+  return (task.dnrUnits || []).filter((unit) => hasAnyRole(memberRoles, unit.roleIds || []));
+}
+
+function canUseDnrUnit(task, memberRoles, discordId, unitKey) {
+  const key = String(unitKey || "").trim();
+  if (task?.key !== "DNR") return true;
+  if (!key) return false;
+  return dnrUnitsForRoles(task, memberRoles, discordId).some((unit) => unit.key === key);
 }
 
 function statusOption(value) {
@@ -261,6 +305,8 @@ module.exports = {
   hasMembershipRole,
   specialtiesForRoles,
   permissionsForTask,
+  dnrUnitsForRoles,
+  canUseDnrUnit,
   statusOption,
   statusOptionsForTask,
   devDiscordIds
