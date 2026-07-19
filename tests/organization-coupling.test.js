@@ -41,21 +41,28 @@ test("porto unlink assigns the next regular unit instead of reusing the operator
   assert.match(unlinkBlock, /const targetRange = vehicleRangeForNumber\(state, vehicleNumber\) \|\| currentRange/);
 });
 
-test("porto duty roles are disabled for police and available for defensie", () => {
+test("porto duty roles include K9 for police and defensie", () => {
   const routeCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
   const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
   const dutyUiCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
   const mainUiCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
   const opsUiCode = fs.readFileSync(path.join(process.cwd(), "porto", "ops.js"), "utf8");
+  const postgresStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-postgres-store.js"), "utf8");
+  const postgresStateCode = fs.readFileSync(path.join(process.cwd(), "modules", "postgres-state.js"), "utf8");
 
   assert.match(routeCode, /\/api\/porto\/duty-role/);
-  assert.match(routeCode, /organization\.key === "politie"\s*\?\s*\[\]/);
-  assert.match(routeCode, /Dienstrollen zijn niet beschikbaar voor deze organisatie/);
+  assert.match(routeCode, /key: "K9"[\s\S]*requiresK9Name: true/);
+  assert.match(routeCode, /key: "K9_BEGELEIDER"[\s\S]*K9 Begeleider/);
+  assert.match(routeCode, /Vul eerst je K9-Naam in op je Porto-profiel/);
   assert.match(routeCode, /canPersonUsePortoDutyRole/);
-  assert.match(botCode, /`\$\{dutyRole\}-\$\{dutySuffix\}`/);
-  assert.match(mainUiCode, /portoOrganization\.key === "politie"\s*\?\s*\[\]/);
+  assert.match(botCode, /K9: `K9-\$\{dutySuffix\}`/);
+  assert.match(botCode, /K9_BEGELEIDER: `K9B-\$\{dutySuffix\}`/);
+  assert.match(mainUiCode, /requiresK9Name: true/);
+  assert.match(mainUiCode, /K9_BEGELEIDER/);
   assert.match(mainUiCode, /"OC overzicht"/);
   assert.match(dutyUiCode, /data-duty-role/);
+  assert.match(postgresStoreCode, /"K9", "K9_BEGELEIDER"/);
+  assert.match(postgresStateCode, /"K9", "K9_BEGELEIDER"/);
   assert.match(opsUiCode, /memberNameTitle/);
   assert.match(opsUiCode, /GEEN IBT/);
 });

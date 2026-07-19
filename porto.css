@@ -2699,6 +2699,15 @@ body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-actions {
   color: #facc15;
 }
 
+.porto-member-name.duty-k9,
+.porto-member-name.duty-k9-begeleider,
+.porto-modern-member strong.porto-member-name.duty-k9,
+.porto-modern-member strong.porto-member-name.duty-k9-begeleider,
+.porto-unit-member div strong.porto-member-name.duty-k9,
+.porto-unit-member div strong.porto-member-name.duty-k9-begeleider {
+  color: #fbbf24;
+}
+
 .porto-member-name.no-ibt,
 .porto-modern-member strong.porto-member-name.no-ibt,
 .porto-unit-member div strong.porto-member-name.no-ibt {

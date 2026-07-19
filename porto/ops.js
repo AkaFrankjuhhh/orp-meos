@@ -326,13 +326,15 @@ function memberHasIbt(member) {
 
 function memberDutyRole(member) {
   const role = String(member?.dutyRole || "").trim().toUpperCase();
-  return role === "OVD" || role === "OPCO" ? role : "";
+  return ["OVD", "OPCO", "K9", "K9_BEGELEIDER"].includes(role) ? role : "";
 }
 
 function memberDutyClass(member) {
   const role = memberDutyRole(member);
   if (role === "OVD") return "duty-ovd";
   if (role === "OPCO") return "duty-opco";
+  if (role === "K9") return "duty-k9";
+  if (role === "K9_BEGELEIDER") return "duty-k9-begeleider";
   return "";
 }
 

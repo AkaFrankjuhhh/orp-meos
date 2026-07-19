@@ -76,12 +76,14 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const pendingAutoAssignMs = 60000;
   const recentlyEndedPortoMembers = new Map();
   const dutyRoleSuffix = organization.key === "politie" ? "P" : "K";
-  const dutyRoleDefinitions = organization.key === "politie"
-    ? []
-    : [
-        { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${dutyRoleSuffix}` },
-        { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${dutyRoleSuffix}` }
-      ];
+  const dutyRoleDefinitions = [
+    ...(organization.key === "politie" ? [] : [
+      { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${dutyRoleSuffix}` },
+      { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${dutyRoleSuffix}` }
+    ]),
+    { key: "K9", label: "K9", requiredAny: ["K9"], nicknameLabel: `K9-${dutyRoleSuffix}`, requiresK9Name: true },
+    { key: "K9_BEGELEIDER", label: "K9 Begeleider", requiredAny: ["K9 Begeleider"], nicknameLabel: `K9B-${dutyRoleSuffix}` }
+  ];
 
   function portoMemberKey(memberId) {
     return String(memberId || "").trim();
@@ -153,6 +155,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       ...(Array.isArray(person?.completedTrainings) ? person.completedTrainings : [])
     ].map(String));
     return role.requiredAny.some((value) => values.has(value));
+  }
+
+  function personHasK9Training(person) {
+    return (Array.isArray(person?.completedTrainings) ? person.completedTrainings : []).includes("K9");
   }
 
   function clearPortoDutyRole(unit) {
@@ -417,7 +423,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     const phonePerson = options.phonePerson || null;
     if (typeof writePortoUnits === "function" || typeof writePortoSettings === "function" || typeof writePortoPhone === "function") {
       if (settings && typeof writePortoSettings === "function") await Promise.resolve(writePortoSettings(state));
-      if (phonePerson && typeof writePortoPhone === "function") await Promise.resolve(writePortoPhone(phonePerson.id, phonePerson.portoPhone || ""));
+      if (phonePerson && typeof writePortoPhone === "function") await Promise.resolve(writePortoPhone(phonePerson.id, phonePerson.portoPhone || "", { k9Name: phonePerson.k9Name || "" }));
       if (units && typeof writePortoUnits === "function") await Promise.resolve(writePortoUnits(units));
       return state;
     }
@@ -768,7 +774,13 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (!context) return true;
       const { state, person } = context;
       const body = await readBody(req);
+      const previousK9Name = String(person.k9Name || "").trim();
       person.portoPhone = String(body.portoPhone || "").trim().slice(0, 40);
+      if (personHasK9Training(person)) {
+        person.k9Name = String(body.k9Name || "").trim().slice(0, 40);
+      } else {
+        person.k9Name = "";
+      }
       const { unitsChanged, settingsChanged } = refreshActivePortoPhoneForPerson(state, person);
       await persistPortoState(state, {
         phonePerson: person,
@@ -777,6 +789,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       });
       const recentlyEnded = isRecentlyEnded(person.id);
       const unit = recentlyEnded ? null : state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false) || null;
+      if (unit && normalizedPortoDutyRole(unit.dutyRole) === "K9" && previousK9Name !== String(person.k9Name || "").trim()) {
+        enqueuePortoDiscordNicknames(state, [unit], "K9-naam bijgewerkt")
+          .catch((error) => console.error(`[porto] Discord nickname queue voor K9-naam mislukt: ${error.message}`));
+      }
       await sendPortoState(res, state, person, unit, recentlyEnded ? { recentlyEnded: true } : {});
       return true;
     }
@@ -1158,6 +1174,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         if (dutyRole && !canPersonUsePortoDutyRole(person, dutyRole)) {
           const role = dutyRoleDefinitions.find((entry) => entry.key === dutyRole);
           sendJson(res, 403, { error: `Je hebt ${role?.label || dutyRole} niet op je profiel.` });
+          return true;
+        }
+        const role = dutyRoleDefinitions.find((entry) => entry.key === dutyRole);
+        if (role?.requiresK9Name && !String(person.k9Name || "").trim()) {
+          sendJson(res, 400, { error: "Vul eerst je K9-Naam in op je Porto-profiel." });
           return true;
         }
         const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false && entry.vehicleNumber);

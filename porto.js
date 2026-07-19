@@ -22,10 +22,15 @@ const profileTrainings = portoRuntimeConfig.profileTrainings || ["BKV", "Mentor-
 const profileOperational = portoRuntimeConfig.profileOperational || ["OPS", "OPCO", "OVD"];
 const portoDutyRoleSuffix = portoOrganization.key === "politie" ? "P" : "K";
 const portoDutyRoles = portoOrganization.key === "politie"
-  ? []
+  ? [
+      { key: "K9", label: "K9", requiredAny: ["K9"], nicknameLabel: `K9-${portoDutyRoleSuffix}`, requiresK9Name: true },
+      { key: "K9_BEGELEIDER", label: "K9 Begeleider", requiredAny: ["K9 Begeleider"], nicknameLabel: `K9B-${portoDutyRoleSuffix}` }
+    ]
   : [
       { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${portoDutyRoleSuffix}` },
-      { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${portoDutyRoleSuffix}` }
+      { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${portoDutyRoleSuffix}` },
+      { key: "K9", label: "K9", requiredAny: ["K9"], nicknameLabel: `K9-${portoDutyRoleSuffix}`, requiresK9Name: true },
+      { key: "K9_BEGELEIDER", label: "K9 Begeleider", requiredAny: ["K9 Begeleider"], nicknameLabel: `K9B-${portoDutyRoleSuffix}` }
     ];
 const portoStatuses = [
   { code: "1", title: "Status 1", label: "Beschikbaar", className: "available" },
@@ -572,10 +577,14 @@ $("#cancelPortoPhonebookDialog")?.addEventListener("click", closePortoPhonebook)
 $("#portoPhonebookSearch")?.addEventListener("input", schedulePortoPhonebookRender);
 $("#portoProfileForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const k9NameInput = $("#portoK9Name");
   const response = await fetch("/api/porto/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ portoPhone: $("#portoPhone").value.trim() })
+    body: JSON.stringify({
+      portoPhone: $("#portoPhone").value.trim(),
+      k9Name: k9NameInput && !k9NameInput.closest("[hidden]") ? k9NameInput.value.trim() : ""
+    })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {

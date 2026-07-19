@@ -258,6 +258,24 @@ test("porto profile dialog scroll avoids expensive backdrop repainting", () => {
   assert.match(styles, /\.porto-profile-form \{[\s\S]*scrollbar-gutter: stable;/);
 });
 
+test("porto K9 duty role stores a visible K9 name from the profile", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
+  const profileCode = fs.readFileSync(path.join(process.cwd(), "porto", "profile.js"), "utf8");
+  const clientCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+
+  assert.match(html, /portoK9NameField/);
+  assert.match(html, /portoK9Name/);
+  assert.match(html, /porto\/profile\.js\?v=20260719-k9-duty-role/);
+  assert.match(html, /porto\.js\?v=20260719-k9-duty-role/);
+  assert.match(profileCode, /completedTrainings\)\s*&& portoProfile\.completedTrainings\.includes\("K9"\)/);
+  assert.match(clientCode, /k9Name: k9NameInput/);
+  assert.match(routesCode, /personHasK9Training/);
+  assert.match(routesCode, /person\.k9Name = String\(body\.k9Name/);
+  assert.match(botCode, /dutyRole === "K9" && k9Name \? k9Name/);
+});
+
 test("porto browser heartbeat avoids noisy persistence and stale active screens", () => {
   const clientCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");

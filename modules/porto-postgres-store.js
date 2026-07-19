@@ -160,7 +160,7 @@ function portoUnitFromRow(row) {
   const active = row.active !== false;
   const vehicleNumber = row.vehicle_number || "";
   const operatorSlot = active && vehicleNumber ? String(raw.operatorSlot || "").trim() : "";
-  const dutyRole = active && vehicleNumber && ["OVD", "OPCO"].includes(String(raw.dutyRole || "").trim())
+  const dutyRole = active && vehicleNumber && ["OVD", "OPCO", "K9", "K9_BEGELEIDER"].includes(String(raw.dutyRole || "").trim())
     ? String(raw.dutyRole).trim()
     : "";
   return {
@@ -348,12 +348,15 @@ function createPostgresPortoStore(options = {}) {
     return state;
   }
 
-  async function doWritePortoPhone(personId, portoPhone) {
+  async function doWritePortoPhone(personId, portoPhone, profilePatch = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
         await lockPortoWrite(client);
-        await client.query("update people set porto_phone = $2, updated_at = now() where id = $1", [personId, portoPhone || ""]);
+        await client.query(
+          "update people set porto_phone = $2, raw = coalesce(raw, '{}'::jsonb) || $3::jsonb, updated_at = now() where id = $1",
+          [personId, portoPhone || "", JSON.stringify(profilePatch || {})]
+        );
         await client.query("commit");
       } catch (error) {
         await client.query("rollback");
@@ -361,7 +364,7 @@ function createPostgresPortoStore(options = {}) {
       }
     });
     if (afterWrite) afterWrite();
-    return { personId, portoPhone };
+    return { personId, portoPhone, profilePatch };
   }
 
   async function doWritePortoUnits(units) {
@@ -388,8 +391,8 @@ function createPostgresPortoStore(options = {}) {
     return enqueuePortoWrite(() => doWritePortoSettings(state));
   }
 
-  async function writePortoPhone(personId, portoPhone) {
-    return enqueuePortoWrite(() => doWritePortoPhone(personId, portoPhone));
+  async function writePortoPhone(personId, portoPhone, profilePatch = {}) {
+    return enqueuePortoWrite(() => doWritePortoPhone(personId, portoPhone, profilePatch));
   }
 
   async function writePortoUnits(units) {
@@ -401,7 +404,7 @@ function createPostgresPortoStore(options = {}) {
     return enqueuePortoWrite(async () => {
       await doWritePortoSettings(state);
       for (const person of state.people || []) {
-        await doWritePortoPhone(person.id, person.portoPhone || "");
+        await doWritePortoPhone(person.id, person.portoPhone || "", { k9Name: person.k9Name || "" });
       }
       await doWritePortoUnits(state.portoUnits || []);
       return state;

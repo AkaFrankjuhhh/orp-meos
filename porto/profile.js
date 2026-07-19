@@ -10,11 +10,16 @@ function renderQualificationList(container, items, completed) {
 
 function renderPortoProfileDialog() {
   if (!portoProfile) return;
+  const hasK9Training = Array.isArray(portoProfile.completedTrainings) && portoProfile.completedTrainings.includes("K9");
   $("#portoProfileAvatar").src = avatarFor(portoProfile);
   $("#portoProfileNameService").textContent = portoProfile.name || "Onbekend";
   $("#portoProfileServiceBadge").textContent = portoProfile.serviceNumber || "-";
   $("#portoProfileRank").textContent = portoProfile.rank || "-";
   $("#portoPhone").value = portoProfile.portoPhone || "";
+  const k9NameField = $("#portoK9NameField");
+  const k9NameInput = $("#portoK9Name");
+  if (k9NameField) k9NameField.hidden = !hasK9Training;
+  if (k9NameInput) k9NameInput.value = hasK9Training ? portoProfile.k9Name || "" : "";
   renderQualificationList($("#portoTrainingList"), profileTrainings, portoProfile.completedTrainings);
   renderQualificationList($("#portoOperationalList"), profileOperational, portoProfile.completedOperational);
 }

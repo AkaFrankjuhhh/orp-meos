@@ -192,21 +192,28 @@ function buildPortoNicknameDefault(person, unit = {}) {
   const organization = activeOrganization();
   const serviceNumber = unit?.vehicleNumber || person?.serviceNumber || person?.previousServiceNumber || "-";
   const symbols = rankSymbolsFor(person?.rank || unit?.rank);
-  const name = formatNameForDiscordNickname(person?.name || unit?.name || person?.discordUsername || "");
+  const dutyRole = String(unit?.dutyRole || "").trim().toUpperCase();
+  const k9Name = String(person?.k9Name || "").trim();
+  const name = formatNameForDiscordNickname(dutyRole === "K9" && k9Name ? k9Name : person?.name || unit?.name || person?.discordUsername || "");
   const prefix = buildNicknamePrefix(serviceNumber, symbols);
   const body = `${prefix} ${name}`.trim();
   const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
   const isOpsLead = unit?.vehicleNumber === operatorVehicleNumber && unit?.isPortoOpsLead === true;
   const operatorLabel = organization.porto?.operatorLabel || organization.discord?.portoOperatorLabel || "OPS";
-  const dutyRole = String(unit?.dutyRole || "").trim().toUpperCase();
   const dutySuffix = organization.key === "politie" ? "P" : "K";
-  const dutyPrefix = dutyRole === "OVD" || dutyRole === "OPCO" ? `${dutyRole}-${dutySuffix}` : "";
+  const dutyPrefixByRole = {
+    OVD: `OVD-${dutySuffix}`,
+    OPCO: `OPCO-${dutySuffix}`,
+    K9: `K9-${dutySuffix}`,
+    K9_BEGELEIDER: `K9B-${dutySuffix}`
+  };
+  const dutyPrefix = dutyPrefixByRole[dutyRole] || "";
   const leadPrefix = isOpsLead ? operatorLabel : "";
   return truncateDiscordNickname(`${dutyPrefix || leadPrefix} ${body}`.trim());
 }
 
 function nicknameHasPortoDutyPrefix(nickname) {
-  return /^(?:OVD|OPCO)-[KP]\s+/i.test(String(nickname || "").trim());
+  return /^(?:OVD|OPCO|K9|K9B)-[KP]\s+/i.test(String(nickname || "").trim());
 }
 
 function auditReasonAllowsNormalNicknameOverDuty(auditReason) {
