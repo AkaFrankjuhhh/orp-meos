@@ -71,6 +71,17 @@ test("defensie new recruits have default Discord base roles configured", () => {
   });
 });
 
+test("police and defensie expose K9 trainings in the profile", () => {
+  const { organizationConfigs } = require("../modules/organizations");
+
+  for (const key of ["defensie", "politie"]) {
+    const trainings = organizationConfigs[key].profileTrainings;
+    assert.ok(trainings.includes("K9"), `${key} mist K9 training`);
+    assert.ok(trainings.includes("K9 Begeleider"), `${key} mist K9 Begeleider training`);
+    assert.ok(trainings.indexOf("K9") < trainings.indexOf("K9 Begeleider"), `${key} K9 volgorde klopt niet`);
+  }
+});
+
 test("public form threads use the shared portal or government bot token", () => {
   const code = fs.readFileSync(path.join(process.cwd(), "modules", "discord-webhooks.js"), "utf8");
 
