@@ -597,6 +597,7 @@ async function loadPortoDuty(options = {}) {
     portoDuty = payload.unit || null;
     portoLastDutyLoadAt = Date.now();
     applyPortoPayload(payload);
+    if (typeof syncPortoBrowserHeartbeatForPayload === "function") syncPortoBrowserHeartbeatForPayload(payload);
     renderVehicleRanges();
     renderDutyPanel();
     renderOpsPanel();
@@ -628,6 +629,9 @@ async function updatePortoStatus(status, detail = "") {
         portoDuty = null;
         portoLastDutyLoadAt = Date.now();
         applyPortoPayload({ unit: null, recentlyEnded: true });
+        if (typeof syncPortoBrowserHeartbeatForPayload === "function") {
+          syncPortoBrowserHeartbeatForPayload({ unit: null, recentlyEnded: true });
+        }
         renderVehicleRanges();
         renderDutyPanel();
         renderOpsPanel();
@@ -637,6 +641,7 @@ async function updatePortoStatus(status, detail = "") {
       return;
     }
     setPortoSignedOffUntilStatus0(status === "8" || Boolean(payload.recentlyEnded));
+    if (typeof syncPortoBrowserHeartbeatForPayload === "function") syncPortoBrowserHeartbeatForPayload(payload);
     portoDuty = payload.unit || null;
     portoLastDutyLoadAt = Date.now();
     applyPortoPayload(payload);

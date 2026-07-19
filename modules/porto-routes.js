@@ -56,6 +56,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const portoBrowserTimeoutMs = Number.isFinite(configuredBrowserTimeoutMs)
     ? (configuredBrowserTimeoutMs <= 0 ? 0 : Math.max(60000, configuredBrowserTimeoutMs))
     : 15 * 60 * 1000;
+  const configuredBrowserCloseGraceMs = Number(process.env.PORTO_BROWSER_CLOSE_GRACE_MS);
+  const portoBrowserCloseGraceMs = Number.isFinite(configuredBrowserCloseGraceMs)
+    ? (configuredBrowserCloseGraceMs <= 0 ? 0 : Math.max(portoBrowserTimeoutMs || 60000, configuredBrowserCloseGraceMs))
+    : (portoBrowserTimeoutMs ? Math.max(portoBrowserTimeoutMs, 60 * 60 * 1000) : 0);
   const configuredBrowserTimeoutCheckMs = Number(process.env.PORTO_BROWSER_TIMEOUT_CHECK_MS);
   const portoBrowserTimeoutCheckMs = Number.isFinite(configuredBrowserTimeoutCheckMs)
     ? Math.max(30000, configuredBrowserTimeoutCheckMs)
@@ -621,13 +625,13 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
       const now = new Date();
       const nowIso = now.toISOString();
-      const cutoffMs = now.getTime() - portoBrowserTimeoutMs;
+      const closeCutoffMs = portoBrowserCloseGraceMs ? now.getTime() - portoBrowserCloseGraceMs : 0;
       const hardCutoffMs = portoBrowserHardTimeoutMs ? now.getTime() - portoBrowserHardTimeoutMs : 0;
       const timedOutUnits = state.portoUnits.filter((unit) => {
         if (!unit || unit.active === false || !unit.browserHeartbeatActive) return false;
         const heartbeatMs = timestampMs(unit.browserHeartbeatAt);
         const closeMs = timestampMs(unit.browserCloseSuspectedAt);
-        if (closeMs > 0 && closeMs <= cutoffMs && heartbeatMs <= closeMs) return true;
+        if (closeCutoffMs > 0 && closeMs > 0 && closeMs <= closeCutoffMs && heartbeatMs <= closeMs) return true;
         return hardCutoffMs > 0 && heartbeatMs > 0 && heartbeatMs <= hardCutoffMs;
       });
       if (!timedOutUnits.length) return;

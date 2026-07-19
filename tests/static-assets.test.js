@@ -268,7 +268,7 @@ test("porto K9 duty role stores a visible K9 name from the profile", () => {
   assert.match(html, /portoK9NameField/);
   assert.match(html, /portoK9Name/);
   assert.match(html, /porto\/profile\.js\?v=20260719-k9-duty-role/);
-  assert.match(html, /porto\.js\?v=20260719-k9-duty-role/);
+  assert.match(html, /porto\.js\?v=20260719-heartbeat-grace/);
   assert.match(profileCode, /completedTrainings\)\s*&& portoProfile\.completedTrainings\.includes\("K9"\)/);
   assert.match(clientCode, /k9Name: k9NameInput/);
   assert.match(routesCode, /personHasK9Training/);
@@ -278,18 +278,30 @@ test("porto K9 duty role stores a visible K9 name from the profile", () => {
 
 test("porto browser heartbeat avoids noisy persistence and stale active screens", () => {
   const clientCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
+  const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
   const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
   const policeEnvExample = fs.readFileSync(path.join(process.cwd(), ".env.politie.example"), "utf8");
 
   assert.match(routesCode, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS/);
   assert.match(routesCode, /4 \* 60 \* 60 \* 1000/);
+  assert.match(routesCode, /PORTO_BROWSER_CLOSE_GRACE_MS/);
+  assert.match(routesCode, /60 \* 60 \* 1000/);
   assert.match(routesCode, /const heartbeatChanged = markPortoBrowserHeartbeat\(unit\);/);
   assert.match(routesCode, /if \(heartbeatChanged\) await persistPortoState\(state, \{ units: state\.portoUnits \}\);/);
+  assert.match(clientCode, /function syncPortoBrowserHeartbeatForPayload\(payload\)/);
   assert.match(clientCode, /heartbeat && heartbeat\.active === false/);
   assert.match(clientCode, /schedulePortoLiveRefresh\("porto"\)/);
+  assert.match(clientCode, /event\.persisted/);
+  assert.doesNotMatch(clientCode, /beforeunload", sendPortoBrowserClosedSignal/);
+  assert.match(dutyCode, /syncPortoBrowserHeartbeatForPayload\(payload\)/);
+  assert.match(html, /porto\/duty\.js\?v=20260719-heartbeat-grace/);
+  assert.match(html, /porto\.js\?v=20260719-heartbeat-grace/);
+  assert.match(envExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(envExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
+  assert.match(policeEnvExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(policeEnvExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(policeEnvExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
 });

@@ -546,10 +546,22 @@ function setPortoBrowserHeartbeat(enabled) {
   portoBrowserHeartbeatTimer = window.setInterval(sendPortoBrowserHeartbeat, PORTO_BROWSER_HEARTBEAT_INTERVAL_MS);
 }
 
-window.addEventListener("pagehide", sendPortoBrowserClosedSignal);
-window.addEventListener("beforeunload", sendPortoBrowserClosedSignal);
+function syncPortoBrowserHeartbeatForPayload(payload) {
+  if (payload?.recentlyEnded) {
+    setPortoBrowserHeartbeat(false);
+    return;
+  }
+  if (payload?.unit && String(payload.unit.status || "") !== "8") {
+    setPortoBrowserHeartbeat(true);
+  }
+}
+
+window.addEventListener("pagehide", (event) => {
+  if (event.persisted) return;
+  sendPortoBrowserClosedSignal();
+});
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") sendPortoBrowserHeartbeat();
+  if (document.visibilityState === "visible" || document.visibilityState === "hidden") sendPortoBrowserHeartbeat();
 });
 window.addEventListener("focus", sendPortoBrowserHeartbeat);
 window.addEventListener("online", sendPortoBrowserHeartbeat);
