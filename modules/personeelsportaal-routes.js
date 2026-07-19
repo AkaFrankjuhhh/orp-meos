@@ -273,8 +273,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     await Promise.resolve(peopleStorage.writeState(state));
   }
 
-  async function sendPeopleStateAfterMutation(res, auth, state) {
-    await persistPeopleStateMutation(state);
+  function sendPeopleStateResponse(res, auth, state) {
     const permissions = permissionsForAuth(auth, state);
     sendJson(res, 200, {
       ok: true,
@@ -282,6 +281,11 @@ function createPersoneelsportaalRouteHandler(deps) {
       canViewLogbook: permissions.canViewLogbook,
       permissions
     });
+  }
+
+  async function sendPeopleStateAfterMutation(res, auth, state) {
+    await persistPeopleStateMutation(state);
+    sendPeopleStateResponse(res, auth, state);
   }
 
   function activeBlacklistEntryForDiscordId(state, discordId) {
@@ -359,6 +363,15 @@ function createPersoneelsportaalRouteHandler(deps) {
     const adjudantIndex = ranks.indexOf("Adjudant");
     const currentIndex = ranks.indexOf(person.rank);
     return adjudantIndex >= 0 && currentIndex >= adjudantIndex;
+  }
+
+  function dismissalMemberSnapshot(person, releasedNumber = "", releasedRank = "") {
+    return {
+      ...person,
+      previousServiceNumber: releasedNumber || person?.previousServiceNumber || "",
+      previousRank: releasedRank || person?.previousRank || "",
+      rank: releasedRank || person?.rank || ""
+    };
   }
 
   function normalizeSelectedExtraFunctions(items = []) {
@@ -1087,7 +1100,9 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
 
-    const releasedNumber = person.serviceNumber || form.serviceNumber || "";
+    const releasedNumber = person.serviceNumber || form.serviceNumber || person.previousServiceNumber || "";
+    const releasedRank = person.rank || form.rank || person.previousRank || "";
+    const dismissalMember = dismissalMemberSnapshot(person, releasedNumber, releasedRank);
     const todayValue = today();
     const reason = String(form.reason || "Ontslagformulier verwerkt.").trim();
     person.status = "Ontslagen";
@@ -1095,19 +1110,24 @@ function createPersoneelsportaalRouteHandler(deps) {
     person.dismissalDate = todayValue;
     person.dismissalReason = reason;
     person.archivedUntil = addMonths(todayValue, 6);
-    person.previousServiceNumber = releasedNumber;
+    if (releasedNumber) person.previousServiceNumber = releasedNumber;
+    if (releasedRank) person.previousRank = releasedRank;
     person.serviceNumber = "";
     person.permRole = "Geen";
     form.status = "Verwerkt";
     form.processedAt = new Date().toISOString();
     form.processedById = processedBy.id;
     form.processedByName = processedBy.name;
+    form.rank = form.rank || releasedRank;
+    form.serviceNumber = form.serviceNumber || releasedNumber;
     state.activity = state.activity || [];
     state.activity.push(`${processedBy.name} heeft het ontslagformulier van ${person.name} verwerkt. Dienstnummer ${releasedNumber || "-"} is vrijgegeven.`);
+    autoSortServiceNumbers(state);
+    await persistPeopleStateMutation(state);
     try {
       const webhookResult = await sendDiscordWebhook(
         personnelWebhookUrl("dismissal"),
-        buildDismissalWebhookPayload(person, { reason, releasedNumber, date: todayValue }, processedBy)
+        buildDismissalWebhookPayload(dismissalMember, { reason, releasedNumber, date: todayValue, rank: releasedRank }, processedBy)
       );
       if (webhookResult.ok) {
         state.activity.push(`Ontslag webhook verzonden voor ${person.name}.`);
@@ -1117,7 +1137,6 @@ function createPersoneelsportaalRouteHandler(deps) {
     } catch (error) {
       state.activity.push(`Ontslag webhook kon niet verzonden worden voor ${person.name}.`);
     }
-    autoSortServiceNumbers(state);
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
@@ -2734,6 +2753,10 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 403, { error: "OVC mag profielen niet definitief uit het portaal verwijderen." });
       return;
     }
+    if (action === "dismiss" && !isCurrentPerson(person)) {
+      sendPeopleStateResponse(res, auth, state);
+      return;
+    }
     const body = await readBody(req);
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
@@ -2765,15 +2788,16 @@ function createPersoneelsportaalRouteHandler(deps) {
         return;
       }
       const hasOvcBadge = hasOvcFunctionBadge(person);
-      const releasedNumber = person.serviceNumber;
-      const releasedRank = person.rank;
+      const releasedNumber = person.serviceNumber || person.previousServiceNumber || "";
+      const releasedRank = person.rank || person.previousRank || "";
+      const dismissalMember = dismissalMemberSnapshot(person, releasedNumber, releasedRank);
       const todayValue = today();
       const dismissedBy = actor;
       person.dismissalDate = todayValue;
       person.dismissalReason = reason;
       person.archivedUntil = hasOvcBadge ? "" : addMonths(todayValue, 6);
-      person.previousServiceNumber = releasedNumber;
-      person.previousRank = releasedRank || person.previousRank || "";
+      if (releasedNumber) person.previousServiceNumber = releasedNumber;
+      if (releasedRank) person.previousRank = releasedRank;
       person.serviceNumber = "";
       if (hasOvcBadge) {
         person.status = "Actief";
@@ -2791,12 +2815,14 @@ function createPersoneelsportaalRouteHandler(deps) {
       state.activity.push(
         hasOvcBadge
           ? `${person.name} is als medewerker ontslagen. OVC-toegang is behouden en dienstnummer ${releasedNumber || "-"} is vrijgegeven.`
-          : `${person.name} is op ontslag gezet. Dienstnummer ${releasedNumber} is vrijgegeven.`
+          : `${person.name} is op ontslag gezet. Dienstnummer ${releasedNumber || "-"} is vrijgegeven.`
       );
+      autoSortServiceNumbers(state);
+      await persistPeopleStateMutation(state);
       try {
         const webhookResult = await sendDiscordWebhook(
           personnelWebhookUrl("dismissal"),
-          buildDismissalWebhookPayload(person, { reason, releasedNumber, date: todayValue, rank: releasedRank }, dismissedBy)
+          buildDismissalWebhookPayload(dismissalMember, { reason, releasedNumber, date: todayValue, rank: releasedRank }, dismissedBy)
         );
         if (webhookResult.ok) {
           state.activity.push(`Ontslag webhook verzonden voor ${person.name}.`);
@@ -2806,7 +2832,6 @@ function createPersoneelsportaalRouteHandler(deps) {
       } catch (error) {
         state.activity.push(`Ontslag webhook kon niet verzonden worden voor ${person.name}.`);
       }
-      autoSortServiceNumbers(state);
     }
     if (action === "restore") {
       if (activeBlacklistEntryForDiscordId(state, person.discordId)) {

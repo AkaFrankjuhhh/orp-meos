@@ -12,6 +12,12 @@ function truncateDiscordThreadName(value) {
   return text.length > 100 ? text.slice(0, 100) : text;
 }
 
+function serviceNumberNameValue(serviceNumber, name, emptyServiceLabel = "-") {
+  const personName = String(name || "-").trim() || "-";
+  const number = String(serviceNumber || "").trim();
+  return `${number || emptyServiceLabel} - ${personName}`;
+}
+
 async function sendDiscordWebhook(webhookUrl, payload, files = [], options = {}) {
   if (!webhookUrl) return { skipped: true };
   async function webhookResult(response) {
@@ -269,6 +275,7 @@ function createDiscordWebhookServices({ formatDate } = {}) {
   }
 
   function buildDismissalWebhookPayload(member, dismissal, dismissedBy) {
+    const releasedNumber = dismissal.releasedNumber || member.previousServiceNumber || "";
     return {
       embeds: [
         {
@@ -276,7 +283,7 @@ function createDiscordWebhookServices({ formatDate } = {}) {
           color: 0xd9564a,
           thumbnail: member.avatar ? { url: member.avatar } : undefined,
           fields: [
-            { name: "Personeelslid", value: `${dismissal.releasedNumber || member.previousServiceNumber || "-"} - ${member.name}`, inline: false },
+            { name: "Personeelslid", value: serviceNumberNameValue(releasedNumber, member.name, "Geen roepnummer"), inline: false },
             { name: "Rang", value: dismissal.rank || member.previousRank || member.rank || "-", inline: true },
             { name: "Ontslagdatum", value: formatDate(dismissal.date), inline: true },
             { name: "Reden", value: dismissal.reason || "-", inline: false },

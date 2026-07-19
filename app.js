@@ -37,6 +37,7 @@ let authProfile = null;
 let serverBacked = false;
 let canViewLogbook = false;
 let permissions = {};
+const pendingActionKeys = new Set();
 let pendingDismissalId = "";
 let pendingRestoreId = "";
 let selectedProfileId = "";
@@ -766,33 +767,40 @@ function applyServerState(payload) {
 
 async function runAction(path, body = {}) {
   if (!serverBacked) return false;
-  let response;
+  const actionKey = `${path}\n${JSON.stringify(body || {})}`;
+  if (pendingActionKeys.has(actionKey)) return false;
+  pendingActionKeys.add(actionKey);
   try {
-    response = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-  } catch (error) {
-    await showSiteNotice("Verbinding met de server mislukt. Probeer opnieuw of vernieuw de pagina.", "Actie mislukt");
-    return false;
+    let response;
+    try {
+      response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+    } catch (error) {
+      await showSiteNotice("Verbinding met de server mislukt. Probeer opnieuw of vernieuw de pagina.", "Actie mislukt");
+      return false;
+    }
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      authProfile = null;
+      resetPermissions();
+      setLocked(true);
+      await showSiteNotice("Je sessie is verlopen. Log opnieuw in en probeer het formulier daarna opnieuw te versturen.", "Opnieuw inloggen");
+      return false;
+    }
+    if (!response.ok) {
+      await showSiteNotice(payload.error || "Actie kon niet worden uitgevoerd.", "Actie mislukt");
+      await loadState();
+      return false;
+    }
+    applyServerState(payload);
+    suppressImmediateLiveRefresh();
+    return true;
+  } finally {
+    pendingActionKeys.delete(actionKey);
   }
-  const payload = await response.json().catch(() => ({}));
-  if (response.status === 401) {
-    authProfile = null;
-    resetPermissions();
-    setLocked(true);
-    await showSiteNotice("Je sessie is verlopen. Log opnieuw in en probeer het formulier daarna opnieuw te versturen.", "Opnieuw inloggen");
-    return false;
-  }
-  if (!response.ok) {
-    await showSiteNotice(payload.error || "Actie kon niet worden uitgevoerd.", "Actie mislukt");
-    await loadState();
-    return false;
-  }
-  applyServerState(payload);
-  suppressImmediateLiveRefresh();
-  return true;
 }
 
 function setSubmitBusy(form, busy, label) {
@@ -2057,9 +2065,11 @@ function wireEvents() {
   $("#archiveSearchInput").addEventListener("input", renderArchive);
   $("#blacklistSearchInput")?.addEventListener("input", renderBlacklist);
   $("#resignationOverview")?.addEventListener("click", async (event) => {
-    const processId = event.target.closest("[data-resignation-process]")?.dataset.resignationProcess;
-    const cancelId = event.target.closest("[data-resignation-cancel]")?.dataset.resignationCancel;
-    const deleteId = event.target.closest("[data-resignation-delete]")?.dataset.resignationDelete;
+    const actionButton = event.target.closest("[data-resignation-process], [data-resignation-cancel], [data-resignation-delete]");
+    if (actionButton?.disabled) return;
+    const processId = actionButton?.dataset.resignationProcess;
+    const cancelId = actionButton?.dataset.resignationCancel;
+    const deleteId = actionButton?.dataset.resignationDelete;
     const formId = processId || cancelId || deleteId;
     if (!formId || !hasKaderAccess()) return;
     const form = (state.resignationForms || []).find((entry) => entry.id === formId);
@@ -2076,7 +2086,12 @@ function wireEvents() {
       : cancelId
         ? `/api/resignation-forms/${encodeURIComponent(formId)}/cancel`
         : `/api/resignation-forms/${encodeURIComponent(formId)}/delete`;
-    if (await runAction(endpoint, {})) render();
+    actionButton.disabled = true;
+    try {
+      if (await runAction(endpoint, {})) render();
+    } finally {
+      actionButton.disabled = false;
+    }
   });
   $("#i8ArchiveSearchInput").addEventListener("input", renderI8Forms);
   $$('[data-i8-archive-status]').forEach((button) => button.addEventListener("click", () => setI8ArchiveStatusFilter(button.dataset.i8ArchiveStatus)));
@@ -2598,14 +2613,23 @@ function wireEvents() {
 
   $("#dismissalForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
+    if (form.dataset.busy === "true") return;
     const person = state.people.find((entry) => entry.id === pendingDismissalId);
     const reason = $("#dismissalReason").value.trim();
     if (!person || !reason) return;
-    const dismissed = await runAction(`/api/people/${encodeURIComponent(person.id)}/dismiss`, { reason });
-    if (!dismissed) return;
-    pendingDismissalId = "";
-    $("#dismissalDialog").close();
-    render();
+    form.dataset.busy = "true";
+    setSubmitBusy(form, true, "Ontslaan...");
+    try {
+      const dismissed = await runAction(`/api/people/${encodeURIComponent(person.id)}/dismiss`, { reason });
+      if (!dismissed) return;
+      pendingDismissalId = "";
+      $("#dismissalDialog").close();
+      render();
+    } finally {
+      delete form.dataset.busy;
+      setSubmitBusy(form, false);
+    }
   });
 
   $("#archiveList").addEventListener("click", async (event) => {
