@@ -63,6 +63,153 @@ function profileBadgeLabel(badge) {
   return profileBadgeDisplayLabels[badge] || badge;
 }
 
+const profileBadgeDialogDisplayLabels = {
+  "Interne-Zaken": "IZ"
+};
+
+function profileBadgeDialogLabel(badge) {
+  return profileBadgeDialogDisplayLabels[badge] || profileBadgeLabel(badge);
+}
+
+const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "Hoofdofficier", "Officiersraad", "OVC"];
+const profileBadgeExtraLeadership = ["Directie", "Teamchef", "Coördinator"];
+const profileBadgeTaskLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "IZ-Leiding", "OvJ", "VID-Leiding", "OTC-Leiding"];
+const profileBadgeTaskFunctionOrder = ["Trainer", "Mentor", "W&S", "Interne-Zaken", "hOvJ", "VID", "Operatie"];
+
+function orderedProfileBadgeItems(items, preferredOrder) {
+  const available = new Set(items);
+  const ordered = preferredOrder.filter((item) => available.has(item));
+  return [...ordered, ...items.filter((item) => !preferredOrder.includes(item))];
+}
+
+function profileBadgeOption(item, checked, kind) {
+  return `
+    <label class="profile-badge-dialog-option ${checked ? "is-selected" : ""}">
+      <input type="checkbox" data-profile-badge-kind="${escapeHtml(kind)}" value="${escapeHtml(item)}" ${checked ? "checked" : ""} />
+      <span>${escapeHtml(profileBadgeDialogLabel(item))}</span>
+    </label>
+  `;
+}
+
+function profileBadgeCategory({ title, items, selected, kind, emptyText = "" }) {
+  if (!items.length && !emptyText) return "";
+  return `
+    <section class="profile-badge-category">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="profile-badge-category-items">
+        ${items.length
+          ? items.map((item) => profileBadgeOption(item, selected.includes(item), kind)).join("")
+          : `<p class="muted">${escapeHtml(emptyText)}</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunctions, selectedTasks, isSideMode }) {
+  if (isSideMode) {
+    return {
+      functionHtml: "",
+      taskHtml: profileBadgeCategory({
+        title: "Neventaken",
+        items: tasks,
+        selected: selectedTasks,
+        kind: "task",
+        emptyText: "Geen neventaken beschikbaar."
+      })
+    };
+  }
+
+  const organizationLabel = window.DefensiePortalData?.organization?.label || "Organisatie";
+  const organizationLeadership = orderedProfileBadgeItems(
+    manageableFunctions.filter((item) => profileBadgeOrganizationLeadership.includes(item)),
+    profileBadgeOrganizationLeadership
+  );
+  const extraLeadership = orderedProfileBadgeItems(
+    manageableFunctions.filter((item) => profileBadgeExtraLeadership.includes(item)),
+    profileBadgeExtraLeadership
+  );
+  const otherFunctions = manageableFunctions.filter((item) => !organizationLeadership.includes(item) && !extraLeadership.includes(item));
+  const leadershipTasks = orderedProfileBadgeItems(
+    tasks.filter((task) => task.endsWith("-Leiding") || task === "OvJ"),
+    profileBadgeTaskLeadershipOrder
+  );
+  const functionTasks = orderedProfileBadgeItems(
+    tasks.filter((task) => !leadershipTasks.includes(task)),
+    profileBadgeTaskFunctionOrder
+  );
+
+  return {
+    functionHtml: [
+      profileBadgeCategory({
+        title: `${organizationLabel}-leiding`,
+        items: organizationLeadership,
+        selected: selectedFunctions,
+        kind: "function",
+        emptyText: "Alleen Kader kan functie-badges toewijzen."
+      }),
+      profileBadgeCategory({
+        title: "Extra-leiding",
+        items: extraLeadership,
+        selected: selectedFunctions,
+        kind: "function"
+      }),
+      profileBadgeCategory({
+        title: "Overig",
+        items: otherFunctions,
+        selected: selectedFunctions,
+        kind: "function"
+      })
+    ].join(""),
+    taskHtml: [
+      profileBadgeCategory({
+        title: "Leiding",
+        items: leadershipTasks,
+        selected: selectedTasks,
+        kind: "task"
+      }),
+      profileBadgeCategory({
+        title: "Functies",
+        items: functionTasks,
+        selected: [...selectedFunctions, ...selectedTasks],
+        kind: "task"
+      })
+    ].join("")
+  };
+}
+
+function updateProfileBadgeDialogSummary() {
+  const summary = $("#profileBadgeSummary");
+  const dialog = $("#profileBadgeDialog");
+  if (!summary || !dialog) return;
+  const inputs = [...dialog.querySelectorAll("input[data-profile-badge-kind]")];
+  const selected = inputs.filter((input) => input.checked).length;
+  const total = inputs.length;
+  summary.innerHTML = `
+    <div>
+      <span class="profile-badge-summary-icon is-selected" aria-hidden="true"></span>
+      <strong>${escapeHtml(String(selected))}</strong>
+      <span>Geselecteerd</span>
+    </div>
+    <div>
+      <span class="profile-badge-summary-icon" aria-hidden="true"></span>
+      <strong>${escapeHtml(String(Math.max(total - selected, 0)))}</strong>
+      <span>Niet geselecteerd</span>
+    </div>
+    <div>
+      <span class="profile-badge-total-icon" aria-hidden="true"></span>
+      <strong>${escapeHtml(String(total))}</strong>
+      <span>Totaal</span>
+    </div>
+  `;
+}
+
+document.addEventListener("change", (event) => {
+  const input = event.target.closest?.("#profileBadgeDialog input[data-profile-badge-kind]");
+  if (!input) return;
+  input.closest(".profile-badge-dialog-option")?.classList.toggle("is-selected", input.checked);
+  updateProfileBadgeDialogSummary();
+});
+
 function profileRankLabel(rank) {
   return profileRankLabels[rank] || rank || "-";
 }
@@ -486,6 +633,8 @@ function openProfileBadgeDialog(mode = "main") {
   const viewed = visibleProfile();
   if (!viewed || !canManageProfileBadges()) return;
   window.profileBadgeDialogMode = mode;
+  const dialog = $("#profileBadgeDialog");
+  dialog.dataset.mode = mode;
   $("#profileBadgePersonId").value = viewed.id;
   const selectedFunctions = viewed.extraFunctions || [];
   const selectedTasks = viewed.badges || [];
@@ -495,27 +644,19 @@ function openProfileBadgeDialog(mode = "main") {
   const manageableFunctions = !isSideMode && hasKaderAccess()
     ? extraFunctions.filter((item) => !(typeof isOvcFunctionBadge === "function" && isOvcFunctionBadge(item)) || (typeof canManageOvcBadge === "function" && canManageOvcBadge()))
     : [];
-  $("#profileBadgeFunctionOptions").innerHTML = manageableFunctions.length
-    ? manageableFunctions
-      .map((item) => `
-        <label>
-          <input type="checkbox" value="${escapeHtml(item)}" ${selectedProfileFunctions.includes(item) ? "checked" : ""} />
-          ${escapeHtml(item)}
-        </label>
-      `)
-      .join("")
-    : `<div class="muted">${isSideMode ? "Deze neventaken staan los van de standaard profielbadges." : "Alleen Kader kan functie-badges toewijzen."}</div>`;
-  $("#profileBadgeTaskOptions").innerHTML = extraTasks
-    .filter((task) => isSideMode ? sideTaskSet.has(task) : !sideTaskSet.has(task))
-    .map((task) => `
-      <label>
-        <input type="checkbox" value="${escapeHtml(task)}" ${selectedTasks.includes(task) ? "checked" : ""} />
-        ${escapeHtml(profileBadgeLabel(task))}
-      </label>
-    `)
-    .join("");
+  const tasks = extraTasks.filter((task) => isSideMode ? sideTaskSet.has(task) : !sideTaskSet.has(task));
+  const groups = profileBadgeDialogGroups({
+    manageableFunctions,
+    tasks,
+    selectedFunctions: selectedProfileFunctions,
+    selectedTasks,
+    isSideMode
+  });
+  $("#profileBadgeFunctionOptions").innerHTML = groups.functionHtml;
+  $("#profileBadgeTaskOptions").innerHTML = groups.taskHtml;
+  updateProfileBadgeDialogSummary();
   $("#profileBadgeDialog h2").textContent = isSideMode ? "Neventaken" : "Functies & badges";
-  $("#profileBadgeDialog").showModal();
+  dialog.showModal();
 }
 
 function renderProfile() {

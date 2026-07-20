@@ -137,6 +137,28 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(styles, /\.trainer-ibt-card/);
 });
 
+test("profile badge context dialog groups controls with a summary", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(html, /personeelsportaal\.css\?v=20260720-profile-badge-dialog/);
+  assert.match(html, /personeelsportaal\/profile\.js\?v=20260720-profile-badge-dialog/);
+  assert.match(html, /id="profileBadgeSummary"/);
+  assert.match(html, /id="profileBadgeGroupedOptions"/);
+  assert.match(profileCode, /function profileBadgeDialogGroups/);
+  assert.match(profileCode, /data-profile-badge-kind="\$\{escapeHtml\(kind\)\}"/);
+  assert.match(profileCode, /profileBadgeTaskLeadershipOrder/);
+  assert.match(profileCode, /updateProfileBadgeDialogSummary/);
+  assert.match(appCode, /input\[data-profile-badge-kind="function"\]:checked/);
+  assert.match(appCode, /input\[data-profile-badge-kind="task"\]:checked/);
+  assert.match(styles, /#profileBadgeDialog/);
+  assert.match(styles, /\.profile-badge-dialog-summary/);
+  assert.match(styles, /\.profile-badge-group-grid/);
+  assert.match(styles, /\.profile-badge-category/);
+});
+
 test("archived resignation forms are not counted as open", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");

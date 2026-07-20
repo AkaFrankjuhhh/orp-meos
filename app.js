@@ -2098,9 +2098,9 @@ function wireEvents() {
     const viewed = visibleProfile();
     const sideTaskSet = new Set(window.profileSideTaskBadges || []);
     const dialogMode = window.profileBadgeDialogMode || "main";
-    const selectedFunctions = $$("#profileBadgeFunctionOptions input:checked").map((input) => input.value);
-    const extraFunctions = dialogMode === "side" ? canonicalProfileFunctions(viewed?.extraFunctions || []) : selectedFunctions;
-    const selectedBadges = $$("#profileBadgeTaskOptions input:checked").map((input) => input.value);
+    const selectedFunctions = $$('#profileBadgeDialog input[data-profile-badge-kind="function"]:checked').map((input) => input.value);
+    const extraFunctions = dialogMode === "side" || !hasKaderAccess() ? canonicalProfileFunctions(viewed?.extraFunctions || []) : selectedFunctions;
+    const selectedBadges = $$('#profileBadgeDialog input[data-profile-badge-kind="task"]:checked').map((input) => input.value);
     const existingBadges = viewed?.badges || [];
     const badges = dialogMode === "side"
       ? [...existingBadges.filter((badge) => !sideTaskSet.has(badge)), ...selectedBadges]

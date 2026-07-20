@@ -87,7 +87,7 @@
       }
     </style>
     <link rel="stylesheet" href="/shared.css?v=20260709-politie-lockscreen-fallback" />
-    <link rel="stylesheet" href="/personeelsportaal.css?v=20260717-responsive-stability" />
+    <link rel="stylesheet" href="/personeelsportaal.css?v=20260720-profile-badge-dialog" />
   <script src="/portal-boot.js?v=20260628-csp-cleanup" defer></script>
   <script src="/boot-failsafe.js?v=20260627-loader-failsafe" defer></script>
   <script src="/portal-loader-failsafe.js?v=20260627-loader-failsafe" defer></script>
@@ -894,21 +894,18 @@
     </dialog>
 
     <dialog id="profileBadgeDialog">
-      <form id="profileBadgeForm" method="dialog" class="dialog-form">
+      <form id="profileBadgeForm" method="dialog" class="dialog-form profile-badge-dialog-form">
         <div class="panel-head">
           <h2>Functies & badges</h2>
           <button class="ghost icon" type="button" id="closeProfileBadgeDialog">&times;</button>
         </div>
         <input id="profileBadgePersonId" type="hidden" />
-        <div>
-          <span class="person-label">Extra functies</span>
-          <div id="profileBadgeFunctionOptions" class="profile-check-grid compact"></div>
+        <div id="profileBadgeSummary" class="profile-badge-dialog-summary" aria-live="polite"></div>
+        <div id="profileBadgeGroupedOptions" class="profile-badge-group-grid">
+          <div id="profileBadgeFunctionOptions"></div>
+          <div id="profileBadgeTaskOptions"></div>
         </div>
-        <div>
-          <span class="person-label">Extra taken</span>
-          <div id="profileBadgeTaskOptions" class="profile-check-grid compact"></div>
-        </div>
-        <menu>
+        <menu class="profile-badge-dialog-actions">
           <button id="cancelProfileBadgeDialog" class="ghost" type="button">Annuleren</button>
           <button class="primary" type="submit">Opslaan</button>
         </menu>
@@ -1120,7 +1117,7 @@
     <script src="/client-guard.js?v=20260628-deep-route-assets"></script>
     <script src="/shared-ui.js?v=20260703-ui-polish"></script>
     <script src="/personeelsportaal/module-registry.js?v=20260628-deep-route-assets"></script>
-    <script src="/personeelsportaal/profile.js?v=20260628-deep-route-assets"></script>
+    <script src="/personeelsportaal/profile.js?v=20260720-profile-badge-dialog"></script>
     <script src="/personeelsportaal/hours.js?v=20260628-month-to-date-hours"></script>
     <script src="/personeelsportaal/people.js?v=20260629-current-absence-profiles"></script>
     <script src="/personeelsportaal/i8.js?v=20260630-i8-draft-autosave"></script>
