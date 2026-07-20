@@ -74,6 +74,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isOtcLeadership = taskBadges.includes("OTC-Leiding");
     const isIzLeadership = taskBadges.includes("IZ-Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
+    const canViewTrainerSection = canViewAsKader || isTrainer || isTrainerLeadership;
     const i8ReviewMode = organization.permissions?.i8ReviewMode || "defensie";
     const canViewI8Forms = canViewAsKader || isOvJ || isInterneZaken || isIzLeadership;
     const canHandleI8Forms = i8ReviewMode === "ovjOnly" ? isOvJ : canViewI8Forms;
@@ -101,6 +102,10 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageProfileBadges: isKader || (canOfficerManage && (isHoofdofficier || isOfficiersraad)),
       canManageQualifications: isKader || isTrainer || isTrainerLeadership,
       canRevokeIbt: isKader || isOvJ,
+      canViewTrainerSection,
+      canViewTrainerOverview: canViewTrainerSection,
+      canViewTrainerLogbook: canViewAsKader || isTrainerLeadership,
+      canReviewTrainerIbtForms: isTrainer || isTrainerLeadership,
       canViewAllDiscipline: canViewAsKader || isInterneZaken || isIzLeadership,
       canViewI8Discipline: canViewAsKader || isInterneZaken || isIzLeadership || isOvJ,
       canManageDiscipline: isKader || isInterneZaken || isIzLeadership,
@@ -121,7 +126,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageBlacklist: isKader,
       canViewOvJLeadershipLog: canViewAsKader || taskBadges.includes("OvJ"),
       canViewMentorLeadershipLog: canViewAsKader || isMentorLeadership || isOtcLeadership,
-      canViewProfileAuditLog: canViewAsKader || isHoofdofficier,
+      canViewProfileAuditLog: canViewAsKader || isHoofdofficier || canViewTrainerSection,
       canViewRestrictedTaskBadges: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canManageOvcBadge,
       canUseDevTools: isDevOverride

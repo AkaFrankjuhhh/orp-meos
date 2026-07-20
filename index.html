@@ -161,6 +161,11 @@
         <button class="nav-item" data-nav-icon="T" data-page="mentor-toets" data-mentor-traject-only="true" type="button">Mentor-Toets</button>
         <button class="nav-item" data-nav-icon="TT" data-page="mentor-toetsen" data-mentor-leadership-only="true" type="button">Mentor-Toetsen</button>
         <button class="nav-item" data-nav-icon="ML" data-page="mentor-logboek" data-mentor-leadership-only="true" type="button">Mentor-Logboek</button>
+        <div class="nav-divider" data-trainer-section="true" aria-hidden="true"></div>
+        <div class="nav-section" data-trainer-section="true">Trainer</div>
+        <button class="nav-item" data-nav-icon="TO" data-page="trainer-overzicht" data-trainer-overview-only="true" type="button">Trainer-Overzicht</button>
+        <button class="nav-item" data-nav-icon="IBT" data-page="trainer-ibt" data-trainer-ibt-only="true" type="button"><span>IBT-Toetsen</span><span id="trainerIbtCounter" class="nav-counter" hidden>0</span></button>
+        <button class="nav-item" data-nav-icon="TL" data-page="trainer-logboek" data-trainer-logbook-only="true" type="button">Trainer-Logboek</button>
         <div class="nav-divider" data-ws-only="true" aria-hidden="true"></div>
         <div class="nav-section" data-ws-only="true">W&S</div>
         <button class="nav-item" data-nav-icon="+" data-page="personeel-aannemen" data-ws-only="true" type="button">Personeel Aannemen</button>
@@ -484,6 +489,50 @@
             </div>
           </div>
           <div id="mentorLeadershipLogList" class="leadership-list"></div>
+        </section>
+      </section>
+      <section id="trainer-overzicht" class="page">
+        <div class="toolbar sticky-toolbar">
+          <label class="search">
+            <span>Zoeken</span>
+            <input id="trainerSearchInput" type="search" placeholder="Naam, rang, dienstnummer..." />
+          </label>
+        </div>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Trainer-Overzicht</h2>
+              <p class="muted">Afgevinkte trainingen per medewerker</p>
+            </div>
+          </div>
+          <div id="trainerOverviewStats" class="trainer-stats"></div>
+          <div id="trainerOverviewList" class="leadership-list"></div>
+          <div id="trainerPersonTrainingLog" class="leadership-detail-list trainer-person-log"></div>
+        </section>
+      </section>
+
+      <section id="trainer-ibt" class="page">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>IBT-Toetsen</h2>
+              <p class="muted">Controleer ingediende IBT-toetsen</p>
+            </div>
+            <button id="refreshTrainerIbtBtn" class="ghost" type="button">Verversen</button>
+          </div>
+          <div id="trainerIbtReviewList" class="trainer-ibt-list"></div>
+        </section>
+      </section>
+
+      <section id="trainer-logboek" class="page">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Trainer-Logboek</h2>
+              <p class="muted">Overzicht van afgevinkte trainingen per trainer</p>
+            </div>
+          </div>
+          <div id="trainerLeadershipLogList" class="leadership-list"></div>
         </section>
       </section>
       <section id="mentor-checklist" class="page mentor-checklist-page">
@@ -1076,6 +1125,7 @@
     <script src="/personeelsportaal/people.js?v=20260629-current-absence-profiles"></script>
     <script src="/personeelsportaal/i8.js?v=20260630-i8-draft-autosave"></script>
     <script src="/personeelsportaal/mentor.js?v=20260715-mentor-autosave"></script>
+    <script src="/personeelsportaal/trainer.js?v=20260720-trainer-sidebar"></script>
     <script src="/personeelsportaal/absence.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/archive.js?v=20260705-resignation-archive-state"></script>
     <script src="/personeelsportaal-data.js?v=20260628-deep-route-assets"></script>

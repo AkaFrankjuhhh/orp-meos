@@ -829,7 +829,8 @@ function createPersoneelsportaalRouteHandler(deps) {
       details: entry.details || "",
       createdAt: new Date().toISOString(),
       actorId: actor.id || "",
-      actorName: actor.name || "Onbekend"
+      actorName: actor.name || "Onbekend",
+      meta: entry.meta && typeof entry.meta === "object" ? entry.meta : {}
     };
     person.profileLog.unshift(logEntry);
     person.profileLog = person.profileLog.slice(0, 150);
@@ -1949,7 +1950,13 @@ function createPersoneelsportaalRouteHandler(deps) {
         actor,
         type: "qualification",
         action: "Kwalificaties aangepast",
-        details: changeDetails.join(", ")
+        details: changeDetails.join(", "),
+        meta: {
+          addedTrainings: newTrainings,
+          addedOperational: newOperational,
+          removedTrainings,
+          removedOperational
+        }
       });
     }
     state.activity = state.activity || [];

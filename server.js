@@ -752,7 +752,8 @@ function addPublicFormProfileLog(person, entry) {
     details: entry.details || "",
     createdAt: new Date().toISOString(),
     actorId: actor.id || "",
-    actorName: actor.name || "Onbekend"
+    actorName: actor.name || "Onbekend",
+    meta: entry.meta && typeof entry.meta === "object" ? entry.meta : {}
   };
   person.profileLog.unshift(logEntry);
   person.profileLog = person.profileLog.slice(0, 150);
@@ -815,10 +816,17 @@ async function applyPublicFormReviewTraining(config, submission, reviewer, state
   if (changed) {
     person.completedTrainings.push(training);
     addPublicFormProfileLog(person, {
-      type: "training",
+      type: "qualification",
       action: `${training} toets goedgekeurd`,
       details: `${training} automatisch afgevinkt na goedkeuring van de toets.`,
-      actor: reviewer
+      actor: reviewer,
+      meta: {
+        addedTrainings: [training],
+        addedOperational: [],
+        removedTrainings: [],
+        removedOperational: [],
+        source: config?.slug || "public-form"
+      }
     });
   }
   if (changed) {
@@ -1443,7 +1451,7 @@ function serveStatic(req, res, url) {
     return;
   }
   const publicFormConfig = publicFormForRequest(req, url);
-  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
+  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
   const publicFormAssets = new Set(["/public-forms.css", "/public-forms.js", "/client-guard.js"]);
   const requested = publicFormConfig ? (publicFormAssets.has(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
   if (requested === "/personeelsportaal-data.js") {

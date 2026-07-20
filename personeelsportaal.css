@@ -4881,6 +4881,208 @@ html[data-typography="system"] .leadership-row .rank-count {
   color: #dbeafe;
 }
 
+.trainer-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.trainer-stat {
+  display: grid;
+  gap: 4px;
+  min-height: 70px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.trainer-stat span,
+.trainer-detail-heading span,
+.trainer-overview-row small,
+.trainer-ibt-card-head p,
+.trainer-ibt-actions span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.trainer-stat strong {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.trainer-overview-row {
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 0.9fr) minmax(84px, 0.25fr);
+}
+
+.trainer-overview-row strong {
+  display: grid;
+  gap: 2px;
+}
+
+.leadership-row-button.is-selected {
+  border-color: rgba(245, 158, 11, 0.58);
+  background: rgba(30, 41, 59, 0.82);
+}
+
+.trainer-person-log {
+  margin-top: 14px;
+}
+
+.trainer-detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+.trainer-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 22px;
+  margin-left: 6px;
+  padding: 0 8px;
+  border: 1px solid rgba(245, 158, 11, 0.46);
+  border-radius: 999px;
+  color: #fef3c7;
+  background: rgba(245, 158, 11, 0.14);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.trainer-logbook-details {
+  margin: -2px 0 8px 16px;
+}
+
+.trainer-ibt-list {
+  display: grid;
+  gap: 12px;
+}
+
+.trainer-ibt-card {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid rgba(148, 163, 184, 0.7);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.trainer-ibt-card.approved {
+  border-left-color: rgba(34, 197, 94, 0.9);
+}
+
+.trainer-ibt-card.rejected {
+  border-left-color: rgba(239, 68, 68, 0.9);
+}
+
+.trainer-ibt-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.trainer-ibt-card-head h3 {
+  margin: 8px 0 4px;
+}
+
+.trainer-ibt-meta,
+.trainer-ibt-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trainer-ibt-actions {
+  justify-content: flex-end;
+}
+
+.trainer-ibt-number,
+.trainer-ibt-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.trainer-ibt-number {
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.trainer-ibt-status {
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.trainer-ibt-status.approved {
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.trainer-ibt-status.rejected {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.trainer-ibt-answers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.trainer-ibt-answers div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.trainer-ibt-answers dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.trainer-ibt-answers dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .trainer-stats,
+  .trainer-ibt-answers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trainer-ibt-card-head {
+    display: grid;
+  }
+
+  .trainer-ibt-actions {
+    justify-content: flex-start;
+  }
+
+  .trainer-logbook-details {
+    margin-left: 0;
+  }
+}
+
 .i8-archive-toolbar {
   gap: 12px;
   flex-wrap: wrap;

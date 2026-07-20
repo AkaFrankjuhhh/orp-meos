@@ -66,6 +66,9 @@ const pageRouteMap = {
   "mentor-toetsen": "/mentor-toetsen",
   "mentor-checklist": "/mentor-checklist",
   "mentor-logboek": "/mentor-logboek",
+  "trainer-overzicht": "/trainer-overzicht",
+  "trainer-ibt": "/trainer-ibt",
+  "trainer-logboek": "/trainer-logboek",
   "ovj-logboek": "/hovj-logboek",
   "personeel-aannemen": "/personeel-aannemen",
   blacklist: "/blacklist",
@@ -184,6 +187,9 @@ function enhanceSidebarIcons() {
     "mentor-toets": "checklist",
     "mentor-toetsen": "checklist",
     "mentor-logboek": "log",
+    "trainer-overzicht": "graduation",
+    "trainer-ibt": "checklist",
+    "trainer-logboek": "log",
     "personeel-aannemen": "plusUser",
     blacklist: "shield",
     personeel: "users",
@@ -457,6 +463,22 @@ function canViewOwnMentorTrajectory() {
 
 function canViewMentorSection() {
   return Boolean(canViewMentorOverview() || canViewOwnMentorTrajectory());
+}
+
+function canViewTrainerSection() {
+  return Boolean(permissions.canViewTrainerSection || canManageQualifications() || hasKaderAccess());
+}
+
+function canViewTrainerOverview() {
+  return Boolean(permissions.canViewTrainerOverview || canViewTrainerSection());
+}
+
+function canViewTrainerLogbook() {
+  return Boolean(permissions.canViewTrainerLogbook || hasKaderAccess());
+}
+
+function canReviewTrainerIbtForms() {
+  return Boolean(permissions.canReviewTrainerIbtForms || permissions.canUseDevTools);
 }
 
 function canRecruitPeople() {
@@ -990,6 +1012,9 @@ function pageTitle(page) {
     "mentor-toetsen": "Mentor-Toetsen",
     "mentor-checklist": "Mentor-Checklist",
     "mentor-logboek": "Mentor-Logboek",
+    "trainer-overzicht": "Trainer-Overzicht",
+    "trainer-ibt": "IBT-Toetsen",
+    "trainer-logboek": "Trainer-Logboek",
     afwezigheid: "Afwezigheid",
     "beschikbaarheids-agenda": "Beschikbaarheids-agenda",
     "i8-opstellen": "I8-Formulier",
@@ -1008,7 +1033,7 @@ function pageTitle(page) {
 }
 
 function validPage(page) {
-  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "beschikbaarheids-agenda", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "beschikbaarheids-agenda", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
   return visiblePages.has(page) ? page : "dashboard";
 }
 
@@ -1123,6 +1148,15 @@ function setPage(page) {
   if (page === "mentor-logboek" && !canViewMentorLeadershipLog()) {
     page = canViewMentorOverview() ? "mentor-overzicht" : "dashboard";
   }
+  if (page === "trainer-overzicht" && !canViewTrainerOverview()) {
+    page = "dashboard";
+  }
+  if (page === "trainer-ibt" && !canReviewTrainerIbtForms()) {
+    page = canViewTrainerOverview() ? "trainer-overzicht" : "dashboard";
+  }
+  if (page === "trainer-logboek" && !canViewTrainerLogbook()) {
+    page = canViewTrainerOverview() ? "trainer-overzicht" : "dashboard";
+  }
   $$(".page").forEach((element) => element.classList.toggle("active", element.id === page));
   $$(".nav-item").forEach((element) => element.classList.toggle("active", element.dataset.page === page));
   $("#pageTitle").textContent = pageTitle(page);
@@ -1133,6 +1167,9 @@ function setPage(page) {
   syncBrowserRoute(page);
   if (!isMentorTestStaticPageId(page) && typeof window !== "undefined") {
     window.setTimeout(flushPausedStaticPageLiveRefresh, 0);
+  }
+  if (page === "trainer-ibt" && typeof renderTrainerIbtReviews === "function") {
+    renderTrainerIbtReviews();
   }
   return page;
 }
@@ -1326,6 +1363,10 @@ function renderKaderNavigation() {
   const showMentorOverview = canViewMentorOverview();
   const showMentorTrajectory = canViewOwnMentorTrajectory();
   const showMentorSection = canViewMentorSection();
+  const showTrainerSection = canViewTrainerSection();
+  const showTrainerOverview = canViewTrainerOverview();
+  const showTrainerIbt = canReviewTrainerIbtForms();
+  const showTrainerLogbook = canViewTrainerLogbook();
   const showRecruitment = canViewRecruitment();
   const showBlacklist = canViewBlacklist();
   const showWs = showRecruitment || showBlacklist;
@@ -1361,6 +1402,18 @@ function renderKaderNavigation() {
   $$('[data-mentor-traject-only="true"]').forEach((element) => {
     element.hidden = !showMentorTrajectory;
   });
+  $$('[data-trainer-section="true"]').forEach((element) => {
+    element.hidden = !showTrainerSection;
+  });
+  $$('[data-trainer-overview-only="true"]').forEach((element) => {
+    element.hidden = !showTrainerOverview;
+  });
+  $$('[data-trainer-ibt-only="true"]').forEach((element) => {
+    element.hidden = !showTrainerIbt;
+  });
+  $$('[data-trainer-logbook-only="true"]').forEach((element) => {
+    element.hidden = !showTrainerLogbook;
+  });
   $$('[data-ws-only="true"]').forEach((element) => {
     element.hidden = !showWs;
   });
@@ -1374,7 +1427,7 @@ function renderKaderNavigation() {
     element.hidden = !canManageMentorTestTemplate();
   });
   $$('[data-restricted-divider="true"]').forEach((element) => {
-    element.hidden = !(showKaderPages || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOvJ || showMentorSection || showWs || showOvJLeadership || showMentorLeadership);
+    element.hidden = !(showKaderPages || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOvJ || showMentorSection || showTrainerSection || showWs || showOvJLeadership || showMentorLeadership);
   });
   renderNavigationCounters();
   if (!showKaderPages && $("#logboek").classList.contains("active")) {
@@ -1403,6 +1456,15 @@ function renderKaderNavigation() {
   }
   if (!showMentorLeadership && ($("#mentor-logboek")?.classList.contains("active") || $("#mentor-toetsen")?.classList.contains("active"))) {
     setPage(showMentorOverview ? "mentor-overzicht" : "dashboard");
+  }
+  if (!showTrainerOverview && $("#trainer-overzicht")?.classList.contains("active")) {
+    setPage("dashboard");
+  }
+  if (!showTrainerIbt && $("#trainer-ibt")?.classList.contains("active")) {
+    setPage(showTrainerOverview ? "trainer-overzicht" : "dashboard");
+  }
+  if (!showTrainerLogbook && $("#trainer-logboek")?.classList.contains("active")) {
+    setPage(showTrainerOverview ? "trainer-overzicht" : "dashboard");
   }
   if (!showRecruitment && $("#personeel-aannemen")?.classList.contains("active")) {
     setPage("dashboard");
@@ -1443,6 +1505,7 @@ function renderNavigationCounters() {
   setNavCounter("#absenceOverviewCounter", openAbsenceRequestCount(), canViewAbsenceOverview());
   setNavCounter("#resignationOverviewCounter", openResignationFormCount(), canViewResignationOverview());
   setNavCounter("#i8ReviewCounter", openI8ReviewCount(), canViewOvJChannels());
+  setNavCounter("#trainerIbtCounter", typeof trainerIbtPendingReviewCount === "function" ? trainerIbtPendingReviewCount() : 0, canReviewTrainerIbtForms());
 }
 
 function activePageId() {
@@ -1511,6 +1574,8 @@ function renderLiveScope(scope = "state") {
       renderMentorTestsOverview();
     }
     renderMentorLeadershipLog();
+    renderTrainerOverview();
+    renderTrainerLogbook();
     renderRecruitment();
     renderPeople();
     renderArchive();
@@ -1530,6 +1595,8 @@ function renderLiveScope(scope = "state") {
   }
 
   if (["public-forms", "state"].includes(scope)) {
+    if (typeof resetTrainerIbtReviewCache === "function") resetTrainerIbtReviewCache();
+    renderTrainerIbtReviews();
     renderLogbook();
   }
 
@@ -1555,6 +1622,8 @@ async function refreshReviewCounters() {
     if (page === "beschikbaarheids-agenda") renderAvailabilityAgenda();
     if (page === "ontslag-overzicht") renderResignationOverview();
     if (page === "blacklist") renderBlacklist();
+    if (page === "trainer-overzicht") renderTrainerOverview();
+    if (page === "trainer-logboek") renderTrainerLogbook();
     if (page === "dashboard") renderDashboard();
   })().finally(() => {
     reviewCounterLoadPromise = null;
@@ -1840,6 +1909,9 @@ function render() {
   renderMentorTestPage();
   renderMentorTestsOverview();
   renderMentorLeadershipLog();
+  renderTrainerOverview();
+  renderTrainerIbtReviews();
+  renderTrainerLogbook();
   renderRecruitment();
   renderPeople();
   renderArchive();
@@ -2395,6 +2467,7 @@ function wireEvents() {
     const row = event.target.closest("[data-mentor-log-person]");
     if (row) openMentorLogDetail(row.dataset.mentorLogPerson);
   });
+  if (typeof bindTrainerEvents === "function") bindTrainerEvents();
   $("#ovjLeadershipLogList")?.addEventListener("click", (event) => {
     const row = event.target.closest("[data-ovj-log-person]");
     if (row) openOvJLogDetail(row.dataset.ovjLogPerson);

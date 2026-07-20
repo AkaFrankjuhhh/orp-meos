@@ -107,6 +107,36 @@ test("mentor checklist autosave is serialized against live refresh", () => {
   assert.match(appCode, /isSavingMentorChecklist/);
 });
 
+test("trainer sidebar exposes training logs and IBT reviews", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const trainerCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "trainer.js"), "utf8");
+  const permissionsCode = fs.readFileSync(path.join(process.cwd(), "modules", "permissions.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(html, /data-trainer-section="true"/);
+  assert.match(html, /data-page="trainer-overzicht"/);
+  assert.match(html, /data-page="trainer-ibt"/);
+  assert.match(html, /id="trainerIbtCounter"/);
+  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260720-trainer-sidebar/);
+  assert.match(appCode, /"trainer-overzicht": "\/trainer-overzicht"/);
+  assert.match(appCode, /function canViewTrainerOverview\(/);
+  assert.match(appCode, /renderTrainerIbtReviews\(\)/);
+  assert.match(permissionsCode, /canViewTrainerSection/);
+  assert.match(permissionsCode, /canReviewTrainerIbtForms: isTrainer \|\| isTrainerLeadership/);
+  assert.match(permissionsCode, /canViewProfileAuditLog: canViewAsKader \|\| isHoofdofficier \|\| canViewTrainerSection/);
+  assert.match(routesCode, /addedTrainings: newTrainings/);
+  assert.match(serverCode, /type: "qualification"[\s\S]*addedTrainings: \[training\]/);
+  assert.match(serverCode, /"trainer-overzicht", "trainer-ibt", "trainer-logboek"/);
+  assert.match(trainerCode, /function trainerEntryAddedTrainings/);
+  assert.match(trainerCode, /\/api\/public-forms\/submissions\?slug=ibt/);
+  assert.match(trainerCode, /data-review-trainer-ibt/);
+  assert.match(styles, /\.trainer-stats/);
+  assert.match(styles, /\.trainer-ibt-card/);
+});
+
 test("archived resignation forms are not counted as open", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
