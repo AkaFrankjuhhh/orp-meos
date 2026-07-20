@@ -313,10 +313,21 @@ h2 {
   background: rgba(7, 17, 31, 0.62);
 }
 
+.member-admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .member-admin-list table {
   width: 100%;
   border-collapse: collapse;
   min-width: 720px;
+}
+
+.dnr-member-admin-list table {
+  min-width: 0;
 }
 
 .member-admin-list th,
@@ -345,6 +356,17 @@ h2 {
 
 .member-admin-row:hover td {
   background: rgba(90, 160, 240, 0.08);
+}
+
+.member-admin-name-cell {
+  display: grid;
+  gap: 3px;
+}
+
+.member-admin-name-cell small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .archive-section {

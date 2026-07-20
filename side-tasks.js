@@ -7,6 +7,7 @@ let appState = {
   profileOpen: false,
   dsiContextMenu: null,
   archives: [],
+  dnrRoleCheck: null,
   memberEditId: ""
 };
 const LIVE_REFRESH_INTERVAL_MS = 60000;
@@ -370,6 +371,20 @@ function memberAdminRow(member) {
   `;
 }
 
+function dnrMemberAdminRow(member) {
+  const name = member.displayName || member.discordUsername || member.discordId;
+  const discord = member.discordUsername || member.discordId || "-";
+  return `
+    <tr class="member-admin-row" data-admin-member="${escapeHtml(member.id)}">
+      <td class="member-admin-name-cell">
+        <strong>${escapeHtml(name)}</strong>
+        <small>${escapeHtml(discord)}</small>
+      </td>
+      <td>${escapeHtml(member.aliasName || "-")}</td>
+    </tr>
+  `;
+}
+
 function archiveAdminRows() {
   return appState.archives.map((archive) => `
     <tr>
@@ -385,6 +400,24 @@ function archiveAdminRows() {
       </td>
     </tr>
   `).join("");
+}
+
+function dnrRoleCheckNotice() {
+  const check = appState.dnrRoleCheck;
+  if (!check) {
+    return '<p class="muted">Discord-rolcontrole draait automatisch wanneer DNR ledenbeheer opent.</p>';
+  }
+  if (check.error) {
+    return `<p class="alert">Discord-rolcontrole mislukt: ${escapeHtml(check.error)}</p>`;
+  }
+  if (check.skipped) {
+    return `<p class="muted">Discord-rolcontrole overgeslagen: ${escapeHtml(check.reason || "botconfiguratie ontbreekt")}</p>`;
+  }
+  const archived = Array.isArray(check.archived) ? check.archived : [];
+  if (archived.length) {
+    return `<p class="alert">${escapeHtml(String(archived.length))} oud-DNR ${archived.length === 1 ? "lid is" : "leden zijn"} gearchiveerd na rolcontrole: ${escapeHtml(archived.map((member) => member.displayName || member.discordId).join(", "))}</p>`;
+  }
+  return `<p class="muted">Discord-rolcontrole: ${escapeHtml(String(check.checked || 0))} DNR leden gecontroleerd.</p>`;
 }
 
 function memberEditModal() {
@@ -454,8 +487,9 @@ function memberAdminPage() {
   const rows = appState.members
     .slice()
     .sort((a, b) => (a.callSign || "").localeCompare(b.callSign || "", "nl") || displayMemberName(a, task).localeCompare(displayMemberName(b, task), "nl"))
-    .map(memberAdminRow)
+    .map(task.key === "DNR" ? dnrMemberAdminRow : memberAdminRow)
     .join("");
+  const isDnr = task.key === "DNR";
   return `
     ${topbar()}
     <section class="panel member-admin-page">
@@ -464,21 +498,17 @@ function memberAdminPage() {
           <p class="eyebrow">ORP Neventaken</p>
           <h2>${escapeHtml(task.label)} - Ledenbeheer</h2>
         </div>
-        <button class="secondary-button" type="button" data-action="open-dashboard">Terug naar overzicht</button>
+        <div class="member-admin-actions">
+          ${isDnr ? '<button class="secondary-button" type="button" data-action="check-dnr-roles">Controleer Discord-rollen</button>' : ""}
+          <button class="secondary-button" type="button" data-action="open-dashboard">Terug naar overzicht</button>
+        </div>
       </div>
-      <div class="member-admin-list">
+      ${isDnr ? dnrRoleCheckNotice() : ""}
+      <div class="member-admin-list ${isDnr ? "dnr-member-admin-list" : ""}">
         <table>
-          <thead>
-            <tr>
-              <th>Naam</th>
-              <th>Schuilnaam</th>
-              <th>Roepnummer</th>
-              <th>Specialisaties</th>
-              <th>Status</th>
-            </tr>
-          </thead>
+          <thead>${isDnr ? "<tr><th>Naam (Discord)</th><th>Schuilnaam</th></tr>" : "<tr><th>Naam</th><th>Schuilnaam</th><th>Roepnummer</th><th>Specialisaties</th><th>Status</th></tr>"}</thead>
           <tbody>
-            ${rows || `<tr><td colspan="5">Geen leden gevonden.</td></tr>`}
+            ${rows || `<tr><td colspan="${isDnr ? "2" : "5"}">Geen leden gevonden.</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -521,8 +551,16 @@ function renderApp() {
   window.DefensiePortalUI?.ensureUiModeToggle?.(".user-menu");
 }
 
-async function refresh() {
+async function refresh(options = {}) {
   const me = await api("/api/auth/me");
+  let dnrRoleCheck = appState.dnrRoleCheck;
+  if (!options.skipDnrReconcile && me.permissions?.canManageMembers && me.task?.key === "DNR" && location.hash === "#ledenbeheer") {
+    try {
+      dnrRoleCheck = await api("/api/side-tasks/members/reconcile", { method: "POST", body: "{}" });
+    } catch (error) {
+      dnrRoleCheck = { error: error.message };
+    }
+  }
   const [members, archives] = await Promise.all([
     api("/api/side-tasks/members"),
     me.permissions?.canManageMembers && me.task?.key === "DSI"
@@ -533,6 +571,7 @@ async function refresh() {
   appState.members = members.members;
   appState.statuses = me.statuses || members.statuses || [];
   appState.archives = archives.archives || [];
+  appState.dnrRoleCheck = dnrRoleCheck;
   renderApp();
 }
 
@@ -631,7 +670,12 @@ app.addEventListener("click", async (event) => {
     if (action === "open-member-admin") {
       appState.profileOpen = false;
       location.hash = "ledenbeheer";
-      renderApp();
+      await refresh();
+      return;
+    }
+    if (action === "check-dnr-roles") {
+      appState.dnrRoleCheck = await api("/api/side-tasks/members/reconcile", { method: "POST", body: "{}" });
+      await refresh({ skipDnrReconcile: true });
       return;
     }
     if (action === "close-member-edit") {

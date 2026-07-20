@@ -206,6 +206,21 @@ async function fetchBotGuildMember(discordId) {
   }
 }
 
+async function fetchGuildMemberForRoleCheck(discordId) {
+  if (!NEVENTAKEN_GUILD_ID || !NEVENTAKEN_BOT_TOKEN) {
+    return { ok: false, skipped: true, reason: "SIDE_TASK_DISCORD_GUILD_ID of SIDE_TASK_DISCORD_BOT_TOKEN ontbreekt." };
+  }
+  try {
+    return {
+      ok: true,
+      member: await discordFetch(`/guilds/${NEVENTAKEN_GUILD_ID}/members/${discordId}`, {}, NEVENTAKEN_BOT_TOKEN)
+    };
+  } catch (error) {
+    if (error.status === 404) return { ok: true, member: null };
+    return { ok: false, skipped: true, reason: error.message || "Discord rolcontrole mislukt." };
+  }
+}
+
 async function fetchMainGuildMember(discordId) {
   if (!MAIN_GUILD_ID || !MAIN_BOT_TOKEN) return null;
   return discordFetch(`/guilds/${MAIN_GUILD_ID}/members/${discordId}`, {}, MAIN_BOT_TOKEN);
@@ -277,6 +292,44 @@ async function syncLoginMember(sessionUser, task) {
   const member = await store.syncMemberFromDiscord(task.key, memberPatch);
   await store.clearAccessRevocation(task.key, sessionUser.id);
   return member;
+}
+
+async function restorePortalNicknameIfKnown(discordId) {
+  try {
+    const identity = await portalIdentityForDiscordId(discordId);
+    if (identity?.nickname) await patchMainGuildNickname(discordId, identity.nickname);
+  } catch (error) {
+    console.warn(`Hoofdnaam herstellen mislukt voor ${discordId}: ${error.message}`);
+  }
+}
+
+async function reconcileDnrMembersWithDiscord(task, actorDiscordId = "") {
+  if (task.key !== "DNR") {
+    return { ok: true, skipped: true, reason: "Rolcontrole is alleen actief voor DNR.", checked: 0, archived: [] };
+  }
+  const members = await store.listMembers(task.key);
+  const staleMembers = [];
+  for (const member of members) {
+    const result = await fetchGuildMemberForRoleCheck(member.discordId);
+    if (!result.ok) {
+      return { ok: true, skipped: true, reason: result.reason || "Discord rolcontrole overgeslagen.", checked: 0, archived: [] };
+    }
+    const roles = Array.isArray(result.member?.roles) ? result.member.roles.map(String) : [];
+    if (!result.member || !hasMembershipRole(task, roles)) {
+      staleMembers.push({
+        member,
+        reason: result.member ? "DNR Discord-rol ontbreekt." : "Lid zit niet meer in de Neventaken Discord."
+      });
+    }
+  }
+  const archived = [];
+  for (const entry of staleMembers) {
+    const archive = await store.archiveMemberByDiscordId(task.key, entry.member.discordId, entry.reason, actorDiscordId);
+    if (!archive) continue;
+    await restorePortalNicknameIfKnown(entry.member.discordId);
+    archived.push(publicArchive(archive));
+  }
+  return { ok: true, checked: members.length, archived };
 }
 
 async function ensureSessionMember(task, session) {
@@ -801,6 +854,15 @@ async function handleApi(req, res, task, url) {
   if (url.pathname === "/api/side-tasks/members" && req.method === "GET") {
     const members = await store.listMembers(task.key);
     return sendJson(res, 200, { members: members.map(publicMember), statuses: statusOptionsForTask(task) });
+  }
+
+  if (url.pathname === "/api/side-tasks/members/reconcile" && req.method === "POST") {
+    if (!session.permissions.canManageMembers) return jsonError(res, 403, "Geen beheerrechten.");
+    const result = await reconcileDnrMembersWithDiscord(task, session.user.id);
+    if (Array.isArray(result.archived) && result.archived.length) {
+      publishSideTaskUpdate(task, "members-reconciled", { archived: result.archived.map((archive) => archive.id) });
+    }
+    return sendJson(res, 200, result);
   }
 
   if (url.pathname === "/api/side-tasks/archive" && req.method === "GET") {

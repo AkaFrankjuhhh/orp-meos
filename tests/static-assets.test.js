@@ -358,8 +358,24 @@ test("mentor test Discord embed formats submitted date and time", () => {
 
 test("side task shell serves DNR and KLu alias assets with a fresh version", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "side-tasks.html"), "utf8");
-  assert.match(html, /side-tasks\.css\?v=20260719-dnr-role-gate/);
-  assert.match(html, /side-tasks\.js\?v=20260719-dnr-role-gate/);
+  assert.match(html, /side-tasks\.css\?v=20260720-dnr-member-admin/);
+  assert.match(html, /side-tasks\.js\?v=20260720-dnr-member-admin/);
+});
+
+test("DNR member admin is compact and reconciles stale Discord roles", () => {
+  const clientCode = fs.readFileSync(path.join(process.cwd(), "side-tasks.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "side-tasks-server.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "side-tasks.css"), "utf8");
+
+  assert.match(clientCode, /function dnrMemberAdminRow/);
+  assert.match(clientCode, /<tr><th>Naam \(Discord\)<\/th><th>Schuilnaam<\/th><\/tr>/);
+  assert.match(clientCode, /\/api\/side-tasks\/members\/reconcile/);
+  assert.match(clientCode, /Controleer Discord-rollen/);
+  assert.match(serverCode, /function reconcileDnrMembersWithDiscord/);
+  assert.match(serverCode, /hasMembershipRole\(task, roles\)/);
+  assert.match(serverCode, /DNR Discord-rol ontbreekt/);
+  assert.match(serverCode, /archiveMemberByDiscordId\(task\.key/);
+  assert.match(styles, /\.member-admin-name-cell/);
 });
 
 test("side task browser heartbeat signs off closed browsers server-side", () => {
