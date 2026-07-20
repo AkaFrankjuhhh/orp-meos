@@ -644,7 +644,7 @@ function createSideTasksStore() {
   async function assignDnrUnit(taskKey, memberId, unitKey = "", options = {}) {
     const dnrUnit = dnrUnitForKey(unitKey);
     if (!dnrUnit) {
-      const error = new Error("Kies een geldige DNR-eenheid.");
+      const error = new Error("Kies een geldige LR-eenheid.");
       error.status = 400;
       throw error;
     }
@@ -656,7 +656,7 @@ function createSideTasksStore() {
         const memberResult = await client.query("select * from side_task_members where task_key = $1 and id = $2 for update", [taskKey, String(memberId)]);
         const member = memberFromRow(memberResult.rows[0]);
         if (!member) {
-          const error = new Error("DNR-lid niet gevonden.");
+          const error = new Error("LR-lid niet gevonden.");
           error.status = 404;
           throw error;
         }

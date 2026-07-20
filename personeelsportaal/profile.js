@@ -54,6 +54,15 @@ const profileSideTaskBadges = Array.isArray(configuredSideTaskBadges) && configu
   : ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
 window.profileSideTaskBadges = profileSideTaskBadges;
 
+const profileBadgeDisplayLabels = {
+  DNR: "LR",
+  "DNR-Leiding": "LR-Leiding"
+};
+
+function profileBadgeLabel(badge) {
+  return profileBadgeDisplayLabels[badge] || badge;
+}
+
 function profileRankLabel(rank) {
   return profileRankLabels[rank] || rank || "-";
 }
@@ -129,9 +138,9 @@ function renderProfileBadges(person) {
     ...extraFunctions.filter((badge) => profileFunctions.includes(badge))
   ].filter((badge, index, list) => list.indexOf(badge) === index)
     .sort((a, b) => extraFunctions.indexOf(a) - extraFunctions.indexOf(b));
-  const functionRow = functionBadges.map((badge) => `<span class="profile-badge function">${escapeHtml(badge)}</span>`).join("");
-  const taskRow = taskBadges.map((badge) => `<span class="profile-badge task">${escapeHtml(badge)}</span>`).join("");
-  const sideRow = sideTaskBadges.map((badge) => `<span class="profile-badge task side-task">${escapeHtml(badge)}</span>`).join("");
+  const functionRow = functionBadges.map((badge) => `<span class="profile-badge function">${escapeHtml(profileBadgeLabel(badge))}</span>`).join("");
+  const taskRow = taskBadges.map((badge) => `<span class="profile-badge task">${escapeHtml(profileBadgeLabel(badge))}</span>`).join("");
+  const sideRow = sideTaskBadges.map((badge) => `<span class="profile-badge task side-task">${escapeHtml(profileBadgeLabel(badge))}</span>`).join("");
 
   $("#profilePageBadges").innerHTML = functionRow || taskRow
     ? `
@@ -501,7 +510,7 @@ function openProfileBadgeDialog(mode = "main") {
     .map((task) => `
       <label>
         <input type="checkbox" value="${escapeHtml(task)}" ${selectedTasks.includes(task) ? "checked" : ""} />
-        ${escapeHtml(task)}
+        ${escapeHtml(profileBadgeLabel(task))}
       </label>
     `)
     .join("");

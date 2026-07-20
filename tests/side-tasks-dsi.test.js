@@ -45,10 +45,16 @@ test("DSI members can assign ACO and TCO labels", () => {
   assert.equal(permissions.canAssignDsiCommand, true);
 });
 
-test("DNR supports automatic recherche unit ranges", () => {
+test("LR supports automatic recherche unit ranges", () => {
   const dnrTask = sideTaskForKey("DNR");
+  assert.equal(dnrTask.slug, "lr");
+  assert.equal(dnrTask.label, "LR");
+  assert.equal(dnrTask.displayName, "Landelijke Recherche");
+  assert.equal(dnrTask.hostname, "lr.orpoverheid.nl");
+  assert.deepEqual(dnrTask.hostnames, ["lr.orpoverheid.nl", "dnr.orpoverheid.nl"]);
   assert.equal(dnrTask.allowAlias, true);
   assert.equal(dnrTask.aliasProfile.numberSource, "unit");
+  assert.equal(dnrTask.aliasProfile.numberLabel, "LR eenheid");
   assert.equal(dnrTask.aliasProfile.nicknameTemplate, "[{number} - ※] {name}");
   assert.equal(dnrTask.aliasProfile.supportsUndercover, false);
   assert.deepEqual(dnrTask.roleIds.members, ["1485659456837783744"]);
@@ -69,7 +75,7 @@ test("DNR supports automatic recherche unit ranges", () => {
   ]);
 });
 
-test("DNR unit choices follow Discord unit roles", () => {
+test("LR unit choices follow Discord unit roles", () => {
   const dnrTask = sideTaskForKey("DNR");
   const technicalRole = "1485659765429501982";
   const technicalSeniorRole = "1485659279263273091";
@@ -88,7 +94,7 @@ test("DNR unit choices follow Discord unit roles", () => {
   assert.equal(canUseDnrUnit(dnrTask, [unitSixRole], "discord-user", "technical"), false);
 });
 
-test("DNR unit assignment is handled server-side", () => {
+test("LR unit assignment is handled server-side", () => {
   const storeCode = fs.readFileSync(path.join(process.cwd(), "modules", "side-tasks-store.js"), "utf8");
   const serverCode = fs.readFileSync(path.join(process.cwd(), "side-tasks-server.js"), "utf8");
   const clientCode = fs.readFileSync(path.join(process.cwd(), "side-tasks.js"), "utf8");

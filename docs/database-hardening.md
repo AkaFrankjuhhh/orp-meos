@@ -29,7 +29,7 @@ Verhoog `DATABASE_POOL_MAX` alleen na het controleren van PostgreSQL-verbindinge
 
 ## Neventaken in Porto
 
-De beide Porto-services lezen de status van DSI, HRB, KLu en DNR uit de centrale neventakendatabase. Zet daarom in zowel `.env` als `.env.politie` dezelfde waarde als de `DATABASE_URL` van `.env.side-tasks`:
+De beide Porto-services lezen de status van DSI, HRB, KLu en LR uit de centrale neventakendatabase. Zet daarom in zowel `.env` als `.env.politie` dezelfde waarde als de `DATABASE_URL` van `.env.side-tasks`:
 
 ```env
 SIDE_TASK_DATABASE_URL=postgres://defensie_portal:WACHTWOORD@localhost:5432/side_tasks_portal

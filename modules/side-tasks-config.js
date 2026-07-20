@@ -87,16 +87,17 @@ const SIDE_TASK_DEFINITIONS = {
   },
   DNR: {
     key: "DNR",
-    slug: "dnr",
-    label: "DNR",
-    displayName: "Dienst Nationale Recherche",
+    slug: "lr",
+    hostAliases: ["dnr"],
+    label: "LR",
+    displayName: "Landelijke Recherche",
     logoUrl: "/assets/politie-logo.png",
     roleDefaults: {
       members: ["1485659456837783744"]
     },
     allowAlias: true,
     aliasProfile: {
-      numberLabel: "DNR eenheid",
+      numberLabel: "LR eenheid",
       numberPlaceholder: "Kies eenheid",
       aliasLabel: "Schuilnaam",
       aliasPlaceholder: "Schuilnaam",
@@ -180,6 +181,16 @@ function hostnameForTask(task) {
   return `${task.slug}.${baseDomain}`;
 }
 
+function hostnameAliasesForTask(task) {
+  const baseDomain = String(process.env.SIDE_TASK_BASE_DOMAIN || "orpoverheid.nl").trim().toLowerCase();
+  const configured = splitIds(process.env[`SIDE_TASK_${task.key}_HOST_ALIASES`] || "");
+  const defaultAliases = [
+    `${task.slug}.${baseDomain}`,
+    ...(task.hostAliases || []).map((slug) => `${slug}.${baseDomain}`)
+  ];
+  return [...new Set([...configured, ...defaultAliases].map((host) => String(host || "").trim().toLowerCase()).filter(Boolean))];
+}
+
 function sideTaskWithRuntimeConfig(task) {
   const specialtyRoleIds = task.specialties.map((specialty) => specialty.roleId);
   const acoRoleIds = roleEnv(task.key, "ACO");
@@ -189,9 +200,11 @@ function sideTaskWithRuntimeConfig(task) {
     ...(unit.roleIds || []),
     ...(unit.leadershipRoleIds || [])
   ]);
+  const hostname = hostnameForTask(task);
   const runtimeTask = {
     ...task,
-    hostname: hostnameForTask(task),
+    hostname,
+    hostnames: [...new Set([hostname, ...hostnameAliasesForTask(task)])],
     roleIds: {
       members: configuredRoleIds(task.key, "MEMBER", task.roleDefaults?.members || []),
       leadership: configuredRoleIds(task.key, "LEADERSHIP", task.roleDefaults?.leadership || []),
@@ -217,7 +230,7 @@ function sideTaskForKey(key) {
 
 function sideTaskForHost(host) {
   const normalizedHost = String(host || "").split(":")[0].toLowerCase();
-  return allSideTasks().find((task) => task.hostname.split(":")[0] === normalizedHost) || null;
+  return allSideTasks().find((task) => (task.hostnames || [task.hostname]).some((hostname) => hostname.split(":")[0] === normalizedHost)) || null;
 }
 
 function hasAnyRole(memberRoles, roleIds) {

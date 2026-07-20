@@ -305,7 +305,7 @@ async function restorePortalNicknameIfKnown(discordId) {
 
 async function reconcileDnrMembersWithDiscord(task, actorDiscordId = "") {
   if (task.key !== "DNR") {
-    return { ok: true, skipped: true, reason: "Rolcontrole is alleen actief voor DNR.", checked: 0, archived: [] };
+    return { ok: true, skipped: true, reason: "Rolcontrole is alleen actief voor LR.", checked: 0, archived: [] };
   }
   const members = await store.listMembers(task.key);
   const staleMembers = [];
@@ -318,7 +318,7 @@ async function reconcileDnrMembersWithDiscord(task, actorDiscordId = "") {
     if (!result.member || !hasMembershipRole(task, roles)) {
       staleMembers.push({
         member,
-        reason: result.member ? "DNR Discord-rol ontbreekt." : "Lid zit niet meer in de Neventaken Discord."
+        reason: result.member ? "LR Discord-rol ontbreekt." : "Lid zit niet meer in de Neventaken Discord."
       });
     }
   }
@@ -479,7 +479,7 @@ function requireAllowedDnrUnit(task, unitKey, session) {
   const key = String(unitKey || "").trim();
   if (!key) return;
   if (canUseDnrUnit(task, session?.roles || [], session?.user?.id, key)) return;
-  const error = new Error("Je mist de Discord-rol voor deze DNR-eenheid.");
+  const error = new Error("Je mist de Discord-rol voor deze LR-eenheid.");
   error.status = 403;
   throw error;
 }
@@ -531,12 +531,12 @@ function validateAliasProfileForStatus(task, member, nextStatus, portalIdentity 
     const unitKey = dnrUnitKeyForMember(task, member);
     const dnrUnit = dnrUnitForKey(task, unitKey) || dnrUnitForNumber(task, member.unitNumber);
     if (!dnrUnit) {
-      const error = new Error("Kies eerst je DNR-eenheid.");
+      const error = new Error("Kies eerst je LR-eenheid.");
       error.status = 400;
       throw error;
     }
     if (String(nextStatus) === "4" && !member.unitNumber) {
-      const error = new Error("Meld je eerst aan voordat je DNR-status 4 gebruikt.");
+      const error = new Error("Meld je eerst aan voordat je LR-status 4 gebruikt.");
       error.status = 400;
       throw error;
     }

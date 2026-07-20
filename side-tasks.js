@@ -405,7 +405,7 @@ function archiveAdminRows() {
 function dnrRoleCheckNotice() {
   const check = appState.dnrRoleCheck;
   if (!check) {
-    return '<p class="muted">Discord-rolcontrole draait automatisch wanneer DNR ledenbeheer opent.</p>';
+    return '<p class="muted">Discord-rolcontrole draait automatisch wanneer LR ledenbeheer opent.</p>';
   }
   if (check.error) {
     return `<p class="alert">Discord-rolcontrole mislukt: ${escapeHtml(check.error)}</p>`;
@@ -415,9 +415,9 @@ function dnrRoleCheckNotice() {
   }
   const archived = Array.isArray(check.archived) ? check.archived : [];
   if (archived.length) {
-    return `<p class="alert">${escapeHtml(String(archived.length))} oud-DNR ${archived.length === 1 ? "lid is" : "leden zijn"} gearchiveerd na rolcontrole: ${escapeHtml(archived.map((member) => member.displayName || member.discordId).join(", "))}</p>`;
+    return `<p class="alert">${escapeHtml(String(archived.length))} oud-LR ${archived.length === 1 ? "lid is" : "leden zijn"} gearchiveerd na rolcontrole: ${escapeHtml(archived.map((member) => member.displayName || member.discordId).join(", "))}</p>`;
   }
-  return `<p class="muted">Discord-rolcontrole: ${escapeHtml(String(check.checked || 0))} DNR leden gecontroleerd.</p>`;
+  return `<p class="muted">Discord-rolcontrole: ${escapeHtml(String(check.checked || 0))} LR leden gecontroleerd.</p>`;
 }
 
 function memberEditModal() {
