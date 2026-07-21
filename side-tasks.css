@@ -616,7 +616,8 @@ select:focus {
   border-bottom: 0;
 }
 
-.dsi-context-menu {
+.dsi-context-menu,
+.dnr-context-menu {
   position: fixed;
   z-index: 20;
   width: min(290px, calc(100vw - 24px));
@@ -627,6 +628,10 @@ select:focus {
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
 }
 
+.dnr-context-menu {
+  width: min(320px, calc(100vw - 24px));
+}
+
 .dsi-context-title {
   margin-bottom: 10px;
   color: var(--text);
@@ -634,12 +639,15 @@ select:focus {
 }
 
 .dsi-context-menu > button,
-.dsi-context-menu label {
+.dsi-context-menu label,
+.dnr-context-menu > button,
+.dnr-context-menu label {
   display: block;
   width: 100%;
 }
 
-.dsi-context-menu > button {
+.dsi-context-menu > button,
+.dnr-context-menu > button {
   padding: 10px;
   border: 0;
   border-top: 1px solid var(--line);
@@ -649,11 +657,13 @@ select:focus {
   font-weight: 800;
 }
 
-.dsi-context-menu > button:hover {
+.dsi-context-menu > button:hover,
+.dnr-context-menu > button:hover {
   background: rgba(255, 141, 0, 0.15);
 }
 
-.dsi-context-menu select {
+.dsi-context-menu select,
+.dnr-context-menu select {
   width: 100%;
   margin-top: 6px;
 }

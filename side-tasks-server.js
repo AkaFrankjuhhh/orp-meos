@@ -1011,6 +1011,52 @@ async function handleApi(req, res, task, url) {
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
 
+  const dnrUnitMatch = url.pathname.match(/^\/api\/side-tasks\/dnr\/members\/([^/]+)\/unit$/);
+  if (dnrUnitMatch && req.method === "POST") {
+    if (task.key !== "DNR") return jsonError(res, 404, "Niet gevonden.");
+    if (!session.permissions.canManageDnrUnits) return jsonError(res, 403, "Alleen LR-senioren kunnen leden koppelen aan een LR-nummer.");
+    const member = await store.findMemberById(task.key, decodeURIComponent(dnrUnitMatch[1]));
+    if (!member) return jsonError(res, 404, "LR-lid niet gevonden.");
+    const body = await readBody(req);
+    const unitNumber = normalizeAliasNumber(task, body.unitNumber);
+    const dnrUnit = dnrUnitForNumber(task, unitNumber);
+    if (!dnrUnit) return jsonError(res, 400, "Kies een geldig LR-nummer.");
+    requireAllowedDnrUnit(task, dnrUnit.key, session);
+    const portalIdentity = await portalIdentityForDiscordId(member.discordId);
+    validateAliasProfileForStatus(task, {
+      ...member,
+      callSign: unitNumber,
+      unitNumber,
+      status: "1",
+      raw: {
+        ...(member.raw || {}),
+        dnrUnitKey: dnrUnit.key
+      }
+    }, "1", portalIdentity);
+    const updated = await store.assignDnrUnit(task.key, member.id, dnrUnit.key, { unitNumber });
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, updated.status);
+    publishSideTaskUpdate(task, "dnr-unit-updated", { memberId: nicknameResult.member.id, unitNumber });
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
+  }
+
+  const dnrSignOffMatch = url.pathname.match(/^\/api\/side-tasks\/dnr\/members\/([^/]+)\/sign-off$/);
+  if (dnrSignOffMatch && req.method === "POST") {
+    if (task.key !== "DNR") return jsonError(res, 404, "Niet gevonden.");
+    if (!session.permissions.canSignOffDnrMembers) return jsonError(res, 403, "Alleen LR-senioren kunnen LR-leden uit dienst melden.");
+    const member = await store.findMemberById(task.key, decodeURIComponent(dnrSignOffMatch[1]));
+    if (!member) return jsonError(res, 404, "LR-lid niet gevonden.");
+    const updated = await store.updateMember(task.key, member.id, {
+      status: "8",
+      statusDetail: statusOption("8").label,
+      callSign: "",
+      unitNumber: "",
+      specialties: member.specialties || []
+    });
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, "8");
+    publishSideTaskUpdate(task, "dnr-member-signed-off", { memberId: nicknameResult.member.id, status: "8" });
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
+  }
+
   const dsiCommandMatch = url.pathname.match(/^\/api\/side-tasks\/dsi\/members\/([^/]+)\/command-role$/);
   if (dsiCommandMatch && req.method === "POST") {
     if (task.key !== "DSI") return jsonError(res, 404, "Niet gevonden.");

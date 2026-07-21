@@ -6,6 +6,7 @@ let appState = {
   statuses: [],
   profileOpen: false,
   dsiContextMenu: null,
+  dnrContextMenu: null,
   archives: [],
   dnrRoleCheck: null,
   memberEditId: ""
@@ -80,6 +81,13 @@ function dnrUnitForMember(member, task) {
 
 function selectableDnrUnits(task) {
   return (task.dnrUnits || []).filter((unit) => unit.canSelect !== false);
+}
+
+function dnrUnitNumberForPrefix(prefix, unitNumber) {
+  const match = new RegExp(`^${String(prefix)}-(\\d{1,2})$`).exec(String(unitNumber || "").trim());
+  if (!match) return "";
+  const suffix = Number(match[1]);
+  return suffix >= 1 && suffix <= 99 ? `${prefix}-${String(suffix).padStart(2, "0")}` : "";
 }
 
 function aliasNumberForDisplay(member, task) {
@@ -238,7 +246,7 @@ function memberCard(member) {
     : `<span class="specialty-chip">Geen specialisatie</span>`;
   const dnrUnit = task.key === "DNR" ? dnrUnitForMember(member, task) : null;
   return `
-    <article class="member-card ${statusClass === "active" ? "" : statusClass}"${task.key === "DSI" ? ` data-dsi-member="${escapeHtml(member.id)}"` : ""}>
+    <article class="member-card ${statusClass === "active" ? "" : statusClass}"${task.key === "DSI" ? ` data-dsi-member="${escapeHtml(member.id)}"` : ""}${task.key === "DNR" ? ` data-dnr-member="${escapeHtml(member.id)}"` : ""}>
       <div class="member-main">
         ${memberAvatar(member)}
         <div>
@@ -251,6 +259,42 @@ function memberCard(member) {
       <div class="chips">${specialties}</div>
     </article>
   `;
+}
+
+function dnrUnitLinkOptions(member, task) {
+  const options = [];
+  const counts = new Map();
+  appState.members
+    .filter((entry) => entry.status !== "8" && entry.unitNumber)
+    .forEach((entry) => counts.set(entry.unitNumber, (counts.get(entry.unitNumber) || 0) + 1));
+
+  for (const unit of selectableDnrUnits(task)) {
+    const capacity = Math.max(1, Number(unit.capacity || 2));
+    const existingNumbers = [...counts.keys()]
+      .filter((unitNumber) => dnrUnitNumberForPrefix(unit.prefix, unitNumber) && unitNumber !== unit.leadershipNumber)
+      .sort((left, right) => left.localeCompare(right, "nl", { numeric: true }));
+
+    for (const unitNumber of existingNumbers) {
+      const count = counts.get(unitNumber) || 0;
+      const ownCurrent = member.id && member.id !== "" && member.unitNumber === unitNumber && member.status !== "8" ? 1 : 0;
+      if (count - ownCurrent >= capacity) continue;
+      options.push({
+        unitNumber,
+        label: `${unit.label} ${unitNumber} (${Math.min(count, capacity)}/${capacity})`
+      });
+    }
+
+    for (let index = 1; index <= 99; index += 1) {
+      const unitNumber = `${unit.prefix}-${String(index).padStart(2, "0")}`;
+      if (counts.has(unitNumber)) continue;
+      options.push({
+        unitNumber,
+        label: `${unit.label} ${unitNumber} (nieuw)`
+      });
+      break;
+    }
+  }
+  return options;
 }
 
 function dsiUnitSection() {
@@ -295,6 +339,39 @@ function dsiUnitSection() {
         </div>
       ` : ""}
     </section>
+  `;
+}
+
+function dnrContextMenu() {
+  const context = appState.dnrContextMenu;
+  if (!context || appState.me?.task?.key !== "DNR") return "";
+  const member = appState.members.find((entry) => entry.id === context.memberId);
+  if (!member) return "";
+  const { task, permissions = {} } = appState.me;
+  if (!permissions.canManageDnrUnits && !permissions.canSignOffDnrMembers) return "";
+  const unitOptions = dnrUnitLinkOptions(member, task);
+  const style = `left:${context.x}px;top:${context.y}px;`;
+  return `
+    <div class="dnr-context-menu" data-dnr-context-menu style="${style}">
+      <div class="dsi-context-title">${escapeHtml(displayMemberName(member, task))}</div>
+      ${context.mode === "link" ? `
+        <label>Koppel aan LR-nummer
+          <select data-dnr-unit-select ${unitOptions.length ? "" : "disabled"}>
+            ${unitOptions.length
+              ? unitOptions.map((option) => `<option value="${escapeHtml(option.unitNumber)}">${escapeHtml(option.label)}</option>`).join("")
+              : `<option>Geen vrije LR-nummers</option>`}
+          </select>
+        </label>
+        <div class="dsi-context-actions">
+          <button class="secondary-button" type="button" data-action="dnr-close-menu">Annuleren</button>
+          <button class="primary-button" type="button" data-action="dnr-confirm-link" ${unitOptions.length ? "" : "disabled"}>Koppelen</button>
+        </div>
+      ` : `
+        ${permissions.canManageDnrUnits ? `<button type="button" data-action="dnr-open-link-menu">Koppelen aan LR-nummer</button>` : ""}
+        ${permissions.canSignOffDnrMembers && member.status !== "8" ? `<button type="button" data-action="dnr-sign-off-member">Uit dienst melden</button>` : ""}
+        <button class="dsi-context-close" type="button" data-action="dnr-close-menu">Sluiten</button>
+      `}
+    </div>
   `;
 }
 
@@ -547,7 +624,7 @@ function renderDashboard() {
 
 function renderApp() {
   const page = location.hash === "#ledenbeheer" ? "ledenbeheer" : "dashboard";
-  app.innerHTML = `${page === "ledenbeheer" ? memberAdminPage() : renderDashboard()}${dsiContextMenu()}${memberEditModal()}`;
+  app.innerHTML = `${page === "ledenbeheer" ? memberAdminPage() : renderDashboard()}${dsiContextMenu()}${dnrContextMenu()}${memberEditModal()}`;
   window.DefensiePortalUI?.ensureUiModeToggle?.(".user-menu");
 }
 
@@ -576,7 +653,7 @@ async function refresh(options = {}) {
 }
 
 function isEditingOrManaging() {
-  if (appState.profileOpen || appState.dsiContextMenu || appState.memberEditId) return true;
+  if (appState.profileOpen || appState.dsiContextMenu || appState.dnrContextMenu || appState.memberEditId) return true;
   const activeElement = document.activeElement;
   return Boolean(activeElement?.matches?.("input, textarea, select"));
 }
@@ -709,8 +786,18 @@ app.addEventListener("click", async (event) => {
       renderApp();
       return;
     }
+    if (action === "dnr-close-menu") {
+      appState.dnrContextMenu = null;
+      renderApp();
+      return;
+    }
     if (action === "dsi-open-link-menu") {
       appState.dsiContextMenu = { ...appState.dsiContextMenu, mode: "link" };
+      renderApp();
+      return;
+    }
+    if (action === "dnr-open-link-menu") {
+      appState.dnrContextMenu = { ...appState.dnrContextMenu, mode: "link" };
       renderApp();
       return;
     }
@@ -727,6 +814,19 @@ app.addEventListener("click", async (event) => {
       if (result.warning) alert(result.warning);
       return;
     }
+    if (action === "dnr-confirm-link") {
+      const context = appState.dnrContextMenu;
+      const select = app.querySelector("[data-dnr-unit-select]");
+      if (!context || !select?.value) return;
+      const result = await api(`/api/side-tasks/dnr/members/${encodeURIComponent(context.memberId)}/unit`, {
+        method: "POST",
+        body: JSON.stringify({ unitNumber: select.value })
+      });
+      appState.dnrContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
     if (action === "dsi-sign-off-member") {
       const context = appState.dsiContextMenu;
       if (!context) return;
@@ -738,6 +838,21 @@ app.addEventListener("click", async (event) => {
         body: JSON.stringify({})
       });
       appState.dsiContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
+    if (action === "dnr-sign-off-member") {
+      const context = appState.dnrContextMenu;
+      if (!context) return;
+      const member = appState.members.find((entry) => entry.id === context.memberId);
+      const label = member ? displayMemberName(member, appState.me.task) : "dit LR-lid";
+      if (!confirm(`${label} uit dienst melden?`)) return;
+      const result = await api(`/api/side-tasks/dnr/members/${encodeURIComponent(context.memberId)}/sign-off`, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      appState.dnrContextMenu = null;
       await refresh();
       if (result.warning) alert(result.warning);
       return;
@@ -784,10 +899,36 @@ app.addEventListener("contextmenu", (event) => {
   renderApp();
 });
 
-document.addEventListener("click", (event) => {
-  if (!appState.dsiContextMenu || event.target.closest("[data-dsi-context-menu]")) return;
-  appState.dsiContextMenu = null;
+app.addEventListener("contextmenu", (event) => {
+  const target = event.target.closest("[data-dnr-member]");
+  if (!target || appState.me?.task?.key !== "DNR") return;
+  const permissions = appState.me.permissions || {};
+  if (!permissions.canManageDnrUnits && !permissions.canSignOffDnrMembers) return;
+  event.preventDefault();
+  const member = appState.members.find((entry) => entry.id === target.dataset.dnrMember);
+  if (!member) return;
+  const menuWidth = 320;
+  const menuHeight = 280;
+  appState.dnrContextMenu = {
+    memberId: member.id,
+    mode: "actions",
+    x: Math.min(event.clientX, window.innerWidth - menuWidth - 12),
+    y: Math.min(event.clientY, window.innerHeight - menuHeight - 12)
+  };
   renderApp();
+});
+
+document.addEventListener("click", (event) => {
+  let changed = false;
+  if (appState.dsiContextMenu && !event.target.closest("[data-dsi-context-menu]")) {
+    appState.dsiContextMenu = null;
+    changed = true;
+  }
+  if (appState.dnrContextMenu && !event.target.closest("[data-dnr-context-menu]")) {
+    appState.dnrContextMenu = null;
+    changed = true;
+  }
+  if (changed) renderApp();
 });
 
 app.addEventListener("submit", async (event) => {

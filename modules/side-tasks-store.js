@@ -31,6 +31,13 @@ function formatDnrUnit(prefix, index) {
   return `${prefix}-${String(index).padStart(2, "0")}`;
 }
 
+function dnrUnitNumberForPrefix(prefix, unitNumber) {
+  const match = new RegExp(`^${String(prefix)}-(\\d{1,2})$`).exec(String(unitNumber || "").trim());
+  if (!match) return "";
+  const suffix = Number(match[1]);
+  return suffix >= 1 && suffix <= 99 ? formatDnrUnit(prefix, suffix) : "";
+}
+
 function sideTaskDatabaseUrl() {
   return String(process.env.SIDE_TASK_DATABASE_URL || "").trim();
 }
@@ -648,6 +655,12 @@ function createSideTasksStore() {
       error.status = 400;
       throw error;
     }
+    const requestedUnitNumber = options.unitNumber ? dnrUnitNumberForPrefix(dnrUnit.prefix, options.unitNumber) : "";
+    if (options.unitNumber && !requestedUnitNumber) {
+      const error = new Error(`Kies een geldig ${dnrUnit.prefix}-nummer.`);
+      error.status = 400;
+      throw error;
+    }
     await ensureSideTaskSchema();
     return withSideTaskClient(async (client) => {
       await client.query("begin");
@@ -661,9 +674,30 @@ function createSideTasksStore() {
           throw error;
         }
 
-        let unitNumber = member.unitNumber && dnrUnitForNumber(member.unitNumber)?.key === dnrUnit.key
-          ? member.unitNumber
-          : "";
+        let unitNumber = "";
+        if (requestedUnitNumber) {
+          const occupiedUnit = await client.query(
+            `select id
+             from side_task_members
+             where task_key = $1
+               and id <> $2
+               and status <> '8'
+               and unit_number = $3
+             for update`,
+            [taskKey, String(memberId), requestedUnitNumber]
+          );
+          const capacity = Math.max(1, Number(dnrUnit.capacity || 1));
+          if (occupiedUnit.rows.length >= capacity) {
+            const error = new Error(`${requestedUnitNumber} zit al vol.`);
+            error.status = 409;
+            throw error;
+          }
+          unitNumber = requestedUnitNumber;
+        }
+        if (!unitNumber) {
+          const currentUnitMatches = member.unitNumber && dnrUnitForNumber(member.unitNumber)?.key === dnrUnit.key;
+          unitNumber = currentUnitMatches ? member.unitNumber : "";
+        }
         if (!unitNumber) {
           if (options.useLeadershipNumber && dnrUnit.leadershipNumber) {
             const occupiedLeadership = await client.query(

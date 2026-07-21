@@ -268,15 +268,22 @@ function permissionsForTask(task, memberRoles, discordId) {
   const hasTcoRole = hasAnyRole(memberRoles, roleIds.tco);
   const hasSpecialtyRole = hasAnyRole(memberRoles, roleIds.specialties);
   const hasDnrUnitRole = task.key === "DNR" && hasAnyRole(memberRoles, roleIds.dnrUnits);
+  const dnrLeadershipRoleIds = task.key === "DNR"
+    ? (task.dnrUnits || []).flatMap((unit) => unit.leadershipRoleIds || [])
+    : [];
+  const hasDnrUnitLeadershipRole = task.key === "DNR" && hasAnyRole(memberRoles, dnrLeadershipRoleIds);
   const canManageMembers = isDev || hasLeadershipRole || hasSubleadershipRole;
   const canManageDsiUnits = task.key === "DSI" && (canManageMembers || hasAcoRole || hasTcoRole);
   const canAssignDsiCommand = task.key === "DSI" && (canManageMembers || hasMemberRole || hasAcoRole || hasTcoRole);
+  const canManageDnrUnits = task.key === "DNR" && (canManageMembers || hasDnrUnitLeadershipRole);
   return {
     isDev,
     hasAccess: isDev || canManageMembers || hasAcoRole || hasTcoRole || hasMemberRole || hasSpecialtyRole || hasDnrUnitRole,
     canManageMembers,
     canManageDsiUnits,
     canAssignDsiCommand,
+    canManageDnrUnits,
+    canSignOffDnrMembers: canManageDnrUnits,
     canUseAlias: task.allowAlias,
     roles: {
       member: hasMemberRole,
@@ -285,7 +292,8 @@ function permissionsForTask(task, memberRoles, discordId) {
       aco: hasAcoRole,
       tco: hasTcoRole,
       specialty: hasSpecialtyRole,
-      dnrUnit: hasDnrUnitRole
+      dnrUnit: hasDnrUnitRole,
+      dnrUnitLeadership: hasDnrUnitLeadershipRole
     }
   };
 }

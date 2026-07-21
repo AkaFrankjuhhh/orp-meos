@@ -92,6 +92,9 @@ test("LR unit choices follow Discord unit roles", () => {
   assert.deepEqual(dnrUnitsForRoles(dnrTask, [tacticalSeniorRole, unitSixTeamchefRole], "discord-user").map((unit) => unit.key), ["tactical", "unit-six"]);
   assert.equal(canUseDnrUnit(dnrTask, [unitSixRole], "discord-user", "unit-six"), true);
   assert.equal(canUseDnrUnit(dnrTask, [unitSixRole], "discord-user", "technical"), false);
+  assert.equal(permissionsForTask(dnrTask, [technicalRole], "discord-user").canManageDnrUnits, false);
+  assert.equal(permissionsForTask(dnrTask, [technicalSeniorRole], "discord-user").canManageDnrUnits, true);
+  assert.equal(permissionsForTask(dnrTask, [technicalSeniorRole], "discord-user").canSignOffDnrMembers, true);
 });
 
 test("LR unit assignment is handled server-side", () => {
@@ -101,13 +104,23 @@ test("LR unit assignment is handled server-side", () => {
 
   assert.match(storeCode, /async function assignDnrUnit/);
   assert.match(storeCode, /options\.useLeadershipNumber/);
+  assert.match(storeCode, /options\.unitNumber/);
   assert.match(storeCode, /dnrUnit\.leadershipNumber/);
   assert.match(storeCode, /formatDnrUnit\(dnrUnit\.prefix, index\)/);
+  assert.match(storeCode, /occupiedUnit\.rows\.length >= capacity/);
   assert.match(serverCode, /function requireAllowedDnrUnit/);
   assert.match(serverCode, /function canUseDnrLeadershipNumber/);
   assert.match(serverCode, /dnrUnit\.leadershipRoleIds/);
   assert.match(serverCode, /store\.assignDnrUnit\(task\.key, member\.id, dnrUnitKey/);
+  assert.match(serverCode, /const dnrSignOffMatch/);
+  assert.match(serverCode, /side-tasks\\\/dnr\\\/members/);
+  assert.match(serverCode, /canSignOffDnrMembers/);
   assert.match(clientCode, /selectableDnrUnits/);
+  assert.match(clientCode, /function dnrContextMenu/);
+  assert.match(clientCode, /data-dnr-member/);
+  assert.match(clientCode, /data-dnr-unit-select/);
+  assert.match(clientCode, /data-action="dnr-open-link-menu"/);
+  assert.match(clientCode, /data-action="dnr-sign-off-member"/);
   assert.match(clientCode, /name="dnrUnitKey"/);
   assert.match(clientCode, /\[\$\{number\} - ※\]/);
 });
