@@ -124,7 +124,7 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(html, /data-page="trainer-ibt"/);
   assert.match(html, /id="trainerIbtCounter"/);
   assert.match(html, /trainerIbtDetailDialog/);
-  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260722-ibt-test-overview/);
+  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260722-ibt-detail-overview/);
   assert.match(appCode, /"trainer-overzicht": "\/trainer-overzicht"/);
   assert.match(appCode, /function canViewTrainerOverview\(/);
   assert.match(appCode, /renderTrainerIbtReviews\(\)/);
@@ -144,6 +144,7 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(trainerCode, /data-send-trainer-ibt/);
   assert.match(trainerCode, /data-open-trainer-ibt-detail/);
   assert.match(trainerCode, /data-review-trainer-ibt/);
+  assert.match(trainerCode, /mentor-test-answer trainer-ibt-answer/);
   assert.match(publicFormsConfigCode, /reviewSurface: "portal"/);
   assert.match(publicFormsCode, /function canShowSubmissionReviewPanel\(/);
   assert.match(publicFormsCode, /formState\.config\?\.reviewSurface !== "portal"/);
@@ -158,7 +159,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260722-ibt-test-overview/);
+  assert.match(html, /personeelsportaal\.css\?v=20260722-ibt-detail-overview/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260720-profile-badge-dialog/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);

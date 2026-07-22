@@ -310,14 +310,14 @@ function renderTrainerIbtAnswers(answers = {}) {
     .filter((row) => row.value);
   return rows.length
     ? `
-      <dl class="trainer-ibt-answers">
+      <div class="mentor-test-answers trainer-ibt-answer-list">
         ${rows.map((row) => `
-          <div>
-            <dt>${escapeHtml(trainerIbtQuestionLabels.get(row.key) || row.key)}</dt>
-            <dd>${escapeHtml(row.value)}</dd>
+          <div class="mentor-test-answer trainer-ibt-answer">
+            <strong>${escapeHtml(trainerIbtQuestionLabels.get(row.key) || row.key)}</strong>
+            <p>${escapeHtml(row.value)}</p>
           </div>
         `).join("")}
-      </dl>
+      </div>
     `
     : '<p class="muted">Geen antwoorden opgeslagen.</p>';
 }
@@ -377,15 +377,14 @@ function renderTrainerIbtDetail(row) {
   const submission = row?.submission || {};
   const person = row?.person || submission.submittedBy || {};
   const status = trainerSubmissionStatus(row);
-  const reviewedBy = submission.review?.reviewedBy;
   const reviewedAt = submission.review?.reviewedAt || "";
   const canReview = status === "submitted";
   return `
     <div class="trainer-ibt-detail">
       <div class="mentor-test-card-header">
         <div>
-          <strong>${escapeHtml(trainerIbtPersonLabel(person))}</strong>
-          <p>${escapeHtml(person.rank || "-")} - ${escapeHtml(submission.submissionNumber || submission.id || "-")}</p>
+          <strong>${escapeHtml(person.name || "Onbekend")}</strong>
+          <p>${escapeHtml(person.rank || "-")} - ${escapeHtml(person.serviceNumber || "-")}</p>
         </div>
         <span class="trainer-ibt-status ${escapeHtml(trainerIbtStatusClass(status))}">${escapeHtml(trainerIbtStatusLabel(status))}</span>
       </div>
@@ -393,7 +392,6 @@ function renderTrainerIbtDetail(row) {
         ${row?.sentAt ? `<span>Verstuurd: ${escapeHtml(formatDateTime(row.sentAt))}</span>` : ""}
         ${submission.submittedAt ? `<span>Ingeleverd: ${escapeHtml(formatDateTime(submission.submittedAt))}</span>` : ""}
         ${reviewedAt ? `<span>Beoordeeld: ${escapeHtml(formatDateTime(reviewedAt))}</span>` : ""}
-        ${reviewedBy ? `<span>Door: ${escapeHtml(trainerIbtPersonLabel(reviewedBy))}</span>` : ""}
       </div>
       ${renderTrainerIbtAnswers(submission.answers || {})}
       ${canReview ? `

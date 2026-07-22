@@ -5358,6 +5358,15 @@ html[data-typography="system"] .leadership-row .rank-count {
   gap: 14px;
 }
 
+.trainer-ibt-answer-list {
+  gap: 14px;
+}
+
+.trainer-ibt-answer p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .trainer-ibt-answers {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
