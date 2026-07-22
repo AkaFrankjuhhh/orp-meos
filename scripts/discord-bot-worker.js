@@ -13,6 +13,7 @@ const {
   discordLeaveLogWebhookUrl,
   discordMemberDisplayName,
   discordUserTag,
+  gatewayGuildMatchesConfiguredGuild,
   memberHasAnyTrackedRole,
   sendDiscordLeaveLog
 } = require("../modules/discord-leave-log");
@@ -60,6 +61,7 @@ let reconnectTimer = null;
 let hasGatewayVoiceSnapshot = false;
 const gatewayVoiceStatesByUser = new Map();
 const gatewayMemberRolesByUser = new Map();
+const recentLeaveLogKeys = new Map();
 let claimIzCommandRegistered = false;
 let addTrainingCommandRegistered = false;
 let trainerInfoOverviewTimer = null;
@@ -765,16 +767,33 @@ function displayPortoChannelKeyForDiscordChannelId(channelId) {
   return portoChannelKeyForDiscordChannelId(channelId) || nonRegularPortoDiscordChannelKey;
 }
 
+function configuredGatewayGuildId() {
+  return String(process.env.DISCORD_GUILD_ID || "").trim();
+}
+
+function gatewayMemberCacheKey(discordId, guildId = "") {
+  const normalizedDiscordId = String(discordId || "").trim();
+  if (!normalizedDiscordId) return "";
+  const normalizedGuildId = String(guildId || configuredGatewayGuildId() || "").trim();
+  return `${normalizedGuildId || "unknown"}:${normalizedDiscordId}`;
+}
+
 function captureGatewayVoiceState(voiceState = {}) {
+  if (!gatewayGuildMatchesConfiguredGuild(voiceState.guild_id)) return;
   const discordId = String(voiceState.user_id || "").trim();
   if (!discordId) return;
   gatewayVoiceStatesByUser.set(discordId, String(voiceState.channel_id || "").trim());
 }
 
-function captureGatewayMemberRoles(member = {}) {
+function captureGatewayMemberRoles(member = {}, guildId = "") {
+  const eventGuildId = String(guildId || member.guild_id || "").trim();
+  if (!gatewayGuildMatchesConfiguredGuild(eventGuildId)) return;
   const discordId = String(member.user?.id || member.user_id || "").trim();
   if (!discordId || !Array.isArray(member.roles)) return;
-  gatewayMemberRolesByUser.set(discordId, member.roles.map((roleId) => String(roleId || "").trim()).filter(Boolean));
+  gatewayMemberRolesByUser.set(
+    gatewayMemberCacheKey(discordId, eventGuildId),
+    member.roles.map((roleId) => String(roleId || "").trim()).filter(Boolean)
+  );
 }
 
 function discordSnowflakeTimestampMs(id) {
@@ -816,6 +835,31 @@ async function detectMemberRemovalReason(discordId) {
   const kickEntry = await findRecentAuditLogEntryForTarget(discordId, AUDIT_LOG_ACTION_MEMBER_KICK);
   if (kickEntry) return "kick";
   return "leave";
+}
+
+async function memberStillInConfiguredGuild(discordId) {
+  if (!discordId || typeof bot.getGuildMember !== "function") return false;
+  try {
+    const result = await bot.getGuildMember(discordId);
+    return Boolean(result?.ok && result.data?.user);
+  } catch (error) {
+    if (error?.status === 404 || error?.discord?.code === 10007) return false;
+    console.warn(`[discord-bot] leave-log live guild-check mislukt voor ${discordId}: ${error.message}`);
+    return false;
+  }
+}
+
+function shouldSendRecentLeaveLog(discordId, guildId = "") {
+  const cacheKey = gatewayMemberCacheKey(discordId, guildId);
+  if (!cacheKey) return true;
+  const now = Date.now();
+  const ttlMs = 5 * 60 * 1000;
+  for (const [key, seenAt] of recentLeaveLogKeys.entries()) {
+    if (now - seenAt > ttlMs) recentLeaveLogKeys.delete(key);
+  }
+  if (recentLeaveLogKeys.has(cacheKey)) return false;
+  recentLeaveLogKeys.set(cacheKey, now);
+  return true;
 }
 
 async function findPortalPersonByDiscordId(discordId) {
@@ -1278,25 +1322,35 @@ async function runPeriodicSyncLoop() {
 async function handleGuildMemberRemove(member = {}) {
   const organization = currentOrganization();
   if (organization.key !== "defensie") return;
+  if (!gatewayGuildMatchesConfiguredGuild(member.guild_id)) return;
   const webhookUrl = discordLeaveLogWebhookUrl(organization);
   if (!webhookUrl) return;
 
   const discordId = String(member.user?.id || member.user_id || "").trim();
+  const guildId = String(member.guild_id || "").trim();
   const trackedRoleIds = collectDefensieLeaveLogRoleIds(organization);
   if (!trackedRoleIds.size) {
     console.warn("[discord-bot] leave-log overgeslagen: DISCORD_DEFENSIE_ROLE_ID ontbreekt of organisatie is geen defensie.");
     return;
   }
   const eventRoles = Array.isArray(member.roles) ? member.roles : [];
-  const cachedRoles = discordId ? gatewayMemberRolesByUser.get(discordId) || [] : [];
+  const cachedRoles = discordId ? gatewayMemberRolesByUser.get(gatewayMemberCacheKey(discordId, guildId)) || [] : [];
   const portalPerson = discordId ? await findPortalPersonByDiscordId(discordId) : null;
   const storedRoles = Array.isArray(portalPerson?.discordRoles) ? portalPerson.discordRoles : [];
   const rolesToCheck = eventRoles.length ? eventRoles : (cachedRoles.length ? cachedRoles : storedRoles);
   const hadTrackedRole = memberHasAnyTrackedRole(rolesToCheck, trackedRoleIds);
   if (!hadTrackedRole) return;
+  if (await memberStillInConfiguredGuild(discordId)) {
+    console.warn(`[discord-bot] leave-log overgeslagen voor ${discordId}: member zit nog in de ingestelde guild.`);
+    return;
+  }
+  if (!shouldSendRecentLeaveLog(discordId, guildId)) {
+    console.warn(`[discord-bot] leave-log dubbel event genegeerd voor ${discordId}.`);
+    return;
+  }
 
   if (discordId) {
-    gatewayMemberRolesByUser.delete(discordId);
+    gatewayMemberRolesByUser.delete(gatewayMemberCacheKey(discordId, guildId));
     gatewayVoiceStatesByUser.delete(discordId);
   }
 
@@ -1376,34 +1430,44 @@ function connectGateway() {
       return;
     }
     if (packet.t === "GUILD_CREATE") {
-      for (const member of packet.d?.members || []) captureGatewayMemberRoles(member);
+      if (!gatewayGuildMatchesConfiguredGuild(packet.d?.id)) return;
+      for (const member of packet.d?.members || []) captureGatewayMemberRoles(member, packet.d?.id);
       await updatePortoVoiceSnapshotFromGuild(packet.d || {});
       return;
     }
     if (packet.t === "GUILD_MEMBER_ADD") {
+      if (!gatewayGuildMatchesConfiguredGuild(packet.d?.guild_id)) return;
       captureGatewayMemberRoles(packet.d || {});
       const discordId = packet.d?.user?.id;
       if (discordId) await enqueueDiscordSyncJob("sync_person", { discordId, reason: "guild_member_add" }, { discordId });
+      return;
     }
     if (packet.t === "GUILD_MEMBER_UPDATE") {
+      if (!gatewayGuildMatchesConfiguredGuild(packet.d?.guild_id)) return;
       captureGatewayMemberRoles(packet.d || {});
+      return;
     }
     if (packet.t === "GUILD_MEMBER_REMOVE") {
       await handleGuildMemberRemove(packet.d || {});
+      return;
     }
     if (["CHANNEL_UPDATE", "VOICE_CHANNEL_STATUS_UPDATE"].includes(packet.t)) {
+      if (!gatewayGuildMatchesConfiguredGuild(packet.d?.guild_id)) return;
       const channelId = packet.d?.id || packet.d?.channel_id;
       if (channelId && Object.prototype.hasOwnProperty.call(packet.d || {}, "status")) {
         await updatePortoChannelStatusFromDiscord(channelId, packet.d?.status || "");
       }
+      return;
     }
     if (packet.t === "VOICE_STATE_UPDATE") {
+      if (!gatewayGuildMatchesConfiguredGuild(packet.d?.guild_id)) return;
       captureGatewayVoiceState(packet.d || {});
       if (hasGatewayVoiceSnapshot) {
         await reconcilePortoVoiceChannelsFromGatewaySnapshot();
       } else {
         await updatePortoVoiceChannelFromDiscord(packet.d?.user_id || "", packet.d?.channel_id || "");
       }
+      return;
     }
   });
   gatewaySocket.addEventListener("close", () => {

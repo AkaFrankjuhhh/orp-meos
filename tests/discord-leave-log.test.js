@@ -5,6 +5,7 @@ const {
   collectDefensieLeaveLogRoleIds,
   collectOrganizationDiscordRoleIds,
   discordUserTag,
+  gatewayGuildMatchesConfiguredGuild,
   leaveLogReasonText,
   memberHasAnyTrackedRole,
   normalizeLeaveLogReason,
@@ -45,6 +46,13 @@ test("memberHasAnyTrackedRole only matches tracked roles", () => {
 
   assert.equal(memberHasAnyTrackedRole(["c", "b"], trackedRoleIds), true);
   assert.equal(memberHasAnyTrackedRole(["c", "d"], trackedRoleIds), false);
+});
+
+test("gatewayGuildMatchesConfiguredGuild ignores events from other guilds", () => {
+  assert.equal(gatewayGuildMatchesConfiguredGuild("guild-a", "guild-a"), true);
+  assert.equal(gatewayGuildMatchesConfiguredGuild("guild-b", "guild-a"), false);
+  assert.equal(gatewayGuildMatchesConfiguredGuild("", "guild-a"), true);
+  assert.equal(gatewayGuildMatchesConfiguredGuild("guild-b", ""), true);
 });
 
 test("collectDefensieLeaveLogRoleIds only includes the configured Defensie main role", () => {

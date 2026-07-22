@@ -45,6 +45,13 @@ function memberHasAnyTrackedRole(memberRoles = [], trackedRoleIds = new Set()) {
   return (memberRoles || []).some((roleId) => trackedRoleIds.has(normalizeRoleId(roleId)));
 }
 
+function gatewayGuildMatchesConfiguredGuild(guildId, configuredGuildId = process.env.DISCORD_GUILD_ID) {
+  const expectedGuildId = String(configuredGuildId || "").trim();
+  const eventGuildId = String(guildId || "").trim();
+  if (!expectedGuildId || !eventGuildId) return true;
+  return eventGuildId === expectedGuildId;
+}
+
 function discordLeaveLogWebhookUrl(organization = currentOrganization()) {
   const organizationKey = String(organization.key || "").trim().toUpperCase();
   return envOrDefault(`DISCORD_${organizationKey}_LEAVE_LOG_WEBHOOK_URL`, process.env.DISCORD_LEAVE_LOG_WEBHOOK_URL);
@@ -133,6 +140,7 @@ module.exports = {
   discordMemberDisplayName,
   discordUserId,
   discordUserTag,
+  gatewayGuildMatchesConfiguredGuild,
   leaveLogReasonText,
   memberHasAnyTrackedRole,
   normalizeLeaveLogReason,

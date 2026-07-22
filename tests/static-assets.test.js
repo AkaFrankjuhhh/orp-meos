@@ -457,6 +457,17 @@ test("Discord private messages are queued and sent as embeds", () => {
   assert.match(botCode, /body\.embeds = embeds/);
 });
 
+test("Discord leave logs are scoped to the configured guild", () => {
+  const leaveLogCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-leave-log.js"), "utf8");
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  assert.match(leaveLogCode, /function gatewayGuildMatchesConfiguredGuild\(/);
+  assert.match(workerCode, /gatewayGuildMatchesConfiguredGuild\(member\.guild_id\)/);
+  assert.match(workerCode, /gatewayMemberCacheKey\(discordId, guildId\)/);
+  assert.match(workerCode, /memberStillInConfiguredGuild\(discordId\)/);
+  assert.match(workerCode, /recentLeaveLogKeys/);
+  assert.match(workerCode, /packet\.t === "GUILD_MEMBER_REMOVE"[\s\S]*handleGuildMemberRemove/);
+});
+
 test("mentor checklist completion notifies the mentor test channel once", () => {
   const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
