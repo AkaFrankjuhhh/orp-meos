@@ -253,11 +253,27 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
   }
 
-  function sendFormsStateResponse(res, auth, state) {
+  function responseProfileId(auth, options = {}) {
+    return options.profileId || auth.profile.id;
+  }
+
+  function currentPersonForAuth(state, auth) {
+    const people = Array.isArray(state?.people) ? state.people : [];
+    const authProfileId = auth?.profile?.id || "";
+    const byProfileId = people.find((person) => person.id === authProfileId && isCurrentPerson(person));
+    if (byProfileId) return byProfileId;
+
+    const authDiscordId = normalizeDiscordId(auth?.session?.user?.id || auth?.profile?.discordId || "");
+    if (!authDiscordId) return null;
+    return people.find((person) => normalizeDiscordId(person.discordId || "") === authDiscordId && isCurrentPerson(person)) || null;
+  }
+
+  function sendFormsStateResponse(res, auth, state, options = {}) {
     const permissions = permissionsForAuth(auth, state);
+    const profileId = responseProfileId(auth, options);
     sendJson(res, 200, {
       ok: true,
-      state: stateForProfile(state, permissions, auth.profile.id),
+      state: stateForProfile(state, permissions, profileId),
       canViewLogbook: permissions.canViewLogbook,
       permissions
     });
@@ -268,7 +284,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (options.normalizeAbsences !== false) {
       await normalizeAbsenceDrivenPeopleStatusesIfNeeded(state);
     }
-    sendFormsStateResponse(res, auth, state);
+    sendFormsStateResponse(res, auth, state, options);
   }
 
   async function persistFormsActivityBestEffort(state, targetedWrite) {
@@ -1504,7 +1520,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!auth) return;
     const state = await readFormsState();
     const body = await readBody(req);
-    const member = (state.people || []).find((person) => person.id === auth.profile.id && isCurrentPerson(person));
+    const member = currentPersonForAuth(state, auth);
     if (!member) {
       sendJson(res, 400, { error: "Profiel is verplicht om een I8 formulier op te stellen." });
       return;
@@ -1535,7 +1551,7 @@ function createPersoneelsportaalRouteHandler(deps) {
         duplicate: true,
         i8FormId: duplicateForm.id,
         i8Number: i8NumberForServer(duplicateForm, state.i8Forms),
-        state: stateForProfile(state, permissions, auth.profile.id),
+        state: stateForProfile(state, permissions, member.id),
         canViewLogbook: permissions.canViewLogbook,
         permissions
       });
@@ -1573,7 +1589,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       auth,
       state,
       typeof formsStorage.createI8Form === "function" ? () => formsStorage.createI8Form(form, [activityMessage]) : null,
-      { normalizeAbsences: false }
+      { normalizeAbsences: false, profileId: member.id }
     );
     return;
   }

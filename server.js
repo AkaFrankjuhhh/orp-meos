@@ -186,6 +186,28 @@ function isDevOverrideDiscordId(discordId) {
   return isDevDiscordId(discordId);
 }
 
+function eligibleProfileForAuthState(state, auth) {
+  const people = Array.isArray(state?.people) ? state.people : [];
+  const profileId = auth?.profile?.id || auth?.session?.profileId || "";
+  const byProfileId = people.find((person) => person.id === profileId && isPersonLoginEligible(person));
+  if (byProfileId) return byProfileId;
+
+  const discordId = normalizeDiscordId(auth?.session?.user?.id || auth?.profile?.discordId || "");
+  if (!discordId) return null;
+  return people.find((person) => normalizeDiscordId(person.discordId || "") === discordId && isPersonLoginEligible(person)) || null;
+}
+
+function rememberAuthProfile(auth, profile) {
+  if (!auth?.session || !profile) return;
+  const shouldPersist = auth.session.profileId !== profile.id || auth.session.profile?.id !== profile.id;
+  auth.profile = profile;
+  auth.session.profileId = profile.id;
+  auth.session.profile = { ...profile };
+  if (shouldPersist && !auth.session.dev && auth.session.id && typeof sessions.save === "function") {
+    sessions.save(auth.session.id, auth.session);
+  }
+}
+
 function syntheticDevProfile(user) {
   const rank = organization.ranks[0];
   const group = serviceNumberGroupForRank(organization, rank);
@@ -1276,13 +1298,14 @@ async function handleApi(req, res, url) {
       try {
         const state = await Promise.resolve(peopleStorage.readState());
         authState = state;
-        let profile = (state.people || []).find((person) => person.id === auth.profile.id && isPersonLoginEligible(person));
+        let profile = eligibleProfileForAuthState(state, auth);
         if (!profile && isDevOverrideDiscordId(auth.profile.discordId)) profile = auth.profile;
         if (!profile) {
           clearSession(req, res);
           sendJson(res, 401, { authenticated: false, loginUrl: "/api/auth/login" });
           return;
         }
+        rememberAuthProfile(auth, profile);
         const syncAgeMs = Date.now() - Number(auth.session.roleSyncedAt || 0);
         const canUseCachedRoles = Array.isArray(auth.session.roles) && auth.session.roles.length && syncAgeMs < 5 * 60 * 1000;
         if (canUseCachedRoles) {

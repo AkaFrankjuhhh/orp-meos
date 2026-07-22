@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260722-ibt-silent-refresh/);
+  assert.match(html, /app\.js\?v=20260722-i8-session-draft/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -400,17 +400,26 @@ test("I8 create form keeps a browser draft until server save succeeds", () => {
   const i8Code = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "i8.js"), "utf8");
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
 
   assert.match(i8Code, /function saveI8Draft\(/);
   assert.match(i8Code, /function restoreI8Draft\(/);
   assert.match(i8Code, /function clearI8Draft\(/);
+  assert.match(i8Code, /function i8FieldHasUserInput\(/);
+  assert.match(i8Code, /I8_DRAFT_DEFAULT_ONLY_FIELDS/);
+  assert.match(appCode, /function saveActiveFormDraftBeforeAction\(/);
+  assert.match(appCode, /saveActiveFormDraftBeforeAction\(\);/);
   assert.match(i8Code, /const ownSummary = \$\("#i8OwnSummary"\)/);
   assert.match(i8Code, /Totaal aantal eigen I8's/);
   assert.match(html, /id="i8OwnSummary"/);
   assert.match(styles, /\.i8-own-summary/);
   assert.match(appCode, /button\.dataset\.i8Tab === "create"\) restoreI8Draft/);
   assert.match(appCode, /if \(!saved\) return;\s+clearI8Draft\(\);/);
-  assert.match(html, /personeelsportaal\/i8\.js\?v=20260722-i8-own-total/);
+  assert.match(routesCode, /function currentPersonForAuth\(state, auth\)/);
+  assert.match(routesCode, /normalizeDiscordId\(auth\?\.session\?\.user\?\.id \|\| auth\?\.profile\?\.discordId \|\| ""\)/);
+  assert.match(routesCode, /state: stateForProfile\(state, permissions, member\.id\)/);
+  assert.match(routesCode, /\{ normalizeAbsences: false, profileId: member\.id \}/);
+  assert.match(html, /personeelsportaal\/i8\.js\?v=20260722-i8-session-draft/);
 });
 
 test("mentor test Discord embed formats submitted date and time", () => {

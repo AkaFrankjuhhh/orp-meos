@@ -787,12 +787,19 @@ function applyServerState(payload) {
   localStorage.removeItem(`orp-${organizationKey}-state`);
 }
 
+function saveActiveFormDraftBeforeAction() {
+  if (typeof saveI8Draft !== "function") return;
+  if (activePageId() !== "i8-opstellen" || activeI8Tab !== "create") return;
+  saveI8Draft();
+}
+
 async function runAction(path, body = {}) {
   if (!serverBacked) return false;
   const actionKey = `${path}\n${JSON.stringify(body || {})}`;
   if (pendingActionKeys.has(actionKey)) return false;
   pendingActionKeys.add(actionKey);
   try {
+    saveActiveFormDraftBeforeAction();
     let response;
     try {
       response = await fetch(path, {

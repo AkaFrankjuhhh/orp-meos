@@ -14,6 +14,7 @@ const I8_DRAFT_FIELDS = [
   "i8Injury",
   "i8Truth"
 ];
+const I8_DRAFT_DEFAULT_ONLY_FIELDS = new Set(["i8Date"]);
 
 function canViewOvJLeadershipLog() {
   return Boolean(permissions.canViewOvJLeadershipLog || hasKaderAccess());
@@ -54,12 +55,19 @@ function i8DraftStorageKey() {
   return `orp-${organizationKey}-i8-draft-${profileId}`;
 }
 
+function i8FieldHasUserInput(fieldId) {
+  const field = $(`#${fieldId}`);
+  if (!field) return false;
+  if (field.type === "checkbox") return field.checked;
+  const value = String(field.value || "").trim();
+  if (!value) return false;
+  if (I8_DRAFT_DEFAULT_ONLY_FIELDS.has(fieldId)) return value !== today;
+  return true;
+}
+
 function i8FormHasUserInput() {
   return I8_DRAFT_FIELDS.some((fieldId) => {
-    const field = $(`#${fieldId}`);
-    if (!field) return false;
-    if (field.type === "checkbox") return field.checked;
-    return String(field.value || "").trim() !== "";
+    return i8FieldHasUserInput(fieldId);
   });
 }
 
@@ -73,7 +81,11 @@ function saveI8Draft() {
     draft[fieldId] = field.type === "checkbox" ? Boolean(field.checked) : field.value;
   });
   draft.savedAt = new Date().toISOString();
-  localStorage.setItem(i8DraftStorageKey(), JSON.stringify(draft));
+  try {
+    localStorage.setItem(i8DraftStorageKey(), JSON.stringify(draft));
+  } catch {
+    // Draft opslaan is een vangnet; formulierinvoer zelf mag nooit stuklopen.
+  }
 }
 
 function restoreI8Draft(options = {}) {
@@ -111,7 +123,11 @@ function restoreI8Draft(options = {}) {
 }
 
 function clearI8Draft() {
-  localStorage.removeItem(i8DraftStorageKey());
+  try {
+    localStorage.removeItem(i8DraftStorageKey());
+  } catch {
+    // Als storage geblokkeerd is, kan het formulier nog steeds normaal werken.
+  }
 }
 
 function bindI8DraftAutosave() {

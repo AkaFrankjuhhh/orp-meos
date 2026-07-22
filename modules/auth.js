@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
 const { isPersonLoginEligible } = require("./person-status");
+const { normalizeDiscordId } = require("./ovc");
 
 function parseCookies(req) {
   const cookie = req.headers.cookie || "";
@@ -49,6 +50,27 @@ async function discordFetch(url, options = {}) {
 }
 
 function createAuthServices({ sessions, readState, discordConfigured, allowDevUnauth, sessionMaxAgeSeconds = () => 604800 }) {
+  function rememberSessionProfile(session, profile) {
+    if (!session || !profile) return;
+    const shouldPersist = session.profileId !== profile.id || session.profile?.id !== profile.id;
+    session.profileId = profile.id;
+    session.profile = { ...profile };
+    if (shouldPersist && !session.dev && session.id && typeof sessions.save === "function") {
+      sessions.save(session.id, session);
+    }
+  }
+
+  function eligibleProfileForSession(state, session) {
+    const people = Array.isArray(state?.people) ? state.people : [];
+    const profileId = session?.profileId || session?.profile?.id || "";
+    const bySessionId = people.find((person) => person.id === profileId && isPersonLoginEligible(person));
+    if (bySessionId) return bySessionId;
+
+    const sessionDiscordId = normalizeDiscordId(session?.user?.id || session?.profile?.discordId || "");
+    if (!sessionDiscordId) return null;
+    return people.find((person) => normalizeDiscordId(person.discordId || "") === sessionDiscordId && isPersonLoginEligible(person)) || null;
+  }
+
   function sessionCookieSecureSuffix() {
     const secureCookieEnabled = String(process.env.SESSION_COOKIE_SECURE || "").toLowerCase() === "true";
     const configuredBaseUrls = [process.env.APP_BASE_URL, process.env.PORTO_APP_BASE_URL].filter(Boolean);
@@ -100,9 +122,9 @@ function createAuthServices({ sessions, readState, discordConfigured, allowDevUn
     if (session) {
       const state = readSynchronousState();
       if (state) {
-        const profile = state.people.find((person) => person.id === session.profileId && isPersonLoginEligible(person));
+        const profile = eligibleProfileForSession(state, session);
         if (profile) {
-          session.profile = { ...profile };
+          rememberSessionProfile(session, profile);
           return { profile, session };
         }
         return null;
