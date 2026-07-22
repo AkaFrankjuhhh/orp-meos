@@ -6,6 +6,7 @@ let trainerIbtReviewCache = null;
 let trainerIbtReviewLoadPromise = null;
 let trainerIbtReviewError = "";
 let trainerIbtQuestionLabels = new Map();
+let trainerIbtRenderedMarkup = "";
 
 const trainerReviewStatusLabels = {
   not_sent: "Niet verstuurd",
@@ -18,6 +19,7 @@ const trainerReviewStatusLabels = {
 function resetTrainerIbtReviewCache() {
   trainerIbtReviewCache = null;
   trainerIbtReviewError = "";
+  trainerIbtRenderedMarkup = "";
 }
 
 function trainerEntryAddedTrainings(entry = {}) {
@@ -248,9 +250,10 @@ function trainerIbtPendingReviewCount() {
   return trainerIbtReviewCache.filter((row) => trainerSubmissionStatus(row) === "submitted").length;
 }
 
-async function loadTrainerIbtReviews(force = false) {
+async function loadTrainerIbtReviews(force = false, options = {}) {
   if (!canReviewTrainerIbtForms() || !serverBacked) return [];
-  if (trainerIbtReviewLoadPromise && !force) return trainerIbtReviewLoadPromise;
+  if (trainerIbtReviewLoadPromise) return trainerIbtReviewLoadPromise;
+  const keepExistingOnError = Boolean(options.keepExistingOnError);
   trainerIbtReviewLoadPromise = (async () => {
     try {
       const response = await fetch("/api/trainer/ibt-tests", { cache: "no-store" });
@@ -264,6 +267,10 @@ async function loadTrainerIbtReviews(force = false) {
         return [];
       }
       if (!response.ok) {
+        if (keepExistingOnError && Array.isArray(trainerIbtReviewCache)) {
+          trainerIbtReviewError = "";
+          return trainerIbtReviewCache;
+        }
         trainerIbtReviewCache = [];
         trainerIbtReviewError = payload.error || "IBT-toetsen konden niet geladen worden.";
         return [];
@@ -280,6 +287,10 @@ async function loadTrainerIbtReviews(force = false) {
       trainerIbtReviewError = "";
       return trainerIbtReviewCache;
     } catch (error) {
+      if (keepExistingOnError && Array.isArray(trainerIbtReviewCache)) {
+        trainerIbtReviewError = "";
+        return trainerIbtReviewCache;
+      }
       trainerIbtReviewCache = [];
       trainerIbtReviewError = error.message || "IBT-toetsen konden niet geladen worden.";
       return [];
@@ -290,6 +301,18 @@ async function loadTrainerIbtReviews(force = false) {
     if (activePageId() === "trainer-ibt") renderTrainerIbtReviews();
   });
   return trainerIbtReviewLoadPromise;
+}
+
+function refreshTrainerIbtReviewsSilently() {
+  if (!canReviewTrainerIbtForms() || !serverBacked) {
+    renderTrainerIbtReviews();
+    return Promise.resolve([]);
+  }
+  if (!Array.isArray(trainerIbtReviewCache)) {
+    renderTrainerIbtReviews();
+    return trainerIbtReviewLoadPromise || Promise.resolve([]);
+  }
+  return loadTrainerIbtReviews(true, { keepExistingOnError: true });
 }
 
 function trainerIbtPersonLabel(person) {
@@ -419,20 +442,26 @@ function closeTrainerIbtDetailDialog() {
   if (dialog?.open) dialog.close();
 }
 
+function setTrainerIbtReviewListHtml(list, markup) {
+  if (!list || trainerIbtRenderedMarkup === markup) return;
+  trainerIbtRenderedMarkup = markup;
+  list.innerHTML = markup;
+}
+
 function renderTrainerIbtReviews() {
   const list = $("#trainerIbtReviewList");
   if (!list) return;
   if (!canReviewTrainerIbtForms()) {
-    list.innerHTML = '<div class="feed-item">Geen toegang.</div>';
+    setTrainerIbtReviewListHtml(list, '<div class="feed-item">Geen toegang.</div>');
     return;
   }
   if (!Array.isArray(trainerIbtReviewCache)) {
-    list.innerHTML = '<div class="feed-item">IBT-toetsen laden...</div>';
+    setTrainerIbtReviewListHtml(list, '<div class="feed-item">IBT-toetsen laden...</div>');
     loadTrainerIbtReviews();
     return;
   }
   if (trainerIbtReviewError) {
-    list.innerHTML = `<div class="feed-item">${escapeHtml(trainerIbtReviewError)}</div>`;
+    setTrainerIbtReviewListHtml(list, `<div class="feed-item">${escapeHtml(trainerIbtReviewError)}</div>`);
     return;
   }
   const ordered = [...trainerIbtReviewCache].sort((a, b) => {
@@ -441,7 +470,7 @@ function renderTrainerIbtReviews() {
     if (statusDelta !== 0) return statusDelta;
     return String(a.person?.serviceNumber || "zz").localeCompare(String(b.person?.serviceNumber || "zz"), "nl", { numeric: true });
   });
-  list.innerHTML = ordered.length
+  const markup = ordered.length
     ? `
       <div class="trainer-ibt-table">
         <div class="trainer-ibt-row trainer-ibt-row-head">
@@ -456,6 +485,7 @@ function renderTrainerIbtReviews() {
       </div>
     `
     : '<div class="feed-item">Geen IBT-kandidaten gevonden.</div>';
+  setTrainerIbtReviewListHtml(list, markup);
 }
 
 async function sendTrainerIbtTest(personId) {
@@ -545,6 +575,10 @@ function bindTrainerEvents() {
     renderTrainerLogbook();
   });
   $("#refreshTrainerIbtBtn")?.addEventListener("click", () => {
+    if (Array.isArray(trainerIbtReviewCache)) {
+      loadTrainerIbtReviews(true, { keepExistingOnError: true });
+      return;
+    }
     resetTrainerIbtReviewCache();
     renderTrainerIbtReviews();
   });

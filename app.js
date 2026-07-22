@@ -1595,8 +1595,11 @@ function renderLiveScope(scope = "state") {
   }
 
   if (["public-forms", "state"].includes(scope)) {
-    if (typeof resetTrainerIbtReviewCache === "function") resetTrainerIbtReviewCache();
-    renderTrainerIbtReviews();
+    if (page === "trainer-ibt" && typeof refreshTrainerIbtReviewsSilently === "function") {
+      refreshTrainerIbtReviewsSilently();
+    } else if (typeof resetTrainerIbtReviewCache === "function") {
+      resetTrainerIbtReviewCache();
+    }
     renderLogbook();
   }
 
@@ -1624,8 +1627,7 @@ async function refreshReviewCounters() {
     if (page === "blacklist") renderBlacklist();
     if (page === "trainer-overzicht") renderTrainerOverview();
     if (page === "trainer-ibt") {
-      if (typeof resetTrainerIbtReviewCache === "function") resetTrainerIbtReviewCache();
-      if (typeof renderTrainerIbtReviews === "function") renderTrainerIbtReviews();
+      if (typeof refreshTrainerIbtReviewsSilently === "function") refreshTrainerIbtReviewsSilently();
     }
     if (page === "trainer-logboek") renderTrainerLogbook();
     if (page === "dashboard") renderDashboard();

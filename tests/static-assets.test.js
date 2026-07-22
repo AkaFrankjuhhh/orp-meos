@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260715-mentor-autosave/);
+  assert.match(html, /app\.js\?v=20260722-ibt-silent-refresh/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -124,9 +124,10 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(html, /data-page="trainer-ibt"/);
   assert.match(html, /id="trainerIbtCounter"/);
   assert.match(html, /trainerIbtDetailDialog/);
-  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260722-ibt-detail-overview/);
+  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260722-ibt-silent-refresh/);
   assert.match(appCode, /"trainer-overzicht": "\/trainer-overzicht"/);
   assert.match(appCode, /function canViewTrainerOverview\(/);
+  assert.match(appCode, /refreshTrainerIbtReviewsSilently\(\)/);
   assert.match(appCode, /renderTrainerIbtReviews\(\)/);
   assert.match(permissionsCode, /canViewTrainerSection/);
   assert.match(permissionsCode, /canReviewTrainerIbtForms: isTrainer \|\| isTrainerLeadership/);
@@ -145,6 +146,10 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(trainerCode, /data-open-trainer-ibt-detail/);
   assert.match(trainerCode, /data-review-trainer-ibt/);
   assert.match(trainerCode, /mentor-test-answer trainer-ibt-answer/);
+  assert.match(trainerCode, /let trainerIbtRenderedMarkup = ""/);
+  assert.match(trainerCode, /function refreshTrainerIbtReviewsSilently\(/);
+  assert.match(trainerCode, /keepExistingOnError/);
+  assert.match(trainerCode, /function setTrainerIbtReviewListHtml/);
   assert.match(publicFormsConfigCode, /reviewSurface: "portal"/);
   assert.match(publicFormsCode, /function canShowSubmissionReviewPanel\(/);
   assert.match(publicFormsCode, /formState\.config\?\.reviewSurface !== "portal"/);
