@@ -157,6 +157,7 @@ test("defence has an IBT review form on the IBT toets domain", () => {
   assert.equal(ibt.internalOnly, true);
   assert.equal(ibt.reviewable, true);
   assert.equal(ibt.reviewTraining, "IBT");
+  assert.equal(ibt.reviewSurface, "portal");
   assert.deepEqual(ibt.reviewBadges, ["Trainer", "Trainer-Leiding"]);
   assert.equal(ibt.webhookEnv, "DISCORD_FORM_IBT_WEBHOOK_URL");
   assert.equal(ibt.questions.length, 12);

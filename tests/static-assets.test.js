@@ -111,6 +111,9 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const trainerCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "trainer.js"), "utf8");
+  const publicFormsCode = fs.readFileSync(path.join(process.cwd(), "public-forms.js"), "utf8");
+  const publicFormsHtml = fs.readFileSync(path.join(process.cwd(), "public-forms.html"), "utf8");
+  const publicFormsConfigCode = fs.readFileSync(path.join(process.cwd(), "modules", "public-forms.js"), "utf8");
   const permissionsCode = fs.readFileSync(path.join(process.cwd(), "modules", "permissions.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
   const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
@@ -133,6 +136,10 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(trainerCode, /function trainerEntryAddedTrainings/);
   assert.match(trainerCode, /\/api\/public-forms\/submissions\?slug=ibt/);
   assert.match(trainerCode, /data-review-trainer-ibt/);
+  assert.match(publicFormsConfigCode, /reviewSurface: "portal"/);
+  assert.match(publicFormsCode, /function canShowSubmissionReviewPanel\(/);
+  assert.match(publicFormsCode, /formState\.config\?\.reviewSurface !== "portal"/);
+  assert.match(publicFormsHtml, /public-forms\.js\?v=20260722-portal-ibt-review/);
   assert.match(styles, /\.trainer-stats/);
   assert.match(styles, /\.trainer-ibt-card/);
 });

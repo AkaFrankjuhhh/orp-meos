@@ -940,10 +940,18 @@ function renderReviewSubmissionCard(submission) {
   `;
 }
 
+function canShowSubmissionReviewPanel() {
+  return Boolean(
+    formState.config?.reviewable
+    && formState.config?.canReviewSubmissions
+    && formState.config?.reviewSurface !== "portal"
+  );
+}
+
 function renderSubmissionReviewPanel() {
   const panel = $("#submissionReviewPanel");
   if (!panel) return;
-  const visible = formState.config?.reviewable && formState.config?.canReviewSubmissions;
+  const visible = canShowSubmissionReviewPanel();
   panel.hidden = !visible;
   if (!visible) return;
   const cards = formState.reviewSubmissions.length
@@ -963,7 +971,7 @@ function renderSubmissionReviewPanel() {
 }
 
 async function loadReviewSubmissions() {
-  if (!formState.config?.reviewable || !formState.config?.canReviewSubmissions) {
+  if (!canShowSubmissionReviewPanel()) {
     formState.reviewSubmissions = [];
     renderSubmissionReviewPanel();
     return;
