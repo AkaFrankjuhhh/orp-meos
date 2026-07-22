@@ -403,6 +403,7 @@ function setI8ArchiveStatusFilter(value) {
 function renderI8Forms() {
   const current = currentProfile();
   const ownList = $("#i8OwnList");
+  const ownSummary = $("#i8OwnSummary");
   const reviewList = $("#i8ReviewList");
   const archiveList = $("#i8ArchiveList");
   if ($("#i8Name")) $("#i8Name").value = currentMemberName();
@@ -416,6 +417,12 @@ function renderI8Forms() {
     const ownForms = forms
       .filter((form) => current && form.personId === current.id)
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    if (ownSummary) {
+      ownSummary.innerHTML = `
+        <span>Totaal aantal eigen I8's</span>
+        <strong>${escapeHtml(String(ownForms.length))}</strong>
+      `;
+    }
     ownList.innerHTML = ownForms.length
       ? ownForms.map((form) => renderI8OwnRow(form, forms)).join("")
       : '<div class="feed-item">Je hebt nog geen I8 formulieren ingediend.</div>';

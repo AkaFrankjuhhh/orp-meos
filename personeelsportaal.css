@@ -1938,6 +1938,28 @@ body[data-device="mobile"] .agenda-day {
   gap: 12px;
 }
 
+.i8-own-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(14, 61, 110, 0.9);
+  border-radius: 8px;
+  background: rgba(14, 61, 110, 0.18);
+}
+
+.i8-own-summary span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.i8-own-summary strong {
+  color: #f8fafc;
+  font-size: 22px;
+}
+
 .i8-card {
   display: grid;
   gap: 14px;

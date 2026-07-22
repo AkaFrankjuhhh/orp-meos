@@ -150,7 +150,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260720-profile-badge-dialog/);
+  assert.match(html, /personeelsportaal\.css\?v=20260722-i8-own-total/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260720-profile-badge-dialog/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
@@ -369,13 +369,18 @@ test("I8 create form keeps a browser draft until server save succeeds", () => {
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const i8Code = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "i8.js"), "utf8");
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
   assert.match(i8Code, /function saveI8Draft\(/);
   assert.match(i8Code, /function restoreI8Draft\(/);
   assert.match(i8Code, /function clearI8Draft\(/);
+  assert.match(i8Code, /const ownSummary = \$\("#i8OwnSummary"\)/);
+  assert.match(i8Code, /Totaal aantal eigen I8's/);
+  assert.match(html, /id="i8OwnSummary"/);
+  assert.match(styles, /\.i8-own-summary/);
   assert.match(appCode, /button\.dataset\.i8Tab === "create"\) restoreI8Draft/);
   assert.match(appCode, /if \(!saved\) return;\s+clearI8Draft\(\);/);
-  assert.match(html, /personeelsportaal\/i8\.js\?v=20260630-i8-draft-autosave/);
+  assert.match(html, /personeelsportaal\/i8\.js\?v=20260722-i8-own-total/);
 });
 
 test("mentor test Discord embed formats submitted date and time", () => {
