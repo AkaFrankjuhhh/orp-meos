@@ -97,9 +97,11 @@ test("mentor checklist autosave is serialized against live refresh", () => {
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
 
-  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260715-mentor-autosave/);
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260722-mentor-reactivation-reset/);
   assert.match(mentorCode, /let mentorChecklistSavePromise = null/);
   assert.match(mentorCode, /let mentorChecklistSaveQueued = false/);
+  assert.match(mentorCode, /function mentorChecklistStaleAfterReactivation\(/);
+  assert.match(mentorCode, /reactivatedDate/);
   assert.match(mentorCode, /function isMentorChecklistSaveActive\(/);
   assert.match(mentorCode, /if \(mentorChecklistSavePromise\) return mentorChecklistSavePromise/);
   assert.match(mentorCode, /while \(mentorChecklistSaveQueued\)/);
@@ -446,7 +448,7 @@ test("mentor tests render compact rows with a detail dialog", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
   assert.match(html, /mentorTestDetailDialog/);
-  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260715-mentor-autosave/);
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260722-mentor-reactivation-reset/);
   assert.match(mentorCode, /data-open-mentor-test-detail/);
   assert.match(mentorCode, /function openMentorTestDetailDialog/);
 });

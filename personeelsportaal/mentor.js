@@ -87,8 +87,28 @@ function activeMentorChecklistLabels() {
   return activeMentorChecklistItems().map((item) => item.label);
 }
 
+function mentorChecklistTimestamp(checklist = {}) {
+  const parsed = Date.parse(
+    checklist.updatedAt
+      || checklist.completedAt
+      || checklist.reviewedAt
+      || checklist.sentAt
+      || checklist.testReadyNotifiedAt
+      || ""
+  );
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mentorChecklistStaleAfterReactivation(person, checklist = {}) {
+  const reactivatedAt = Date.parse(person?.reactivatedDate || "");
+  if (!Number.isFinite(reactivatedAt)) return false;
+  const checklistAt = mentorChecklistTimestamp(checklist);
+  return checklistAt === null || checklistAt < reactivatedAt;
+}
+
 function mentorChecklistFor(person) {
   const checklist = person.mentorChecklist || {};
+  const staleAfterReactivation = mentorChecklistStaleAfterReactivation(person, checklist);
   const items = Array.isArray(checklist.items) ? checklist.items : [];
   const notes = Array.isArray(checklist.notes)
     ? checklist.notes
@@ -111,11 +131,17 @@ function mentorChecklistFor(person) {
   const normalizedItems = templateItems.map((item, index) => ({
     id: item.id,
     label: item.label,
-    checked: checklist.completed ? true : (checkedById.has(item.id) ? checkedById.get(item.id) : Boolean(legacyByIndex[index]))
+    checked: staleAfterReactivation
+      ? false
+      : checklist.completed
+        ? true
+        : (checkedById.has(item.id) ? checkedById.get(item.id) : Boolean(legacyByIndex[index]))
   }));
-  const allItemsCompleted = normalizedItems.length > 0 && normalizedItems.every((item) => item.checked);
-  const testSent = Boolean(checklist.testSent);
-  const testApproved = Boolean(checklist.testApproved);
+  const allItemsCompleted = !staleAfterReactivation
+    && normalizedItems.length > 0
+    && normalizedItems.every((item) => item.checked);
+  const testSent = !staleAfterReactivation && Boolean(checklist.testSent);
+  const testApproved = allItemsCompleted && testSent && Boolean(checklist.testApproved);
   return {
     completed: allItemsCompleted && testSent && testApproved,
     allItemsCompleted,

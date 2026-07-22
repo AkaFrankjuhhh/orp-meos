@@ -14,7 +14,11 @@ const {
   applyManualAbsenceStatusSource
 } = require("./absence-status");
 const { markNotificationsRead, clearNotifications } = require("./notifications");
-const { mentorReviewStateForStatus } = require("./mentor-tests-logic");
+const {
+  mentorChecklistStaleAfterReactivation,
+  mentorReviewStateForStatus,
+  mentorTestStaleAfterReactivation
+} = require("./mentor-tests-logic");
 const { setDiscordSyncStatus, syncStatusFromError } = require("./discord-sync-status");
 const { isCurrentPerson } = require("./person-status");
 const { missingPromotionRequirements } = require("./promotion-requirements");
@@ -156,10 +160,22 @@ function createPersoneelsportaalRouteHandler(deps) {
   function normalizeMentorChecklistForState(person, state) {
     const templateItems = mentorTemplateItems(state);
     const existing = person.mentorChecklist || {};
+    const staleAfterReactivation = mentorChecklistStaleAfterReactivation(person, existing);
+    const items = mentorChecklistItemsForTemplate(staleAfterReactivation ? {} : existing, templateItems);
+    const allItemsCompleted = !staleAfterReactivation && items.length > 0 && items.every((item) => item.checked);
+    const testSent = !staleAfterReactivation && Boolean(existing.testSent);
+    const testApproved = allItemsCompleted && testSent && Boolean(existing.testApproved);
     return {
       ...existing,
-      items: mentorChecklistItemsForTemplate(existing, templateItems),
-      audit: Array.isArray(existing.audit) ? existing.audit : []
+      completed: allItemsCompleted && testSent && testApproved,
+      testSent,
+      testApproved,
+      items,
+      audit: Array.isArray(existing.audit) ? existing.audit : [],
+      testReadyNotifiedAt: staleAfterReactivation ? "" : existing.testReadyNotifiedAt || "",
+      updatedAt: staleAfterReactivation ? "" : existing.updatedAt || "",
+      updatedById: staleAfterReactivation ? "" : existing.updatedById || "",
+      updatedByName: staleAfterReactivation ? "" : existing.updatedByName || ""
     };
   }
 
@@ -2446,7 +2462,8 @@ function createPersoneelsportaalRouteHandler(deps) {
       sendJson(res, 404, { error: "Geen actief mentor-traject gevonden." });
       return;
     }
-    const test = await mentorTestsStore.latestOpenForPerson(organization.key, person.id);
+    const openTest = await mentorTestsStore.latestOpenForPerson(organization.key, person.id);
+    const test = mentorTestStaleAfterReactivation(person, openTest) ? null : openTest;
     sendJson(res, 200, {
       ok: true,
       questions: test ? test.questions || [] : [],
@@ -2470,6 +2487,11 @@ function createPersoneelsportaalRouteHandler(deps) {
     );
     if (!person || !mentorRanks.includes(person.rank)) {
       sendJson(res, 404, { error: "Geen actief mentor-traject gevonden." });
+      return;
+    }
+    const openTest = await mentorTestsStore.latestOpenForPerson(organization.key, person.id);
+    if (mentorTestStaleAfterReactivation(person, openTest)) {
+      sendJson(res, 404, { error: "Er staat geen actuele mentor-toets klaar." });
       return;
     }
     const body = await readBody(req);
@@ -3085,6 +3107,22 @@ function createPersoneelsportaalRouteHandler(deps) {
       assignFirstAvailableServiceNumber(state, person);
       person.rankHistory = person.rankHistory || [];
       person.rankHistory.push({ rank: person.rank, date: todayValue, serviceNumber: person.serviceNumber });
+      if (mentorRanks.includes(person.rank)) {
+        const existingMentorChecklist = person.mentorChecklist || {};
+        person.mentorChecklist = {
+          items: mentorChecklistItemsForTemplate({}, mentorTemplateItems(state)),
+          notes: normalizeMentorNotes(existingMentorChecklist),
+          audit: Array.isArray(existingMentorChecklist.audit) ? existingMentorChecklist.audit : [],
+          completed: false,
+          testSent: false,
+          testApproved: false,
+          testReadyNotifiedAt: "",
+          updatedAt: new Date().toISOString(),
+          updatedById: actor.id || auth.profile.id || "",
+          updatedByName: actor.name || auth.profile.name || ""
+        };
+        setMentorTrainingCompletion(person, false);
+      }
       state.activity = state.activity || [];
       state.activity.push(`${person.name} is teruggezet naar actief personeel als ${person.rank} met dienstnummer ${person.serviceNumber || "niet toegewezen"}.`);
       autoSortServiceNumbers(state);
