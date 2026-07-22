@@ -1623,6 +1623,10 @@ async function refreshReviewCounters() {
     if (page === "ontslag-overzicht") renderResignationOverview();
     if (page === "blacklist") renderBlacklist();
     if (page === "trainer-overzicht") renderTrainerOverview();
+    if (page === "trainer-ibt") {
+      if (typeof resetTrainerIbtReviewCache === "function") resetTrainerIbtReviewCache();
+      if (typeof renderTrainerIbtReviews === "function") renderTrainerIbtReviews();
+    }
     if (page === "trainer-logboek") renderTrainerLogbook();
     if (page === "dashboard") renderDashboard();
   })().finally(() => {

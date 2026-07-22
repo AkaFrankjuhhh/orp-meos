@@ -8,7 +8,9 @@ let trainerIbtReviewError = "";
 let trainerIbtQuestionLabels = new Map();
 
 const trainerReviewStatusLabels = {
-  submitted: "Ingediend",
+  not_sent: "Niet verstuurd",
+  sent: "Verstuurd",
+  submitted: "Ingeleverd",
   approved: "Goedgekeurd",
   rejected: "Afgekeurd"
 };
@@ -232,8 +234,9 @@ function renderTrainerLogbook() {
     : '<div class="feed-item">Nog geen trainer-afvinkingen gevonden.</div>';
 }
 
-function trainerSubmissionStatus(submission = {}) {
-  return String(submission.review?.status || "submitted").toLowerCase();
+function trainerSubmissionStatus(row = {}) {
+  const status = String(row.status || row.review?.status || row.submission?.review?.status || "submitted").toLowerCase();
+  return trainerReviewStatusLabels[status] ? status : "submitted";
 }
 
 function trainerIbtPendingReviewCount() {
@@ -242,7 +245,7 @@ function trainerIbtPendingReviewCount() {
     if (!trainerIbtReviewLoadPromise && serverBacked && authProfile) loadTrainerIbtReviews();
     return 0;
   }
-  return trainerIbtReviewCache.filter((submission) => trainerSubmissionStatus(submission) === "submitted").length;
+  return trainerIbtReviewCache.filter((row) => trainerSubmissionStatus(row) === "submitted").length;
 }
 
 async function loadTrainerIbtReviews(force = false) {
@@ -250,7 +253,7 @@ async function loadTrainerIbtReviews(force = false) {
   if (trainerIbtReviewLoadPromise && !force) return trainerIbtReviewLoadPromise;
   trainerIbtReviewLoadPromise = (async () => {
     try {
-      const response = await fetch("/api/public-forms/submissions?slug=ibt", { cache: "no-store" });
+      const response = await fetch("/api/trainer/ibt-tests", { cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
       if (response.status === 401) {
         authProfile = null;
@@ -265,7 +268,7 @@ async function loadTrainerIbtReviews(force = false) {
         trainerIbtReviewError = payload.error || "IBT-toetsen konden niet geladen worden.";
         return [];
       }
-      trainerIbtReviewCache = Array.isArray(payload.submissions) ? payload.submissions : [];
+      trainerIbtReviewCache = Array.isArray(payload.rows) ? payload.rows : [];
       try {
         const configResponse = await fetch("/api/public-forms/config?form=ibt", { cache: "no-store" });
         const configPayload = await configResponse.json().catch(() => ({}));
@@ -319,36 +322,103 @@ function renderTrainerIbtAnswers(answers = {}) {
     : '<p class="muted">Geen antwoorden opgeslagen.</p>';
 }
 
-function renderTrainerIbtSubmission(submission) {
-  const status = trainerSubmissionStatus(submission);
-  const submitter = submission.submittedBy || {};
+function trainerIbtStatusClass(status) {
+  if (status === "sent") return "sent";
+  if (status === "submitted") return "submitted";
+  if (status === "approved") return "approved";
+  if (status === "rejected") return "rejected";
+  return "not-sent";
+}
+
+function trainerIbtStatusLabel(status) {
+  return trainerReviewStatusLabels[status] || status || "-";
+}
+
+function trainerIbtSubmittedAt(row = {}) {
+  const status = trainerSubmissionStatus(row);
+  return ["submitted", "approved", "rejected"].includes(status) ? row.submission?.submittedAt || "" : "";
+}
+
+function trainerIbtRowAction(row = {}) {
+  const status = trainerSubmissionStatus(row);
+  const personId = row.person?.id || "";
+  if (status === "submitted" && row.submission?.id) {
+    return `<button class="ghost small" type="button" data-open-trainer-ibt-detail="${escapeHtml(row.submission.id)}">Bekijken</button>`;
+  }
+  if (status === "sent") {
+    return `<button class="ghost small" type="button" data-send-trainer-ibt="${escapeHtml(personId)}">Opnieuw versturen</button>`;
+  }
+  if (status === "rejected") {
+    return `<button class="primary small" type="button" data-send-trainer-ibt="${escapeHtml(personId)}">Opnieuw versturen</button>`;
+  }
+  return `<button class="primary small" type="button" data-send-trainer-ibt="${escapeHtml(personId)}">Verstuur toets</button>`;
+}
+
+function renderTrainerIbtRow(row = {}) {
+  const person = row.person || {};
+  const status = trainerSubmissionStatus(row);
+  return `
+    <div class="trainer-ibt-row">
+      <strong>${escapeHtml(person.name || "Onbekend")}</strong>
+      <span>${escapeHtml(person.rank || "-")}</span>
+      <span>${escapeHtml(person.serviceNumber || "-")}</span>
+      <span>${escapeHtml(trainerIbtSubmittedAt(row) ? formatDateTime(trainerIbtSubmittedAt(row)) : "-")}</span>
+      <span class="trainer-ibt-status ${escapeHtml(trainerIbtStatusClass(status))}">${escapeHtml(trainerIbtStatusLabel(status))}</span>
+      <span class="trainer-ibt-row-actions">${trainerIbtRowAction(row)}</span>
+    </div>
+  `;
+}
+
+function trainerIbtRowBySubmissionId(submissionId) {
+  return (trainerIbtReviewCache || []).find((row) => row.submission?.id === submissionId) || null;
+}
+
+function renderTrainerIbtDetail(row) {
+  const submission = row?.submission || {};
+  const person = row?.person || submission.submittedBy || {};
+  const status = trainerSubmissionStatus(row);
   const reviewedBy = submission.review?.reviewedBy;
   const reviewedAt = submission.review?.reviewedAt || "";
   const canReview = status === "submitted";
   return `
-    <article class="trainer-ibt-card ${escapeHtml(status)}">
-      <div class="trainer-ibt-card-head">
+    <div class="trainer-ibt-detail">
+      <div class="mentor-test-card-header">
         <div>
-          <div class="trainer-ibt-meta">
-            <span class="trainer-ibt-number">${escapeHtml(submission.submissionNumber || submission.id || "-")}</span>
-            <span class="trainer-ibt-status ${escapeHtml(status)}">${escapeHtml(trainerReviewStatusLabels[status] || status)}</span>
-          </div>
-          <h3>${escapeHtml(trainerIbtPersonLabel(submitter))}</h3>
-          <p>${escapeHtml(submitter.rank || "-")} - ${escapeHtml(formatDateTime(submission.submittedAt))}</p>
+          <strong>${escapeHtml(trainerIbtPersonLabel(person))}</strong>
+          <p>${escapeHtml(person.rank || "-")} - ${escapeHtml(submission.submissionNumber || submission.id || "-")}</p>
         </div>
-        <div class="trainer-ibt-actions">
-          ${canReview ? `
-            <button class="primary small" type="button" data-review-trainer-ibt="${escapeHtml(submission.id)}" data-review-status="approved">Goedkeuren</button>
-            <button class="ghost small danger-soft" type="button" data-review-trainer-ibt="${escapeHtml(submission.id)}" data-review-status="rejected">Afkeuren</button>
-          ` : `
-            <span>${escapeHtml(reviewedBy ? `Door ${trainerIbtPersonLabel(reviewedBy)}` : "Afgerond")}</span>
-            ${reviewedAt ? `<span>${escapeHtml(formatDateTime(reviewedAt))}</span>` : ""}
-          `}
-        </div>
+        <span class="trainer-ibt-status ${escapeHtml(trainerIbtStatusClass(status))}">${escapeHtml(trainerIbtStatusLabel(status))}</span>
+      </div>
+      <div class="mentor-test-meta">
+        ${row?.sentAt ? `<span>Verstuurd: ${escapeHtml(formatDateTime(row.sentAt))}</span>` : ""}
+        ${submission.submittedAt ? `<span>Ingeleverd: ${escapeHtml(formatDateTime(submission.submittedAt))}</span>` : ""}
+        ${reviewedAt ? `<span>Beoordeeld: ${escapeHtml(formatDateTime(reviewedAt))}</span>` : ""}
+        ${reviewedBy ? `<span>Door: ${escapeHtml(trainerIbtPersonLabel(reviewedBy))}</span>` : ""}
       </div>
       ${renderTrainerIbtAnswers(submission.answers || {})}
-    </article>
+      ${canReview ? `
+        <div class="mentor-test-actions">
+          <button class="primary" type="button" data-review-trainer-ibt="${escapeHtml(submission.id)}" data-review-status="approved">Goedkeuren</button>
+          <button class="danger" type="button" data-review-trainer-ibt="${escapeHtml(submission.id)}" data-review-status="rejected">Afkeuren</button>
+        </div>
+      ` : ""}
+    </div>
   `;
+}
+
+function openTrainerIbtDetailDialog(submissionId) {
+  const row = trainerIbtRowBySubmissionId(submissionId);
+  const dialog = $("#trainerIbtDetailDialog");
+  const body = $("#trainerIbtDetailBody");
+  if (!row || !dialog || !body) return;
+  $("#trainerIbtDetailTitle").textContent = `${row.person?.name || "Onbekend"} - ${trainerIbtStatusLabel(trainerSubmissionStatus(row))}`;
+  body.innerHTML = renderTrainerIbtDetail(row);
+  dialog.showModal();
+}
+
+function closeTrainerIbtDetailDialog() {
+  const dialog = $("#trainerIbtDetailDialog");
+  if (dialog?.open) dialog.close();
 }
 
 function renderTrainerIbtReviews() {
@@ -368,17 +438,68 @@ function renderTrainerIbtReviews() {
     return;
   }
   const ordered = [...trainerIbtReviewCache].sort((a, b) => {
-    const statusDelta = (trainerSubmissionStatus(a) === "submitted" ? 0 : 1) - (trainerSubmissionStatus(b) === "submitted" ? 0 : 1);
+    const statusOrder = { submitted: 0, not_sent: 1, sent: 2, rejected: 3 };
+    const statusDelta = (statusOrder[trainerSubmissionStatus(a)] ?? 9) - (statusOrder[trainerSubmissionStatus(b)] ?? 9);
     if (statusDelta !== 0) return statusDelta;
-    return new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0);
+    return String(a.person?.serviceNumber || "zz").localeCompare(String(b.person?.serviceNumber || "zz"), "nl", { numeric: true });
   });
   list.innerHTML = ordered.length
-    ? ordered.map(renderTrainerIbtSubmission).join("")
-    : '<div class="feed-item">Geen IBT-toetsen gevonden.</div>';
+    ? `
+      <div class="trainer-ibt-table">
+        <div class="trainer-ibt-row trainer-ibt-row-head">
+          <span>Naam</span>
+          <span>Rang</span>
+          <span>Dienstnummer</span>
+          <span>Ingediend</span>
+          <span>Status</span>
+          <span>Actie</span>
+        </div>
+        ${ordered.map(renderTrainerIbtRow).join("")}
+      </div>
+    `
+    : '<div class="feed-item">Geen IBT-kandidaten gevonden.</div>';
+}
+
+async function sendTrainerIbtTest(personId) {
+  if (!personId || !canReviewTrainerIbtForms()) return false;
+  const row = (trainerIbtReviewCache || []).find((entry) => entry.person?.id === personId);
+  const confirmed = await showSiteConfirm(
+    `IBT-toets versturen naar ${row?.person?.name || "dit personeelslid"} via Discord DM?`,
+    "IBT-Toets versturen"
+  );
+  if (!confirmed) return false;
+  const response = await fetch("/api/trainer/ibt-tests/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ personId })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    authProfile = null;
+    resetPermissions();
+    setLocked(true);
+    await showSiteNotice("Je sessie is verlopen. Log opnieuw in en probeer het daarna opnieuw.", "Opnieuw inloggen");
+    return false;
+  }
+  if (!response.ok) {
+    await showSiteNotice(payload.error || "IBT-toets versturen is mislukt.", "Actie mislukt");
+    return false;
+  }
+  resetTrainerIbtReviewCache();
+  await loadTrainerIbtReviews(true);
+  renderNavigationCounters();
+  await showSiteNotice("IBT-toets is via Discord verstuurd.", "Verstuurd");
+  return true;
 }
 
 async function reviewTrainerIbtSubmission(submissionId, status) {
   if (!submissionId || !canReviewTrainerIbtForms()) return false;
+  const approved = status === "approved";
+  const confirmed = await showSiteConfirm(
+    approved ? "IBT-toets goedkeuren en IBT automatisch afvinken?" : "IBT-toets afkeuren?",
+    approved ? "IBT-Toets goedkeuren" : "IBT-Toets afkeuren"
+  );
+  if (!confirmed) return false;
   const response = await fetch(`/api/public-forms/submissions/${encodeURIComponent(submissionId)}/review`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -396,10 +517,9 @@ async function reviewTrainerIbtSubmission(submissionId, status) {
     await showSiteNotice(payload.error || "IBT-toets beoordelen is mislukt.", "Actie mislukt");
     return false;
   }
-  if (Array.isArray(trainerIbtReviewCache) && payload.submission) {
-    trainerIbtReviewCache = trainerIbtReviewCache.map((submission) => submission.id === payload.submission.id ? payload.submission : submission);
-  }
-  renderTrainerIbtReviews();
+  closeTrainerIbtDetailDialog();
+  resetTrainerIbtReviewCache();
+  await loadTrainerIbtReviews(true);
   renderNavigationCounters();
   if (status === "approved") {
     const loaded = await loadState();
@@ -431,10 +551,22 @@ function bindTrainerEvents() {
     renderTrainerIbtReviews();
   });
   $("#trainerIbtReviewList")?.addEventListener("click", (event) => {
+    const sendButton = event.target.closest("[data-send-trainer-ibt]");
+    if (sendButton) {
+      sendTrainerIbtTest(sendButton.dataset.sendTrainerIbt);
+      return;
+    }
+    const detailButton = event.target.closest("[data-open-trainer-ibt-detail]");
+    if (detailButton) {
+      openTrainerIbtDetailDialog(detailButton.dataset.openTrainerIbtDetail);
+    }
+  });
+  $("#trainerIbtDetailBody")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-review-trainer-ibt]");
     if (!button) return;
     reviewTrainerIbtSubmission(button.dataset.reviewTrainerIbt, button.dataset.reviewStatus);
   });
+  $("#closeTrainerIbtDetailDialog")?.addEventListener("click", closeTrainerIbtDetailDialog);
 }
 
 window.DefensiePortalModules.registerFeature("trainer", { ready: true });

@@ -18,6 +18,7 @@ const { mentorReviewStateForStatus } = require("./mentor-tests-logic");
 const { setDiscordSyncStatus, syncStatusFromError } = require("./discord-sync-status");
 const { isCurrentPerson } = require("./person-status");
 const { missingPromotionRequirements } = require("./promotion-requirements");
+const { publicFormFromSlug, publicFormTicketNumber } = require("./public-forms");
 
 function createPersoneelsportaalRouteHandler(deps) {
   const organization = currentOrganization();
@@ -71,7 +72,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     buildMentorTestWebhookPayload,
     discordBot,
     enqueuePersonDiscordSync,
-    enqueueDiscordSyncJob
+    enqueueDiscordSyncJob,
+    publicFormsStore
   } = deps;
 
   const formsStorage = deps.formsStorage || { readState, writeState };
@@ -694,6 +696,28 @@ function createPersoneelsportaalRouteHandler(deps) {
     ].filter(Boolean).join("\n");
   }
 
+  function ibtFormConfig() {
+    return publicFormFromSlug("ibt");
+  }
+
+  function ibtTestFormUrl() {
+    const config = ibtFormConfig();
+    const configuredUrl = String(config?.canonicalUrl || "").trim();
+    if (configuredUrl) return configuredUrl.replace(/\/+$/, "");
+    const firstHostname = String(config?.hostnames?.[0] || "").trim();
+    if (firstHostname) return `https://${firstHostname}`;
+    return `${portalBaseUrl()}/forms/ibt`;
+  }
+
+  function buildIbtTestSentDm(person, actor) {
+    return [
+      "Je IBT-toets staat klaar.",
+      `Personeelslid: ${person?.serviceNumber || "-"} - ${person?.name || "Onbekend"}`,
+      actor?.name ? `Verstuurd door: ${actor.name}` : "",
+      `Open ${ibtTestFormUrl()} om de toets te maken.`
+    ].filter(Boolean).join("\n");
+  }
+
   function truncateDiscordEmbedText(value, maxLength) {
     const text = String(value || "").trim();
     if (text.length <= maxLength) return text;
@@ -759,6 +783,81 @@ function createPersoneelsportaalRouteHandler(deps) {
       if (Array.isArray(activityMessages)) activityMessages.push(message);
       return false;
     }
+  }
+
+  function hasCompletedTraining(person, training) {
+    return (Array.isArray(person?.completedTrainings) ? person.completedTrainings : []).includes(training);
+  }
+
+  function isIbtRankEligible(person) {
+    const minimumRankIndex = ranks.indexOf("Marechaussee 3de Klasser");
+    const currentRankIndex = ranks.indexOf(person?.rank || "");
+    if (minimumRankIndex < 0 || currentRankIndex < 0) return false;
+    return currentRankIndex <= minimumRankIndex;
+  }
+
+  function isIbtCandidatePerson(person) {
+    return isCurrentPerson(person) && isIbtRankEligible(person) && !hasCompletedTraining(person, "IBT");
+  }
+
+  function submittedByMatchesPerson(submittedBy = {}, person = {}) {
+    if (submittedBy.id && person.id && submittedBy.id === person.id) return true;
+    const submittedDiscordId = normalizeDiscordId(submittedBy.discordId || "");
+    const personDiscordId = normalizeDiscordId(person.discordId || "");
+    if (submittedDiscordId && personDiscordId && submittedDiscordId === personDiscordId) return true;
+    if (submittedBy.serviceNumber && person.serviceNumber && submittedBy.serviceNumber === person.serviceNumber) return true;
+    if (submittedBy.name && person.name && String(submittedBy.name).trim().toLowerCase() === String(person.name).trim().toLowerCase()) return true;
+    return false;
+  }
+
+  function ibtReviewStatus(submission = {}) {
+    const status = String(submission?.review?.status || "submitted").toLowerCase();
+    return ["approved", "rejected"].includes(status) ? status : "submitted";
+  }
+
+  function ibtSubmissionDto(config, submission = {}) {
+    return {
+      id: submission.id,
+      submissionNumber: publicFormTicketNumber(config, submission),
+      formSlug: submission.formSlug,
+      formTitle: submission.formTitle,
+      submittedAt: submission.submittedAt,
+      submittedBy: submission.submittedBy || null,
+      answers: submission.answers || {},
+      review: submission.review || { status: "submitted" }
+    };
+  }
+
+  function latestIbtSubmissionForPerson(submissions, person) {
+    return [...(Array.isArray(submissions) ? submissions : [])]
+      .filter((submission) => submittedByMatchesPerson(submission.submittedBy || {}, person))
+      .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0))[0] || null;
+  }
+
+  function ibtCandidateRow(config, person, submission = null) {
+    const submissionStatus = submission ? ibtReviewStatus(submission) : "";
+    const profileStatus = String(person?.ibtTest?.status || "").toLowerCase();
+    const sentAtTime = Date.parse(person?.ibtTest?.sentAt || "");
+    const reviewedAtTime = Date.parse(submission?.review?.reviewedAt || submission?.submittedAt || "");
+    const resentAfterRejection = submissionStatus === "rejected"
+      && profileStatus === "sent"
+      && Number.isFinite(sentAtTime)
+      && (!Number.isFinite(reviewedAtTime) || sentAtTime > reviewedAtTime);
+    const status = resentAfterRejection ? "sent" : submissionStatus || (profileStatus === "sent" ? "sent" : "not_sent");
+    return {
+      person: {
+        id: person.id,
+        name: person.name || "Onbekend",
+        rank: person.rank || "",
+        serviceNumber: person.serviceNumber || "",
+        discordId: person.discordId || ""
+      },
+      status,
+      sentAt: person?.ibtTest?.sentAt || "",
+      sentByName: person?.ibtTest?.sentByName || "",
+      formUrl: person?.ibtTest?.formUrl || ibtTestFormUrl(),
+      submission: submission ? ibtSubmissionDto(config, submission) : null
+    };
   }
 
   async function syncQualificationDiscordRoles(state, person, changedLabels) {
@@ -2204,6 +2303,129 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     await sendPeopleStateAfterMutation(res, auth, state);
+    return;
+  }
+
+  if (url.pathname === "/api/trainer/ibt-tests" && req.method === "GET") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const config = ibtFormConfig();
+    if (!config) {
+      sendJson(res, 404, { error: "IBT-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    if (!publicFormsStore || typeof publicFormsStore.listSubmissions !== "function") {
+      sendJson(res, 503, { error: "IBT-toetsenoverzicht is niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canReviewTrainerIbtForms && !permissions.canUseDevTools) {
+      sendJson(res, 403, { error: "Geen toegang tot IBT-toetsen." });
+      return;
+    }
+    const submissions = await publicFormsStore.listSubmissions(config.slug, { limit: 1000 });
+    const rows = (state.people || [])
+      .filter(isIbtCandidatePerson)
+      .map((person) => ibtCandidateRow(config, person, latestIbtSubmissionForPerson(submissions, person)))
+      .filter((row) => row.status !== "approved")
+      .sort((a, b) => {
+        const statusOrder = { submitted: 0, not_sent: 1, sent: 2, rejected: 3 };
+        const statusDelta = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
+        if (statusDelta !== 0) return statusDelta;
+        return String(a.person.serviceNumber || "zz").localeCompare(String(b.person.serviceNumber || "zz"), "nl", { numeric: true });
+      });
+    sendJson(res, 200, { ok: true, formUrl: ibtTestFormUrl(), rows });
+    return;
+  }
+
+  if (url.pathname === "/api/trainer/ibt-tests/send" && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const config = ibtFormConfig();
+    if (!config) {
+      sendJson(res, 404, { error: "IBT-toetsen zijn niet beschikbaar." });
+      return;
+    }
+    if (!publicFormsStore || typeof publicFormsStore.listSubmissions !== "function") {
+      sendJson(res, 503, { error: "IBT-toetsenoverzicht is niet beschikbaar." });
+      return;
+    }
+    if (typeof enqueueDiscordSyncJob !== "function") {
+      sendJson(res, 503, { error: "Discord DM-queue is niet beschikbaar." });
+      return;
+    }
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canReviewTrainerIbtForms && !permissions.canUseDevTools) {
+      sendJson(res, 403, { error: "Geen toegang om IBT-toetsen te versturen." });
+      return;
+    }
+    const body = await readBody(req);
+    const personId = String(body.personId || "").trim();
+    const person = (state.people || []).find((entry) => entry.id === personId && isIbtCandidatePerson(entry));
+    if (!person) {
+      sendJson(res, 404, { error: "IBT-kandidaat niet gevonden of IBT is al afgevinkt." });
+      return;
+    }
+    if (!normalizeDiscordId(person.discordId || "")) {
+      sendJson(res, 400, { error: "Dit personeelslid heeft geen Discord ID op het profiel." });
+      return;
+    }
+    const submissions = await publicFormsStore.listSubmissions(config.slug, { limit: 1000 });
+    const latestSubmission = latestIbtSubmissionForPerson(submissions, person);
+    const latestStatus = latestSubmission ? ibtReviewStatus(latestSubmission) : "";
+    if (latestStatus === "submitted") {
+      sendJson(res, 400, { error: "Deze IBT-toets is al ingeleverd en wacht op beoordeling." });
+      return;
+    }
+    if (latestStatus === "approved") {
+      sendJson(res, 400, { error: "Deze IBT-toets is al goedgekeurd." });
+      return;
+    }
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    const now = new Date().toISOString();
+    const isResend = Boolean(person.ibtTest?.sentAt || latestStatus === "rejected");
+    const activityMessages = [];
+    state.activity = state.activity || [];
+    const activityMessage = `${actor.name || auth.profile.name} heeft een IBT-toets ${isResend ? "opnieuw " : ""}verstuurd naar ${person.name}.`;
+    state.activity.push(activityMessage);
+    activityMessages.push(activityMessage);
+    person.ibtTest = {
+      ...(person.ibtTest || {}),
+      status: "sent",
+      sentAt: now,
+      sentById: actor.id || auth.profile.id || "",
+      sentByName: actor.name || auth.profile.name || "Onbekend",
+      formUrl: ibtTestFormUrl()
+    };
+    addProfileLog(person, {
+      actor,
+      type: "qualification",
+      action: isResend ? "IBT-toets opnieuw verstuurd" : "IBT-toets verstuurd",
+      details: "Toetslink is per Discord DM verstuurd.",
+      meta: {
+        training: "IBT",
+        formUrl: person.ibtTest.formUrl
+      }
+    });
+    const dmQueued = await queueDiscordDmForPerson(
+      state,
+      person,
+      buildIbtTestSentDm(person, actor),
+      isResend ? "ibt_test_resent" : "ibt_test_sent",
+      activityMessages
+    );
+    if (!dmQueued) {
+      sendJson(res, 500, { error: "Discord DM kon niet ingepland worden." });
+      return;
+    }
+    if (typeof peopleStorage.writePersonQualifications === "function") {
+      await Promise.resolve(peopleStorage.writePersonQualifications(person, activityMessages));
+    } else {
+      await persistPeopleStateMutation(state);
+    }
+    sendJson(res, 200, { ok: true, dmQueued, row: ibtCandidateRow(config, person, latestSubmission) });
     return;
   }
 

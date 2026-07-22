@@ -557,6 +557,7 @@ const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   buildResignationFormWebhookPayload,
   buildBlacklistWebhookPayload,
   buildInvestigationWebhookPayload,
+  publicFormsStore,
   mentorTestsStore,
   mentorTestWebhookUrl,
   buildMentorTestWebhookPayload,

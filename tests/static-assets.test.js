@@ -123,7 +123,8 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(html, /data-page="trainer-overzicht"/);
   assert.match(html, /data-page="trainer-ibt"/);
   assert.match(html, /id="trainerIbtCounter"/);
-  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260720-trainer-sidebar/);
+  assert.match(html, /trainerIbtDetailDialog/);
+  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260722-ibt-test-overview/);
   assert.match(appCode, /"trainer-overzicht": "\/trainer-overzicht"/);
   assert.match(appCode, /function canViewTrainerOverview\(/);
   assert.match(appCode, /renderTrainerIbtReviews\(\)/);
@@ -131,17 +132,24 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(permissionsCode, /canReviewTrainerIbtForms: isTrainer \|\| isTrainerLeadership/);
   assert.match(permissionsCode, /canViewProfileAuditLog: canViewAsKader \|\| isHoofdofficier \|\| canViewTrainerSection/);
   assert.match(routesCode, /addedTrainings: newTrainings/);
+  assert.match(routesCode, /\/api\/trainer\/ibt-tests/);
+  assert.match(routesCode, /Marechaussee 3de Klasser/);
+  assert.match(routesCode, /buildIbtTestSentDm/);
+  assert.match(routesCode, /queueDiscordDmForPerson\([\s\S]*buildIbtTestSentDm/);
+  assert.match(serverCode, /publicFormsStore,/);
   assert.match(serverCode, /type: "qualification"[\s\S]*addedTrainings: \[training\]/);
   assert.match(serverCode, /"trainer-overzicht", "trainer-ibt", "trainer-logboek"/);
   assert.match(trainerCode, /function trainerEntryAddedTrainings/);
-  assert.match(trainerCode, /\/api\/public-forms\/submissions\?slug=ibt/);
+  assert.match(trainerCode, /\/api\/trainer\/ibt-tests/);
+  assert.match(trainerCode, /data-send-trainer-ibt/);
+  assert.match(trainerCode, /data-open-trainer-ibt-detail/);
   assert.match(trainerCode, /data-review-trainer-ibt/);
   assert.match(publicFormsConfigCode, /reviewSurface: "portal"/);
   assert.match(publicFormsCode, /function canShowSubmissionReviewPanel\(/);
   assert.match(publicFormsCode, /formState\.config\?\.reviewSurface !== "portal"/);
   assert.match(publicFormsHtml, /public-forms\.js\?v=20260722-portal-ibt-review/);
   assert.match(styles, /\.trainer-stats/);
-  assert.match(styles, /\.trainer-ibt-card/);
+  assert.match(styles, /\.trainer-ibt-row/);
 });
 
 test("profile badge context dialog groups controls with a summary", () => {
@@ -150,7 +158,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260722-i8-own-total/);
+  assert.match(html, /personeelsportaal\.css\?v=20260722-ibt-test-overview/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260720-profile-badge-dialog/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);

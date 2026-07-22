@@ -5228,6 +5228,48 @@ html[data-typography="system"] .leadership-row .rank-count {
   gap: 12px;
 }
 
+.trainer-ibt-table {
+  display: grid;
+  gap: 8px;
+}
+
+.trainer-ibt-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 1fr) minmax(110px, 0.55fr) minmax(150px, 0.75fr) minmax(120px, 0.55fr) minmax(136px, 0.55fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.38);
+  color: var(--text);
+}
+
+.trainer-ibt-row > * {
+  min-width: 0;
+}
+
+.trainer-ibt-row strong,
+.trainer-ibt-row span {
+  overflow-wrap: anywhere;
+}
+
+.trainer-ibt-row-head {
+  padding: 8px 14px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.trainer-ibt-row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .trainer-ibt-card {
   display: grid;
   gap: 14px;
@@ -5290,6 +5332,17 @@ html[data-typography="system"] .leadership-row .rank-count {
   background: rgba(148, 163, 184, 0.14);
 }
 
+.trainer-ibt-status.not-sent {
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.trainer-ibt-status.sent,
+.trainer-ibt-status.submitted {
+  color: #ffd37a;
+  background: rgba(245, 158, 11, 0.14);
+}
+
 .trainer-ibt-status.approved {
   color: #bbf7d0;
   background: rgba(34, 197, 94, 0.14);
@@ -5298,6 +5351,11 @@ html[data-typography="system"] .leadership-row .rank-count {
 .trainer-ibt-status.rejected {
   color: #fecaca;
   background: rgba(239, 68, 68, 0.14);
+}
+
+.trainer-ibt-detail {
+  display: grid;
+  gap: 14px;
 }
 
 .trainer-ibt-answers {
@@ -5334,11 +5392,21 @@ html[data-typography="system"] .leadership-row .rank-count {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .trainer-ibt-row-head {
+    display: none;
+  }
+
+  .trainer-ibt-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
   .trainer-ibt-card-head {
     display: grid;
   }
 
-  .trainer-ibt-actions {
+  .trainer-ibt-actions,
+  .trainer-ibt-row-actions {
     justify-content: flex-start;
   }
 
