@@ -2469,21 +2469,34 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     const state = await readPeopleState();
-    const discordId = normalizeDiscordId(auth.profile.discordId);
-    const person = (state.people || []).find((entry) =>
-      isCurrentPerson(entry) &&
-      (entry.id === auth.profile.id || normalizeDiscordId(entry.discordId) === discordId)
-    );
+    const person = currentPersonForAuth(state, auth);
     if (!person || !mentorRanks.includes(person.rank)) {
       sendJson(res, 404, { error: "Geen actief mentor-traject gevonden." });
       return;
     }
     const openTest = await mentorTestsStore.latestOpenForPerson(organization.key, person.id);
-    const test = mentorTestStaleAfterReactivation(person, openTest) ? null : openTest;
+    const openTestIsStale = mentorTestStaleAfterReactivation(person, openTest);
+    const test = openTestIsStale ? null : openTest;
+    const latestTest = test || await mentorTestsStore.latestForPerson(organization.key, person.id);
+    const latestTestIsStale = mentorTestStaleAfterReactivation(person, latestTest);
+    let unavailableReason = "";
+    if (!test && (openTestIsStale || latestTestIsStale)) {
+      unavailableReason = "Je vorige mentor-toets hoort bij een ouder dienstverband. Mentor-Leiding moet na herintrede een nieuwe toets klaarzetten.";
+    } else if (!test && latestTest?.status === "approved") {
+      unavailableReason = "Je mentor-toets is al goedgekeurd.";
+    } else if (!test && latestTest?.status === "rejected") {
+      unavailableReason = "Je vorige mentor-toets is afgekeurd. Mentor-Leiding kan een nieuwe poging klaarzetten.";
+    } else if (!test && latestTest?.status === "cancelled") {
+      unavailableReason = "Je vorige mentor-toets is vervangen. Mentor-Leiding kan de actuele toets opnieuw sturen.";
+    } else if (!test && latestTest?.status === "retracted") {
+      unavailableReason = "Je mentor-toets is teruggetrokken. Mentor-Leiding kan een nieuwe toets klaarzetten.";
+    }
     sendJson(res, 200, {
       ok: true,
       questions: test ? test.questions || [] : [],
-      test: mentorTestForClient(test)
+      test: mentorTestForClient(test),
+      latestTest: mentorTestForClient(latestTest, { includeAnswers: false }),
+      unavailableReason
     });
     return;
   }
@@ -2496,11 +2509,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     const state = await readPeopleState();
-    const discordId = normalizeDiscordId(auth.profile.discordId);
-    const person = (state.people || []).find((entry) =>
-      isCurrentPerson(entry) &&
-      (entry.id === auth.profile.id || normalizeDiscordId(entry.discordId) === discordId)
-    );
+    const person = currentPersonForAuth(state, auth);
     if (!person || !mentorRanks.includes(person.rank)) {
       sendJson(res, 404, { error: "Geen actief mentor-traject gevonden." });
       return;

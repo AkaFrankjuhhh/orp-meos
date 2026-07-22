@@ -501,7 +501,14 @@ function renderMentorTestPage() {
 
   const test = mentorSelfTestCache.test;
   if (!test) {
-    container.innerHTML = '<div class="feed-item">Er staat nog geen mentor-toets klaar.</div>';
+    const reason = mentorSelfTestCache.unavailableReason || "Er staat nog geen mentor-toets klaar.";
+    const latestTest = mentorSelfTestCache.latestTest;
+    container.innerHTML = `
+      <div class="feed-item">
+        <p>${escapeHtml(reason)}</p>
+        ${latestTest?.status ? `<p class="muted">Laatste status: ${escapeHtml(mentorTestStatusLabel(latestTest.status))}.</p>` : ""}
+      </div>
+    `;
     return;
   }
   const questions = mentorSelfTestCache.questions || [];
