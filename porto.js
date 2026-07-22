@@ -44,6 +44,7 @@ const portoStatuses = [
 ];
 let portoProfile = null;
 let portoDuty = null;
+let portoDutyTime = null;
 let portoVehicleRanges = [];
 let portoCurrentOps = null;
 let portoCanTakeOps = false;

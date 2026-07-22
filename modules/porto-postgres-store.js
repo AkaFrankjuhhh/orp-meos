@@ -1,4 +1,9 @@
 const { withClient } = require("./db");
+const {
+  PORTO_DUTY_HOURS_ENTERED_BY_ID,
+  PORTO_DUTY_HOURS_SOURCE
+} = require("./porto-duty-hours");
+const { operationalWeekForDate } = require("./operational-weeks");
 
 function parseJson(value, fallback) {
   if (value == null) return fallback;
@@ -189,6 +194,29 @@ function portoUnitFromRow(row) {
   };
 }
 
+function hourEntryFromRow(row) {
+  const raw = parseJson(row.raw, {});
+  const minutes = Number(row.minutes || raw.minutes || raw.durationMinutes || 0);
+  const hoursValue = row.hours_value != null ? Number(row.hours_value) : Number(raw.hours || raw.hoursValue || minutes / 60 || 0);
+  return {
+    ...raw,
+    id: row.id,
+    personId: row.person_id || raw.personId || "",
+    discordId: row.discord_id || raw.discordId || "",
+    job: row.job || raw.job || "",
+    startedAt: iso(row.started_at) || raw.startedAt || "",
+    endedAt: iso(row.ended_at) || raw.endedAt || "",
+    minutes: Number.isFinite(minutes) ? minutes : 0,
+    weekYear: row.week_year || raw.weekYear || null,
+    weekNumber: row.week_number || raw.weekNumber || null,
+    hours: Number.isFinite(hoursValue) ? hoursValue : 0,
+    enteredById: row.entered_by_id || raw.enteredById || "",
+    enteredByName: row.entered_by_name || raw.enteredByName || "",
+    enteredAt: iso(row.entered_at) || raw.enteredAt || "",
+    source: raw.source || ""
+  };
+}
+
 async function upsertPortoUnit(client, unit) {
   if (unit.active === false || unit.status === "8" || unit.endedAt) {
     await deletePortoUnitIfCurrent(client, unit);
@@ -310,9 +338,25 @@ function createPostgresPortoStore(options = {}) {
       await cleanupRuntimePortoUnits(client);
       const unitsResult = await client.query("select * from porto_units where active is true order by requested_at nulls last, id asc");
       const portoUnits = normalizePortoUnitsForWrite(unitsResult.rows.map(portoUnitFromRow));
+      const dutyWeek = operationalWeekForDate(new Date(), { timeZone: process.env.PORTO_DUTY_HOURS_TIME_ZONE || "Europe/Amsterdam" });
+      const hoursResult = await client.query(
+        `select *
+         from hours
+         where week_year = $1
+           and week_number = $2
+           and (
+             entered_by_id = $3
+             or id like 'porto-duty-%'
+             or raw->>'source' = $4
+           )
+         order by started_at nulls last, id asc`,
+        [dutyWeek.weekYear, dutyWeek.weekNumber, PORTO_DUTY_HOURS_ENTERED_BY_ID, PORTO_DUTY_HOURS_SOURCE]
+      );
+      const hours = hoursResult.rows.map(hourEntryFromRow);
 
       return {
         people: peopleResult.rows.map(personFromRow),
+        hours,
         portoUnits,
         portoVehicleRanges: settings.portoVehicleRanges || [],
         portoCurrentOps: settings.portoCurrentOps || null,

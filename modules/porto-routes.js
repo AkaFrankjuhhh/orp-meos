@@ -6,6 +6,13 @@ const { allSideTasks } = require("./side-tasks-config");
 const { createSideTasksStore } = require("./side-tasks-store");
 const { portoPhonebookPeople } = require("./porto-phonebook");
 const { isCurrentPerson } = require("./person-status");
+const {
+  DEFAULT_PORTO_DUTY_HOURS_START_WEEK,
+  PORTO_DUTY_HOURS_ENTERED_BY_ID,
+  PORTO_DUTY_HOURS_SOURCE,
+  buildPortoDutyHourEntries
+} = require("./porto-duty-hours");
+const { operationalWeekForDate } = require("./operational-weeks");
 
 function activePersonForAuth(state, auth) {
   return (state.people || []).find((entry) => entry.id === auth.profile.id && isCurrentPerson(entry));
@@ -26,6 +33,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const operatorChannelKey = organization.porto?.operatorChannelKey || "ops";
   const managementLabel = organization.permissionAliases?.kader?.[0] || "leiding";
   const managementBypassLabel = organization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass";
+  const portoDutyHoursTimeZone = process.env.PORTO_DUTY_HOURS_TIME_ZONE || "Europe/Amsterdam";
+  const portoDutyHoursStartWeek = process.env.PORTO_DUTY_HOURS_START_WEEK || DEFAULT_PORTO_DUTY_HOURS_START_WEEK;
   const {
     ensurePortoVehicleRanges,
     canUsePortoDevBypass,
@@ -210,6 +219,70 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   function timestampMs(value) {
     const time = Date.parse(value || "");
     return Number.isFinite(time) ? time : 0;
+  }
+
+  function secondsFromHourEntry(entry) {
+    const minutes = Number(entry?.minutes ?? entry?.durationMinutes);
+    if (Number.isFinite(minutes) && minutes > 0) return Math.round(minutes * 60);
+    const hours = Number(entry?.hours ?? entry?.hoursValue);
+    if (Number.isFinite(hours) && hours > 0) return Math.round(hours * 3600);
+    const startedAt = timestampMs(entry?.startedAt);
+    const endedAt = timestampMs(entry?.endedAt);
+    return endedAt > startedAt ? Math.round((endedAt - startedAt) / 1000) : 0;
+  }
+
+  function isPortoDutyHourEntry(entry) {
+    if (!entry) return false;
+    if (entry.source === PORTO_DUTY_HOURS_SOURCE) return true;
+    if (entry.enteredById === PORTO_DUTY_HOURS_ENTERED_BY_ID) return true;
+    return String(entry.id || "").startsWith("porto-duty-");
+  }
+
+  function currentWeekPortoDutyEntries(state, now, week) {
+    const byKey = new Map();
+    const addEntry = (entry) => {
+      if (!entry || Number(entry.weekYear) !== week.weekYear || Number(entry.weekNumber) !== week.weekNumber) return;
+      if (!isPortoDutyHourEntry(entry)) return;
+      const key = entry.id || [
+        entry.personId || "",
+        entry.discordId || "",
+        entry.startedAt || "",
+        entry.endedAt || "",
+        entry.sourceUnitId || "",
+        entry.sourceVehicleNumber || ""
+      ].join("::");
+      const previous = byKey.get(key);
+      if (!previous || secondsFromHourEntry(entry) >= secondsFromHourEntry(previous)) byKey.set(key, entry);
+    };
+    for (const entry of Array.isArray(state?.hours) ? state.hours : []) addEntry(entry);
+    for (const entry of buildPortoDutyHourEntries(state, {
+      now,
+      timeZone: portoDutyHoursTimeZone,
+      startWeek: portoDutyHoursStartWeek
+    })) addEntry(entry);
+    return [...byKey.values()];
+  }
+
+  function portoDutyTimePayload(state, person, unit) {
+    const now = new Date();
+    const week = operationalWeekForDate(now, { timeZone: portoDutyHoursTimeZone });
+    const assignedAtMs = unit?.active !== false && unit?.vehicleNumber ? timestampMs(unit.assignedAt || "") : 0;
+    const currentSessionSeconds = assignedAtMs ? Math.max(0, Math.floor((now.getTime() - assignedAtMs) / 1000)) : 0;
+    const weekTotalSeconds = currentWeekPortoDutyEntries(state, now, week)
+      .filter((entry) => String(entry.personId || "") === String(person?.id || ""))
+      .reduce((total, entry) => total + secondsFromHourEntry(entry), 0);
+    return {
+      generatedAt: now.toISOString(),
+      timeZone: portoDutyHoursTimeZone,
+      weekYear: week.weekYear,
+      weekNumber: week.weekNumber,
+      weekStartsAt: week.startsAt.toISOString(),
+      weekEndsAt: week.endsAt.toISOString(),
+      currentSessionStartedAt: assignedAtMs ? new Date(assignedAtMs).toISOString() : "",
+      currentSessionSeconds,
+      weekTotalSeconds,
+      running: Boolean(assignedAtMs)
+    };
   }
 
   function preferredActiveUnit(a, b) {
@@ -745,6 +818,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       ...responseExtra,
       unit: decoratePortoUnit(state, unit),
       profile: person,
+      dutyTime: portoDutyTimePayload(state, person, unit),
       vehicleRanges: state.portoVehicleRanges,
       ...portoOpsPayload(state, person)
     };

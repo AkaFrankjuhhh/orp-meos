@@ -41,6 +41,7 @@ function applyPortoPayload(payload, options = {}) {
   portoAvailableVehicleRanges = payload.availableVehicleRanges || [];
   portoLinkableUnits = payload.linkableUnits || [];
   portoActiveUnits = payload.activeUnits || [];
+  portoDutyTime = payload.dutyTime || null;
   portoSideTaskOverview = payload.sideTaskOverview || [];
   const phonebookChanged = typeof setPortoPhonebook === "function" ? setPortoPhonebook(payload.phonebook) : false;
   portoDiscordChannels = payload.discordChannels || [];

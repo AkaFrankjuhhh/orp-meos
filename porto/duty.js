@@ -1,5 +1,7 @@
 /* Porto dienstmodule: statusknoppen, dienstpaneel, voertuigkeuze en Status 0 flow. */
 
+let portoDutyTimeTimer = null;
+
 function isDevBypassProfile() {
   return Boolean(portoCanUseDevTools);
 }
@@ -240,6 +242,54 @@ function modernDutyChannelLabel() {
   return portoDuty?.discordChannelLabel || portoDuty?.discordChannelName || "Porto kanaal";
 }
 
+function portoDutyTimePayloadAgeSeconds() {
+  const generatedAt = Date.parse(portoDutyTime?.generatedAt || "");
+  if (!Number.isFinite(generatedAt)) return 0;
+  return Math.max(0, Math.floor((Date.now() - generatedAt) / 1000));
+}
+
+function portoDutyTimeSeconds(key) {
+  const base = Math.max(0, Math.floor(Number(portoDutyTime?.[key]) || 0));
+  if (!portoDutyTime?.running) return base;
+  const elapsed = portoDutyTimePayloadAgeSeconds();
+  if (key === "currentSessionSeconds") return base + elapsed;
+  if (key === "weekTotalSeconds") {
+    const weekEndsAt = Date.parse(portoDutyTime.weekEndsAt || "");
+    if (!Number.isFinite(weekEndsAt) || Date.now() < weekEndsAt) return base + elapsed;
+  }
+  return base;
+}
+
+function portoDutyTimeText(key) {
+  if (!portoDutyTime) return "00:00:00";
+  return formatPortoDuration(portoDutyTimeSeconds(key));
+}
+
+function updatePortoDutyTimeDisplay() {
+  document.querySelectorAll("[data-porto-duty-session-time]").forEach((element) => {
+    element.textContent = portoDutyTimeText("currentSessionSeconds");
+  });
+  document.querySelectorAll("[data-porto-duty-week-time]").forEach((element) => {
+    element.textContent = portoDutyTimeText("weekTotalSeconds");
+  });
+}
+
+function setPortoDutyTimeTicker(enabled) {
+  if (enabled && portoDutyTime?.running && !portoDutyTimeTimer) {
+    portoDutyTimeTimer = window.setInterval(updatePortoDutyTimeDisplay, 1000);
+  }
+  if ((!enabled || !portoDutyTime?.running) && portoDutyTimeTimer) {
+    window.clearInterval(portoDutyTimeTimer);
+    portoDutyTimeTimer = null;
+  }
+}
+
+function modernDutyTimeMetaHtml() {
+  return `
+        <article class="porto-modern-duty-time-card"><i aria-hidden="true">&#9201;</i><span>Huidige dienst sessie</span><strong data-porto-duty-session-time>${escapeHtml(portoDutyTimeText("currentSessionSeconds"))}</strong></article>
+        <article class="porto-modern-duty-time-card"><i aria-hidden="true">&#128337;</i><span>Diensttijd deze week</span><strong data-porto-duty-week-time>${escapeHtml(portoDutyTimeText("weekTotalSeconds"))}</strong></article>`;
+}
+
 function modernVehicleSelectHtml() {
   const choices = portoDuty?.vehicleChoices || [];
   const currentVehicle = portoDuty?.vehicleName || "";
@@ -359,6 +409,7 @@ function renderModernDutyDashboard() {
         <article>${modernVehicleSelectHtml()}</article>
         <article><i aria-hidden="true">&#128101;</i><span>Bezetting</span><strong>${members.length} / 3</strong><div>${modernOccupancyBars(members.length)}</div></article>
         <article><i aria-hidden="true">&#128279;</i><span>Koppeling</span><strong>${members.length > 1 ? "Actief" : "Solo"}</strong></article>
+        ${modernDutyTimeMetaHtml()}
       </section>
       <section class="porto-modern-duty-members">${memberCards}</section>
       <h2>Statussen</h2>
@@ -369,6 +420,8 @@ function renderModernDutyDashboard() {
         <button class="porto-modern-secondary" type="button" id="portoModernOpsOverviewBtn">${escapeHtml(portoOrganization.key === "politie" ? "OC overzicht" : "OVD/OPCO/OC overzicht")}</button>
       </footer>
     </section>`;
+  updatePortoDutyTimeDisplay();
+  setPortoDutyTimeTicker(true);
 }
 
 function personOperationalValues(person = portoProfile) {
@@ -501,17 +554,23 @@ function renderDutyOpsInfo() {
   if (!portoCurrentOps) {
     container.innerHTML = `
       <span><span>Huidige ${escapeHtml(portoOperatorLabel)}:</span> <strong>Geen ${escapeHtml(portoOperatorLabel)} in dienst</strong></span>
+      <span><span>Huidige dienst sessie:</span> <strong data-porto-duty-session-time>${escapeHtml(portoDutyTimeText("currentSessionSeconds"))}</strong></span>
+      <span><span>Diensttijd deze week:</span> <strong data-porto-duty-week-time>${escapeHtml(portoDutyTimeText("weekTotalSeconds"))}</strong></span>
       <span><span>Huidige tijd:</span> <strong>${escapeHtml(currentTime)}</strong></span>
       ${portoCanTakeOps ? `<button class="porto-ops-action" type="button" data-duty-ops-claim>${escapeHtml(portoOperatorLabel)} overnemen</button>` : ""}
     `;
+    updatePortoDutyTimeDisplay();
     return;
   }
   container.innerHTML = `
     <span><span>Huidige ${escapeHtml(portoOperatorLabel)}:</span> <strong>${escapeHtml(portoCurrentOps.name || "Onbekend")}</strong></span>
     <span><span>Telefoonnummer ${escapeHtml(portoOperatorLabel)}:</span> <strong>${escapeHtml(portoCurrentOps.phone || "Niet ingevuld")}</strong></span>
     <span><span>Duur:</span> <strong>${escapeHtml(formatPortoDuration(opsElapsedSeconds(portoCurrentOps)))}</strong></span>
+    <span><span>Huidige dienst sessie:</span> <strong data-porto-duty-session-time>${escapeHtml(portoDutyTimeText("currentSessionSeconds"))}</strong></span>
+    <span><span>Diensttijd deze week:</span> <strong data-porto-duty-week-time>${escapeHtml(portoDutyTimeText("weekTotalSeconds"))}</strong></span>
     <span><span>Huidige tijd:</span> <strong>${escapeHtml(currentTime)}</strong></span>
   `;
+  updatePortoDutyTimeDisplay();
 }
 
 function renderDutyPanel() {
@@ -553,7 +612,10 @@ function renderDutyPanel() {
   renderOpsLogAccess();
   setPortoDutyPolling((waitingForOps || assignedDuty) && !opsWorkspace);
   renderPortoWorkspaceMode();
-  if (!assignedDuty || opsWorkspace || !portoProfile) return;
+  if (!assignedDuty || opsWorkspace || !portoProfile) {
+    setPortoDutyTimeTicker(false);
+    return;
+  }
   renderModernDutyDashboard();
   renderDutyAssignment();
   renderUnitMemberBar();

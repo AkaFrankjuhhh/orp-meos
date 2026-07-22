@@ -294,18 +294,33 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   const portoCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
   const opsCode = fs.readFileSync(path.join(process.cwd(), "porto", "ops.js"), "utf8");
   const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const portoStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-postgres-store.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
   assert.match(html, /data-porto-ui-choice="classic"/);
   assert.match(html, /data-porto-ui-choice="modern"/);
   assert.match(html, /id="portoModernDutyDashboard"/);
   assert.match(html, /id="portoModernOpsDashboard"/);
+  assert.match(html, /porto\/ops\.js\?v=20260722-duty-time-stats/);
+  assert.match(html, /porto\/duty\.js\?v=20260722-duty-time-stats/);
+  assert.match(html, /porto\.js\?v=20260722-duty-time-stats/);
   assert.match(portoCode, /PORTO_UI_MODE_KEY/);
+  assert.match(portoCode, /let portoDutyTime = null/);
   assert.match(portoCode, /function bindPortoUiToggle/);
+  assert.match(opsCode, /portoDutyTime = payload\.dutyTime \|\| null/);
   assert.match(opsCode, /function renderModernOpsDashboard/);
   assert.match(dutyCode, /function renderModernDutyDashboard/);
+  assert.match(dutyCode, /function modernDutyTimeMetaHtml/);
+  assert.match(dutyCode, /data-porto-duty-session-time/);
+  assert.match(dutyCode, /data-porto-duty-week-time/);
+  assert.match(routesCode, /function portoDutyTimePayload/);
+  assert.match(routesCode, /buildPortoDutyHourEntries\(state/);
+  assert.match(routesCode, /operationalWeekForDate\(now/);
+  assert.match(portoStoreCode, /PORTO_DUTY_HOURS_ENTERED_BY_ID/);
   assert.match(styles, /body\[data-porto-ui="modern"\]\.porto-duty-workspace/);
   assert.match(styles, /\.porto-modern-ops-dashboard/);
+  assert.match(styles, /\.porto-modern-duty-time-card/);
 });
 
 test("modern duty status layout stays aligned on desktop widths", () => {
@@ -357,7 +372,7 @@ test("porto K9 duty role stores a visible K9 name from the profile", () => {
   assert.match(html, /portoK9NameField/);
   assert.match(html, /portoK9Name/);
   assert.match(html, /porto\/profile\.js\?v=20260719-k9-duty-role/);
-  assert.match(html, /porto\.js\?v=20260719-heartbeat-grace/);
+  assert.match(html, /porto\.js\?v=20260722-duty-time-stats/);
   assert.match(profileCode, /completedTrainings\)\s*&& portoProfile\.completedTrainings\.includes\("K9"\)/);
   assert.match(clientCode, /k9Name: k9NameInput/);
   assert.match(routesCode, /personHasK9Training/);
@@ -385,8 +400,8 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   assert.match(clientCode, /event\.persisted/);
   assert.doesNotMatch(clientCode, /beforeunload", sendPortoBrowserClosedSignal/);
   assert.match(dutyCode, /syncPortoBrowserHeartbeatForPayload\(payload\)/);
-  assert.match(html, /porto\/duty\.js\?v=20260719-heartbeat-grace/);
-  assert.match(html, /porto\.js\?v=20260719-heartbeat-grace/);
+  assert.match(html, /porto\/duty\.js\?v=20260722-duty-time-stats/);
+  assert.match(html, /porto\.js\?v=20260722-duty-time-stats/);
   assert.match(envExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(envExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);

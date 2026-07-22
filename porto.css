@@ -6427,6 +6427,24 @@ body.porto-duty-workspace .porto-duty-ops-info span strong {
   margin-left: 4px;
 }
 
+[data-porto-duty-session-time],
+[data-porto-duty-week-time] {
+  font-variant-numeric: tabular-nums;
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-time-card {
+  grid-column: span 2;
+  border-top: 1px solid rgba(59, 130, 246, 0.18);
+}
+
+body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-time-card > i {
+  color: #8bc4ff;
+}
+
+body.porto-duty-workspace .porto-duty-ops-info {
+  width: min(1160px, calc(100vw - 32px));
+}
+
 @media (max-height: 720px), (max-width: 980px) {
   body.porto-duty-workspace .porto-duty-panel {
     height: calc(100dvh - 56px);
@@ -6469,6 +6487,13 @@ body.porto-duty-workspace .porto-duty-ops-info span strong {
     min-height: 28px;
     padding: 6px 9px;
     font-size: 11px;
+  }
+}
+
+@media (max-width: 1320px) {
+  body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-time-card {
+    grid-column: 1 / -1;
+    border-right: 0;
   }
 }
 
