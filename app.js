@@ -788,9 +788,13 @@ function applyServerState(payload) {
 }
 
 function saveActiveFormDraftBeforeAction() {
-  if (typeof saveI8Draft !== "function") return;
-  if (activePageId() !== "i8-opstellen" || activeI8Tab !== "create") return;
-  saveI8Draft();
+  const page = activePageId();
+  if (typeof saveI8Draft === "function" && page === "i8-opstellen" && activeI8Tab === "create") {
+    saveI8Draft();
+  }
+  if (typeof saveMentorTestDraft === "function" && page === "mentor-toets") {
+    saveMentorTestDraft();
+  }
 }
 
 async function runAction(path, body = {}) {

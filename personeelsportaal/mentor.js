@@ -462,6 +462,110 @@ async function fetchMentorTestsOverview() {
   return payload;
 }
 
+function mentorTestDraftStorageKey(test = mentorSelfTestCache?.test) {
+  const testId = test?.id || "";
+  const profileId = currentProfile()?.id || authProfile?.id || "unknown";
+  return testId ? `orp-${organizationKey}-mentor-test-draft-${profileId}-${testId}` : "";
+}
+
+function mentorTestAnswersFromDom({ trimText = false } = {}) {
+  const answers = {};
+  $$("[data-mentor-question]").forEach((input) => {
+    const id = input.dataset.mentorQuestion;
+    if (!id) return;
+    if (input.type === "checkbox") {
+      if (!answers[id]) answers[id] = [];
+      if (input.checked) answers[id].push(input.value);
+      return;
+    }
+    answers[id] = trimText ? input.value.trim() : input.value;
+  });
+  return answers;
+}
+
+function mentorTestAnswersHaveInput(answers = {}) {
+  return Object.values(answers).some((answer) => (
+    Array.isArray(answer)
+      ? answer.length > 0
+      : String(answer || "").trim().length > 0
+  ));
+}
+
+function saveMentorTestDraft() {
+  const form = $("[data-mentor-test-self-form]");
+  const test = mentorSelfTestCache?.test;
+  const key = mentorTestDraftStorageKey(test);
+  if (!form || !test || !key || test.status !== "sent") return;
+  const draft = {
+    testId: test.id,
+    personId: test.personId,
+    answers: mentorTestAnswersFromDom(),
+    savedAt: new Date().toISOString()
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // Conceptopslag is een vangnet; de toets zelf moet normaal blijven werken.
+  }
+}
+
+function restoreMentorTestDraft(options = {}) {
+  const form = $("[data-mentor-test-self-form]");
+  const test = mentorSelfTestCache?.test;
+  const key = mentorTestDraftStorageKey(test);
+  if (!form || !test || !key || test.status !== "sent") return false;
+  if (!options.force && form.dataset.mentorTestDraftRestored === "true" && mentorTestAnswersHaveInput(mentorTestAnswersFromDom())) return true;
+  let raw = "";
+  try {
+    raw = localStorage.getItem(key) || "";
+  } catch {
+    form.dataset.mentorTestDraftRestored = "true";
+    return false;
+  }
+  if (!raw) {
+    form.dataset.mentorTestDraftRestored = "true";
+    return false;
+  }
+  try {
+    const draft = JSON.parse(raw);
+    if (draft.testId !== test.id || draft.personId !== test.personId) return false;
+    const answers = draft.answers || {};
+    $$("[data-mentor-question]").forEach((input) => {
+      const id = input.dataset.mentorQuestion;
+      if (!id || !(id in answers)) return;
+      if (input.type === "checkbox") {
+        input.checked = Array.isArray(answers[id]) && answers[id].includes(input.value);
+      } else {
+        input.value = answers[id] || "";
+      }
+    });
+    form.dataset.mentorTestDraftRestored = "true";
+    return true;
+  } catch {
+    localStorage.removeItem(key);
+    form.dataset.mentorTestDraftRestored = "true";
+    return false;
+  }
+}
+
+function clearMentorTestDraft(test = mentorSelfTestCache?.test) {
+  const key = mentorTestDraftStorageKey(test);
+  if (!key) return;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Als storage geblokkeerd is, is er niets server-kritisch om op te ruimen.
+  }
+}
+
+function bindMentorTestDraftAutosave() {
+  const form = $("[data-mentor-test-self-form]");
+  if (!form || form.dataset.mentorTestDraftAutosave === "true") return;
+  form.dataset.mentorTestDraftAutosave = "true";
+  form.addEventListener("input", saveMentorTestDraft);
+  form.addEventListener("change", saveMentorTestDraft);
+}
+
 function renderMentorQuestionInput(question, answers = {}) {
   const current = answers?.[question.id];
   if (question.type === "checkbox") {
@@ -540,20 +644,14 @@ function renderMentorTestPage() {
       </div>
     </form>
   `;
+  restoreMentorTestDraft();
+  bindMentorTestDraftAutosave();
 }
 
 async function submitOwnMentorTest() {
-  const answers = {};
-  $$("[data-mentor-question]").forEach((input) => {
-    const id = input.dataset.mentorQuestion;
-    if (!id) return;
-    if (input.type === "checkbox") {
-      if (!answers[id]) answers[id] = [];
-      if (input.checked) answers[id].push(input.value);
-      return;
-    }
-    answers[id] = input.value.trim();
-  });
+  saveMentorTestDraft();
+  const submittedTest = mentorSelfTestCache?.test || null;
+  const answers = mentorTestAnswersFromDom({ trimText: true });
   const response = await fetch("/api/mentor-tests/my/submit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -568,6 +666,7 @@ async function submitOwnMentorTest() {
     await showSiteNotice(payload.error || "Mentor-Toets indienen is mislukt.", "Mentor-Toets");
     return;
   }
+  clearMentorTestDraft(submittedTest);
   mentorSelfTestCache = payload;
   await showSiteNotice("Mentor-Toets ingediend.", "Mentor-Toets");
   renderMentorTestPage();

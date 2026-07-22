@@ -97,7 +97,7 @@ test("mentor checklist autosave is serialized against live refresh", () => {
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
 
-  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260722-mentor-self-current-profile/);
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260722-mentor-test-draft/);
   assert.match(mentorCode, /let mentorChecklistSavePromise = null/);
   assert.match(mentorCode, /let mentorChecklistSaveQueued = false/);
   assert.match(mentorCode, /function mentorChecklistStaleAfterReactivation\(/);
@@ -469,13 +469,21 @@ test("side task browser heartbeat signs off closed browsers server-side", () => 
 
 test("mentor tests render compact rows with a detail dialog", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
   assert.match(html, /mentorTestDetailDialog/);
-  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260722-mentor-self-current-profile/);
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260722-mentor-test-draft/);
   assert.match(mentorCode, /data-open-mentor-test-detail/);
   assert.match(mentorCode, /function openMentorTestDetailDialog/);
   assert.match(mentorCode, /mentorSelfTestCache\.unavailableReason/);
+  assert.match(mentorCode, /function saveMentorTestDraft\(/);
+  assert.match(mentorCode, /function restoreMentorTestDraft\(/);
+  assert.match(mentorCode, /function clearMentorTestDraft\(/);
+  assert.match(mentorCode, /function bindMentorTestDraftAutosave\(/);
+  assert.match(mentorCode, /orp-\$\{organizationKey\}-mentor-test-draft-\$\{profileId\}-\$\{testId\}/);
+  assert.match(mentorCode, /clearMentorTestDraft\(submittedTest\);/);
+  assert.match(appCode, /saveMentorTestDraft\(\);/);
   assert.match(routesCode, /const person = currentPersonForAuth\(state, auth\);\s+if \(!person \|\| !mentorRanks\.includes\(person\.rank\)\)/);
   assert.match(routesCode, /latestTest: mentorTestForClient\(latestTest, \{ includeAnswers: false \}\)/);
 });
