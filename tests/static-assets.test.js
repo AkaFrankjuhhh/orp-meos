@@ -166,7 +166,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260722-ibt-detail-overview/);
+  assert.match(html, /personeelsportaal\.css\?v=20260722-topbar-responsive/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260720-profile-badge-dialog/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
@@ -258,6 +258,20 @@ test("calm dashboard adapts before police counters overflow", () => {
   assert.match(styles, /html\[data-ui-mode="calm"\] \.dashboard-grid \{\s+grid-template-columns: minmax\(0, 1fr\);/);
   assert.match(styles, /html\[data-ui-mode="calm"\] \.member-summary strong \{[\s\S]*font-size: clamp\(36px, 3\.4vw, 52px\)/);
   assert.match(styles, /@media \(max-width: 760px\)/);
+});
+
+test("portal chrome keeps topbar controls inside narrow desktop viewports", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(html, /personeelsportaal\.css\?v=20260722-topbar-responsive/);
+  assert.match(styles, /Portal chrome stability for browser zoom/);
+  assert.match(styles, /body:not\(\.locked\) \{[\s\S]*overflow-x: clip;/);
+  assert.match(styles, /\.topbar \{[\s\S]*flex-wrap: wrap;/);
+  assert.match(styles, /\.topbar-actions \{[\s\S]*max-width: 100%;/);
+  assert.match(styles, /\.profile-chip \{[\s\S]*flex: 0 1 300px;/);
+  assert.match(styles, /@media \(max-width: 1280px\) \{[\s\S]*\.topbar-actions \{[\s\S]*width: 100%;/);
+  assert.match(styles, /@media \(min-width: 901px\) and \(max-width: 1400px\), \(min-width: 901px\) and \(max-height: 760px\)/);
 });
 
 test("people mutations persist rank changes before queueing Discord sync", () => {
