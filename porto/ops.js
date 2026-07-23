@@ -226,14 +226,24 @@ function holdOpsRequestInteraction() {
   portoOpsRequestInteractionUntil = Date.now() + 5000;
 }
 
+function scheduleOpsRequestRenderAfterInteraction() {
+  if (portoOpsRequestRenderTimer) return;
+  const delay = Math.max(100, portoOpsRequestInteractionUntil - Date.now() + 50);
+  portoOpsRequestRenderTimer = window.setTimeout(() => {
+    portoOpsRequestRenderTimer = null;
+    renderOpsRequests();
+  }, delay);
+}
+
 function isEditingOpsRequest() {
   const list = $("#portoOpsRequests");
   const active = document.activeElement;
   return Boolean(
     list &&
-      (Date.now() < portoOpsRequestInteractionUntil ||
-        list.matches(":hover") ||
-        (active && list.contains(active) && active.matches("select, button")))
+      Date.now() < portoOpsRequestInteractionUntil &&
+      active &&
+      list.contains(active) &&
+      active.matches("select, button")
   );
 }
 
@@ -247,7 +257,10 @@ function renderOpsRequests({ force = false } = {}) {
   if (!showPanel) return;
   count.textContent = `${portoOpsRequests.length} verzoek${portoOpsRequests.length === 1 ? "" : "en"}`;
   // De OPS-poll ververst elke paar seconden; tijdens kiezen in een dropdown mag de DOM niet vervangen worden.
-  if (!force && isEditingOpsRequest()) return;
+  if (!force && isEditingOpsRequest()) {
+    scheduleOpsRequestRenderAfterInteraction();
+    return;
+  }
   if (!portoOpsRequests.length) {
     list.innerHTML = '<div class="porto-ops-empty">Geen open Status 0-aanmeldingen.</div>';
     return;

@@ -72,6 +72,7 @@ let portoOpsContextUnitId = "";
 let portoDutyPoll = null;
 let portoOpsPoll = null;
 let portoOpsRequestInteractionUntil = 0;
+let portoOpsRequestRenderTimer = null;
 let portoEventSource = null;
 let portoLiveRefreshTimer = null;
 let portoLiveRefreshDeferTimer = null;
@@ -311,10 +312,13 @@ let portoOpsUnitLayout = ["grid", "list"].includes(storedOpsLayout) ? storedOpsL
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
-  if (typeof isEditingOpsRequest === "function" && isEditingOpsRequest()) return true;
   if (!$("#portoOpsUnitContextMenu")?.hidden) return true;
-  if (active?.matches?.("textarea, input, select, [contenteditable='true']")) return true;
   if (active?.closest?.("dialog[open], .site-notice-dialog[open]")) return true;
+  if (active?.matches?.("textarea, [contenteditable='true']")) return true;
+  if (active?.matches?.("input")) {
+    const type = String(active.type || "text").toLowerCase();
+    return !["button", "checkbox", "radio", "range", "reset", "submit"].includes(type);
+  }
   return false;
 }
 
@@ -333,7 +337,7 @@ function schedulePortoLiveRefresh(scope = "porto") {
       }
       return;
     }
-    await loadPortoDuty({ automatic: true });
+    await loadPortoDuty({ automatic: true, bypassAutoThrottle: scope === "porto" });
   }, 1000);
 }
 

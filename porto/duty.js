@@ -632,9 +632,14 @@ function renderDutyPanel() {
 
 async function loadPortoDuty(options = {}) {
   const automatic = Boolean(options.automatic);
+  const bypassAutoThrottle = Boolean(options.bypassAutoThrottle);
   if (automatic && portoSignedOffUntilStatus0) return null;
   if (portoDutyLoadPromise) return portoDutyLoadPromise;
-  if (automatic) {
+  if (automatic && bypassAutoThrottle && portoDeferredDutyLoadTimer) {
+    window.clearTimeout(portoDeferredDutyLoadTimer);
+    portoDeferredDutyLoadTimer = null;
+  }
+  if (automatic && !bypassAutoThrottle) {
     const elapsed = Date.now() - portoLastDutyLoadAt;
     if (elapsed < PORTO_AUTO_REFRESH_MS) {
       if (!portoDeferredDutyLoadTimer) {
