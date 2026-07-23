@@ -216,6 +216,8 @@ test("profile badge context dialog groups controls with a summary", () => {
   assert.match(profileCode, /function profileBadgeDialogGroups/);
   assert.match(profileCode, /data-profile-badge-kind="\$\{escapeHtml\(kind\)\}"/);
   assert.match(profileCode, /profileBadgeTaskLeadershipOrder/);
+  assert.match(profileCode, /profileBadgeOrganizationLeadership = \[[^\]]*"HR"/);
+  assert.match(profileCode, /profileBadgeTaskLeadershipOrder = \[[^\]]*"HR-Leiding"/);
   assert.match(profileCode, /updateProfileBadgeDialogSummary/);
   assert.match(appCode, /input\[data-profile-badge-kind="function"\]:checked/);
   assert.match(appCode, /input\[data-profile-badge-kind="task"\]:checked/);

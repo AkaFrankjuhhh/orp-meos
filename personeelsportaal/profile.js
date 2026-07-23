@@ -71,9 +71,9 @@ function profileBadgeDialogLabel(badge) {
   return profileBadgeDialogDisplayLabels[badge] || profileBadgeLabel(badge);
 }
 
-const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "Hoofdofficier", "Officiersraad", "OVC"];
+const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "HR", "Hoofdofficier", "Officiersraad", "OVC"];
 const profileBadgeExtraLeadership = ["Directie", "Teamchef", "Coördinator"];
-const profileBadgeTaskLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "IZ-Leiding", "OvJ", "VID-Leiding", "OTC-Leiding"];
+const profileBadgeTaskLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "HR-Leiding", "IZ-Leiding", "OvJ", "VID-Leiding", "OTC-Leiding"];
 const profileBadgeTaskFunctionOrder = ["Trainer", "Mentor", "W&S", "Interne-Zaken", "hOvJ", "VID", "Operatie"];
 
 function orderedProfileBadgeItems(items, preferredOrder) {

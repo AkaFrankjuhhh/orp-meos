@@ -238,30 +238,36 @@ test("police leadership can view I8, mentor and discipline without becoming OvJ 
   });
 });
 
-test("police board can recruit and dismiss without full people management", () => {
+test("police board and HR can recruit and dismiss without full people management", () => {
   withOrganization("politie", () => {
     const { organizationConfigs } = require("../modules/organizations");
     const { createPermissionServices } = require("../modules/permissions");
     const organization = organizationConfigs.politie;
+    assert.equal(organization.extraFunctions.includes("HR"), true);
+    assert.equal(organization.extraTasks.includes("HR-Leiding"), true);
+    assert.equal(organization.discord.functionRoleMappings.some((mapping) => mapping.label === "HR" && mapping.envKey === "DISCORD_POLITIE_HR_ROLE_ID"), true);
+    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "HR-Leiding" && mapping.envKey === "DISCORD_POLITIE_HR_LEIDING_ROLE_ID"), true);
+
     const services = createPermissionServices({
       extraFunctions: organization.extraFunctions,
       extraTasks: organization.extraTasks,
       readState: () => ({ people: [] })
     });
 
-    const permissions = services.permissionsForProfile({
-      id: "politie-inspecteur",
-      name: "Inspecteur",
-      rank: "Inspecteur",
-      status: "Actief",
-      permRole: "Geen",
-      badges: []
-    });
+    const profiles = [
+      { id: "politie-inspecteur", name: "Inspecteur", rank: "Inspecteur", status: "Actief", permRole: "Geen", badges: [] },
+      { id: "politie-hr", name: "HR", rank: "Agent", status: "Actief", permRole: "HR", badges: [] },
+      { id: "politie-hr-leiding", name: "HR-Leiding", rank: "Agent", status: "Actief", permRole: "Geen", badges: ["HR-Leiding"] }
+    ];
 
-    assert.equal(permissions.canViewRecruitment, true);
-    assert.equal(permissions.canRecruitPeople, true);
-    assert.equal(permissions.canDismissPersonnel, true);
-    assert.equal(permissions.canManagePeople, false);
-    assert.equal(permissions.canManagePersonnelRanks, false);
+    for (const profile of profiles) {
+      const permissions = services.permissionsForProfile(profile);
+      assert.equal(permissions.canViewPersonnel, true);
+      assert.equal(permissions.canViewRecruitment, true);
+      assert.equal(permissions.canRecruitPeople, true);
+      assert.equal(permissions.canDismissPersonnel, true);
+      assert.equal(permissions.canManagePeople, false);
+      assert.equal(permissions.canManagePersonnelRanks, false);
+    }
   });
 });

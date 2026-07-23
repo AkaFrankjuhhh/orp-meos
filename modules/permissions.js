@@ -75,7 +75,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isIzLeadership = taskBadges.includes("IZ-Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
     const canViewTrainerSection = canViewAsKader || isTrainer || isTrainerLeadership;
-    const isHrManagement = (organization.permissions?.hrManagementAliases || []).some((badge) => hasFunctionBadge(functionBadges, badge));
+    const isHrManagement = (organization.permissions?.hrManagementAliases || []).some((badge) => hasFunctionBadge(functionBadges, badge) || taskBadges.includes(badge));
     const i8ReviewMode = organization.permissions?.i8ReviewMode || "defensie";
     const canViewI8Forms = canViewAsKader || isOvJ || isInterneZaken || isIzLeadership;
     const canHandleI8Forms = i8ReviewMode === "ovjOnly" ? isOvJ : canViewI8Forms;
@@ -91,7 +91,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     return {
       canViewLogbook: canViewAsKader,
       canManagePeople: isKader,
-      canViewPersonnel: canViewAsKader || isHoofdofficier || isOfficiersraad,
+      canViewPersonnel: canViewAsKader || isHoofdofficier || isOfficiersraad || isHrManagement,
       canManagePersonnelRanks,
       canDismissPersonnel: isKader || isHrManagement,
       canDismissPersonnelToAdjudant: isKader || (canOfficerManage && isHoofdofficier),

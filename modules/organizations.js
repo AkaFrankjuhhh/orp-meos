@@ -150,6 +150,7 @@ const politieExtraTasks = [
   "W&S",
   "Mentor-Leiding",
   "W&S-Leiding",
+  "HR-Leiding",
   "IZ-Leiding",
   "Trainer-Leiding",
   ...politieSideTaskBadges
@@ -430,7 +431,7 @@ const organizationConfigs = {
     profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME", "K9", "K9 Begeleider"],
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
-    extraFunctions: ["Korpsleiding", "Bestuur", "OVC"],
+    extraFunctions: ["Korpsleiding", "Bestuur", "HR", "OVC"],
     sideTaskBadges: politieSideTaskBadges,
     restrictedTaskBadges: politieSideTaskBadges,
     mentorRanks: ["Aspirant"],
@@ -458,7 +459,7 @@ const organizationConfigs = {
       i8ReviewMode: "ovjOnly",
       absenceReviewMode: "kaderAndHoofdofficier",
       officerManagementMode: "viewAndAbsenceOnly",
-      hrManagementAliases: ["Bestuur"]
+      hrManagementAliases: ["Bestuur", "HR", "HR-Leiding"]
     },
     rankColors: {
       "Eerste hoofdcommissaris": "#e17000",
@@ -477,6 +478,7 @@ const organizationConfigs = {
       functionRoleMappings: [
         { key: "korpsleiding", label: "Korpsleiding", envKey: "DISCORD_POLITIE_KORPSLEIDING_ROLE_ID", defaultRoleId: "1423471166495916052", stateKey: "korpsleidingRoleId" },
         { key: "bestuur", label: "Bestuur", envKey: "DISCORD_POLITIE_BESTUUR_ROLE_ID", defaultRoleId: "1425219424943865987", stateKey: "bestuurRoleId" },
+        { key: "hr", label: "HR", envKey: "DISCORD_POLITIE_HR_ROLE_ID" },
         { key: "ovc", label: "OVC", envKey: "DISCORD_POLITIE_OVC_ROLE_ID" }
       ],
       taskRoleMappings: [
@@ -488,6 +490,7 @@ const organizationConfigs = {
         { key: "w-s", label: "W&S", envKey: "DISCORD_POLITIE_WS_ROLE_ID" },
         { key: "mentor-leiding", label: "Mentor-Leiding", envKey: "DISCORD_POLITIE_MENTOR_LEIDING_ROLE_ID" },
         { key: "w-s-leiding", label: "W&S-Leiding", envKey: "DISCORD_POLITIE_WS_LEIDING_ROLE_ID" },
+        { key: "hr-leiding", label: "HR-Leiding", envKey: "DISCORD_POLITIE_HR_LEIDING_ROLE_ID" },
         { key: "iz-leiding", label: "IZ-Leiding", envKey: "DISCORD_POLITIE_IZ_LEIDING_ROLE_ID" },
         { key: "trainer-leiding", label: "Trainer-Leiding", envKey: "DISCORD_POLITIE_TRAINER_LEIDING_ROLE_ID" },
         { key: "dsi-leiding", label: "DSI-Leiding", envKey: "DISCORD_POLITIE_DSI_LEIDING_ROLE_ID" },
