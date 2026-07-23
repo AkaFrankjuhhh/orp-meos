@@ -689,6 +689,7 @@ test("Discord sync manages portal function and badge roles", () => {
   const organizationsCode = fs.readFileSync(path.join(process.cwd(), "modules", "organizations.js"), "utf8");
   const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const peopleStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-postgres-people-store.js"), "utf8");
   const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
   const roleConfigCode = fs.readFileSync(path.join(process.cwd(), "scripts", "check-discord-role-config.js"), "utf8");
   const scriptCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-sync-person.js"), "utf8");
@@ -711,6 +712,10 @@ test("Discord sync manages portal function and badge roles", () => {
   assert.match(workerCode, /badgeRoles/);
   assert.match(routesCode, /syncTrainingRequirementRolesForPerson/);
   assert.match(routesCode, /queuePersonDiscordSync\(state, person, "badge_updated"\)/);
+  assert.match(routesCode, /peopleStorage\.writePersonProfileBadges\(person, badgeActivityMessages\)/);
+  assert.match(peopleStoreCode, /async function writePersonProfileBadges\(person, activityMessage\)/);
+  assert.match(peopleStoreCode, /badges = \$2::jsonb/);
+  assert.match(peopleStoreCode, /extra_functions = \$3::jsonb/);
   assert.match(roleConfigCode, /Benodigde trainingsrollen/);
   assert.match(roleConfigCode, /Functie- en badgerollen/);
   assert.match(scriptCode, /Benodigde training mappings/);

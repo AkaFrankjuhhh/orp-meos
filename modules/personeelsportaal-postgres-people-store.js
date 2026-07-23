@@ -364,6 +364,47 @@ function createPostgresPeopleStore(options = {}) {
     return person;
   }
 
+  async function writePersonProfileBadges(person, activityMessage) {
+    // Functies/neventaken wijzigen vaak via een kleine modal; vermijd de zware volledige people-write.
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        const result = await client.query(`
+          update people
+          set
+            badges = $2::jsonb,
+            extra_functions = $3::jsonb,
+            raw = $4::jsonb,
+            updated_at = now()
+          where id = $1
+        `, [
+          person.id,
+          json(person.badges, []),
+          json(person.extraFunctions, []),
+          json(person, {})
+        ]);
+        if (result.rowCount !== 1) {
+          throw new Error("Personeelslid niet gevonden voor neventaken-update.");
+        }
+        const activityMessages = Array.isArray(activityMessage)
+          ? activityMessage.filter(Boolean)
+          : [activityMessage].filter(Boolean);
+        for (const message of activityMessages) {
+          await client.query(`
+            insert into activity_log(position, message)
+            values((select coalesce(max(position), -1) + 1 from activity_log), $1)
+          `, [String(message)]);
+        }
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return person;
+  }
+
 
   async function writePersonNotifications(person) {
     // Persoonsgebonden meldingen zitten in raw, zodat er geen losse notificatietabel nodig is.
@@ -443,7 +484,7 @@ function createPostgresPeopleStore(options = {}) {
     if (afterWrite) afterWrite();
     return entries;
   }
-  return { readState, writeState, writePersonQualifications, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
+  return { readState, writeState, writePersonQualifications, writePersonProfileBadges, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
 }
 
 module.exports = { createPostgresPeopleStore };

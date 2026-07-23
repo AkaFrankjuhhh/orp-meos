@@ -2293,9 +2293,22 @@ function createPersoneelsportaalRouteHandler(deps) {
       });
     }
     state.activity = state.activity || [];
+    const activityStartIndex = state.activity.length;
     state.activity.push(`Functies en badges bijgewerkt voor ${person.name}.`);
     if (badgeChanges.length) {
       await queuePersonDiscordSync(state, person, "badge_updated");
+    }
+    const badgeActivityMessages = state.activity.slice(activityStartIndex);
+    if (typeof peopleStorage.writePersonProfileBadges === "function") {
+      await Promise.resolve(peopleStorage.writePersonProfileBadges(person, badgeActivityMessages));
+      const nextPermissions = permissionsForAuth(auth, state);
+      sendJson(res, 200, {
+        ok: true,
+        state: stateForProfile(state, nextPermissions, auth.profile.id),
+        canViewLogbook: nextPermissions.canViewLogbook,
+        permissions: nextPermissions
+      });
+      return;
     }
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
