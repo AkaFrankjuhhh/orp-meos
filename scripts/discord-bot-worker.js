@@ -1435,6 +1435,10 @@ async function syncByJob(job) {
   }
   if (!person) return { skipped: true, reason: "Geen actueel portaalprofiel gevonden" };
   if (!isCurrentPerson(person)) {
+    const rankRole = await bot.syncRankRoleForPersonIfNeeded(
+      person,
+      `Discord bot job ${job.id}: niet-actueel profiel`
+    );
     const trainingNeededRoles = await bot.syncTrainingRequirementRolesForPersonIfNeeded(
       person,
       `Discord bot job ${job.id}: niet-actueel profiel`
@@ -1443,7 +1447,7 @@ async function syncByJob(job) {
       person,
       `Discord bot job ${job.id}: niet-actueel profiel`
     );
-    return { ok: true, inactive: true, trainingNeededRoles, separatorRoles };
+    return { ok: true, inactive: true, rankRole, trainingNeededRoles, separatorRoles };
   }
   return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
 }

@@ -412,6 +412,12 @@ function createDiscordBotServices(options = {}) {
     return mapping?.roleId || "";
   }
 
+  function desiredRankRoleIdForPerson(person) {
+    if (!isCurrentPerson(person)) return "";
+    if (!String(person?.serviceNumber || "").trim()) return "";
+    return rankRoleIdForPerson(person);
+  }
+
   function completedQualificationSetForPerson(person) {
     return new Set([
       ...(Array.isArray(person?.completedTrainings) ? person.completedTrainings : []),
@@ -752,15 +758,16 @@ function createDiscordBotServices(options = {}) {
     });
   }
 
-  async function syncRoleSet(discordId, desiredRoleIds, managedRoleIds, auditReason = `${portalAuditLabel} rollen gesynchroniseerd`) {
+  async function syncRoleSet(discordId, desiredRoleIds, managedRoleIds, auditReason = `${portalAuditLabel} rollen gesynchroniseerd`, options = {}) {
     const memberId = normalizeDiscordId(discordId);
     const desired = compactRoleIds(desiredRoleIds);
     const managed = compactRoleIds(managedRoleIds);
+    const requireOrganizationRole = options.requireOrganizationRole !== false;
     if (!memberId || !managed.length) return { skipped: true, reason: "Discord ID of beheerde rollen ontbreken." };
 
     const memberResult = await getGuildMember(memberId);
     if (memberResult.skipped) return memberResult;
-    if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
+    if (requireOrganizationRole && !memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
 
     const existingRoles = new Set(memberResult.data?.roles || []);
     const desiredSet = new Set(desired);
@@ -789,7 +796,7 @@ function createDiscordBotServices(options = {}) {
     const existingRoles = new Set(memberResult.data?.roles || []);
     const desiredRoleIds = compactRoleIds([
       requiredDefensieRoleId(),
-      rankRoleIdForPerson(person)
+      desiredRankRoleIdForPerson(person)
     ]);
     if (!desiredRoleIds.length) return { skipped: true, reason: "Geen basisrollen ingesteld." };
 
@@ -809,9 +816,20 @@ function createDiscordBotServices(options = {}) {
     const mappings = configuredRankRoleMappings();
     const managedRoleIds = mappings.map((mapping) => mapping.roleId);
     if (!managedRoleIds.length) return { skipped: true, reason: "Geen Discord rangrollen ingesteld." };
-    const desiredRoleId = rankRoleIdForPerson(person);
-    if (!desiredRoleId) return { skipped: true, reason: `Geen Discord rangrol ingesteld voor ${person?.rank || "onbekende rang"}.` };
-    return syncRoleSet(memberId, [desiredRoleId], managedRoleIds, auditReason);
+    const desiredRoleId = desiredRankRoleIdForPerson(person);
+    if (!desiredRoleId && isCurrentPerson(person) && String(person?.serviceNumber || "").trim()) {
+      const result = await syncRoleSet(memberId, [], managedRoleIds, auditReason, {
+        requireOrganizationRole: false
+      });
+      return {
+        ...result,
+        missingDesiredRankRole: true,
+        reason: `Geen Discord rangrol ingesteld voor ${person?.rank || "onbekende rang"}; oude beheerde rangrollen verwijderd.`
+      };
+    }
+    return syncRoleSet(memberId, desiredRoleId ? [desiredRoleId] : [], managedRoleIds, auditReason, {
+      requireOrganizationRole: Boolean(desiredRoleId)
+    });
   }
 
   async function syncRankRoleForPersonIfNeeded(person, auditReason = `${portalAuditLabel} periodieke rangrol controle`) {
@@ -891,6 +909,12 @@ function createDiscordBotServices(options = {}) {
 
   async function syncDiscordForPersonIfNeeded(person, auditReason = `${portalAuditLabel} Discord profiel gesynchroniseerd`) {
     if (isDiscordSyncExcludedPerson(person)) return discordSyncExcludedResult();
+    if (!isCurrentPerson(person)) {
+      const rankRole = await syncRankRoleForPersonIfNeeded(person, auditReason);
+      const trainingNeededRoles = await syncTrainingRequirementRolesForPersonIfNeeded(person, auditReason);
+      const separatorRoles = await syncSeparatorRolesForPersonIfNeeded(person, auditReason);
+      return { ok: true, inactive: true, rankRole, trainingNeededRoles, separatorRoles };
+    }
     const baseRoles = await ensureBaseRolesForPerson(person, auditReason);
     const nickname = await syncNicknameForPersonIfNeeded(person, auditReason);
     const rankRole = await syncRankRoleForPersonIfNeeded(person, auditReason);
@@ -1085,6 +1109,7 @@ function createDiscordBotServices(options = {}) {
     isDiscordSyncExcludedDiscordId,
     rankRoleEnvKeys: organization.discord?.rankRoleEnvKeys || defaultDefensieRankRoleEnvKeys,
     rankRoleIdForPerson,
+    desiredRankRoleIdForPerson,
     missingTrainingRequirementsForPerson,
     syncRankRoleForPerson,
     syncRankRoleForPersonIfNeeded,

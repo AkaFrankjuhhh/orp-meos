@@ -12,6 +12,7 @@ function createRouteHarness(initialState) {
   let storedState = clone(initialState);
   let requestBody = {};
   const webhookPayloads = [];
+  const discordSyncJobs = [];
   const { buildDismissalWebhookPayload } = createDiscordWebhookServices({ formatDate: (value) => value });
 
   const handler = createPersoneelsportaalRouteHandler({
@@ -37,7 +38,9 @@ function createRouteHarness(initialState) {
     savePerson: () => ({ ok: true }),
     promotePerson: () => ({ ok: true }),
     demotePerson: () => ({ ok: true }),
-    assignFirstAvailableServiceNumber: () => {},
+    assignFirstAvailableServiceNumber: (state, person) => {
+      if (!person.serviceNumber) person.serviceNumber = person.previousServiceNumber || "74-24";
+    },
     normalizeMentorNotes: (value) => value,
     ranks: ["Generaal", "Adjudant", "Marechaussee 2de Klasser"],
     profileTrainings: [],
@@ -63,12 +66,15 @@ function createRouteHarness(initialState) {
     buildBlacklistWebhookPayload: () => ({}),
     buildInvestigationWebhookPayload: () => ({}),
     discordBot: null,
-    enqueuePersonDiscordSync: async () => {}
+    enqueuePersonDiscordSync: async (person, reason, options) => {
+      discordSyncJobs.push({ person: clone(person), reason, options: clone(options || {}) });
+    }
   });
 
   return {
     handler,
     webhookPayloads,
+    discordSyncJobs,
     state: () => clone(storedState),
     setBody: (body) => {
       requestBody = clone(body);
@@ -133,4 +139,35 @@ test("dismissal webhook avoids markdown list formatting when no service number i
   const memberField = payload.embeds[0].fields.find((field) => field.name === "Personeelslid");
   assert.equal(memberField.value, "Geen roepnummer - Kevlar de Jong");
   assert.doesNotMatch(memberField.value, /^- - /);
+});
+
+test("restored personnel queues Discord profile sync with role propagation retries", async () => {
+  const harness = createRouteHarness({
+    people: [
+      { id: "actor-1", name: "Lynn Moosdijk", rank: "Generaal", serviceNumber: "00-01", status: "Actief" },
+      {
+        id: "person-1",
+        name: "Beeps Valenti",
+        discordId: "1142183276845469697",
+        rank: "Marechaussee 1ste Klasser",
+        previousServiceNumber: "74-24",
+        serviceNumber: "",
+        status: "Ontslagen",
+        permRole: "Geen"
+      }
+    ],
+    activity: []
+  });
+  harness.setBody({ rank: "Marechaussee 2de Klasser" });
+
+  const response = await post(harness.handler, "/api/people/person-1/restore");
+  const restoredPerson = harness.state().people.find((person) => person.id === "person-1");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(restoredPerson.status, "Actief");
+  assert.equal(restoredPerson.rank, "Marechaussee 2de Klasser");
+  assert.equal(restoredPerson.serviceNumber, "74-24");
+  assert.equal(harness.discordSyncJobs.length, 1);
+  assert.equal(harness.discordSyncJobs[0].reason, "person_restore");
+  assert.equal(harness.discordSyncJobs[0].options.maxAttempts, 288);
 });

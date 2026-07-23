@@ -668,10 +668,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     try {
       const isNewHire = ["recruitment_hire", "person_created"].includes(reason);
-      const waitsForDiscordRoles = isNewHire || reason === "qualification_updated";
+      const waitsForDiscordRoles = isNewHire || reason === "qualification_updated" || ["person_restore", "person_reactivate"].includes(reason);
       const roleWaitMaxAttempts = Number(process.env.DISCORD_REQUIRED_ROLE_MAX_ATTEMPTS || 288);
       await enqueuePersonDiscordSync(person, reason, {
-        // New recruits and qualification updates can race Discord role propagation.
+        // New recruits, restored profiles and qualification updates can race Discord role propagation.
         maxAttempts: waitsForDiscordRoles && Number.isFinite(roleWaitMaxAttempts) ? Math.max(1, Math.floor(roleWaitMaxAttempts)) : undefined
       });
       setDiscordSyncStatus(

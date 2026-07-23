@@ -291,7 +291,9 @@ async function main() {
     ? bot.allSeparatorRoleMappings()
     : [];
   const configuredSeparatorMappings = separatorMappings.filter((mapping) => String(mapping.roleId || "").trim());
-  const desiredRankRoleId = bot.rankRoleIdForPerson?.(person) || "";
+  const desiredRankRoleId = typeof bot.desiredRankRoleIdForPerson === "function"
+    ? bot.desiredRankRoleIdForPerson(person)
+    : bot.rankRoleIdForPerson?.(person) || "";
   const desiredMissingConfig = allMappings.filter((mapping) => completed.has(mapping.qualification) && !String(mapping.roleId || "").trim());
   const desiredRoleIds = configuredMappings
     .filter((mapping) => completed.has(mapping.qualification))
@@ -358,9 +360,10 @@ async function main() {
   console.log("Rangrol mapping:");
   for (const mapping of rankMappings) {
     if (mapping.rank !== person.rank) continue;
+    const desired = desiredRankRoleId && mapping.roleId === desiredRankRoleId ? "ja" : "nee";
     const configured = String(mapping.roleId || "").trim() ? "ja" : "nee";
     const current = mapping.roleId && currentRoleIds.includes(mapping.roleId) ? "ja" : "nee";
-    console.log(`- ${mapping.rank} (${mapping.envKey}=${mapping.roleId || "NIET INGESTELD"}) gewenst=ja configured=${configured} aanwezig=${current}`);
+    console.log(`- ${mapping.rank} (${mapping.envKey}=${mapping.roleId || "NIET INGESTELD"}) gewenst=${desired} configured=${configured} aanwezig=${current}`);
   }
   console.log(`Ontbrekende rangrol: ${roleListText(missingRankRoleIds)}`);
   console.log(`Extra beheerde rangrollen: ${roleListText(extraManagedRankRoleIds)}`);
