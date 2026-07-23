@@ -238,10 +238,10 @@ function registerPersoneelsportaalTab() {
 }
 function currentProfile() {
   if (!authProfile) return null;
-  return (
-    state.people.find((person) => person.id === authProfile.id || person.discordId === authProfile.discordId) ||
-    authProfile
-  );
+  const byId = state.people.find((person) => person.id === authProfile.id && isCurrentProfile(person));
+  if (byId) return byId;
+  const byDiscordId = state.people.find((person) => person.discordId === authProfile.discordId && isCurrentProfile(person));
+  return byDiscordId || authProfile;
 }
 
 const CURRENT_PROFILE_BLOCKED_STATUSES = new Set([

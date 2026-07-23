@@ -5,7 +5,7 @@ loadEnv();
 const { readPostgresState } = require("../modules/postgres-state");
 const { createDiscordBotServices } = require("../modules/discord-bot");
 const { currentOrganization, organizationMainRoleId } = require("../modules/organizations");
-const { isCurrentPerson } = require("../modules/person-status");
+const { currentPersonByDiscordIdMap, preferCurrentPeople } = require("../modules/people-identity");
 
 function argValue(name) {
   const prefix = `${name}=`;
@@ -93,11 +93,6 @@ function personMatchesDiscord(person, query) {
   return String(person.discordId || "").trim() === needle;
 }
 
-function preferCurrentPeople(people = []) {
-  const current = people.filter(isCurrentPerson);
-  return current.length ? current : people;
-}
-
 function uniquePeople(people = []) {
   const seen = new Set();
   const unique = [];
@@ -139,9 +134,7 @@ async function findPeopleByDiscordCallsign(bot, people, query) {
   ].filter(Boolean);
   const seenVariants = [...new Set(variants)];
   const needle = compactSearchText(raw);
-  const byDiscordId = new Map((people || [])
-    .filter((person) => person.discordId)
-    .map((person) => [String(person.discordId).trim(), person]));
+  const byDiscordId = currentPersonByDiscordIdMap(people || []);
   const matches = [];
   const seenPeople = new Set();
   const addMemberMatch = (member) => {

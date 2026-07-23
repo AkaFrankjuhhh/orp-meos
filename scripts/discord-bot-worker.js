@@ -7,6 +7,7 @@ const { createDiscordBotServices } = require("../modules/discord-bot");
 const { currentOrganization } = require("../modules/organizations");
 const { nonRegularPortoDiscordChannel } = require("../modules/porto-discord-channels");
 const { isCurrentPerson } = require("../modules/person-status");
+const { findPersonByDiscordId, findPersonByIdOrDiscordId } = require("../modules/people-identity");
 const {
   buildDiscordLeaveLogPayload,
   collectDefensieLeaveLogRoleIds,
@@ -820,7 +821,7 @@ async function handleTrainingRequestSelect(interaction) {
     return;
   }
   const state = await readPostgresState();
-  const person = (state.people || []).find((entry) => String(entry.discordId || "") === userId);
+  const person = findPersonByDiscordId(state.people || [], userId, { currentOnly: true });
   if (mapping.minimumRank && !rankIsAtLeast(person?.rank || "", mapping.minimumRank)) {
     await interactionCallback(interaction, {
       type: 7,
@@ -1358,11 +1359,10 @@ function nestedSyncFailureFromResult(result) {
 
 async function findPersonForSyncJob(job) {
   const state = await readPostgresState();
-  return (state.people || []).find((entry) => {
-    if (job.personId && entry.id === job.personId) return true;
-    if (job.discordId && String(entry.discordId || "") === String(job.discordId)) return true;
-    return false;
-  }) || null;
+  return findPersonByIdOrDiscordId(state.people || [], {
+    personId: job.personId,
+    discordId: job.discordId
+  });
 }
 
 async function syncAllActive(reason = "Discord bot periodieke sync") {
@@ -1406,10 +1406,9 @@ async function syncByJob(job) {
     return bot.setVoiceChannelStatus(job.payload?.channelKey || job.payload?.channelId, job.payload?.status || "", job.payload?.reason || "Porto kanaalstatus aangepast");
   }
 
-  const person = (state.people || []).find((entry) => {
-    if (job.personId && entry.id === job.personId) return true;
-    if (job.discordId && String(entry.discordId || "") === String(job.discordId)) return true;
-    return false;
+  const person = findPersonByIdOrDiscordId(state.people || [], {
+    personId: job.personId,
+    discordId: job.discordId
   });
   if (job.type === "porto_nickname") {
     if (!person) return { skipped: true, reason: "Geen portaalprofiel gevonden" };

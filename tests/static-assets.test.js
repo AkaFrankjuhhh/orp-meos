@@ -505,6 +505,13 @@ test("I8 create form keeps a browser draft until server save succeeds", () => {
   assert.match(html, /personeelsportaal\/i8\.js\?v=20260722-i8-session-draft/);
 });
 
+test("browser profile identity ignores old profiles with the same Discord ID", () => {
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+
+  assert.match(appCode, /const byId = state\.people\.find\(\(person\) => person\.id === authProfile\.id && isCurrentProfile\(person\)\)/);
+  assert.match(appCode, /const byDiscordId = state\.people\.find\(\(person\) => person\.discordId === authProfile\.discordId && isCurrentProfile\(person\)\)/);
+});
+
 test("mentor test Discord embed formats submitted date and time", () => {
   const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   assert.match(serverCode, /function formatMentorTestDateTime\(/);
@@ -636,6 +643,14 @@ test("Discord worker writes sync status back to portal profiles", () => {
   assert.match(workerCode, /nestedSyncFailureFromResult/);
   assert.match(workerCode, /\$\{label\} overgeslagen/);
   assert.match(workerCode, /if \(nestedFailure\) throw nestedFailure/);
+});
+
+test("Discord worker resolves duplicate Discord IDs to current portal profiles", () => {
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+
+  assert.match(workerCode, /findPersonByDiscordId/);
+  assert.match(workerCode, /findPersonByIdOrDiscordId/);
+  assert.match(workerCode, /findPersonByDiscordId\(state\.people \|\| \[\], userId, \{ currentOnly: true \}\)/);
 });
 
 test("Discord worker casts Porto JSONB update parameters", () => {
