@@ -112,20 +112,35 @@ function renderOpsStatus() {
   const claimButton = $("#portoOpsClaimBtn");
   const releaseButton = $("#portoOpsReleaseBtn");
   if (!text || !claimButton || !releaseButton) return;
-  const duration = formatPortoDuration(opsElapsedSeconds(portoCurrentOps));
-  text.textContent = portoCurrentOps ? `${portoOperatorLabel} in dienst: ${portoCurrentOps.name} - ${duration}` : `Huidige ${portoOperatorLabel}:`;
+  updateOpsDurationDisplay();
   if (durationBadge) {
     durationBadge.hidden = !portoCurrentOps;
-    durationBadge.textContent = `${isCurrentOpsUser() ? `Jouw ${portoOperatorLabel} duur` : `${portoOperatorLabel} duur`}: ${duration}`;
   }
-  const modernDuration = $("#portoModernOpsDuration");
-  if (modernDuration) modernDuration.textContent = modernOpsDurationText(duration);
   claimButton.hidden = Boolean(portoCurrentOps) || !portoCanTakeOps;
   releaseButton.hidden = !portoCurrentOps || !portoCanManageOps;
 }
 
 function modernOpsDurationText(duration = formatPortoDuration(opsElapsedSeconds(portoCurrentOps))) {
   return `${isCurrentOpsUser() ? `Jouw ${portoOperatorLabel} duur` : `${portoOperatorLabel} duur`}: ${duration}`;
+}
+
+function updateOpsDurationDisplay() {
+  const duration = formatPortoDuration(opsElapsedSeconds(portoCurrentOps));
+  const text = $("#portoCurrentOpsText");
+  if (text) {
+    text.textContent = portoCurrentOps ? `${portoOperatorLabel} in dienst: ${portoCurrentOps.name} - ${duration}` : `Huidige ${portoOperatorLabel}:`;
+  }
+  const durationBadge = $("#portoOpsDurationBadge");
+  if (durationBadge) {
+    durationBadge.textContent = modernOpsDurationText(duration);
+  }
+  const modernDuration = $("#portoModernOpsDuration");
+  const modernDurationTextElement = modernDuration?.querySelector("[data-porto-modern-ops-duration-text]");
+  if (modernDurationTextElement) {
+    modernDurationTextElement.textContent = modernOpsDurationText(duration);
+  } else if (modernDuration) {
+    modernDuration.textContent = modernOpsDurationText(duration);
+  }
 }
 
 function vehicleCategoryOptionsHtml() {
@@ -626,7 +641,7 @@ function renderModernOpsDashboard() {
       <div class="porto-modern-ops-actions">
         ${portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser() ? '<button class="porto-ops-action ghost" type="button" data-modern-duty-view>Mijn nummer</button>' : ""}
         <button class="porto-ops-action ghost" type="button" data-phonebook-open><span aria-hidden="true">&#9742;</span> Telefoonnummers</button>
-        <span id="portoModernOpsDuration" class="porto-ops-duration-badge"><span aria-hidden="true">&#9201;</span> ${escapeHtml(modernOpsDurationText())}</span>
+        <span id="portoModernOpsDuration" class="porto-ops-duration-badge"><span aria-hidden="true">&#9201;</span><span data-porto-modern-ops-duration-text>${escapeHtml(modernOpsDurationText())}</span></span>
         <button class="porto-ops-action ghost danger" type="button" data-modern-ops-release><span aria-hidden="true">&#9888;</span> ${escapeHtml(portoOperatorLabel)} neerleggen</button>
         ${modernProfileCard}
       </div>
@@ -989,4 +1004,7 @@ window.PortoModules.registerFeature("ops", { ready: true });
 
 
 
-window.setInterval(() => { renderOpsStatus(); if (typeof renderDutyOpsInfo === "function") renderDutyOpsInfo(); }, 1000);
+window.setInterval(() => {
+  updateOpsDurationDisplay();
+  if (typeof updateDutyOpsInfoDisplay === "function") updateDutyOpsInfoDisplay();
+}, 1000);

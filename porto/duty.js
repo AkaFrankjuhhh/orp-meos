@@ -556,20 +556,30 @@ function renderDutyOpsInfo() {
       <span><span>Huidige ${escapeHtml(portoOperatorLabel)}:</span> <strong>Geen ${escapeHtml(portoOperatorLabel)} in dienst</strong></span>
       <span><span>Huidige dienst sessie:</span> <strong data-porto-duty-session-time>${escapeHtml(portoDutyTimeText("currentSessionSeconds"))}</strong></span>
       <span><span>Diensttijd deze week:</span> <strong data-porto-duty-week-time>${escapeHtml(portoDutyTimeText("weekTotalSeconds"))}</strong></span>
-      <span><span>Huidige tijd:</span> <strong>${escapeHtml(currentTime)}</strong></span>
+      <span><span>Huidige tijd:</span> <strong data-duty-current-time>${escapeHtml(currentTime)}</strong></span>
       ${portoCanTakeOps ? `<button class="porto-ops-action" type="button" data-duty-ops-claim>${escapeHtml(portoOperatorLabel)} overnemen</button>` : ""}
     `;
-    updatePortoDutyTimeDisplay();
+    updateDutyOpsInfoDisplay();
     return;
   }
   container.innerHTML = `
     <span><span>Huidige ${escapeHtml(portoOperatorLabel)}:</span> <strong>${escapeHtml(portoCurrentOps.name || "Onbekend")}</strong></span>
     <span><span>Telefoonnummer ${escapeHtml(portoOperatorLabel)}:</span> <strong>${escapeHtml(portoCurrentOps.phone || "Niet ingevuld")}</strong></span>
-    <span><span>Duur:</span> <strong>${escapeHtml(formatPortoDuration(opsElapsedSeconds(portoCurrentOps)))}</strong></span>
+    <span><span>Duur:</span> <strong data-duty-ops-duration>${escapeHtml(formatPortoDuration(opsElapsedSeconds(portoCurrentOps)))}</strong></span>
     <span><span>Huidige dienst sessie:</span> <strong data-porto-duty-session-time>${escapeHtml(portoDutyTimeText("currentSessionSeconds"))}</strong></span>
     <span><span>Diensttijd deze week:</span> <strong data-porto-duty-week-time>${escapeHtml(portoDutyTimeText("weekTotalSeconds"))}</strong></span>
-    <span><span>Huidige tijd:</span> <strong>${escapeHtml(currentTime)}</strong></span>
+    <span><span>Huidige tijd:</span> <strong data-duty-current-time>${escapeHtml(currentTime)}</strong></span>
   `;
+  updateDutyOpsInfoDisplay();
+}
+
+function updateDutyOpsInfoDisplay() {
+  document.querySelectorAll("[data-duty-ops-duration]").forEach((element) => {
+    element.textContent = formatPortoDuration(opsElapsedSeconds(portoCurrentOps));
+  });
+  document.querySelectorAll("[data-duty-current-time]").forEach((element) => {
+    element.textContent = new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  });
   updatePortoDutyTimeDisplay();
 }
 

@@ -352,16 +352,20 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(html, /data-porto-ui-choice="modern"/);
   assert.match(html, /id="portoModernDutyDashboard"/);
   assert.match(html, /id="portoModernOpsDashboard"/);
-  assert.match(html, /porto\/ops\.js\?v=20260723-porto-live-refresh/);
-  assert.match(html, /porto\/duty\.js\?v=20260723-porto-live-refresh/);
+  assert.match(html, /porto\/ops\.js\?v=20260723-ops-duration-ticker/);
+  assert.match(html, /porto\/duty\.js\?v=20260723-ops-duration-ticker/);
   assert.match(html, /porto\.js\?v=20260723-porto-live-refresh/);
   assert.match(portoCode, /PORTO_UI_MODE_KEY/);
   assert.match(portoCode, /let portoDutyTime = null/);
   assert.match(portoCode, /function bindPortoUiToggle/);
   assert.match(opsCode, /portoDutyTime = payload\.dutyTime \|\| null/);
   assert.match(opsCode, /function renderModernOpsDashboard/);
+  assert.match(opsCode, /data-porto-modern-ops-duration-text/);
+  assert.match(opsCode, /function updateOpsDurationDisplay/);
+  assert.doesNotMatch(opsCode, /window\.setInterval\(\(\) => \{ renderOpsStatus\(\)/);
   assert.match(dutyCode, /function renderModernDutyDashboard/);
   assert.match(dutyCode, /function modernDutyTimeMetaHtml/);
+  assert.match(dutyCode, /function updateDutyOpsInfoDisplay/);
   assert.match(dutyCode, /data-porto-duty-session-time/);
   assert.match(dutyCode, /data-porto-duty-week-time/);
   assert.match(routesCode, /function portoDutyTimePayload/);
@@ -377,7 +381,7 @@ test("modern duty status layout stays aligned on desktop widths", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260717-responsive-stability/);
+  assert.match(html, /porto\.css\?v=20260723-ops-duration-ticker/);
   assert.match(styles, /body\[data-porto-ui="modern"\]\.porto-duty-workspace \.porto-modern-duty-meta-grid \{[\s\S]*margin-top: 0;/);
   assert.match(styles, /\.porto-modern-duty-meta-grid article > \.porto-modern-vehicle-select \{[\s\S]*grid-column: 1 \/ -1;/);
   const desktopBreakpointStart = styles.indexOf("@media (max-width: 1280px)");
@@ -405,7 +409,7 @@ test("porto profile dialog scroll avoids expensive backdrop repainting", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260717-responsive-stability/);
+  assert.match(html, /porto\.css\?v=20260723-ops-duration-ticker/);
   assert.match(styles, /\.porto-profile-dialog \{[\s\S]*contain: layout paint;/);
   assert.match(styles, /\.porto-profile-dialog::backdrop \{[\s\S]*backdrop-filter: none;/);
   assert.match(styles, /\.porto-profile-form \{[\s\S]*overscroll-behavior: contain;/);
@@ -450,7 +454,7 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   assert.match(clientCode, /event\.persisted/);
   assert.doesNotMatch(clientCode, /beforeunload", sendPortoBrowserClosedSignal/);
   assert.match(dutyCode, /syncPortoBrowserHeartbeatForPayload\(payload\)/);
-  assert.match(html, /porto\/duty\.js\?v=20260723-porto-live-refresh/);
+  assert.match(html, /porto\/duty\.js\?v=20260723-ops-duration-ticker/);
   assert.match(html, /porto\.js\?v=20260723-porto-live-refresh/);
   assert.match(envExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);

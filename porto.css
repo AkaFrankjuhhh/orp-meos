@@ -3137,6 +3137,7 @@ body.porto-duty-workspace .porto-status-choices {
   color: #fde68a;
   font-size: 13px;
   font-weight: 950;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
