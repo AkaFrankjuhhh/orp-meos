@@ -429,6 +429,7 @@ function createPersoneelsportaalRouteHandler(deps) {
   function canDismissPerson(permissions, person) {
     if (hasOvcFunctionBadge(person) && !person?.rank && !person?.serviceNumber) return false;
     if (permissions.canManagePeople) return true;
+    if (permissions.canDismissPersonnel) return true;
     if (!permissions.canDismissPersonnelToAdjudant || !person) return false;
     const adjudantIndex = ranks.indexOf("Adjudant");
     const currentIndex = ranks.indexOf(person.rank);
@@ -1986,7 +1987,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     if (!auth) return;
     const state = await readPeopleState();
     if (!(await hasPermission(auth, state, "canRecruitPeople"))) {
-      sendJson(res, 403, { error: "Alleen Kader of W&S mag personeel aannemen." });
+      sendJson(res, 403, { error: "Alleen leiding, HR-bestuur of W&S mag personeel aannemen." });
       return;
     }
 
@@ -3143,7 +3144,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     if (action === "dismiss" && !canDismissPerson(permissions, person)) {
-      sendJson(res, 403, { error: "Alleen Kader of Hoofdofficier mag tot en met Adjudant ontslaan." });
+      sendJson(res, 403, { error: "Alleen leiding of HR-bestuur mag personeel ontslaan." });
       return;
     }
     if (action === "io" && !permissions.canManageInvestigationStatus) {

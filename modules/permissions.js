@@ -75,6 +75,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isIzLeadership = taskBadges.includes("IZ-Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
     const canViewTrainerSection = canViewAsKader || isTrainer || isTrainerLeadership;
+    const isHrManagement = (organization.permissions?.hrManagementAliases || []).some((badge) => hasFunctionBadge(functionBadges, badge));
     const i8ReviewMode = organization.permissions?.i8ReviewMode || "defensie";
     const canViewI8Forms = canViewAsKader || isOvJ || isInterneZaken || isIzLeadership;
     const canHandleI8Forms = i8ReviewMode === "ovjOnly" ? isOvJ : canViewI8Forms;
@@ -92,6 +93,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManagePeople: isKader,
       canViewPersonnel: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canManagePersonnelRanks,
+      canDismissPersonnel: isKader || isHrManagement,
       canDismissPersonnelToAdjudant: isKader || (canOfficerManage && isHoofdofficier),
       canViewAbsenceOverview: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canReviewAbsences,
@@ -121,8 +123,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
       canManageMentorChecklistTemplate: isKader || isMentorLeadership || isOtcLeadership,
       canManageMentorTestTemplate: isMentorLeadership || isDevOverride,
-      canViewRecruitment: canViewAsKader || isWs,
-      canRecruitPeople: isKader || isWs,
+      canViewRecruitment: canViewAsKader || isWs || isHrManagement,
+      canRecruitPeople: isKader || isWs || isHrManagement,
       canViewBlacklist: canViewAsKader || isWs,
       canManageBlacklist: isKader,
       canViewOvJLeadershipLog: canViewAsKader || taskBadges.includes("OvJ"),

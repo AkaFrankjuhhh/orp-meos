@@ -457,7 +457,8 @@ const organizationConfigs = {
       personnelRankMode: "kaderOnly",
       i8ReviewMode: "ovjOnly",
       absenceReviewMode: "kaderAndHoofdofficier",
-      officerManagementMode: "viewAndAbsenceOnly"
+      officerManagementMode: "viewAndAbsenceOnly",
+      hrManagementAliases: ["Bestuur"]
     },
     rankColors: {
       "Eerste hoofdcommissaris": "#e17000",

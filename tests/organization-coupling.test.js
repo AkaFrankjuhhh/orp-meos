@@ -237,3 +237,31 @@ test("police leadership can view I8, mentor and discipline without becoming OvJ 
     }
   });
 });
+
+test("police board can recruit and dismiss without full people management", () => {
+  withOrganization("politie", () => {
+    const { organizationConfigs } = require("../modules/organizations");
+    const { createPermissionServices } = require("../modules/permissions");
+    const organization = organizationConfigs.politie;
+    const services = createPermissionServices({
+      extraFunctions: organization.extraFunctions,
+      extraTasks: organization.extraTasks,
+      readState: () => ({ people: [] })
+    });
+
+    const permissions = services.permissionsForProfile({
+      id: "politie-inspecteur",
+      name: "Inspecteur",
+      rank: "Inspecteur",
+      status: "Actief",
+      permRole: "Geen",
+      badges: []
+    });
+
+    assert.equal(permissions.canViewRecruitment, true);
+    assert.equal(permissions.canRecruitPeople, true);
+    assert.equal(permissions.canDismissPersonnel, true);
+    assert.equal(permissions.canManagePeople, false);
+    assert.equal(permissions.canManagePersonnelRanks, false);
+  });
+});

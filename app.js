@@ -355,6 +355,7 @@ function canManagePersonnelRanksFor(person, action = "") {
 function canDismissPerson(person) {
   if (isOvcOnlyProfile(person)) return false;
   if (hasKaderAccess()) return true;
+  if (permissions.canDismissPersonnel) return true;
   if (!permissions.canDismissPersonnelToAdjudant || !person) return false;
   const adjudantIndex = ranks.indexOf("Adjudant");
   const currentIndex = ranks.indexOf(person.rank);
