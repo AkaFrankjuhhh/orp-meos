@@ -87,7 +87,7 @@
       }
     </style>
     <link rel="stylesheet" href="/shared.css?v=20260709-politie-lockscreen-fallback" />
-    <link rel="stylesheet" href="/personeelsportaal.css?v=20260723-vehicle-seizures" />
+    <link rel="stylesheet" href="/personeelsportaal.css?v=20260723-vehicle-seizure-layout" />
   <script src="/portal-boot.js?v=20260628-csp-cleanup" defer></script>
   <script src="/boot-failsafe.js?v=20260627-loader-failsafe" defer></script>
   <script src="/portal-loader-failsafe.js?v=20260627-loader-failsafe" defer></script>
@@ -690,39 +690,44 @@
               <p class="muted">Gedeeld overzicht voor Politie en Defensie</p>
             </div>
           </div>
-          <form id="vehicleSeizureForm" class="form-grid vehicle-seizure-form" autocomplete="off">
-            <label>Voertuig<input id="vehicleSeizureVehicle" type="text" required placeholder="Model, kleur of type" /></label>
-            <label>Kenteken<input id="vehicleSeizurePlate" type="text" required placeholder="Kenteken" /></label>
-            <label>Eigenaar<input id="vehicleSeizureOwner" type="text" required placeholder="Naam eigenaar" /></label>
-            <label>Locatie<input id="vehicleSeizureLocation" type="text" required placeholder="Waar staat het voertuig?" /></label>
-            <label class="full">Reden<textarea id="vehicleSeizureReason" required placeholder="Waarom is het voertuig in beslag genomen?"></textarea></label>
-            <label class="full">Opmerking<textarea id="vehicleSeizureNotes" placeholder="Optionele aanvullende informatie"></textarea></label>
-            <button class="primary" type="submit">Inbeslagname opslaan</button>
-          </form>
-          <div id="vehicleSeizureMessage" class="form-message" hidden></div>
-        </section>
-
-        <section class="panel vehicle-seizure-list-panel">
-          <div class="panel-head">
-            <div>
-              <h2>In beslag genomen voertuigen</h2>
-              <p class="muted">Actieve en vrijgegeven voertuigen uit de gezamenlijke lijst</p>
-            </div>
+          <div class="vehicle-seizure-workspace">
+            <section class="vehicle-seizure-overview" aria-labelledby="vehicleSeizureOverviewTitle">
+              <div class="vehicle-seizure-column-head">
+                <h3 id="vehicleSeizureOverviewTitle">In beslag genomen voertuigen</h3>
+                <p class="muted">Actieve en vrijgegeven voertuigen uit de gezamenlijke lijst</p>
+              </div>
+              <div class="vehicle-seizure-toolbar">
+                <label class="search">
+                  <span>Zoeken</span>
+                  <input id="vehicleSeizureSearchInput" type="search" placeholder="Kenteken, voertuig, eigenaar, locatie..." />
+                </label>
+                <label class="vehicle-seizure-filter">Status
+                  <select id="vehicleSeizureStatusFilter">
+                    <option value="active">Actief</option>
+                    <option value="all">Alles</option>
+                    <option value="released">Vrijgegeven</option>
+                  </select>
+                </label>
+              </div>
+              <div id="vehicleSeizureList" class="vehicle-seizure-list"></div>
+            </section>
+            <aside class="vehicle-seizure-create" aria-labelledby="vehicleSeizureCreateTitle">
+              <div class="vehicle-seizure-column-head">
+                <h3 id="vehicleSeizureCreateTitle">Registreer een nieuwe inbeslagname</h3>
+                <p class="muted">Leg voertuig, eigenaar en reden vast.</p>
+              </div>
+              <form id="vehicleSeizureForm" class="form-grid vehicle-seizure-form" autocomplete="off">
+                <label>Voertuig<input id="vehicleSeizureVehicle" type="text" required placeholder="Model, kleur of type" /></label>
+                <label>Kenteken<input id="vehicleSeizurePlate" type="text" required placeholder="Kenteken" /></label>
+                <label>Eigenaar<input id="vehicleSeizureOwner" type="text" required placeholder="Naam eigenaar" /></label>
+                <label>Locatie<input id="vehicleSeizureLocation" type="text" required placeholder="Waar staat het voertuig?" /></label>
+                <label class="full">Reden<textarea id="vehicleSeizureReason" required placeholder="Waarom is het voertuig in beslag genomen?"></textarea></label>
+                <label class="full">Opmerking<textarea id="vehicleSeizureNotes" placeholder="Optionele aanvullende informatie"></textarea></label>
+                <button class="primary full" type="submit">Inbeslagname opslaan</button>
+              </form>
+              <div id="vehicleSeizureMessage" class="form-message" hidden></div>
+            </aside>
           </div>
-          <div class="vehicle-seizure-toolbar">
-            <label class="search">
-              <span>Zoeken</span>
-              <input id="vehicleSeizureSearchInput" type="search" placeholder="Kenteken, voertuig, eigenaar, locatie..." />
-            </label>
-            <label class="vehicle-seizure-filter">Status
-              <select id="vehicleSeizureStatusFilter">
-                <option value="active">Actief</option>
-                <option value="all">Alles</option>
-                <option value="released">Vrijgegeven</option>
-              </select>
-            </label>
-          </div>
-          <div id="vehicleSeizureList" class="vehicle-seizure-list"></div>
         </section>
       </section>
       <section id="i8-controleren" class="page">

@@ -541,9 +541,58 @@ label {
   grid-column: 1 / -1;
 }
 
-.vehicle-seizure-panel,
-.vehicle-seizure-list-panel {
-  margin-bottom: 16px;
+.vehicle-seizure-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.vehicle-seizure-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.75fr);
+  gap: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.vehicle-seizure-overview,
+.vehicle-seizure-create {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+}
+
+.vehicle-seizure-create {
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+}
+
+.vehicle-seizure-column-head {
+  display: grid;
+  gap: 2px;
+}
+
+.vehicle-seizure-column-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+.vehicle-seizure-column-head p {
+  margin: 0;
+}
+
+.vehicle-seizure-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.vehicle-seizure-form textarea {
+  min-height: 118px;
+}
+
+.vehicle-seizure-form button {
+  width: 100%;
 }
 
 .vehicle-seizure-toolbar {
@@ -658,7 +707,24 @@ label {
   justify-content: flex-end;
 }
 
+@media (max-width: 1180px) {
+  .vehicle-seizure-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vehicle-seizure-create {
+    padding-top: 16px;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
 @media (max-width: 760px) {
+  .vehicle-seizure-workspace {
+    gap: 16px;
+  }
+
   .vehicle-seizure-toolbar,
   .vehicle-seizure-meta {
     grid-template-columns: 1fr;

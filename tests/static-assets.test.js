@@ -107,12 +107,17 @@ test("suggestion threads and vehicle seizures are wired", () => {
   const politieEnvExample = fs.readFileSync(path.join(process.cwd(), ".env.politie.example"), "utf8");
 
   assert.match(html, /data-page="voertuiginbeslagname"/);
+  assert.match(html, /vehicle-seizure-workspace/);
+  assert.match(html, /vehicleSeizureOverviewTitle/);
+  assert.match(html, /Registreer een nieuwe inbeslagname/);
   assert.match(html, /id="vehicleSeizureForm"/);
   assert.match(html, /id="vehicleSeizureList"/);
   assert.match(appCode, /voertuiginbeslagname: "\/voertuiginbeslagname"/);
   assert.match(appCode, /function renderVehicleSeizures\(/);
   assert.match(appCode, /\/api\/vehicle-seizures/);
   assert.match(appCode, /vehicle-seizures/);
+  assert.match(styles, /\.vehicle-seizure-workspace/);
+  assert.match(styles, /\.vehicle-seizure-create/);
   assert.match(styles, /\.vehicle-seizure-card/);
   assert.match(routesCode, /\/api\/vehicle-seizures/);
   assert.match(routesCode, /vehicleSeizuresStore\.createSeizure/);
@@ -209,7 +214,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizures/);
+  assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizure-layout/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260720-profile-badge-dialog/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
@@ -309,7 +314,7 @@ test("portal chrome keeps topbar controls inside narrow desktop viewports", () =
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizures/);
+  assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizure-layout/);
   assert.match(styles, /Portal chrome stability for browser zoom/);
   assert.match(styles, /body:not\(\.locked\) \{[\s\S]*overflow-x: clip;/);
   assert.match(styles, /\.topbar \{[\s\S]*flex-wrap: wrap;/);
