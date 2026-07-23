@@ -155,6 +155,7 @@ const defaultState = {
   absences: [],
   i8Forms: [],
   resignationForms: [],
+  vehicleSeizures: [],
   blacklist: [],
   mentorChecklistGroups,
   activity: []

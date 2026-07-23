@@ -58,6 +58,7 @@ const pageRouteMap = {
   "beschikbaarheids-agenda": "/beschikbaarheids-agenda",
   "i8-opstellen": "/i8-formulier",
   "ontslag-formulier": "/ontslag-formulier",
+  voertuiginbeslagname: "/voertuiginbeslagname",
   "i8-controleren": "/i8-controleren",
   "i8-archief": "/i8-archief",
   "mentor-overzicht": "/mentor-overzicht",
@@ -166,7 +167,8 @@ function sidebarIconSvg(name) {
     checklist: '<path d="M9 11l2 2 4-4"/><path d="M9 17h6"/><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3h6v4H9z"/>',
     plusUser: '<path d="M15 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M16 11h6"/>',
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
-    folder: '<path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    car: '<path d="M5 17h14"/><path d="M6 17l1-6h10l1 6"/><path d="M8 11l2-4h4l2 4"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>'
   };
   return `<svg class="nav-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name] || icons.file}</svg>`;
 }
@@ -179,6 +181,7 @@ function enhanceSidebarIcons() {
     "beschikbaarheids-agenda": "calendar",
     "i8-opstellen": "file",
     "ontslag-formulier": "clipboard",
+    voertuiginbeslagname: "car",
     "i8-controleren": "checklist",
     "i8-archief": "archive",
     "ovj-logboek": "log",
@@ -414,6 +417,10 @@ function canViewHours(person) {
 
 function canManageHours() {
   return Boolean(permissions.canManageHours || hasKaderAccess());
+}
+
+function canManageVehicleSeizures() {
+  return Boolean(permissions.canManageVehicleSeizures || hasKaderAccess());
 }
 
 function canViewOpsTimes() {
@@ -1030,6 +1037,7 @@ function pageTitle(page) {
     "beschikbaarheids-agenda": "Beschikbaarheids-agenda",
     "i8-opstellen": "I8-Formulier",
     "ontslag-formulier": "Ontslag-Formulier",
+    voertuiginbeslagname: "Voertuiginbeslagname",
     "i8-controleren": "I8-Controleren",
     "i8-archief": "I8-Archief",
     "ovj-logboek": "hOvJ-Logboek",
@@ -1044,7 +1052,7 @@ function pageTitle(page) {
 }
 
 function validPage(page) {
-  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "beschikbaarheids-agenda", "i8-opstellen", "ontslag-formulier", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "beschikbaarheids-agenda", "i8-opstellen", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
   return visiblePages.has(page) ? page : "dashboard";
 }
 
@@ -1590,6 +1598,7 @@ function renderLiveScope(scope = "state") {
     renderRecruitment();
     renderPeople();
     renderArchive();
+    renderVehicleSeizures();
     renderBlacklist();
     renderOvJLeadershipLog();
     renderLogbook();
@@ -1605,6 +1614,11 @@ function renderLiveScope(scope = "state") {
     renderLogbook();
   }
 
+  if (["vehicle-seizures", "state"].includes(scope)) {
+    renderVehicleSeizures();
+    renderLogbook();
+  }
+
   if (["public-forms", "state"].includes(scope)) {
     if (page === "trainer-ibt" && typeof refreshTrainerIbtReviewsSilently === "function") {
       refreshTrainerIbtReviewsSilently();
@@ -1614,7 +1628,7 @@ function renderLiveScope(scope = "state") {
     renderLogbook();
   }
 
-  if (!["people", "forms", "public-forms", "porto", "state"].includes(scope)) {
+  if (!["people", "forms", "public-forms", "porto", "vehicle-seizures", "state"].includes(scope)) {
     render();
   }
 
@@ -1636,6 +1650,7 @@ async function refreshReviewCounters() {
     if (page === "beschikbaarheids-agenda") renderAvailabilityAgenda();
     if (page === "ontslag-overzicht") renderResignationOverview();
     if (page === "blacklist") renderBlacklist();
+    if (page === "voertuiginbeslagname") renderVehicleSeizures();
     if (page === "trainer-overzicht") renderTrainerOverview();
     if (page === "trainer-ibt") {
       if (typeof refreshTrainerIbtReviewsSilently === "function") refreshTrainerIbtReviewsSilently();
@@ -1720,7 +1735,7 @@ function startLiveUpdates() {
     const payload = JSON.parse(event.data || "{}");
     scheduleLiveRefresh(payload.scope || "state");
   });
-  ["people", "forms", "porto", "public-forms"].forEach(listenForLiveScope);
+  ["people", "forms", "porto", "public-forms", "vehicle-seizures"].forEach(listenForLiveScope);
   liveEventSource.onerror = () => {
     liveEventSource?.close();
     liveEventSource = null;
@@ -1737,6 +1752,78 @@ function stopLiveUpdates() {
   liveRefreshDeferTimer = null;
   liveRefreshPausedByStaticPage = false;
   pendingLiveScopes.clear();
+}
+
+function vehicleSeizureStatusLabel(seizure = {}) {
+  return seizure.status === "Vrijgegeven" ? "Vrijgegeven" : "Actief";
+}
+
+function vehicleSeizuresSorted() {
+  return [...(state.vehicleSeizures || [])].sort((first, second) => (
+    new Date(second.createdAt || second.updatedAt || 0) - new Date(first.createdAt || first.updatedAt || 0)
+  ));
+}
+
+function renderVehicleSeizures() {
+  const list = $("#vehicleSeizureList");
+  if (!list) return;
+  const query = ($("#vehicleSeizureSearchInput")?.value || "").trim().toLowerCase();
+  const statusFilter = $("#vehicleSeizureStatusFilter")?.value || "active";
+  const rows = vehicleSeizuresSorted().filter((seizure) => {
+    const status = vehicleSeizureStatusLabel(seizure);
+    if (statusFilter === "active" && status !== "Actief") return false;
+    if (statusFilter === "released" && status !== "Vrijgegeven") return false;
+    if (!query) return true;
+    return [
+      seizure.vehicle,
+      seizure.plate,
+      seizure.ownerName,
+      seizure.location,
+      seizure.reason,
+      seizure.notes,
+      seizure.organization,
+      seizure.createdByName,
+      seizure.releasedByName
+    ].some((value) => String(value || "").toLowerCase().includes(query));
+  });
+
+  if (!rows.length) {
+    list.innerHTML = '<div class="feed-item">Geen voertuigen gevonden.</div>';
+    return;
+  }
+
+  const canRelease = canManageVehicleSeizures();
+  list.innerHTML = rows.map((seizure) => {
+    const status = vehicleSeizureStatusLabel(seizure);
+    const active = status === "Actief";
+    return `
+      <article class="vehicle-seizure-card ${active ? "active" : "released"}">
+        <header class="vehicle-seizure-card-head">
+          <div>
+            <span class="vehicle-seizure-plate">${escapeHtml(seizure.plate || "-")}</span>
+            <h3>${escapeHtml(seizure.vehicle || "-")}</h3>
+            <p>${escapeHtml(seizure.ownerName || "-")} &bull; ${escapeHtml(seizure.location || "-")}</p>
+          </div>
+          <span class="vehicle-seizure-status ${active ? "active" : "released"}">${escapeHtml(status)}</span>
+        </header>
+        <div class="vehicle-seizure-meta">
+          <div><span>Reden</span><strong>${escapeHtml(seizure.reason || "-")}</strong></div>
+          <div><span>Opmerking</span><strong>${escapeHtml(seizure.notes || "-")}</strong></div>
+          <div><span>Ingevoerd</span><strong>${escapeHtml(seizure.createdByName || "Onbekend")} - ${escapeHtml(formatDateTime(seizure.createdAt))}</strong></div>
+          <div><span>Organisatie</span><strong>${escapeHtml(seizure.organization || "-")}</strong></div>
+          ${!active ? `
+            <div><span>Vrijgegeven</span><strong>${escapeHtml(seizure.releasedByName || "Onbekend")} - ${escapeHtml(formatDateTime(seizure.releasedAt))}</strong></div>
+            <div><span>Vrijgave reden</span><strong>${escapeHtml(seizure.releaseReason || "-")}</strong></div>
+          ` : ""}
+        </div>
+        ${active && canRelease ? `
+          <div class="vehicle-seizure-actions">
+            <button class="ghost secondary" type="button" data-vehicle-seizure-release="${escapeHtml(seizure.id)}">Vrijgeven</button>
+          </div>
+        ` : ""}
+      </article>
+    `;
+  }).join("");
 }
 function renderLogbook() {
   const canView = canViewKaderPages();
@@ -1932,6 +2019,7 @@ function render() {
   renderRecruitment();
   renderPeople();
   renderArchive();
+  renderVehicleSeizures();
   renderI8Forms();
   renderOvJLeadershipLog();
   renderOpsTimes();
@@ -2153,6 +2241,31 @@ function wireEvents() {
   $("#employeeSearchInput").addEventListener("input", renderEmployeeDirectory);
   $("#archiveSearchInput").addEventListener("input", renderArchive);
   $("#blacklistSearchInput")?.addEventListener("input", renderBlacklist);
+  $("#vehicleSeizureSearchInput")?.addEventListener("input", renderVehicleSeizures);
+  $("#vehicleSeizureStatusFilter")?.addEventListener("change", renderVehicleSeizures);
+  $("#vehicleSeizureList")?.addEventListener("click", async (event) => {
+    const releaseButton = event.target.closest("[data-vehicle-seizure-release]");
+    if (!releaseButton || !canManageVehicleSeizures()) return;
+    const seizureId = releaseButton.dataset.vehicleSeizureRelease;
+    const seizure = (state.vehicleSeizures || []).find((entry) => entry.id === seizureId);
+    if (!seizure) return;
+    const releaseReason = await showSiteTextInput({
+      title: "Voertuig vrijgeven",
+      message: `${seizure.plate || "-"} - ${seizure.vehicle || "-"}`,
+      label: "Reden vrijgave",
+      placeholder: "Waarom mag het voertuig vrijgegeven worden?",
+      required: true
+    });
+    if (!releaseReason) return;
+    releaseButton.disabled = true;
+    try {
+      if (await runAction(`/api/vehicle-seizures/${encodeURIComponent(seizureId)}/status`, { status: "Vrijgegeven", releaseReason })) {
+        renderVehicleSeizures();
+      }
+    } finally {
+      releaseButton.disabled = false;
+    }
+  });
   $("#resignationOverview")?.addEventListener("click", async (event) => {
     const actionButton = event.target.closest("[data-resignation-process], [data-resignation-cancel], [data-resignation-delete]");
     if (actionButton?.disabled) return;
@@ -2840,6 +2953,36 @@ function wireEvents() {
     render();
     setPage("dashboard");
     await showSiteNotice(`Je afwezigheid is geregistreerd voor ${dateText} met reden: ${reason || "-"}.`, "Afwezigheid geregistreerd");
+  });
+  $("#vehicleSeizureForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (form.dataset.submitting === "true") return;
+    const payload = {
+      vehicle: $("#vehicleSeizureVehicle").value.trim(),
+      plate: $("#vehicleSeizurePlate").value.trim(),
+      ownerName: $("#vehicleSeizureOwner").value.trim(),
+      location: $("#vehicleSeizureLocation").value.trim(),
+      reason: $("#vehicleSeizureReason").value.trim(),
+      notes: $("#vehicleSeizureNotes").value.trim()
+    };
+    if (!payload.vehicle || !payload.plate || !payload.ownerName || !payload.location || !payload.reason) return;
+    form.dataset.submitting = "true";
+    setSubmitBusy(form, true, "Inbeslagname opslaan...");
+    try {
+      const saved = await runAction("/api/vehicle-seizures", payload);
+      if (!saved) return;
+      form.reset();
+      renderVehicleSeizures();
+      const message = $("#vehicleSeizureMessage");
+      if (message) {
+        message.textContent = "Voertuiginbeslagname opgeslagen.";
+        message.hidden = false;
+      }
+    } finally {
+      form.dataset.submitting = "false";
+      setSubmitBusy(form, false);
+    }
   });
   $("#resignationForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();

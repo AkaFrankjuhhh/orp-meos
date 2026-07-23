@@ -50,6 +50,30 @@ const IZ_LEIDING_ROLE_ID = String(process.env.DISCORD_IZ_LEIDING_ROLE_ID || "151
 const TRAINER_INFO_CHANNEL_ID = String(process.env.DISCORD_TRAINER_INFO_CHANNEL_ID || "1496169651695128627").trim();
 const TRAINER_INFO_WEBHOOK_URL = String(process.env.DISCORD_TRAINER_INFO_WEBHOOK_URL || "").trim();
 const TRAINER_INFO_SETTINGS_KEY = `discord_trainer_training_overview_${organization.key}`;
+const SUGGESTION_CHANNELS = [
+  {
+    key: "suggesties",
+    label: "Suggesties",
+    title: "Suggestie",
+    channelId: String(process.env.DISCORD_SUGGESTIES_CHANNEL_ID || "1434527756573610016").trim(),
+    color: 0x3b82f6
+  },
+  {
+    key: "wetboek",
+    label: "Wetboek-Suggesties",
+    title: "Wetboek-suggestie",
+    channelId: String(process.env.DISCORD_WETBOEK_SUGGESTIES_CHANNEL_ID || "1489733814791049426").trim(),
+    color: 0xf59e0b
+  },
+  {
+    key: "bugmelding",
+    label: "Bugmeldingen",
+    title: "Bugmelding",
+    channelId: String(process.env.DISCORD_BUGMELDINGEN_CHANNEL_ID || "1423417191717404722").trim(),
+    color: 0xef4444
+  }
+].filter((channel) => channel.channelId);
+const suggestionAutothreadEnabled = String(process.env.DISCORD_SUGGESTION_AUTOTHREAD_ENABLED || "true").toLowerCase() !== "false";
 const AUDIT_LOG_ACTION_MEMBER_KICK = 20;
 const AUDIT_LOG_ACTION_MEMBER_BAN_ADD = 22;
 const LEAVE_LOG_AUDIT_LOOKUP_DELAY_MS = 1200;
@@ -64,6 +88,7 @@ const gatewayMemberRolesByUser = new Map();
 const recentLeaveLogKeys = new Map();
 let claimIzCommandRegistered = false;
 let addTrainingCommandRegistered = false;
+let suggestionCommandRegistered = false;
 let trainerInfoOverviewTimer = null;
 const handledInteractionIds = new Map();
 
@@ -106,6 +131,67 @@ function truncateDiscordContent(value, maxLength = 1900) {
   const text = String(value || "").trim();
   if (text.length <= maxLength) return text;
   return `${text.slice(0, Math.max(0, maxLength - 20)).trim()}\n...`;
+}
+
+function truncateDiscordThreadName(value, maxLength = 90) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text || "Suggestie";
+  return text.slice(0, maxLength).trim() || "Suggestie";
+}
+
+function suggestionChannelByKey(key) {
+  const normalized = String(key || "").trim().toLowerCase();
+  return SUGGESTION_CHANNELS.find((channel) => channel.key === normalized) || null;
+}
+
+function suggestionChannelById(channelId) {
+  const normalized = String(channelId || "").trim();
+  return SUGGESTION_CHANNELS.find((channel) => channel.channelId === normalized) || null;
+}
+
+function interactionOptionValue(interaction = {}, optionName = "") {
+  const option = (interaction.data?.options || []).find((entry) => String(entry.name || "").toLowerCase() === optionName.toLowerCase());
+  return String(option?.value || "").trim();
+}
+
+function interactionUser(interaction = {}) {
+  return interaction.member?.user || interaction.user || {};
+}
+
+function discordDisplayNameFromUser(user = {}) {
+  return String(user.global_name || user.username || user.id || "Onbekend").trim() || "Onbekend";
+}
+
+function suggestionEmbedAuthor(interaction = {}, message = {}) {
+  const user = interactionUser(interaction);
+  const messageAuthor = message.author || {};
+  const discordId = String(user.id || messageAuthor.id || "").trim();
+  const username = discordDisplayNameFromUser(user.id ? user : messageAuthor);
+  return {
+    id: discordId,
+    name: username,
+    mention: discordId ? `<@${discordId}>` : username
+  };
+}
+
+function buildSuggestionEmbed(channel, details = {}) {
+  const author = suggestionEmbedAuthor(details.interaction, details.message);
+  const title = truncateDiscordContent(details.title || channel.title, 240);
+  const description = truncateDiscordContent(details.description || "Geen omschrijving opgegeven.", 1800);
+  return {
+    title: `${channel.title}: ${title}`,
+    description,
+    color: channel.color,
+    fields: [
+      { name: "Ingediend door", value: author.mention, inline: true },
+      { name: "Categorie", value: channel.label, inline: true }
+    ],
+    timestamp: new Date().toISOString()
+  };
+}
+
+function suggestionThreadName(channel, titleOrAuthor) {
+  return truncateDiscordThreadName(`${channel.title} - ${titleOrAuthor || "Nieuw bericht"}`);
 }
 
 function isUnknownInteractionError(error) {
@@ -438,9 +524,52 @@ async function registerAddTrainingCommand() {
   }
 }
 
+async function registerSuggestionCommand() {
+  if (suggestionCommandRegistered || !SUGGESTION_CHANNELS.length) return;
+  try {
+    await bot.registerGuildCommand({
+      name: "suggestie",
+      description: "Plaats een suggestie of bugmelding met automatisch thread.",
+      type: 1,
+      dm_permission: false,
+      options: [
+        {
+          name: "categorie",
+          description: "Waar moet dit bericht geplaatst worden?",
+          type: 3,
+          required: true,
+          choices: SUGGESTION_CHANNELS.map((channel) => ({
+            name: channel.label,
+            value: channel.key
+          }))
+        },
+        {
+          name: "titel",
+          description: "Korte titel voor de thread.",
+          type: 3,
+          required: true,
+          max_length: 100
+        },
+        {
+          name: "omschrijving",
+          description: "Werk je suggestie, wetboek-suggestie of bugmelding uit.",
+          type: 3,
+          required: true,
+          max_length: 1800
+        }
+      ]
+    });
+    suggestionCommandRegistered = true;
+    console.log("[discord-bot] slash command /suggestie geregistreerd.");
+  } catch (error) {
+    console.error(`[discord-bot] slash command /suggestie registreren mislukt: ${error.message}`);
+  }
+}
+
 async function registerDiscordCommands() {
   await registerClaimIzCommand();
   await registerAddTrainingCommand();
+  await registerSuggestionCommand();
 }
 
 async function handleClaimIzLeadership(interaction) {
@@ -717,6 +846,80 @@ async function handleTrainingRequestSelect(interaction) {
   });
 }
 
+async function handleSuggestionCommand(interaction) {
+  await deferInteraction(interaction, true);
+  const channel = suggestionChannelByKey(interactionOptionValue(interaction, "categorie"));
+  if (!channel) {
+    await editInteractionResponse(interaction, "Kies een geldige categorie.");
+    return;
+  }
+  const title = truncateDiscordContent(interactionOptionValue(interaction, "titel"), 100);
+  const description = truncateDiscordContent(interactionOptionValue(interaction, "omschrijving"), 1800);
+  if (!title || !description) {
+    await editInteractionResponse(interaction, "Titel en omschrijving zijn verplicht.");
+    return;
+  }
+
+  const messageResult = await bot.createMessage(channel.channelId, {
+    embeds: [buildSuggestionEmbed(channel, { title, description, interaction })],
+    allowed_mentions: { parse: [] }
+  }, "/suggestie bericht geplaatst");
+  const messageId = messageResult?.data?.id || "";
+  if (!messageId) throw new Error("Suggestiebericht kon niet geplaatst worden.");
+
+  const threadResult = await bot.createThreadFromMessage(
+    channel.channelId,
+    messageId,
+    suggestionThreadName(channel, title),
+    "/suggestie thread aangemaakt"
+  );
+  const threadId = threadResult?.data?.id || "";
+  if (threadId) {
+    const author = suggestionEmbedAuthor(interaction);
+    await bot.createMessage(threadId, {
+      content: `Thread voor ${channel.title.toLowerCase()} van ${author.mention}.`,
+      allowed_mentions: { parse: [] }
+    }, "/suggestie thread start").catch((error) => {
+      console.warn(`[discord-bot] suggestie thread startbericht mislukt: ${error.message}`);
+    });
+  }
+
+  await editInteractionResponse(
+    interaction,
+    `${channel.title} geplaatst in <#${channel.channelId}>${threadId ? ` met thread <#${threadId}>` : ""}.`
+  );
+}
+
+async function handleSuggestionMessageCreate(message = {}) {
+  if (!suggestionAutothreadEnabled) return;
+  if (!gatewayGuildMatchesConfiguredGuild(message.guild_id)) return;
+  const channel = suggestionChannelById(message.channel_id);
+  if (!channel) return;
+  if (message.author?.bot || message.webhook_id) return;
+  if (Number(message.type || 0) !== 0) return;
+  if (message.thread?.id) return;
+
+  const authorName = String(message.member?.nick || discordDisplayNameFromUser(message.author || {})).trim() || "Nieuw bericht";
+  try {
+    const threadResult = await bot.createThreadFromMessage(
+      channel.channelId,
+      message.id,
+      suggestionThreadName(channel, authorName),
+      "Automatische suggestie-thread"
+    );
+    const threadId = threadResult?.data?.id || "";
+    if (!threadId) return;
+    await bot.createMessage(threadId, {
+      content: "Deze thread is automatisch aangemaakt. Gebruik voortaan `/suggestie` voor een nette melding met titel en omschrijving.",
+      allowed_mentions: { parse: [] }
+    }, "Automatische suggestie-thread uitleg").catch((error) => {
+      console.warn(`[discord-bot] automatische suggestie-uitleg mislukt: ${error.message}`);
+    });
+  } catch (error) {
+    console.warn(`[discord-bot] automatische suggestie-thread mislukt: ${error.message}`);
+  }
+}
+
 async function handleInteractionCreate(interaction = {}) {
   if ((interaction.type === 2 || interaction.type === 3) && interactionWasAlreadyHandled(interaction)) return;
   if (interaction.type === 3 && interaction.data?.custom_id === "training_request_select") {
@@ -741,6 +944,10 @@ async function handleInteractionCreate(interaction = {}) {
     }
     if (commandName === "voegtrainingtoe") {
       await handleAddTrainingCommand(interaction);
+      return;
+    }
+    if (commandName === "suggestie") {
+      await handleSuggestionCommand(interaction);
       return;
     }
   } catch (error) {
@@ -1365,7 +1572,8 @@ async function handleGuildMemberRemove(member = {}) {
 }
 
 function identifyPayload() {
-  const intents = 1 | (guildMembersIntent ? 2 : 0) | (leaveLogWebhookConfigured ? 4 : 0) | (voiceStatesIntent ? 128 : 0);
+  const guildMessagesIntent = suggestionAutothreadEnabled && SUGGESTION_CHANNELS.length > 0;
+  const intents = 1 | (guildMembersIntent ? 2 : 0) | (leaveLogWebhookConfigured ? 4 : 0) | (voiceStatesIntent ? 128 : 0) | (guildMessagesIntent ? 512 : 0);
   return {
     op: 2,
     d: {
@@ -1427,6 +1635,10 @@ function connectGateway() {
     }
     if (packet.t === "INTERACTION_CREATE") {
       await handleInteractionCreate(packet.d || {});
+      return;
+    }
+    if (packet.t === "MESSAGE_CREATE") {
+      await handleSuggestionMessageCreate(packet.d || {});
       return;
     }
     if (packet.t === "GUILD_CREATE") {

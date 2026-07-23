@@ -541,6 +541,142 @@ label {
   grid-column: 1 / -1;
 }
 
+.vehicle-seizure-panel,
+.vehicle-seizure-list-panel {
+  margin-bottom: 16px;
+}
+
+.vehicle-seizure-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 220px);
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.vehicle-seizure-filter {
+  align-self: stretch;
+}
+
+.vehicle-seizure-list {
+  display: grid;
+  gap: 12px;
+}
+
+.vehicle-seizure-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.vehicle-seizure-card.active {
+  border-color: rgba(255, 138, 0, 0.42);
+}
+
+.vehicle-seizure-card.released {
+  border-color: rgba(56, 189, 120, 0.32);
+}
+
+.vehicle-seizure-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.vehicle-seizure-card-head h3 {
+  margin: 4px 0;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.vehicle-seizure-card-head p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.vehicle-seizure-plate,
+.vehicle-seizure-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.vehicle-seizure-plate {
+  color: #9fc6ff;
+  background: rgba(31, 95, 150, 0.28);
+  border: 1px solid rgba(112, 166, 225, 0.26);
+}
+
+.vehicle-seizure-status.active {
+  color: #ffd18a;
+  background: rgba(255, 138, 0, 0.16);
+  border: 1px solid rgba(255, 138, 0, 0.42);
+}
+
+.vehicle-seizure-status.released {
+  color: #b8f7ce;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.42);
+}
+
+.vehicle-seizure-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.vehicle-seizure-meta div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(8, 16, 28, 0.36);
+}
+
+.vehicle-seizure-meta span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.vehicle-seizure-meta strong {
+  overflow-wrap: anywhere;
+}
+
+.vehicle-seizure-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .vehicle-seizure-toolbar,
+  .vehicle-seizure-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-seizure-card-head {
+    display: grid;
+  }
+
+  .vehicle-seizure-actions {
+    justify-content: stretch;
+  }
+
+  .vehicle-seizure-actions button {
+    width: 100%;
+  }
+}
+
 .table {
   margin-top: 18px;
 }

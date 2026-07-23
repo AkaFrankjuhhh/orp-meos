@@ -461,6 +461,7 @@ function stateForProfile(state, permissions, profileId = "") {
   if (!permissions?.canViewBlacklist) {
     nextState.blacklist = [];
   }
+  nextState.vehicleSeizures = Array.isArray(nextState.vehicleSeizures) ? nextState.vehicleSeizures : [];
   if (!permissions?.canViewAllDiscipline) {
     const allowedTypes = permissions?.canViewI8Discipline ? new Set(["i8-warning", "i8-strike"]) : new Set();
     nextState.people = (nextState.people || []).map((person) => ({

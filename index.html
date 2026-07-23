@@ -87,7 +87,7 @@
       }
     </style>
     <link rel="stylesheet" href="/shared.css?v=20260709-politie-lockscreen-fallback" />
-    <link rel="stylesheet" href="/personeelsportaal.css?v=20260722-topbar-responsive" />
+    <link rel="stylesheet" href="/personeelsportaal.css?v=20260723-vehicle-seizures" />
   <script src="/portal-boot.js?v=20260628-csp-cleanup" defer></script>
   <script src="/boot-failsafe.js?v=20260627-loader-failsafe" defer></script>
   <script src="/portal-loader-failsafe.js?v=20260627-loader-failsafe" defer></script>
@@ -149,6 +149,7 @@
         <button class="nav-item" data-nav-icon="KA" data-page="beschikbaarheids-agenda" type="button">Beschikbaarheids-agenda</button>
         <button class="nav-item" data-nav-icon="I8" data-page="i8-opstellen" type="button">I8-Formulier</button>
         <button class="nav-item" data-nav-icon="O" data-page="ontslag-formulier" type="button">Ontslag-Formulier</button>
+        <button class="nav-item" data-nav-icon="VI" data-page="voertuiginbeslagname" type="button">Voertuiginbeslagname</button>
         <div class="nav-divider" aria-hidden="true"></div>
         <div class="nav-section" data-ovj-only="true">(h)OvJ</div>
         <button class="nav-item" data-nav-icon="C" data-page="i8-controleren" data-ovj-only="true" type="button"><span>I8-Controleren</span><span id="i8ReviewCounter" class="nav-counter" hidden>0</span></button>
@@ -681,6 +682,49 @@
           <div id="resignationFormMessage" class="form-message" hidden></div>
         </div>
       </section>
+      <section id="voertuiginbeslagname" class="page">
+        <section class="panel vehicle-seizure-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Voertuiginbeslagname</h2>
+              <p class="muted">Gedeeld overzicht voor Politie en Defensie</p>
+            </div>
+          </div>
+          <form id="vehicleSeizureForm" class="form-grid vehicle-seizure-form" autocomplete="off">
+            <label>Voertuig<input id="vehicleSeizureVehicle" type="text" required placeholder="Model, kleur of type" /></label>
+            <label>Kenteken<input id="vehicleSeizurePlate" type="text" required placeholder="Kenteken" /></label>
+            <label>Eigenaar<input id="vehicleSeizureOwner" type="text" required placeholder="Naam eigenaar" /></label>
+            <label>Locatie<input id="vehicleSeizureLocation" type="text" required placeholder="Waar staat het voertuig?" /></label>
+            <label class="full">Reden<textarea id="vehicleSeizureReason" required placeholder="Waarom is het voertuig in beslag genomen?"></textarea></label>
+            <label class="full">Opmerking<textarea id="vehicleSeizureNotes" placeholder="Optionele aanvullende informatie"></textarea></label>
+            <button class="primary" type="submit">Inbeslagname opslaan</button>
+          </form>
+          <div id="vehicleSeizureMessage" class="form-message" hidden></div>
+        </section>
+
+        <section class="panel vehicle-seizure-list-panel">
+          <div class="panel-head">
+            <div>
+              <h2>In beslag genomen voertuigen</h2>
+              <p class="muted">Actieve en vrijgegeven voertuigen uit de gezamenlijke lijst</p>
+            </div>
+          </div>
+          <div class="vehicle-seizure-toolbar">
+            <label class="search">
+              <span>Zoeken</span>
+              <input id="vehicleSeizureSearchInput" type="search" placeholder="Kenteken, voertuig, eigenaar, locatie..." />
+            </label>
+            <label class="vehicle-seizure-filter">Status
+              <select id="vehicleSeizureStatusFilter">
+                <option value="active">Actief</option>
+                <option value="all">Alles</option>
+                <option value="released">Vrijgegeven</option>
+              </select>
+            </label>
+          </div>
+          <div id="vehicleSeizureList" class="vehicle-seizure-list"></div>
+        </section>
+      </section>
       <section id="i8-controleren" class="page">
         <section class="panel i8-panel">
           <div class="panel-head">
@@ -1139,6 +1183,6 @@
     <script src="/personeelsportaal/absence.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/archive.js?v=20260705-resignation-archive-state"></script>
     <script src="/personeelsportaal-data.js?v=20260628-deep-route-assets"></script>
-    <script src="/app.js?v=20260722-i8-session-draft"></script>
+    <script src="/app.js?v=20260723-vehicle-seizures"></script>
 </body>
 </html>

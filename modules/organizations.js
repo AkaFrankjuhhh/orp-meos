@@ -645,6 +645,7 @@ function defaultStateForOrganization(config = currentOrganization()) {
     absences: [],
     i8Forms: [],
     resignationForms: [],
+    vehicleSeizures: [],
     blacklist: [],
     mentorChecklistGroups: config.mentorChecklistGroups,
     activity: [`${config.portalTitle} omgeving aangemaakt.`]

@@ -77,6 +77,31 @@ CREATE TABLE IF NOT EXISTS blacklist_entries (
 CREATE INDEX IF NOT EXISTS blacklist_entries_discord_id_idx ON blacklist_entries(discord_id);
 CREATE INDEX IF NOT EXISTS blacklist_entries_active_idx ON blacklist_entries(discord_id) WHERE revoked_at IS NULL;
 
+CREATE TABLE IF NOT EXISTS vehicle_seizures (
+  id text PRIMARY KEY,
+  organization text NOT NULL,
+  vehicle text NOT NULL,
+  plate text NOT NULL,
+  owner_name text NOT NULL,
+  location text NOT NULL,
+  reason text NOT NULL,
+  notes text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'Actief',
+  created_by_id text,
+  created_by_name text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  released_by_id text,
+  released_by_name text,
+  released_at timestamptz,
+  release_reason text,
+  raw jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS vehicle_seizures_status_idx ON vehicle_seizures(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS vehicle_seizures_created_at_idx ON vehicle_seizures(created_at DESC);
+CREATE INDEX IF NOT EXISTS vehicle_seizures_plate_idx ON vehicle_seizures(plate);
+
 CREATE TABLE IF NOT EXISTS absences (
   id text PRIMARY KEY,
   member_id text REFERENCES people(id) ON DELETE SET NULL,

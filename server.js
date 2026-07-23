@@ -11,6 +11,7 @@ const { createDiscordBotServices } = require("./modules/discord-bot");
 const { createPostgresFormsStore } = require("./modules/personeelsportaal-postgres-forms-store");
 const { createPostgresPeopleStore } = require("./modules/personeelsportaal-postgres-people-store");
 const { createMentorTestsStore } = require("./modules/mentor-tests-store");
+const { createVehicleSeizuresStore } = require("./modules/vehicle-seizures-store");
 const { createPersoneelsportaalRouteHandler } = require("./modules/personeelsportaal-routes");
 const { createPersoneelsportaalDomain } = require("./modules/personeelsportaal-domain");
 const { withClient, closePool, databaseNameFromConnectionString } = require("./modules/db");
@@ -290,11 +291,13 @@ const {
   sendDiscordWebhookPayloadsWithMessageThread,
   absenceWebhookUrl,
   personnelWebhookUrl,
+  vehicleSeizureWebhookUrl,
   buildAbsenceWebhookPayload,
   buildRecruitmentWebhookPayload,
   buildDismissalWebhookPayload,
   buildResignationFormWebhookPayload,
   buildBlacklistWebhookPayload,
+  buildVehicleSeizureWebhookPayload,
   buildInvestigationWebhookPayload
 } = createDiscordWebhookServices({ formatDate });
 // Discord bot-acties blijven centraal: rollen, nicknames en Porto voice verplaatsingen.
@@ -536,9 +539,11 @@ const formsStorage = storageMode === "postgres" ? createPostgresFormsStore({ aft
 const peopleStorage = storageMode === "postgres" ? createPostgresPeopleStore({ afterWrite: () => afterStorageWrite("people") }) : { readState, writeState };
 const publicFormsStore = createPublicFormsStore({ storageMode, readState, writeState, afterWrite: () => afterStorageWrite("public-forms") });
 const mentorTestsStore = storageMode === "postgres" ? createMentorTestsStore() : null;
+const vehicleSeizuresStore = createVehicleSeizuresStore({ storageMode, readState, writeState, afterWrite: () => afterStorageWrite("vehicle-seizures") });
 const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   peopleStorage,
   formsStorage,
+  vehicleSeizuresStore,
   requireAuth,
   readState,
   writeState,
@@ -573,11 +578,13 @@ const handlePersoneelsportaalApi = createPersoneelsportaalRouteHandler({
   sendDiscordWebhook,
   absenceWebhookUrl,
   personnelWebhookUrl,
+  vehicleSeizureWebhookUrl,
   buildAbsenceWebhookPayload,
   buildRecruitmentWebhookPayload,
   buildDismissalWebhookPayload,
   buildResignationFormWebhookPayload,
   buildBlacklistWebhookPayload,
+  buildVehicleSeizureWebhookPayload,
   buildInvestigationWebhookPayload,
   publicFormsStore,
   mentorTestsStore,
@@ -1475,7 +1482,7 @@ function serveStatic(req, res, url) {
     return;
   }
   const publicFormConfig = publicFormForRequest(req, url);
-  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
+  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
   const publicFormAssets = new Set(["/public-forms.css", "/public-forms.js", "/client-guard.js"]);
   const requested = publicFormConfig ? (publicFormAssets.has(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
   if (requested === "/personeelsportaal-data.js") {
@@ -1527,6 +1534,7 @@ async function startServer() {
   await sessions.load?.();
   await sessions.cleanup?.();
   if (storageMode === "postgres") await publicFormsStore.ensurePublicFormsTable?.();
+  await vehicleSeizuresStore.ensureVehicleSeizuresTable?.();
   await postgresEventBridge.start();
   await normalizePoliceServiceNumbersOnStartup();
   portoDutyHoursJob = startPortoDutyHoursJob({
@@ -1564,6 +1572,7 @@ async function shutdown() {
   try {
     portoDutyHoursJob?.stop?.();
     await postgresEventBridge.stop();
+    await vehicleSeizuresStore.close?.();
     await closePool();
   } finally {
     process.exit(0);

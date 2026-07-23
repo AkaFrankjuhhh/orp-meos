@@ -70,6 +70,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     buildDismissalWebhookPayload,
     buildResignationFormWebhookPayload,
     buildBlacklistWebhookPayload,
+    vehicleSeizureWebhookUrl,
+    buildVehicleSeizureWebhookPayload,
     buildInvestigationWebhookPayload,
     mentorTestsStore,
     mentorTestWebhookUrl,
@@ -82,6 +84,7 @@ function createPersoneelsportaalRouteHandler(deps) {
 
   const formsStorage = deps.formsStorage || { readState, writeState };
   const peopleStorage = deps.peopleStorage || { readState, writeState };
+  const vehicleSeizuresStore = deps.vehicleSeizuresStore || null;
 
   const defaultMentorChecklistGroups = Array.isArray(organization.mentorChecklistGroups) && organization.mentorChecklistGroups.length
     ? organization.mentorChecklistGroups
@@ -298,6 +301,11 @@ function createPersoneelsportaalRouteHandler(deps) {
 
   async function readPeopleState() {
     const state = await Promise.resolve(peopleStorage.readState());
+    if (vehicleSeizuresStore && typeof vehicleSeizuresStore.listSeizures === "function") {
+      state.vehicleSeizures = await vehicleSeizuresStore.listSeizures({ limit: 500 });
+    } else {
+      state.vehicleSeizures = Array.isArray(state.vehicleSeizures) ? state.vehicleSeizures : [];
+    }
     await normalizeAbsenceDrivenPeopleStatusesIfNeeded(state);
     return state;
   }
@@ -320,6 +328,34 @@ function createPersoneelsportaalRouteHandler(deps) {
   async function sendPeopleStateAfterMutation(res, auth, state) {
     await persistPeopleStateMutation(state);
     sendPeopleStateResponse(res, auth, state);
+  }
+
+  async function refreshVehicleSeizuresOnState(state) {
+    if (!vehicleSeizuresStore || typeof vehicleSeizuresStore.listSeizures !== "function") {
+      state.vehicleSeizures = Array.isArray(state.vehicleSeizures) ? state.vehicleSeizures : [];
+      return state.vehicleSeizures;
+    }
+    state.vehicleSeizures = await vehicleSeizuresStore.listSeizures({ limit: 500 });
+    return state.vehicleSeizures;
+  }
+
+  async function sendVehicleSeizureWebhook(state, seizure, actor, event) {
+    if (!vehicleSeizureWebhookUrl || !buildVehicleSeizureWebhookPayload) return;
+    try {
+      const webhookResult = await sendDiscordWebhook(
+        vehicleSeizureWebhookUrl(),
+        buildVehicleSeizureWebhookPayload(seizure, actor, event)
+      );
+      state.activity = state.activity || [];
+      if (webhookResult?.ok) {
+        state.activity.push(`Voertuiginbeslagname webhook verzonden voor ${seizure.plate || seizure.vehicle}.`);
+      } else if (webhookResult && !webhookResult.skipped) {
+        state.activity.push(`Voertuiginbeslagname webhook kon niet verzonden worden voor ${seizure.plate || seizure.vehicle}.`);
+      }
+    } catch (error) {
+      state.activity = state.activity || [];
+      state.activity.push(`Voertuiginbeslagname webhook kon niet verzonden worden voor ${seizure.plate || seizure.vehicle}.`);
+    }
   }
 
   function activeBlacklistEntryForDiscordId(state, discordId) {
@@ -1144,6 +1180,99 @@ function createPersoneelsportaalRouteHandler(deps) {
         canViewLogbook: permissions.canViewLogbook,
         permissions
       });
+      return;
+    }
+
+    if (url.pathname === "/api/vehicle-seizures" && req.method === "POST") {
+      const auth = requireAuth(req, res);
+      if (!auth) return;
+      if (!vehicleSeizuresStore || typeof vehicleSeizuresStore.createSeizure !== "function") {
+        sendJson(res, 503, { error: "Voertuiginbeslagname opslag is niet beschikbaar." });
+        return;
+      }
+      const state = await readPeopleState();
+      const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+      const body = await readBody(req);
+      const vehicle = String(body.vehicle || "").trim();
+      const plate = String(body.plate || "").trim();
+      const ownerName = String(body.ownerName || "").trim();
+      const location = String(body.location || "").trim();
+      const reason = String(body.reason || "").trim();
+      const notes = String(body.notes || "").trim();
+      if (!vehicle || !plate || !ownerName || !location || !reason) {
+        sendJson(res, 400, { error: "Voertuig, kenteken, eigenaar, locatie en reden zijn verplicht." });
+        return;
+      }
+      const seizure = await vehicleSeizuresStore.createSeizure({
+        id: crypto.randomUUID(),
+        organization: organization.label || organization.key,
+        vehicle,
+        plate,
+        ownerName,
+        location,
+        reason,
+        notes,
+        status: "Actief",
+        createdById: actor?.id || auth.profile.id,
+        createdByName: actor?.name || auth.profile.name || "Onbekend",
+        createdAt: new Date().toISOString()
+      });
+      state.activity = state.activity || [];
+      state.activity.push(`${actor?.name || auth.profile.name} heeft voertuig ${seizure.plate || seizure.vehicle} in beslag genomen.`);
+      await sendVehicleSeizureWebhook(state, seizure, actor, "created");
+      await refreshVehicleSeizuresOnState(state);
+      await sendPeopleStateAfterMutation(res, auth, state);
+      return;
+    }
+
+    const vehicleSeizureStatusMatch = url.pathname.match(/^\/api\/vehicle-seizures\/([^/]+)\/status$/);
+    if (vehicleSeizureStatusMatch && req.method === "POST") {
+      const auth = requireAuth(req, res);
+      if (!auth) return;
+      if (!vehicleSeizuresStore || typeof vehicleSeizuresStore.updateSeizureStatus !== "function") {
+        sendJson(res, 503, { error: "Voertuiginbeslagname opslag is niet beschikbaar." });
+        return;
+      }
+      const state = await readPeopleState();
+      const permissions = permissionsForAuth(auth, state);
+      if (!permissions.canManageVehicleSeizures) {
+        sendJson(res, 403, { error: "Alleen leiding mag voertuigen vrijgeven." });
+        return;
+      }
+      const seizureId = decodeURIComponent(vehicleSeizureStatusMatch[1]);
+      const current = (state.vehicleSeizures || []).find((entry) => entry.id === seizureId);
+      if (!current) {
+        sendJson(res, 404, { error: "Voertuiginbeslagname niet gevonden." });
+        return;
+      }
+      if (current.status === "Vrijgegeven") {
+        sendJson(res, 409, { error: "Dit voertuig is al vrijgegeven." });
+        return;
+      }
+      const body = await readBody(req);
+      const status = String(body.status || "").trim();
+      if (status !== "Vrijgegeven") {
+        sendJson(res, 400, { error: "Alleen vrijgeven wordt ondersteund." });
+        return;
+      }
+      const releaseReason = String(body.releaseReason || "Vrijgegeven.").trim();
+      const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+      const released = await vehicleSeizuresStore.updateSeizureStatus(seizureId, {
+        status: "Vrijgegeven",
+        releasedById: actor?.id || auth.profile.id,
+        releasedByName: actor?.name || auth.profile.name || "Onbekend",
+        releasedAt: new Date().toISOString(),
+        releaseReason
+      });
+      if (!released) {
+        sendJson(res, 404, { error: "Voertuiginbeslagname niet gevonden." });
+        return;
+      }
+      state.activity = state.activity || [];
+      state.activity.push(`${actor?.name || auth.profile.name} heeft voertuig ${released.plate || released.vehicle} vrijgegeven.`);
+      await sendVehicleSeizureWebhook(state, released, actor, "released");
+      await refreshVehicleSeizuresOnState(state);
+      await sendPeopleStateAfterMutation(res, auth, state);
       return;
     }
 

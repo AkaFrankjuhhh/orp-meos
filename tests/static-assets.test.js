@@ -86,10 +86,53 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260722-i8-session-draft/);
+  assert.match(html, /app\.js\?v=20260723-vehicle-seizures/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
+});
+
+test("suggestion threads and vehicle seizures are wired", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const permissionsCode = fs.readFileSync(path.join(process.cwd(), "modules", "permissions.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const schema = fs.readFileSync(path.join(process.cwd(), "db", "schema.sql"), "utf8");
+  const storeCode = fs.readFileSync(path.join(process.cwd(), "modules", "vehicle-seizures-store.js"), "utf8");
+  const webhookCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-webhooks.js"), "utf8");
+  const botWorkerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
+  const politieEnvExample = fs.readFileSync(path.join(process.cwd(), ".env.politie.example"), "utf8");
+
+  assert.match(html, /data-page="voertuiginbeslagname"/);
+  assert.match(html, /id="vehicleSeizureForm"/);
+  assert.match(html, /id="vehicleSeizureList"/);
+  assert.match(appCode, /voertuiginbeslagname: "\/voertuiginbeslagname"/);
+  assert.match(appCode, /function renderVehicleSeizures\(/);
+  assert.match(appCode, /\/api\/vehicle-seizures/);
+  assert.match(appCode, /vehicle-seizures/);
+  assert.match(styles, /\.vehicle-seizure-card/);
+  assert.match(routesCode, /\/api\/vehicle-seizures/);
+  assert.match(routesCode, /vehicleSeizuresStore\.createSeizure/);
+  assert.match(routesCode, /vehicleSeizuresStore\.updateSeizureStatus/);
+  assert.match(permissionsCode, /canManageVehicleSeizures/);
+  assert.match(serverCode, /createVehicleSeizuresStore/);
+  assert.match(serverCode, /"voertuiginbeslagname"/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS vehicle_seizures/);
+  assert.match(storeCode, /VEHICLE_SEIZURE_DATABASE_URL/);
+  assert.match(webhookCode, /vehicleSeizureWebhookUrl/);
+  assert.match(webhookCode, /buildVehicleSeizureWebhookPayload/);
+  assert.match(botWorkerCode, /DISCORD_SUGGESTIES_CHANNEL_ID \|\| "1434527756573610016"/);
+  assert.match(botWorkerCode, /DISCORD_WETBOEK_SUGGESTIES_CHANNEL_ID \|\| "1489733814791049426"/);
+  assert.match(botWorkerCode, /DISCORD_BUGMELDINGEN_CHANNEL_ID \|\| "1423417191717404722"/);
+  assert.match(botWorkerCode, /name: "suggestie"/);
+  assert.match(botWorkerCode, /MESSAGE_CREATE/);
+  assert.match(botWorkerCode, /createThreadFromMessage/);
+  assert.match(envExample, /VEHICLE_SEIZURE_DATABASE_URL/);
+  assert.match(envExample, /DISCORD_SUGGESTION_AUTOTHREAD_ENABLED=true/);
+  assert.match(politieEnvExample, /VEHICLE_SEIZURE_DATABASE_URL/);
 });
 
 test("mentor checklist autosave is serialized against live refresh", () => {
@@ -166,7 +209,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260722-topbar-responsive/);
+  assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizures/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260720-profile-badge-dialog/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
@@ -264,7 +307,7 @@ test("portal chrome keeps topbar controls inside narrow desktop viewports", () =
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260722-topbar-responsive/);
+  assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizures/);
   assert.match(styles, /Portal chrome stability for browser zoom/);
   assert.match(styles, /body:not\(\.locked\) \{[\s\S]*overflow-x: clip;/);
   assert.match(styles, /\.topbar \{[\s\S]*flex-wrap: wrap;/);

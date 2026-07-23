@@ -215,6 +215,13 @@ function createDiscordWebhookServices({ formatDate } = {}) {
     );
   }
 
+  function vehicleSeizureWebhookUrl() {
+    return firstConfiguredEnv(
+      `DISCORD_${orgEnvPrefix}_VEHICLE_SEIZURE_WEBHOOK_URL`,
+      "DISCORD_VEHICLE_SEIZURE_WEBHOOK_URL"
+    );
+  }
+
   function buildAbsenceWebhookPayload(member, absence, submittedBy) {
     return {
       embeds: [
@@ -334,6 +341,35 @@ function createDiscordWebhookServices({ formatDate } = {}) {
     };
   }
 
+  function buildVehicleSeizureWebhookPayload(seizure, actor, event = "created") {
+    const released = event === "released" || seizure?.status === "Vrijgegeven";
+    const value = (text) => {
+      const clean = String(text || "-").trim() || "-";
+      return clean.length > 1024 ? `${clean.slice(0, 1000).trim()}...` : clean;
+    };
+    return {
+      embeds: [
+        {
+          title: released ? "Voertuig vrijgegeven" : "Voertuig in beslag genomen",
+          color: released ? 0x34a853 : 0xf59e0b,
+          fields: [
+            { name: "Voertuig", value: value(seizure?.vehicle), inline: true },
+            { name: "Kenteken", value: value(seizure?.plate), inline: true },
+            { name: "Eigenaar", value: value(seizure?.ownerName), inline: true },
+            { name: "Locatie", value: value(seizure?.location), inline: false },
+            { name: released ? "Vrijgave reden" : "Reden inbeslagname", value: value(released ? seizure?.releaseReason : seizure?.reason), inline: false },
+            { name: "Opmerking", value: value(seizure?.notes), inline: false },
+            { name: released ? "Vrijgegeven door" : "Ingevoerd door", value: value(actor?.name || seizure?.createdByName), inline: true },
+            { name: "Organisatie", value: value(seizure?.organization || organization.label), inline: true },
+            { name: released ? "Vrijgegeven op" : "Ingevoerd op", value: value(formatWebhookDateTime(released ? seizure?.releasedAt : seizure?.createdAt)), inline: true }
+          ],
+          timestamp: new Date().toISOString()
+        }
+      ],
+      allowed_mentions: { parse: [] }
+    };
+  }
+
   function formatWebhookDateTime(value) {
     const date = new Date(value || Date.now());
     if (Number.isNaN(date.getTime())) return "-";
@@ -370,11 +406,13 @@ function createDiscordWebhookServices({ formatDate } = {}) {
     sendDiscordWebhookPayloadsWithMessageThread,
     absenceWebhookUrl,
     personnelWebhookUrl,
+    vehicleSeizureWebhookUrl,
     buildAbsenceWebhookPayload,
     buildRecruitmentWebhookPayload,
     buildDismissalWebhookPayload,
     buildResignationFormWebhookPayload,
     buildBlacklistWebhookPayload,
+    buildVehicleSeizureWebhookPayload,
     buildInvestigationWebhookPayload
   };
 }
