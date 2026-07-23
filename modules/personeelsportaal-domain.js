@@ -119,6 +119,15 @@ function assignFirstAvailableServiceNumber(state, person, preferredPrefix = "") 
   person.serviceNumber = numbers[0] || "";
 }
 
+function assignPreferredServiceNumberIfAvailable(state, person, preferredServiceNumber) {
+  const serviceNumber = String(preferredServiceNumber || "").trim();
+  if (!serviceNumber) return false;
+  const numbers = new Set(getAvailableServiceNumbers(state, person.rank, person.id));
+  if (!numbers.has(serviceNumber)) return false;
+  person.serviceNumber = serviceNumber;
+  return true;
+}
+
 function serviceNumberMatchesRank(person) {
   if (hasOvcFunctionBadge(person) && !person.rank && !person.serviceNumber) return true;
   const prefix = serviceNumberPrefix(person.serviceNumber);
@@ -524,6 +533,7 @@ function createPersoneelsportaalDomain() {
     formatService,
     getAvailableServiceNumbers,
     assignFirstAvailableServiceNumber,
+    assignPreferredServiceNumberIfAvailable,
     serviceNumberMatchesRank,
     normalizeServiceNumbersForRankRanges,
     autoSortServiceNumbers,

@@ -39,7 +39,13 @@ function createRouteHarness(initialState) {
     promotePerson: () => ({ ok: true }),
     demotePerson: () => ({ ok: true }),
     assignFirstAvailableServiceNumber: (state, person) => {
-      if (!person.serviceNumber) person.serviceNumber = person.previousServiceNumber || "74-24";
+      if (!person.serviceNumber) person.serviceNumber = "74-04";
+    },
+    assignPreferredServiceNumberIfAvailable: (state, person, preferredServiceNumber) => {
+      if (preferredServiceNumber !== "74-24") return false;
+      if ((state.people || []).some((entry) => entry.id !== person.id && entry.status === "Actief" && entry.serviceNumber === preferredServiceNumber)) return false;
+      person.serviceNumber = preferredServiceNumber;
+      return true;
     },
     normalizeMentorNotes: (value) => value,
     ranks: ["Generaal", "Adjudant", "Marechaussee 2de Klasser"],
@@ -170,4 +176,31 @@ test("restored personnel queues Discord profile sync with role propagation retri
   assert.equal(harness.discordSyncJobs.length, 1);
   assert.equal(harness.discordSyncJobs[0].reason, "person_restore");
   assert.equal(harness.discordSyncJobs[0].options.maxAttempts, 288);
+});
+
+test("restored personnel falls back to first free service number when old number is taken", async () => {
+  const harness = createRouteHarness({
+    people: [
+      { id: "actor-1", name: "Lynn Moosdijk", rank: "Generaal", serviceNumber: "00-01", status: "Actief" },
+      { id: "person-2", name: "Andere Medewerker", rank: "Marechaussee 2de Klasser", serviceNumber: "74-24", status: "Actief" },
+      {
+        id: "person-1",
+        name: "Beeps Valenti",
+        discordId: "1142183276845469697",
+        rank: "Marechaussee 1ste Klasser",
+        previousServiceNumber: "74-24",
+        serviceNumber: "",
+        status: "Ontslagen",
+        permRole: "Geen"
+      }
+    ],
+    activity: []
+  });
+  harness.setBody({ rank: "Marechaussee 2de Klasser" });
+
+  const response = await post(harness.handler, "/api/people/person-1/restore");
+  const restoredPerson = harness.state().people.find((person) => person.id === "person-1");
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(restoredPerson.serviceNumber, "74-04");
 });

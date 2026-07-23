@@ -50,6 +50,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     promotePerson,
     demotePerson,
     assignFirstAvailableServiceNumber,
+    assignPreferredServiceNumberIfAvailable,
     normalizeMentorNotes,
     ranks,
     profileTrainings,
@@ -3259,7 +3260,10 @@ function createPersoneelsportaalRouteHandler(deps) {
       person.reactivatedDate = todayValue;
       person.archivedUntil = "";
       person.dismissalReason = person.dismissalReason || "";
-      assignFirstAvailableServiceNumber(state, person);
+      const restoredPreviousNumber = typeof assignPreferredServiceNumberIfAvailable === "function"
+        ? assignPreferredServiceNumberIfAvailable(state, person, person.previousServiceNumber)
+        : false;
+      if (!restoredPreviousNumber) assignFirstAvailableServiceNumber(state, person);
       person.rankHistory = person.rankHistory || [];
       person.rankHistory.push({ rank: person.rank, date: todayValue, serviceNumber: person.serviceNumber });
       if (mentorRanks.includes(person.rank)) {
