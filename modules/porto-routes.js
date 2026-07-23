@@ -44,6 +44,22 @@ function collectPortoOffDutyUnits(state, { unit, oldVehicleNumber = "", offDutyS
   return unitsToEnd;
 }
 
+function regularPortoPrefix(operatorVehicleNumber = "30-00") {
+  return String(operatorVehicleNumber || "30-00").split("-")[0] || "30";
+}
+
+function firstAvailableRegularPortoVehicleNumber(state, operatorVehicleNumber = "30-00") {
+  const prefix = regularPortoPrefix(operatorVehicleNumber);
+  const range = (state.portoVehicleRanges || []).find((entry) => entry.prefix === prefix);
+  if (!range) return "";
+  const used = new Set(
+    (state.portoUnits || [])
+      .filter((unit) => unit.active !== false && unit.vehicleNumber)
+      .map((unit) => unit.vehicleNumber)
+  );
+  return (range.numbers || []).find((number) => number && number !== operatorVehicleNumber && !used.has(number)) || "";
+}
+
 function createPortoRouteHandler({ requireAuth, readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits, readBody, sendJson, discordBot }) {
   const organization = currentOrganization();
   const sideTasksStore = createSideTasksStore();
@@ -156,16 +172,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return true;
   }
 
-  function regularPortoPrefix() {
-    return String(operatorVehicleNumber || "30-00").split("-")[0] || "30";
-  }
-
   function firstAvailableRegularVehicleNumber(state) {
-    const preferred = firstAvailableVehicleNumber(state, regularPortoPrefix());
-    if (preferred && preferred !== operatorVehicleNumber) return preferred;
-    return availablePortoVehicleNumbers(state)
-      .flatMap((range) => range.numbers || [])
-      .find((number) => number && number !== operatorVehicleNumber) || "";
+    return firstAvailableRegularPortoVehicleNumber(state, operatorVehicleNumber);
   }
 
   function pendingSeconds(unit, nowMs = Date.now()) {
@@ -1520,6 +1528,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           vehicleType: targetRange.vehicleType,
           vehicleName: "",
           operatorSlot: "",
+          forceCloseDuplicateMemberUnits: true,
           linkedWith: [],
           reviewStatus: "unlinked",
           assignedById: person.id,
@@ -1536,6 +1545,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         }
         const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
         await persistPortoState(state, { units: state.portoUnits });
+        delete unit.forceCloseDuplicateMemberUnits;
         await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
         await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto losgekoppeld");
         await sendPortoState(res, state, person, unit);
@@ -1898,4 +1908,4 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   return handlePortoApi;
 }
 
-module.exports = { createPortoRouteHandler, collectPortoOffDutyUnits };
+module.exports = { createPortoRouteHandler, collectPortoOffDutyUnits, firstAvailableRegularPortoVehicleNumber };

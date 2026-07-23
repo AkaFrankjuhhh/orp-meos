@@ -226,6 +226,8 @@ async function upsertPortoUnit(client, unit) {
     return;
   }
 
+  const rawUnit = { ...unit };
+  delete rawUnit.forceCloseDuplicateMemberUnits;
   const incomingUpdatedAt = portoUnitWriteTimestamp(unit, new Date());
   if (unit.active !== false && unit.memberId) {
     if (unit.vehicleNumber) {
@@ -246,8 +248,11 @@ async function upsertPortoUnit(client, unit) {
          where member_id = $1
            and id <> $2
            and active = true
-           and coalesce($3::timestamptz, 'epoch'::timestamptz) >= coalesce(updated_at, 'epoch'::timestamptz)`,
-        [unit.memberId, unit.id, incomingUpdatedAt]
+           and (
+             coalesce($3::timestamptz, 'epoch'::timestamptz) >= coalesce(updated_at, 'epoch'::timestamptz)
+             or $4::boolean is true
+           )`,
+        [unit.memberId, unit.id, incomingUpdatedAt, unit.forceCloseDuplicateMemberUnits === true]
       );
     } else {
       const assignedResult = await client.query(
@@ -313,7 +318,7 @@ async function upsertPortoUnit(client, unit) {
       asDateTime(unit.assignedAt),
       asDateTime(unit.endedAt),
       asDateTime(unit.lastSeenAt),
-      json(unit, {}),
+      json(rawUnit, {}),
       incomingUpdatedAt
     ]
   );
