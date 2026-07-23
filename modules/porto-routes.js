@@ -18,6 +18,32 @@ function activePersonForAuth(state, auth) {
   return (state.people || []).find((entry) => entry.id === auth.profile.id && isCurrentPerson(entry));
 }
 
+function offDutyMemberKey(memberId) {
+  return String(memberId || "").trim();
+}
+
+function collectPortoOffDutyUnits(state, { unit, oldVehicleNumber = "", offDutyScope = "vehicle", operatorVehicleNumber = "30-00" } = {}) {
+  if (!unit) return [];
+  const scopedUnits = offDutyScope === "member" || oldVehicleNumber === operatorVehicleNumber
+    ? [unit]
+    : (state.portoUnits || []).filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
+  const memberKeys = new Set(scopedUnits.map((entry) => offDutyMemberKey(entry.memberId)).filter(Boolean));
+  const seen = new Set();
+  const unitsToEnd = [];
+  for (const entry of [
+    ...scopedUnits,
+    ...(state.portoUnits || []).filter((candidate) => (
+      candidate?.active !== false &&
+      memberKeys.has(offDutyMemberKey(candidate.memberId))
+    ))
+  ]) {
+    if (!entry?.id || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    unitsToEnd.push(entry);
+  }
+  return unitsToEnd;
+}
+
 function createPortoRouteHandler({ requireAuth, readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits, readBody, sendJson, discordBot }) {
   const organization = currentOrganization();
   const sideTasksStore = createSideTasksStore();
@@ -1519,9 +1545,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       if (offDuty) {
         const oldVehicleNumber = exactVehicleNumber || unit.vehicleNumber;
         const endedAt = new Date().toISOString();
-        const unitsToEnd = offDutyScope === "member" || oldVehicleNumber === operatorVehicleNumber
-          ? [unit]
-          : state.portoUnits.filter((entry) => entry.active !== false && entry.vehicleNumber === oldVehicleNumber);
+        const unitsToEnd = collectPortoOffDutyUnits(state, { unit, oldVehicleNumber, offDutyScope, operatorVehicleNumber });
         markRecentlyEndedUnits(unitsToEnd);
         const settingsChanged = releaseOpsIfEnded(state, unitsToEnd, person, endedAt, "Uit dienst");
         unitsToEnd.forEach((entry) => Object.assign(entry, {
@@ -1874,4 +1898,4 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   return handlePortoApi;
 }
 
-module.exports = { createPortoRouteHandler };
+module.exports = { createPortoRouteHandler, collectPortoOffDutyUnits };

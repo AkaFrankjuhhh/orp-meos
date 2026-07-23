@@ -122,8 +122,11 @@ async function deletePortoUnitIfCurrent(client, unit) {
   await client.query(
     `delete from porto_units
      where id = $1
-       and coalesce($2::timestamptz, 'epoch'::timestamptz) >= coalesce(updated_at, 'epoch'::timestamptz)`,
-    [unit.id, incomingUpdatedAt]
+       and (
+         coalesce($2::timestamptz, 'epoch'::timestamptz) >= coalesce(updated_at, 'epoch'::timestamptz)
+         or $3::boolean is true
+       )`,
+    [unit.id, incomingUpdatedAt, unit.active === false || unit.status === "8" || Boolean(unit.endedAt)]
   );
 }
 
