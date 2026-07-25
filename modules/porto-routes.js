@@ -1211,6 +1211,10 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const nowMs = Date.now();
       const now = new Date(nowMs).toISOString();
       sweepPortoPresence(state);
+      if (isRecentlyEnded(person.id)) {
+        sendJson(res, 409, recentlyEndedError());
+        return true;
+      }
       const unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
       if (!unit || String(unit.status) !== "0") {
         sendJson(res, 409, { error: "Je hebt geen open Status 0-aanmelding." });

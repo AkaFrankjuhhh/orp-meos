@@ -353,8 +353,8 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(html, /id="portoModernDutyDashboard"/);
   assert.match(html, /id="portoModernOpsDashboard"/);
   assert.match(html, /porto\/ops\.js\?v=20260723-ops-duration-ticker/);
-  assert.match(html, /porto\/duty\.js\?v=20260723-ops-duration-ticker/);
-  assert.match(html, /porto\.js\?v=20260723-porto-live-refresh/);
+  assert.match(html, /porto\/duty\.js\?v=20260725-porto-live-guard/);
+  assert.match(html, /porto\.js\?v=20260725-porto-live-guard/);
   assert.match(portoCode, /PORTO_UI_MODE_KEY/);
   assert.match(portoCode, /let portoDutyTime = null/);
   assert.match(portoCode, /function bindPortoUiToggle/);
@@ -426,7 +426,7 @@ test("porto K9 duty role stores a visible K9 name from the profile", () => {
   assert.match(html, /portoK9NameField/);
   assert.match(html, /portoK9Name/);
   assert.match(html, /porto\/profile\.js\?v=20260719-k9-duty-role/);
-  assert.match(html, /porto\.js\?v=20260723-porto-live-refresh/);
+  assert.match(html, /porto\.js\?v=20260725-porto-live-guard/);
   assert.match(profileCode, /completedTrainings\)\s*&& portoProfile\.completedTrainings\.includes\("K9"\)/);
   assert.match(clientCode, /k9Name: k9NameInput/);
   assert.match(routesCode, /personHasK9Training/);
@@ -454,8 +454,11 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   assert.match(clientCode, /event\.persisted/);
   assert.doesNotMatch(clientCode, /beforeunload", sendPortoBrowserClosedSignal/);
   assert.match(dutyCode, /syncPortoBrowserHeartbeatForPayload\(payload\)/);
-  assert.match(html, /porto\/duty\.js\?v=20260723-ops-duration-ticker/);
-  assert.match(html, /porto\.js\?v=20260723-porto-live-refresh/);
+  assert.match(dutyCode, /if \(portoSignedOffUntilStatus0\) return;/);
+  assert.match(dutyCode, /function setPortoSignedOffUntilStatus0\(enabled\) \{[\s\S]*clearPortoAutoAssignTimer\(\);/);
+  assert.match(routesCode, /if \(isRecentlyEnded\(person\.id\)\) \{[\s\S]*recentlyEndedError\(\)/);
+  assert.match(html, /porto\/duty\.js\?v=20260725-porto-live-guard/);
+  assert.match(html, /porto\.js\?v=20260725-porto-live-guard/);
   assert.match(envExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(envExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
@@ -471,6 +474,7 @@ test("porto live events refresh OPS status 0 without waiting for the poll thrott
 
   assert.match(clientCode, /loadPortoDuty\(\{ automatic: true, bypassAutoThrottle: scope === "porto" \}\)/);
   assert.match(clientCode, /function hasActivePortoLiveInteraction\(\)/);
+  assert.doesNotMatch(clientCode, /active\?\.matches\?\.\("input"\)/);
   assert.doesNotMatch(clientCode, /isEditingOpsRequest[\s\S]{0,80}return true/);
   assert.match(dutyCode, /const bypassAutoThrottle = Boolean\(options\.bypassAutoThrottle\);/);
   assert.match(dutyCode, /if \(automatic && !bypassAutoThrottle\)/);

@@ -53,6 +53,7 @@ function setPortoDutyPolling(enabled) {
 function setPortoSignedOffUntilStatus0(enabled) {
   portoSignedOffUntilStatus0 = Boolean(enabled);
   if (!portoSignedOffUntilStatus0) return;
+  clearPortoAutoAssignTimer();
   setPortoDutyPolling(false);
   if (typeof setPortoOpsPolling === "function") setPortoOpsPolling(false);
   if (portoDeferredDutyLoadTimer) {
@@ -767,6 +768,7 @@ async function runPortoManagementBypass() {
 }
 
 async function runPortoAutoAssign() {
+  if (portoSignedOffUntilStatus0) return;
   if (!portoDuty || String(portoDuty.status) !== "0" || portoDuty.vehicleNumber) return;
   const response = await fetch("/api/porto/auto-assign", { method: "POST" });
   const payload = await response.json().catch(() => ({}));
