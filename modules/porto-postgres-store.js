@@ -1,5 +1,7 @@
 const { withClient } = require("./db");
 const {
+  DEFAULT_PORTO_DUTY_HOURS_START_WEEK,
+  buildPortoDutyHourEntries,
   PORTO_DUTY_HOURS_ENTERED_BY_ID,
   PORTO_DUTY_HOURS_SOURCE
 } = require("./porto-duty-hours");
@@ -220,6 +222,48 @@ function hourEntryFromRow(row) {
   };
 }
 
+async function upsertHourEntry(client, entry) {
+  const hoursValue = Number(entry.hours ?? entry.hoursValue ?? 0);
+  const minutes = Number(entry.minutes || entry.durationMinutes || Math.round(hoursValue * 60) || 0);
+  await client.query(`
+    insert into hours(
+      id, person_id, discord_id, job, started_at, ended_at, minutes,
+      week_year, week_number, hours_value, entered_by_id, entered_by_name, entered_at,
+      raw, updated_at
+    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,now())
+    on conflict(id) do update set
+      person_id = excluded.person_id,
+      discord_id = excluded.discord_id,
+      job = excluded.job,
+      started_at = excluded.started_at,
+      ended_at = excluded.ended_at,
+      minutes = excluded.minutes,
+      week_year = excluded.week_year,
+      week_number = excluded.week_number,
+      hours_value = excluded.hours_value,
+      entered_by_id = excluded.entered_by_id,
+      entered_by_name = excluded.entered_by_name,
+      entered_at = excluded.entered_at,
+      raw = excluded.raw,
+      updated_at = now()
+  `, [
+    entry.id,
+    entry.personId || null,
+    entry.discordId || "",
+    entry.job || "Porto dienst",
+    asDateTime(entry.startedAt),
+    asDateTime(entry.endedAt),
+    minutes,
+    Number(entry.weekYear || 0) || null,
+    Number(entry.weekNumber || 0) || null,
+    Number.isFinite(hoursValue) ? hoursValue : 0,
+    entry.enteredById || "",
+    entry.enteredByName || "",
+    asDateTime(entry.enteredAt),
+    json(entry, {})
+  ]);
+}
+
 async function upsertPortoUnit(client, unit) {
   if (unit.active === false || unit.status === "8" || unit.endedAt) {
     await deletePortoUnitIfCurrent(client, unit);
@@ -326,6 +370,7 @@ async function upsertPortoUnit(client, unit) {
 
 function createPostgresPortoStore(options = {}) {
   const afterWrite = typeof options.afterWrite === "function" ? options.afterWrite : null;
+  const afterHoursWrite = typeof options.afterHoursWrite === "function" ? options.afterHoursWrite : afterWrite;
   let writeQueue = Promise.resolve();
 
   function enqueuePortoWrite(task) {
@@ -439,6 +484,30 @@ function createPostgresPortoStore(options = {}) {
     return uniqueUnits;
   }
 
+  async function doWritePortoDutyHours(state, units, options = {}) {
+    const entries = buildPortoDutyHourEntries({
+      people: state?.people || [],
+      portoUnits: units || []
+    }, {
+      now: options.now || new Date(),
+      timeZone: options.timeZone || process.env.PORTO_DUTY_HOURS_TIME_ZONE || "Europe/Amsterdam",
+      startWeek: options.startWeek || process.env.PORTO_DUTY_HOURS_START_WEEK || DEFAULT_PORTO_DUTY_HOURS_START_WEEK
+    });
+    if (!entries.length) return entries;
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        for (const entry of entries) await upsertHourEntry(client, entry);
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterHoursWrite) afterHoursWrite();
+    return entries;
+  }
+
   async function writePortoSettings(state) {
     return enqueuePortoWrite(() => doWritePortoSettings(state));
   }
@@ -451,6 +520,10 @@ function createPostgresPortoStore(options = {}) {
     return enqueuePortoWrite(() => doWritePortoUnits(units));
   }
 
+  async function writePortoDutyHours(state, units, options = {}) {
+    return enqueuePortoWrite(() => doWritePortoDutyHours(state, units, options));
+  }
+
   async function writeState(state) {
     // Fallbackpad: upsert alleen bekende Porto units en instellingen, zonder de hele porto_units tabel te verwijderen.
     return enqueuePortoWrite(async () => {
@@ -458,12 +531,13 @@ function createPostgresPortoStore(options = {}) {
       for (const person of state.people || []) {
         await doWritePortoPhone(person.id, person.portoPhone || "", { k9Name: person.k9Name || "" });
       }
+      await doWritePortoDutyHours(state, state.portoUnits || []);
       await doWritePortoUnits(state.portoUnits || []);
       return state;
     });
   }
 
-  return { readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits };
+  return { readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits, writePortoDutyHours };
 }
 
 module.exports = { createPostgresPortoStore };

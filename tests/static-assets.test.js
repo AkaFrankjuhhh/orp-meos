@@ -92,6 +92,22 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
 });
 
+test("porto saves duty hours before ended runtime units are cleaned up", () => {
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const storeCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-postgres-store.js"), "utf8");
+  const portoServerCode = fs.readFileSync(path.join(process.cwd(), "porto-server.js"), "utf8");
+
+  assert.match(routesCode, /writePortoDutyHours/);
+  assert.match(routesCode, /function persistPortoDutyHoursForUnits\(/);
+  assert.match(routesCode, /persistPortoDutyHoursForUnits\(state, units\);[\s\S]*writePortoUnits\(units\)/);
+  assert.match(storeCode, /function doWritePortoDutyHours\(/);
+  assert.match(storeCode, /buildPortoDutyHourEntries/);
+  assert.match(storeCode, /insert into hours/);
+  assert.match(storeCode, /writePortoDutyHours/);
+  assert.match(portoServerCode, /afterHoursWrite: \(\) => afterStorageWrite\("people"\)/);
+  assert.match(portoServerCode, /writePortoDutyHours: portoStorage\.writePortoDutyHours/);
+});
+
 test("suggestion threads and vehicle seizures are wired", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");

@@ -60,7 +60,7 @@ function firstAvailableRegularPortoVehicleNumber(state, operatorVehicleNumber = 
   return (range.numbers || []).find((number) => number && number !== operatorVehicleNumber && !used.has(number)) || "";
 }
 
-function createPortoRouteHandler({ requireAuth, readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits, readBody, sendJson, discordBot }) {
+function createPortoRouteHandler({ requireAuth, readState, writeState, writePortoSettings, writePortoPhone, writePortoUnits, writePortoDutyHours, readBody, sendJson, discordBot }) {
   const organization = currentOrganization();
   const sideTasksStore = createSideTasksStore();
   const sideTaskDefinitions = allSideTasks();
@@ -528,6 +528,17 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     }
   }
 
+  async function persistPortoDutyHoursForUnits(state, units) {
+    if (typeof writePortoDutyHours !== "function") return;
+    const endedUnits = uniquePortoUnits(units)
+      .filter((unit) => unit?.assignedAt && (unit.active === false || unit.status === "8" || unit.endedAt));
+    if (!endedUnits.length) return;
+    await Promise.resolve(writePortoDutyHours(state, endedUnits, {
+      timeZone: portoDutyHoursTimeZone,
+      startWeek: portoDutyHoursStartWeek
+    }));
+  }
+
   async function persistPortoState(state, options = {}) {
     const units = options.units || null;
     const settings = Boolean(options.settings);
@@ -535,6 +546,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     if (typeof writePortoUnits === "function" || typeof writePortoSettings === "function" || typeof writePortoPhone === "function") {
       if (settings && typeof writePortoSettings === "function") await Promise.resolve(writePortoSettings(state));
       if (phonePerson && typeof writePortoPhone === "function") await Promise.resolve(writePortoPhone(phonePerson.id, phonePerson.portoPhone || "", { k9Name: phonePerson.k9Name || "" }));
+      if (units) await persistPortoDutyHoursForUnits(state, units);
       if (units && typeof writePortoUnits === "function") await Promise.resolve(writePortoUnits(units));
       return state;
     }

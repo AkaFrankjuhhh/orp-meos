@@ -265,7 +265,12 @@ function afterStorageWrite(scope) {
   postgresEventBridge.notify(scope).catch((error) => logServerError(`Postgres event notify failed for ${scope}`, error));
 }
 
-const portoStorage = storageMode === "postgres" ? createPostgresPortoStore({ afterWrite: () => afterStorageWrite("porto") }) : { readState, writeState };
+const portoStorage = storageMode === "postgres"
+  ? createPostgresPortoStore({
+      afterWrite: () => afterStorageWrite("porto"),
+      afterHoursWrite: () => afterStorageWrite("people")
+    })
+  : { readState, writeState };
 const handlePortoApi = createPortoRouteHandler({
   requireAuth,
   readState: portoStorage.readState,
@@ -273,6 +278,7 @@ const handlePortoApi = createPortoRouteHandler({
   writePortoSettings: portoStorage.writePortoSettings,
   writePortoPhone: portoStorage.writePortoPhone,
   writePortoUnits: portoStorage.writePortoUnits,
+  writePortoDutyHours: portoStorage.writePortoDutyHours,
   readBody,
   sendJson,
   discordBot
