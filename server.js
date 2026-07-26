@@ -284,6 +284,15 @@ function syncProfileFromDiscord(state, profile, user, member, options = {}) {
   }
 }
 
+async function persistDiscordProfileSync(state, profile, activityStartIndex = 0) {
+  const activityMessages = (Array.isArray(state.activity) ? state.activity : []).slice(activityStartIndex);
+  if (typeof peopleStorage.writePersonDiscordProfileSync === "function") {
+    await Promise.resolve(peopleStorage.writePersonDiscordProfileSync(profile, activityMessages));
+    return;
+  }
+  await Promise.resolve(peopleStorage.writeState(state));
+}
+
 
 const {
   sendDiscordWebhook,
@@ -1346,11 +1355,12 @@ async function handleApi(req, res, url) {
           }
           auth.session.roles = member.roles || [];
           auth.session.roleSyncedAt = Date.now();
+          const activityStartIndex = Array.isArray(state.activity) ? state.activity.length : 0;
           syncProfileFromDiscord(state, profile, auth.session.user, member, {
             syncPermissionRole: member.roles.includes(organizationMainRoleId(organization))
           });
           auth.profile = profile;
-          await Promise.resolve(peopleStorage.writeState(state));
+          await persistDiscordProfileSync(state, profile, activityStartIndex);
         }
       } catch (error) {
         if (error.status === 429 || /rate limit/i.test(error.message || "")) {
@@ -1449,8 +1459,9 @@ async function handleApi(req, res, url) {
       }
 
       if (!String(profile.id || "").startsWith("dev-")) {
+        const activityStartIndex = Array.isArray(state.activity) ? state.activity.length : 0;
         syncProfileFromDiscord(state, profile, user, member, { syncPermissionRole: hasOrganizationRole });
-        await Promise.resolve(peopleStorage.writeState(state));
+        await persistDiscordProfileSync(state, profile, activityStartIndex);
       }
       createSession(res, user, profile, { accessToken: token.access_token, roles: member.roles || [] });
       const sessionCookie = res.getHeader("Set-Cookie");

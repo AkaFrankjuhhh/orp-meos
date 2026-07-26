@@ -371,6 +371,28 @@ test("people mutations persist rank changes before queueing Discord sync", () =>
   assert.match(rankActionBlock, /queuePersonDiscordSyncAfterResponse\(person, `person_\$\{action\}`\)/);
 });
 
+test("portal login sync uses targeted profile writes", () => {
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const peopleStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-postgres-people-store.js"), "utf8");
+
+  assert.match(serverCode, /async function persistDiscordProfileSync\(state, profile, activityStartIndex = 0\)/);
+  assert.match(serverCode, /peopleStorage\.writePersonDiscordProfileSync\(profile, activityMessages\)/);
+  assert.match(serverCode, /await persistDiscordProfileSync\(state, profile, activityStartIndex\)/);
+
+  const callbackBlock = serverCode.slice(serverCode.indexOf('if (["/api/auth/callback", "/auth/discord/callback"].includes(url.pathname)'), serverCode.indexOf("if (await handlePersoneelsportaalApi"));
+  assert.match(callbackBlock, /syncProfileFromDiscord\(state, profile, user, member/);
+  assert.match(callbackBlock, /await persistDiscordProfileSync\(state, profile, activityStartIndex\)/);
+  assert.doesNotMatch(callbackBlock, /peopleStorage\.writeState\(state\)/);
+
+  const authMeBlock = serverCode.slice(serverCode.indexOf('if (url.pathname === "/api/auth/me"'), serverCode.indexOf('if (url.pathname === "/api/auth/login"'));
+  assert.match(authMeBlock, /syncProfileFromDiscord\(state, profile, auth\.session\.user, member/);
+  assert.match(authMeBlock, /await persistDiscordProfileSync\(state, profile, activityStartIndex\)/);
+  assert.doesNotMatch(authMeBlock, /peopleStorage\.writeState\(state\)/);
+
+  assert.match(peopleStoreCode, /async function writePersonDiscordProfileSync\(person, activityMessage\)/);
+  assert.match(peopleStoreCode, /discord_username = \$2,[\s\S]*avatar = \$3,[\s\S]*discord_roles = \$4::jsonb,[\s\S]*perm_role = \$5/);
+});
+
 test("porto exposes the modern dispatcher test UI beside the classic UI", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const portoCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");

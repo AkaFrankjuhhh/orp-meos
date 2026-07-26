@@ -458,6 +458,52 @@ function createPostgresPeopleStore(options = {}) {
     return changedPeople;
   }
 
+  async function writePersonDiscordProfileSync(person, activityMessage) {
+    // Login hoeft alleen Discord-profielvelden te verversen. Dit houdt de OAuth
+    // callback weg van de zware people-write lock.
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        const result = await client.query(`
+          update people
+          set
+            discord_username = $2,
+            avatar = $3,
+            discord_roles = $4::jsonb,
+            perm_role = $5,
+            raw = $6::jsonb,
+            updated_at = now()
+          where id = $1
+        `, [
+          person.id,
+          person.discordUsername || "",
+          person.avatar || "",
+          json(person.discordRoles, []),
+          person.permRole || "Geen",
+          json(person, {})
+        ]);
+        if (result.rowCount !== 1) {
+          throw new Error("Personeelslid niet gevonden voor Discord profiel-sync.");
+        }
+        const activityMessages = Array.isArray(activityMessage)
+          ? activityMessage.filter(Boolean)
+          : [activityMessage].filter(Boolean);
+        for (const message of activityMessages) {
+          await client.query(`
+            insert into activity_log(position, message)
+            values((select coalesce(max(position), -1) + 1 from activity_log), $1)
+          `, [String(message)]);
+        }
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return person;
+  }
+
 
   async function writePersonNotifications(person) {
     // Persoonsgebonden meldingen zitten in raw, zodat er geen losse notificatietabel nodig is.
@@ -537,7 +583,7 @@ function createPostgresPeopleStore(options = {}) {
     if (afterWrite) afterWrite();
     return entries;
   }
-  return { readState, writeState, writePersonQualifications, writePersonProfileBadges, writePersonRankChanges, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
+  return { readState, writeState, writePersonQualifications, writePersonProfileBadges, writePersonRankChanges, writePersonDiscordProfileSync, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
 }
 
 module.exports = { createPostgresPeopleStore };
