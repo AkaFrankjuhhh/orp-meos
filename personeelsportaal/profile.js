@@ -634,17 +634,31 @@ function openProfileBadgeDialog(mode = "main") {
   if (!viewed || !canManageProfileBadges()) return;
   window.profileBadgeDialogMode = mode;
   const dialog = $("#profileBadgeDialog");
-  dialog.dataset.mode = mode;
   $("#profileBadgePersonId").value = viewed.id;
   const selectedFunctions = viewed.extraFunctions || [];
   const selectedTasks = viewed.badges || [];
   const sideTaskSet = new Set(profileSideTaskBadges);
-  const isSideMode = mode === "side";
+  let isSideMode = mode === "side";
   const selectedProfileFunctions = typeof canonicalProfileFunctions === "function" ? canonicalProfileFunctions(selectedFunctions) : selectedFunctions;
-  const manageableFunctions = !isSideMode && hasKaderAccess()
-    ? extraFunctions.filter((item) => !(typeof isOvcFunctionBadge === "function" && isOvcFunctionBadge(item)) || (typeof canManageOvcBadge === "function" && canManageOvcBadge()))
+  const allowedFunctionBadges = typeof canManageProfileFunctions === "function" && canManageProfileFunctions()
+    ? extraFunctions.filter((item) => (
+        hasKaderAccess()
+          ? !(typeof isOvcFunctionBadge === "function" && isOvcFunctionBadge(item)) || (typeof canManageOvcBadge === "function" && canManageOvcBadge())
+          : (typeof manageableProfileFunctionBadges === "function" && manageableProfileFunctionBadges().includes(item))
+      ))
     : [];
-  const tasks = extraTasks.filter((task) => isSideMode ? sideTaskSet.has(task) : !sideTaskSet.has(task));
+  const allowedTaskBadges = typeof canManageAllProfileTaskBadges === "function" && canManageAllProfileTaskBadges()
+    ? extraTasks
+    : extraTasks.filter((task) => typeof manageableProfileTaskBadges === "function" && manageableProfileTaskBadges().includes(task));
+  const mainTasks = allowedTaskBadges.filter((task) => !sideTaskSet.has(task));
+  const sideTasks = allowedTaskBadges.filter((task) => sideTaskSet.has(task));
+  if (!isSideMode && !allowedFunctionBadges.length && !mainTasks.length && sideTasks.length) {
+    isSideMode = true;
+    window.profileBadgeDialogMode = "side";
+  }
+  dialog.dataset.mode = isSideMode ? "side" : "main";
+  const manageableFunctions = isSideMode ? [] : allowedFunctionBadges;
+  const tasks = isSideMode ? sideTasks : mainTasks;
   const groups = profileBadgeDialogGroups({
     manageableFunctions,
     tasks,

@@ -463,6 +463,18 @@ function createPersoneelsportaalRouteHandler(deps) {
     return previousHasOvc ? [...nextWithoutOvc, OVC_FUNCTION_BADGE] : nextWithoutOvc;
   }
 
+  function mergeManageableProfileItems(previousItems, selectedItems, allowedItems, manageableItems) {
+    const allowed = new Set(allowedItems || []);
+    const manageable = new Set(manageableItems || []);
+    const selected = (selectedItems || [])
+      .filter((item) => allowed.has(item) && manageable.has(item))
+      .filter((item, index, list) => list.indexOf(item) === index);
+    return [
+      ...(previousItems || []).filter((item) => !manageable.has(item)),
+      ...selected
+    ].filter((item, index, list) => list.indexOf(item) === index);
+  }
+
   function blacklistErrorMessage() {
     return "PERSOON IS GEBLACKLIST\nKan niet worden aangenomen";
   }
@@ -2275,7 +2287,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const state = await readPeopleState();
     const permissions = permissionsForAuth(auth, state);
     if (!permissions.canManageProfileBadges) {
-      sendJson(res, 403, { error: "Alleen Kader, Hoofdofficier of Officiersraad mag functies en badges aanpassen." });
+      sendJson(res, 403, { error: "Alleen leiding of takleiding mag functies en badges aanpassen." });
       return;
     }
     const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(profileBadgesMatch[1]));
@@ -2290,10 +2302,16 @@ function createPersoneelsportaalRouteHandler(deps) {
     const previousBadges = Array.isArray(person.badges) ? [...person.badges] : [];
     // Alleen Kader mag de functie-badges Kader/Hoofdofficier/Officiersraad wijzigen.
     // Hoofdofficier en Officiersraad mogen wel taakbadges zoals hOvJ, Interne-Zaken en Trainer beheren.
+    const manageableFunctions = permissions.canManagePeople
+      ? extraFunctions
+      : (permissions.manageableProfileFunctionBadges || []).filter((badge) => extraFunctions.includes(badge));
+    const manageableTasks = permissions.canManageAllProfileTaskBadges
+      ? extraTasks
+      : (permissions.manageableProfileTaskBadges || []).filter((badge) => extraTasks.includes(badge));
     person.extraFunctions = permissions.canManagePeople
       ? mergeOvcBadgeForActor(normalizeSelectedExtraFunctions(selectedFunctions), previousFunctions, permissions)
-      : previousFunctions;
-    person.badges = badges.filter((badge) => extraTasks.includes(badge));
+      : mergeManageableProfileItems(previousFunctions, normalizeSelectedExtraFunctions(selectedFunctions), extraFunctions, manageableFunctions);
+    person.badges = mergeManageableProfileItems(previousBadges, badges, extraTasks, manageableTasks);
     const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
     const badgeChanges = [
       ...person.extraFunctions.filter((badge) => !previousFunctions.includes(badge)).map((badge) => `${badge} toegevoegd`),

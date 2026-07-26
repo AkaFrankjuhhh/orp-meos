@@ -281,3 +281,102 @@ test("police board and HR can recruit and dismiss without full people management
     }
   });
 });
+
+test("branch leadership can manage only its own profile badge", () => {
+  for (const key of ["defensie", "politie"]) {
+    withOrganization(key, () => {
+      const { organizationConfigs } = require("../modules/organizations");
+      const { createPermissionServices } = require("../modules/permissions");
+      const organization = organizationConfigs[key];
+      const services = createPermissionServices({
+        extraFunctions: organization.extraFunctions,
+        extraTasks: organization.extraTasks,
+        readState: () => ({ people: [] })
+      });
+      const cases = [
+        ["Trainer-Leiding", "Trainer"],
+        ["Mentor-Leiding", "Mentor"],
+        ["W&S-Leiding", "W&S"],
+        ["IZ-Leiding", "Interne-Zaken"],
+        ["DSI-Leiding", "DSI"],
+        ["KLu-Leiding", "KLu"],
+        ["DNR-Leiding", "DNR"],
+        ["VID-Leiding", "VID"],
+        ["HRB-Leiding", "HRB"]
+      ].filter(([leadershipBadge, targetBadge]) => organization.extraTasks.includes(leadershipBadge) && organization.extraTasks.includes(targetBadge));
+
+      for (const [leadershipBadge, targetBadge] of cases) {
+        const permissions = services.permissionsForProfile({
+          id: `${key}-${leadershipBadge}`,
+          name: leadershipBadge,
+          rank: organization.ranks.at(-1),
+          status: "Actief",
+          permRole: "Geen",
+          badges: [leadershipBadge]
+        });
+
+        assert.equal(permissions.canManageProfileBadges, true, `${key} ${leadershipBadge} should manage profile badges`);
+        assert.equal(permissions.canManageAllProfileTaskBadges, false, `${key} ${leadershipBadge} should not manage all task badges`);
+        assert.deepEqual(permissions.manageableProfileTaskBadges, [targetBadge]);
+      }
+    });
+  }
+});
+
+test("HR-Leiding can manage the police HR function without full people management", () => {
+  withOrganization("politie", () => {
+    const { organizationConfigs } = require("../modules/organizations");
+    const { createPermissionServices } = require("../modules/permissions");
+    const organization = organizationConfigs.politie;
+    const services = createPermissionServices({
+      extraFunctions: organization.extraFunctions,
+      extraTasks: organization.extraTasks,
+      readState: () => ({ people: [] })
+    });
+    const permissions = services.permissionsForProfile({
+      id: "politie-hr-leiding",
+      name: "HR-Leiding",
+      rank: "Agent",
+      status: "Actief",
+      permRole: "Geen",
+      badges: ["HR-Leiding"]
+    });
+
+    assert.equal(permissions.canManageProfileBadges, true);
+    assert.equal(permissions.canManagePeople, false);
+    assert.deepEqual(permissions.manageableProfileFunctionBadges, ["HR"]);
+  });
+});
+
+test("branch leadership can see only manageable restricted badges", () => {
+  withOrganization("defensie", () => {
+    delete require.cache[require.resolve("../modules/organizations")];
+    delete require.cache[require.resolve("../modules/permissions")];
+    delete require.cache[require.resolve("../modules/personeelsportaal-domain")];
+    const { organizationConfigs } = require("../modules/organizations");
+    const { createPermissionServices } = require("../modules/permissions");
+    const { createPersoneelsportaalDomain } = require("../modules/personeelsportaal-domain");
+    const organization = organizationConfigs.defensie;
+    const permissions = createPermissionServices({
+      extraFunctions: organization.extraFunctions,
+      extraTasks: organization.extraTasks,
+      readState: () => ({ people: [] })
+    }).permissionsForProfile({
+      id: "dsi-leiding",
+      name: "DSI-Leiding",
+      rank: "Marechaussee 1ste Klasser",
+      status: "Actief",
+      permRole: "Geen",
+      badges: ["DSI-Leiding"]
+    });
+    const filtered = createPersoneelsportaalDomain().stateForProfile({
+      people: [
+        { id: "dsi-leiding", name: "DSI-Leiding", badges: ["DSI-Leiding"] },
+        { id: "target", name: "Target", badges: ["DSI", "KLu", "Mentor"] }
+      ]
+    }, permissions, "dsi-leiding");
+    const target = filtered.people.find((person) => person.id === "target");
+
+    assert.deepEqual(target.badges, ["DSI", "Mentor"]);
+  });
+});

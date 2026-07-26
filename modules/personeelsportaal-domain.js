@@ -441,11 +441,12 @@ function mentorChecklistItemCountForState(state) {
 function stateForProfile(state, permissions, profileId = "") {
   const nextState = JSON.parse(JSON.stringify(state));
   const mentorItemCount = mentorChecklistItemCountForState(nextState);
+  const manageableRestrictedTaskBadges = new Set(permissions?.manageableProfileTaskBadges || []);
   nextState.people = (nextState.people || []).map((person) => ({
     ...person,
     badges: person.id === profileId || permissions?.canViewRestrictedTaskBadges
       ? (Array.isArray(person.badges) ? person.badges : [])
-      : (Array.isArray(person.badges) ? person.badges.filter((badge) => !restrictedTaskBadges.has(badge)) : []),
+      : (Array.isArray(person.badges) ? person.badges.filter((badge) => !restrictedTaskBadges.has(badge) || manageableRestrictedTaskBadges.has(badge)) : []),
     notifications: person.id === profileId ? (Array.isArray(person.notifications) ? person.notifications : []) : [],
     profileLog: permissions?.canViewProfileAuditLog ? (Array.isArray(person.profileLog) ? person.profileLog : []) : []
   }));

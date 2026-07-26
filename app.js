@@ -366,6 +366,22 @@ function canManageProfileBadges() {
   return Boolean(permissions.canManageProfileBadges || hasKaderAccess());
 }
 
+function canManageProfileFunctions() {
+  return Boolean(permissions.canManageProfileFunctions || hasKaderAccess());
+}
+
+function canManageAllProfileTaskBadges() {
+  return Boolean(permissions.canManageAllProfileTaskBadges || hasKaderAccess());
+}
+
+function manageableProfileFunctionBadges() {
+  return Array.isArray(permissions.manageableProfileFunctionBadges) ? permissions.manageableProfileFunctionBadges : [];
+}
+
+function manageableProfileTaskBadges() {
+  return Array.isArray(permissions.manageableProfileTaskBadges) ? permissions.manageableProfileTaskBadges : [];
+}
+
 function canManageQualifications() {
   return Boolean(permissions.canManageQualifications || hasKaderAccess());
 }
@@ -2205,7 +2221,7 @@ function wireEvents() {
     const sideTaskSet = new Set(window.profileSideTaskBadges || []);
     const dialogMode = window.profileBadgeDialogMode || "main";
     const selectedFunctions = $$('#profileBadgeDialog input[data-profile-badge-kind="function"]:checked').map((input) => input.value);
-    const extraFunctions = dialogMode === "side" || !hasKaderAccess() ? canonicalProfileFunctions(viewed?.extraFunctions || []) : selectedFunctions;
+    const extraFunctions = dialogMode === "side" || !canManageProfileFunctions() ? canonicalProfileFunctions(viewed?.extraFunctions || []) : selectedFunctions;
     const selectedBadges = $$('#profileBadgeDialog input[data-profile-badge-kind="task"]:checked').map((input) => input.value);
     const existingBadges = viewed?.badges || [];
     const badges = dialogMode === "side"

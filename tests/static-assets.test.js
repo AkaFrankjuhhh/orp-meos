@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260723-vehicle-seizures/);
+  assert.match(html, /app\.js\?v=20260726-branch-badge-management/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -234,7 +234,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
   assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizure-layout/);
-  assert.match(html, /personeelsportaal\/profile\.js\?v=20260720-profile-badge-dialog/);
+  assert.match(html, /personeelsportaal\/profile\.js\?v=20260726-branch-badge-management/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
   assert.match(profileCode, /function profileBadgeDialogGroups/);
@@ -242,7 +242,12 @@ test("profile badge context dialog groups controls with a summary", () => {
   assert.match(profileCode, /profileBadgeTaskLeadershipOrder/);
   assert.match(profileCode, /profileBadgeOrganizationLeadership = \[[^\]]*"HR"/);
   assert.match(profileCode, /profileBadgeTaskLeadershipOrder = \[[^\]]*"HR-Leiding"/);
+  assert.match(profileCode, /manageableProfileTaskBadges\(\)\.includes\(task\)/);
+  assert.match(profileCode, /manageableProfileFunctionBadges\(\)\.includes\(item\)/);
   assert.match(profileCode, /updateProfileBadgeDialogSummary/);
+  assert.match(appCode, /function canManageProfileFunctions\(/);
+  assert.match(appCode, /function manageableProfileTaskBadges\(/);
+  assert.match(appCode, /function manageableProfileFunctionBadges\(/);
   assert.match(appCode, /input\[data-profile-badge-kind="function"\]:checked/);
   assert.match(appCode, /input\[data-profile-badge-kind="task"\]:checked/);
   assert.match(styles, /#profileBadgeDialog/);
@@ -735,6 +740,9 @@ test("Discord sync manages portal function and badge roles", () => {
   assert.match(workerCode, /trainingNeededRoles/);
   assert.match(workerCode, /badgeRoles/);
   assert.match(routesCode, /syncTrainingRequirementRolesForPerson/);
+  assert.match(routesCode, /function mergeManageableProfileItems\(/);
+  assert.match(routesCode, /permissions\.manageableProfileTaskBadges/);
+  assert.match(routesCode, /permissions\.manageableProfileFunctionBadges/);
   assert.match(routesCode, /function queuePersonDiscordSyncAfterResponse\(person, reason\)/);
   assert.match(routesCode, /if \(shouldQueueBadgeDiscordSync\) queuePersonDiscordSyncAfterResponse\(person, "badge_updated"\)/);
   assert.ok(

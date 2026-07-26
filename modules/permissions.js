@@ -25,6 +25,20 @@ function automaticFunctionBadges(profile) {
 function createPermissionServices({ extraFunctions, extraTasks, readState }) {
   const organization = currentOrganization();
   const permissionAliases = organization.permissionAliases || {};
+  const branchLeadershipTaskTargets = {
+    "Trainer-Leiding": "Trainer",
+    "Mentor-Leiding": "Mentor",
+    "W&S-Leiding": "W&S",
+    "IZ-Leiding": "Interne-Zaken",
+    "DSI-Leiding": "DSI",
+    "KLu-Leiding": "KLu",
+    "DNR-Leiding": "DNR",
+    "HRB-Leiding": "HRB",
+    "VID-Leiding": "VID"
+  };
+  const branchLeadershipFunctionTargets = {
+    "HR-Leiding": "HR"
+  };
 
   function hasFunctionBadge(functionBadges, badge) {
     const normalized = normalizeFunctionBadge(badge);
@@ -48,6 +62,20 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
 
   function effectiveTaskBadges(profile) {
     return (profile?.badges || []).filter((badge) => extraTasks.includes(badge));
+  }
+
+  function manageableProfileTaskBadgesFor(taskBadges) {
+    return Object.entries(branchLeadershipTaskTargets)
+      .filter(([leadershipBadge, targetBadge]) => taskBadges.includes(leadershipBadge) && extraTasks.includes(targetBadge))
+      .map(([, targetBadge]) => targetBadge)
+      .filter((badge, index, list) => list.indexOf(badge) === index);
+  }
+
+  function manageableProfileFunctionBadgesFor(taskBadges) {
+    return Object.entries(branchLeadershipFunctionTargets)
+      .filter(([leadershipBadge, targetBadge]) => taskBadges.includes(leadershipBadge) && extraFunctions.includes(targetBadge))
+      .map(([, targetBadge]) => targetBadge)
+      .filter((badge, index, list) => list.indexOf(badge) === index);
   }
 
   function isKaderProfile(profile) {
@@ -74,6 +102,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isOtcLeadership = taskBadges.includes("OTC-Leiding");
     const isIzLeadership = taskBadges.includes("IZ-Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
+    const manageableProfileTaskBadges = manageableProfileTaskBadgesFor(taskBadges);
+    const manageableProfileFunctionBadges = manageableProfileFunctionBadgesFor(taskBadges);
     const canViewTrainerSection = canViewAsKader || isTrainer || isTrainerLeadership;
     const isHrManagement = (organization.permissions?.hrManagementAliases || []).some((badge) => hasFunctionBadge(functionBadges, badge) || taskBadges.includes(badge));
     const i8ReviewMode = organization.permissions?.i8ReviewMode || "defensie";
@@ -87,6 +117,7 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       ? isKader || isHoofdofficier
       : isKader || isHoofdofficier || isOfficiersraad;
     const canOfficerManage = organization.permissions?.officerManagementMode !== "viewAndAbsenceOnly";
+    const canManageAllProfileTaskBadges = isKader || (canOfficerManage && (isHoofdofficier || isOfficiersraad));
 
     return {
       canViewLogbook: canViewAsKader,
@@ -101,7 +132,11 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canViewPersonnelArchive: canViewAsKader || (canOfficerManage && isHoofdofficier),
       canViewKaderPages: canViewAsKader,
       canManageInvestigationStatus: isKader || isHoofdofficier || isOfficiersraad,
-      canManageProfileBadges: isKader || (canOfficerManage && (isHoofdofficier || isOfficiersraad)),
+      canManageProfileBadges: canManageAllProfileTaskBadges || manageableProfileTaskBadges.length > 0 || manageableProfileFunctionBadges.length > 0,
+      canManageAllProfileTaskBadges,
+      canManageProfileFunctions: isKader || manageableProfileFunctionBadges.length > 0,
+      manageableProfileTaskBadges,
+      manageableProfileFunctionBadges,
       canManageQualifications: isKader || isTrainer || isTrainerLeadership,
       canRevokeIbt: isKader || isOvJ,
       canViewTrainerSection,
