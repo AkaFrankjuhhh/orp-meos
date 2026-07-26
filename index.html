@@ -87,7 +87,7 @@
       }
     </style>
     <link rel="stylesheet" href="/shared.css?v=20260723-sidebar-spacer" />
-    <link rel="stylesheet" href="/personeelsportaal.css?v=20260723-vehicle-seizure-layout" />
+    <link rel="stylesheet" href="/personeelsportaal.css?v=20260726-system-health" />
   <script src="/portal-boot.js?v=20260628-csp-cleanup" defer></script>
   <script src="/boot-failsafe.js?v=20260627-loader-failsafe" defer></script>
   <script src="/portal-loader-failsafe.js?v=20260627-loader-failsafe" defer></script>
@@ -177,6 +177,7 @@
         <button class="nav-item" data-nav-icon="AO" data-page="afwezigheid-overzicht" data-absence-review-only="true" type="button"><span>Afwezigheid overzicht</span><span id="absenceOverviewCounter" class="nav-counter" hidden>0</span></button>
         <button class="nav-item" data-nav-icon="OO" data-page="ontslag-overzicht" data-resignation-overview-only="true" type="button"><span>Ontslag-Overzicht</span><span id="resignationOverviewCounter" class="nav-counter" hidden>0</span></button>
         <button class="nav-item" data-nav-icon="PA" data-page="archief" data-personnel-archive-only="true" type="button">Personeels-Archief</button>
+        <button class="nav-item" data-nav-icon="S" data-page="systeemstatus" data-system-health-only="true" type="button">Systeemstatus</button>
         <button class="nav-item nav-item-spaced" data-nav-icon="L" data-page="logboek" data-kader-only="true" type="button">Logboek</button>
       </nav>
     </aside>
@@ -822,6 +823,19 @@
           <div id="activityFeed" class="feed"></div>
         </section>
       </section>
+      <section id="systeemstatus" class="page">
+        <section class="panel system-health-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Systeemstatus</h2>
+              <p class="muted">Live controle van portaal, database en Discord wachtrij</p>
+            </div>
+            <button id="refreshSystemHealthBtn" class="ghost" type="button">Verversen</button>
+          </div>
+          <div id="systemHealthSummary" class="system-health-summary"></div>
+          <div id="systemHealthDetails" class="system-health-details"></div>
+        </section>
+      </section>
     </main>
 
 
@@ -1188,6 +1202,6 @@
     <script src="/personeelsportaal/absence.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/archive.js?v=20260705-resignation-archive-state"></script>
     <script src="/personeelsportaal-data.js?v=20260628-deep-route-assets"></script>
-    <script src="/app.js?v=20260726-branch-badge-management"></script>
+    <script src="/app.js?v=20260726-system-health"></script>
 </body>
 </html>

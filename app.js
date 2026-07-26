@@ -78,6 +78,7 @@ const pageRouteMap = {
   "ontslag-overzicht": "/ontslag-overzicht",
   "ops-tijden": "/ops-tijden",
   archief: "/personeels-archief",
+  systeemstatus: "/systeemstatus",
   logboek: "/logboek",
   "mijn-profiel": "/mijn-profiel"
 };
@@ -91,10 +92,14 @@ let reviewCounterLoadPromise = null;
 let liveEventSource = null;
 let liveRefreshTimer = null;
 let liveRefreshSuppressUntil = 0;
+let systemHealthCache = null;
+let systemHealthLoadedAt = 0;
+let systemHealthLoadPromise = null;
 let rankPieSegments = [];
 let mentorChecklistEditingUntil = 0;
 const REVIEW_COUNTER_FALLBACK_MS = 30000;
 const LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS = 1500;
+const SYSTEM_HEALTH_CACHE_MS = 10000;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -515,6 +520,10 @@ function canViewRecruitment() {
 
 function canViewBlacklist() {
   return Boolean(permissions.canViewBlacklist || canRecruitPeople() || canViewKaderPages());
+}
+
+function canViewSystemHealth() {
+  return Boolean(permissions.canUseDevTools || canViewKaderPages());
 }
 
 function resetPermissions() {
@@ -938,7 +947,9 @@ function showLockError() {
   const messages = {
     "no-profile": `Geen profiel gevonden in ${organizationConfig.portalTitle}.`,
     "no-role": `Geen Discord gekoppeld: je mist de ${organizationConfig.requiredRoleLabel || organizationConfig.label} rol.`,
-    "login-failed": "Aanmelden via Discord is mislukt. Controleer Client Secret, callback URL en probeer opnieuw.",
+    "login-failed": "Aanmelden via Discord is mislukt. Probeer opnieuw of controleer later de instellingen.",
+    "database-busy": "De database was tijdelijk druk. Wacht een paar seconden en probeer opnieuw.",
+    "discord-failed": "Discord reageerde niet goed tijdens het aanmelden. Probeer opnieuw.",
     "rate-limited": "Discord blokkeert tijdelijk door te veel pogingen. Wacht 5 tot 10 minuten en probeer opnieuw."
   };
   const errorElement = $("#lockError");
@@ -1064,12 +1075,13 @@ function pageTitle(page) {
     "personeel-aannemen": "Personeel Aannemen",
     blacklist: "Blacklist",
     archief: "Personeels-Archief",
+    systeemstatus: "Systeemstatus",
     logboek: "Logboek"
   }[page];
 }
 
 function validPage(page) {
-  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "beschikbaarheids-agenda", "i8-opstellen", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "logboek"]);
+  const visiblePages = new Set(["dashboard", "mijn-profiel", "medewerkers", "afwezigheid", "beschikbaarheids-agenda", "i8-opstellen", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "ovj-logboek", "personeel-aannemen", "blacklist", "personeel", "archief", "systeemstatus", "logboek"]);
   return visiblePages.has(page) ? page : "dashboard";
 }
 
@@ -1172,6 +1184,9 @@ function setPage(page) {
   if (page === "blacklist" && !canViewBlacklist()) {
     page = "dashboard";
   }
+  if (page === "systeemstatus" && !canViewSystemHealth()) {
+    page = "dashboard";
+  }
   if (page === "mentor-traject" && !canViewOwnMentorTrajectory()) {
     page = canViewMentorOverview() ? "mentor-overzicht" : "dashboard";
   }
@@ -1206,6 +1221,9 @@ function setPage(page) {
   }
   if (page === "trainer-ibt" && typeof renderTrainerIbtReviews === "function") {
     renderTrainerIbtReviews();
+  }
+  if (page === "systeemstatus") {
+    renderSystemHealth();
   }
   return page;
 }
@@ -1405,6 +1423,7 @@ function renderKaderNavigation() {
   const showTrainerLogbook = canViewTrainerLogbook();
   const showRecruitment = canViewRecruitment();
   const showBlacklist = canViewBlacklist();
+  const showSystemHealth = canViewSystemHealth();
   const showWs = showRecruitment || showBlacklist;
   const showOvJLeadership = canViewOvJLeadershipLog();
   const showMentorLeadership = canViewMentorLeadershipLog();
@@ -1462,8 +1481,11 @@ function renderKaderNavigation() {
   $$('[data-mentor-test-template-only="true"]').forEach((element) => {
     element.hidden = !canManageMentorTestTemplate();
   });
+  $$('[data-system-health-only="true"]').forEach((element) => {
+    element.hidden = !showSystemHealth;
+  });
   $$('[data-restricted-divider="true"]').forEach((element) => {
-    element.hidden = !(showKaderPages || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showOvJ || showMentorSection || showTrainerSection || showWs || showOvJLeadership || showMentorLeadership);
+    element.hidden = !(showKaderPages || showPersonnel || showAbsenceOverview || showResignationOverview || showPersonnelArchive || showSystemHealth || showOvJ || showMentorSection || showTrainerSection || showWs || showOvJLeadership || showMentorLeadership);
   });
   renderNavigationCounters();
   if (!showKaderPages && $("#logboek").classList.contains("active")) {
@@ -1506,6 +1528,9 @@ function renderKaderNavigation() {
     setPage("dashboard");
   }
   if (!showBlacklist && $("#blacklist")?.classList.contains("active")) {
+    setPage("dashboard");
+  }
+  if (!showSystemHealth && $("#systeemstatus")?.classList.contains("active")) {
     setPage("dashboard");
   }
 }
@@ -2002,6 +2027,99 @@ function renderAvailabilityAgenda() {
   `).join("");
 }
 
+function formatHealthTimestamp(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(date);
+}
+
+function systemHealthCard(label, value, stateName = "neutral") {
+  return `
+    <article class="system-health-card ${escapeHtml(stateName)}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value ?? "-"))}</strong>
+    </article>
+  `;
+}
+
+function renderSystemHealthPayload(payload) {
+  const summary = $("#systemHealthSummary");
+  const details = $("#systemHealthDetails");
+  if (!summary || !details) return;
+  const database = payload?.database || {};
+  const counts = database.counts || {};
+  const activity = database.activity || {};
+  const discordSync = payload?.discordSync || {};
+  const ok = Boolean(payload?.ok);
+  summary.innerHTML = [
+    systemHealthCard("Portaal", ok ? "OK" : "Storing", ok ? "ok" : "bad"),
+    systemHealthCard("Database", database.ok === true ? `${database.latencyMs ?? "-"} ms` : "Niet bereikbaar", database.ok === true ? "ok" : "bad"),
+    systemHealthCard("Sessies", counts.active_sessions ?? payload?.sessions ?? "-", "neutral"),
+    systemHealthCard("Discord queue", discordSync.open ?? "-", Number(discordSync.failed || 0) > 0 ? "warn" : "neutral")
+  ].join("");
+  details.innerHTML = `
+    <div class="system-health-grid">
+      ${systemHealthCard("Organisatie", payload?.organization || "-", "neutral")}
+      ${systemHealthCard("Opslag", payload?.storageMode || "-", "neutral")}
+      ${systemHealthCard("Uptime", formatMinutes(Number(payload?.uptimeSeconds || 0) / 60), "neutral")}
+      ${systemHealthCard("Laatste check", formatHealthTimestamp(payload?.timestamp), "neutral")}
+      ${systemHealthCard("Actieve leden", counts.active_people ?? "-", "neutral")}
+      ${systemHealthCard("Personeel totaal", counts.people ?? "-", "neutral")}
+      ${systemHealthCard("Actieve porto units", counts.active_porto_units ?? "-", "neutral")}
+      ${systemHealthCard("Voertuiginbeslagname", counts.vehicle_seizures ?? "-", "neutral")}
+      ${systemHealthCard("Open Discord jobs", discordSync.open ?? "-", "neutral")}
+      ${systemHealthCard("Running Discord jobs", discordSync.running ?? "-", "neutral")}
+      ${systemHealthCard("Failed Discord jobs", discordSync.failed ?? "-", Number(discordSync.failed || 0) > 0 ? "warn" : "neutral")}
+      ${systemHealthCard("DB lock waiters", activity.lock_waiters ?? "-", Number(activity.lock_waiters || 0) > 0 ? "warn" : "neutral")}
+    </div>
+    <p class="muted system-health-footnote">Event bridge: ${escapeHtml(payload?.eventBridge?.enabled ? "aan" : "uit")} · Laatste Discord job: ${escapeHtml(formatHealthTimestamp(discordSync.latest_created_at))}</p>
+  `;
+}
+
+async function loadSystemHealth({ force = false } = {}) {
+  if (!canViewSystemHealth() || activePageId() !== "systeemstatus") return;
+  const now = Date.now();
+  if (!force && systemHealthCache && now - systemHealthLoadedAt < SYSTEM_HEALTH_CACHE_MS) {
+    renderSystemHealthPayload(systemHealthCache);
+    return;
+  }
+  if (systemHealthLoadPromise) return systemHealthLoadPromise;
+  const summary = $("#systemHealthSummary");
+  const details = $("#systemHealthDetails");
+  if (summary && !systemHealthCache) summary.innerHTML = systemHealthCard("Status", "Laden...", "neutral");
+  if (details && !systemHealthCache) details.innerHTML = "";
+  systemHealthLoadPromise = fetch("/api/admin/health", { cache: "no-store" })
+    .then(async (response) => {
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok && !payload.database) throw new Error(payload.error || "Systeemstatus ophalen is mislukt.");
+      systemHealthCache = payload;
+      systemHealthLoadedAt = Date.now();
+      renderSystemHealthPayload(payload);
+    })
+    .catch((error) => {
+      if (summary) summary.innerHTML = systemHealthCard("Status", "Mislukt", "bad");
+      if (details) details.innerHTML = `<p class="form-message error">${escapeHtml(error.message || "Systeemstatus ophalen is mislukt.")}</p>`;
+    })
+    .finally(() => {
+      systemHealthLoadPromise = null;
+    });
+  return systemHealthLoadPromise;
+}
+
+function renderSystemHealth() {
+  const panel = $("#systeemstatus");
+  if (!panel || !panel.classList.contains("active")) return;
+  loadSystemHealth();
+}
+
 function toggleNotificationPanel() {
   const panel = $("#notificationPanel");
   const bell = $("#notificationBell");
@@ -2037,6 +2155,7 @@ function render() {
   renderPeople();
   renderArchive();
   renderVehicleSeizures();
+  renderSystemHealth();
   renderI8Forms();
   renderOvJLeadershipLog();
   renderOpsTimes();
@@ -2058,6 +2177,7 @@ function wireEvents() {
     if (activePageId() === "dashboard") renderDashboard();
   });
   $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+  $("#refreshSystemHealthBtn")?.addEventListener("click", () => loadSystemHealth({ force: true }));
   const rankPie = $("#rankPie");
   rankPie?.addEventListener("mousemove", moveRankPieTooltip);
   rankPie?.addEventListener("mouseleave", hideRankPieTooltip);

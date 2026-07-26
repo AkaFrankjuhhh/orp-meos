@@ -253,6 +253,21 @@ function createPostgresPeopleStore(options = {}) {
     }
   }
 
+  function activityMessagesFrom(activityMessage) {
+    return Array.isArray(activityMessage)
+      ? activityMessage.filter(Boolean)
+      : [activityMessage].filter(Boolean);
+  }
+
+  async function appendActivityMessages(client, activityMessage) {
+    for (const message of activityMessagesFrom(activityMessage)) {
+      await client.query(`
+        insert into activity_log(position, message)
+        values((select coalesce(max(position), -1) + 1 from activity_log), $1)
+      `, [String(message)]);
+    }
+  }
+
   async function deleteExplicitRows(client, table, idsToDelete) {
     const uniqueIds = uniqueNonEmptyIds(idsToDelete);
     if (!uniqueIds.length) return;
@@ -439,15 +454,24 @@ function createPostgresPeopleStore(options = {}) {
             throw new Error("Personeelslid niet gevonden voor rang-update.");
           }
         }
-        const activityMessages = Array.isArray(activityMessage)
-          ? activityMessage.filter(Boolean)
-          : [activityMessage].filter(Boolean);
-        for (const message of activityMessages) {
-          await client.query(`
-            insert into activity_log(position, message)
-            values((select coalesce(max(position), -1) + 1 from activity_log), $1)
-          `, [String(message)]);
-        }
+        await appendActivityMessages(client, activityMessage);
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return changedPeople;
+  }
+
+  async function writePersonSnapshots(people, activityMessage) {
+    const changedPeople = (Array.isArray(people) ? people : [people]).filter((person) => person?.id);
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        await writePeople(client, changedPeople);
+        await appendActivityMessages(client, activityMessage);
         await client.query("commit");
       } catch (error) {
         await client.query("rollback");
@@ -485,15 +509,7 @@ function createPostgresPeopleStore(options = {}) {
         if (result.rowCount !== 1) {
           throw new Error("Personeelslid niet gevonden voor Discord profiel-sync.");
         }
-        const activityMessages = Array.isArray(activityMessage)
-          ? activityMessage.filter(Boolean)
-          : [activityMessage].filter(Boolean);
-        for (const message of activityMessages) {
-          await client.query(`
-            insert into activity_log(position, message)
-            values((select coalesce(max(position), -1) + 1 from activity_log), $1)
-          `, [String(message)]);
-        }
+        await appendActivityMessages(client, activityMessage);
         await client.query("commit");
       } catch (error) {
         await client.query("rollback");
@@ -502,6 +518,23 @@ function createPostgresPeopleStore(options = {}) {
     });
     if (afterWrite) afterWrite();
     return person;
+  }
+
+  async function writeBlacklistEntries(entries, activityMessage) {
+    const blacklist = (Array.isArray(entries) ? entries : [entries]).filter((entry) => entry?.id);
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        await writeBlacklist(client, blacklist);
+        await appendActivityMessages(client, activityMessage);
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return blacklist;
   }
 
 
@@ -583,7 +616,7 @@ function createPostgresPeopleStore(options = {}) {
     if (afterWrite) afterWrite();
     return entries;
   }
-  return { readState, writeState, writePersonQualifications, writePersonProfileBadges, writePersonRankChanges, writePersonDiscordProfileSync, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
+  return { readState, writeState, writePersonQualifications, writePersonProfileBadges, writePersonRankChanges, writePersonSnapshots, writePersonDiscordProfileSync, writeBlacklistEntries, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
 }
 
 module.exports = { createPostgresPeopleStore };

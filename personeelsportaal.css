@@ -4335,6 +4335,80 @@ body[data-device="mobile"] .i8-archive-row .i8-review-meta {
 .nav-counter[hidden] {
   display: none !important;
 }
+
+.system-health-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.system-health-summary,
+.system-health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.system-health-card {
+  min-height: 78px;
+  border: 1px solid rgba(134, 167, 214, 0.22);
+  border-radius: 8px;
+  background: rgba(7, 18, 34, 0.42);
+  padding: 16px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.system-health-card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.system-health-card strong {
+  color: var(--text);
+  font-size: clamp(1.25rem, 2vw, 1.9rem);
+  line-height: 1;
+}
+
+.system-health-card.ok {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(22, 101, 52, 0.16);
+}
+
+.system-health-card.warn {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(120, 53, 15, 0.18);
+}
+
+.system-health-card.bad {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.system-health-details {
+  display: grid;
+  gap: 12px;
+}
+
+.system-health-footnote {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .system-health-summary,
+  .system-health-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .system-health-summary,
+  .system-health-grid {
+    grid-template-columns: 1fr;
+  }
+}
 /* Sticky search toolbars stay fixed with the same dark page background. */
 #personeel .sticky-toolbar,
 #medewerkers .sticky-toolbar,

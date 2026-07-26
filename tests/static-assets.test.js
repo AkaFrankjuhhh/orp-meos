@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260726-branch-badge-management/);
+  assert.match(html, /app\.js\?v=20260726-system-health/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -233,7 +233,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizure-layout/);
+  assert.match(html, /personeelsportaal\.css\?v=20260726-system-health/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260726-branch-badge-management/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
@@ -338,7 +338,7 @@ test("portal chrome keeps topbar controls inside narrow desktop viewports", () =
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260723-vehicle-seizure-layout/);
+  assert.match(html, /personeelsportaal\.css\?v=20260726-system-health/);
   assert.match(styles, /Portal chrome stability for browser zoom/);
   assert.match(styles, /body:not\(\.locked\) \{[\s\S]*overflow-x: clip;/);
   assert.match(styles, /\.topbar \{[\s\S]*flex-wrap: wrap;/);
@@ -354,21 +354,42 @@ test("people mutations persist rank changes before queueing Discord sync", () =>
 
   assert.match(routesCode, /async function persistPeopleStateMutation\(state\)/);
   assert.match(routesCode, /async function persistRankMutation\(state, changedPeople, activityMessages\)/);
+  assert.match(routesCode, /async function persistPersonSnapshotMutation\(state, changedPeople, activityMessages\)/);
   assert.match(routesCode, /function rankMutationChangedPeople\(state, previousSignatures\)/);
+  assert.match(routesCode, /function personMutationChangedPeople\(state, previousSignatures\)/);
   assert.match(peopleStoreCode, /async function writePersonRankChanges\(people, activityMessage\)/);
-  const rankStoreBlock = peopleStoreCode.slice(peopleStoreCode.indexOf("async function writePersonRankChanges"), peopleStoreCode.indexOf("async function writePersonNotifications"));
+  assert.match(peopleStoreCode, /async function writePersonSnapshots\(people, activityMessage\)/);
+  assert.match(peopleStoreCode, /async function writeBlacklistEntries\(entries, activityMessage\)/);
+  const rankStoreBlock = peopleStoreCode.slice(peopleStoreCode.indexOf("async function writePersonRankChanges"), peopleStoreCode.indexOf("async function writePersonSnapshots"));
   assert.match(rankStoreBlock, /update people[\s\S]*rank = \$2,[\s\S]*service_number = \$3,[\s\S]*rank_history = \$7::jsonb/);
   assert.doesNotMatch(rankStoreBlock, /lockPeopleWrite/);
 
-  const recruitmentBlock = routesCode.slice(routesCode.indexOf('queuePersonDiscordSync(state, result.person, "recruitment_hire"') - 240, routesCode.indexOf('queuePersonDiscordSync(state, result.person, "recruitment_hire"') + 120);
-  assert.match(recruitmentBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queuePersonDiscordSync\(state, result\.person, "recruitment_hire"\)/);
+  const recruitmentBlock = routesCode.slice(routesCode.indexOf('queueChangedDiscordProfilesAfterResponse(state, previousNicknames, previousRankRoles, "recruitment_hire"') - 260, routesCode.indexOf('queueChangedDiscordProfilesAfterResponse(state, previousNicknames, previousRankRoles, "recruitment_hire"') + 220);
+  assert.match(recruitmentBlock, /await persistPersonSnapshotMutation\(state, changedPeople, state\.activity\.slice\(activityStartIndex\)\);[\s\S]*sendPeopleStateResponse\(res, auth, state\);[\s\S]*queueChangedDiscordProfilesAfterResponse/);
+  assert.doesNotMatch(recruitmentBlock, /await queuePersonDiscordSync\(state, result\.person, "recruitment_hire"\)/);
 
-  const personSaveBlock = routesCode.slice(routesCode.indexOf('queuePersonDiscordSync(state, result.person, existingBeforeSave ? "person_updated" : "person_created"') - 240, routesCode.indexOf('queuePersonDiscordSync(state, result.person, existingBeforeSave ? "person_updated" : "person_created"') + 160);
-  assert.match(personSaveBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queuePersonDiscordSync\(state, result\.person, existingBeforeSave \? "person_updated" : "person_created"\)/);
+  const personSaveBlock = routesCode.slice(routesCode.indexOf('const reason = existingBeforeSave ? "person_updated" : "person_created";') - 260, routesCode.indexOf('const reason = existingBeforeSave ? "person_updated" : "person_created";') + 260);
+  assert.match(personSaveBlock, /await persistPersonSnapshotMutation\(state, changedPeople, state\.activity\.slice\(activityStartIndex\)\);[\s\S]*sendPeopleStateResponse\(res, auth, state\);[\s\S]*queueChangedDiscordProfilesAfterResponse/);
+  assert.doesNotMatch(personSaveBlock, /await queuePersonDiscordSync\(state, result\.person/);
 
-  const rankActionBlock = routesCode.slice(routesCode.indexOf('if (["promote", "demote"].includes(action))'), routesCode.indexOf('} else if (action !== "io"'));
+  const rankActionBlock = routesCode.slice(routesCode.indexOf('if (["promote", "demote"].includes(action))'), routesCode.indexOf('if (["dismiss", "restore", "clear-history", "io"].includes(action))'));
   assert.match(rankActionBlock, /const changedRankPeople = rankMutationChangedPeople\(state, previousRankSignatures\);[\s\S]*await persistRankMutation\(state, changedRankPeople, rankActivityMessages\);[\s\S]*sendPeopleStateResponse\(res, auth, state\);[\s\S]*queueChangedDiscordProfilesAfterResponse\(state, previousNicknames, previousRankRoles, `person_\$\{action\}`\)/);
   assert.match(rankActionBlock, /queuePersonDiscordSyncAfterResponse\(person, `person_\$\{action\}`\)/);
+});
+
+test("portal exposes a protected system health page", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+
+  assert.match(html, /data-page="systeemstatus"/);
+  assert.match(html, /id="systemHealthSummary"/);
+  assert.match(appCode, /function canViewSystemHealth\(/);
+  assert.match(appCode, /fetch\("\/api\/admin\/health"/);
+  assert.match(styles, /\.system-health-card/);
+  assert.match(serverCode, /url\.pathname === "\/api\/admin\/health"/);
+  assert.match(serverCode, /healthPayload\(\{ includeDetails: true \}\)/);
 });
 
 test("portal login sync uses targeted profile writes", () => {
@@ -696,7 +717,7 @@ test("Discord worker writes sync status back to portal profiles", () => {
   assert.match(workerCode, /updatePortalDiscordSyncStatus/);
   assert.match(workerCode, /jsonb_build_object\('discordSyncStatus'/);
   assert.match(workerCode, /updatePortalDiscordSyncStatus\(statusPerson, stateName/);
-  assert.match(routesCode, /reason === "qualification_updated"/);
+  assert.match(routesCode, /"qualification_updated"/);
   assert.match(routesCode, /Wacht op Discord rollen of eerstvolgende worker-run/);
   assert.match(workerCode, /nestedSyncFailureFromResult/);
   assert.match(workerCode, /\$\{label\} overgeslagen/);

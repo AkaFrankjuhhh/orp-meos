@@ -173,6 +173,7 @@ test("restored personnel queues Discord profile sync with role propagation retri
   assert.equal(restoredPerson.status, "Actief");
   assert.equal(restoredPerson.rank, "Marechaussee 2de Klasser");
   assert.equal(restoredPerson.serviceNumber, "74-24");
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(harness.discordSyncJobs.length, 1);
   assert.equal(harness.discordSyncJobs[0].reason, "person_restore");
   assert.equal(harness.discordSyncJobs[0].options.maxAttempts, 288);

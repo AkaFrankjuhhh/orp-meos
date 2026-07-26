@@ -246,6 +246,29 @@ function logAuthDebug(message, details = {}) {
   fs.appendFile(path.join(root, "auth.debug.log"), line, { encoding: "utf8" }, () => {});
 }
 
+function isDatabaseBusyError(error) {
+  const code = String(error?.code || "");
+  const message = String(error?.message || error || "");
+  return ["40P01", "55P03", "57014"].includes(code)
+    || /lock timeout|canceling statement|deadlock|statement timeout|database.*busy/i.test(message);
+}
+
+function authErrorCodeFromError(error) {
+  if (error?.status === 429 || /rate limit/i.test(error?.message || "")) return "rate-limited";
+  if (isDatabaseBusyError(error)) return "database-busy";
+  if (error?.status >= 500 || /discord|fetch|network|timeout/i.test(error?.message || "")) return "discord-failed";
+  return "login-failed";
+}
+
+function authErrorMessageForCode(code) {
+  return {
+    "rate-limited": "Discord rate limit actief. Wacht even en probeer opnieuw.",
+    "database-busy": "De database was tijdelijk druk. Wacht een paar seconden en probeer opnieuw.",
+    "discord-failed": "Discord reageerde niet goed tijdens het aanmelden. Probeer opnieuw.",
+    "login-failed": "Aanmelden via Discord is mislukt. Probeer opnieuw."
+  }[code] || "Aanmelden via Discord is mislukt. Probeer opnieuw.";
+}
+
 function publishScopedEvent(scope, extra = {}) {
   eventBus.publish(`${scope}:update`, { scope, ...extra });
   eventBus.publish("state:update", { scope, ...extra });
@@ -504,7 +527,7 @@ async function readPublicFormSubmitBody(req) {
   return { ...(await readBody(req)), files: [] };
 }
 
-async function healthPayload() {
+async function healthPayload({ includeDetails = false } = {}) {
   const payload = {
     ok: true,
     service: "portal",
@@ -524,13 +547,47 @@ async function healthPayload() {
 
   if (storageMode === "postgres") {
     try {
-      await withClient((client) => client.query("select 1"));
-      payload.database.ok = true;
+      await withClient(async (client) => {
+        const startMs = Date.now();
+        await client.query("select 1");
+        payload.database.ok = true;
+        payload.database.latencyMs = Date.now() - startMs;
+        if (!includeDetails) return;
+
+        const counts = await client.query(`
+          select
+            (select count(*)::int from people) as people,
+            (select count(*)::int from people where status = 'Actief') as active_people,
+            (select count(*)::int from app_sessions where expires_at > now()) as active_sessions,
+            (select count(*)::int from activity_log) as activity_messages,
+            (select count(*)::int from porto_units where active is true) as active_porto_units,
+            (select count(*)::int from vehicle_seizures) as vehicle_seizures
+        `);
+        const discordJobs = await client.query(`
+          select
+            count(*) filter (where status in ('pending', 'running'))::int as open,
+            count(*) filter (where status = 'running')::int as running,
+            count(*) filter (where status = 'failed')::int as failed,
+            max(created_at) as latest_created_at
+          from discord_sync_jobs
+        `);
+        const activity = await client.query(`
+          select
+            count(*) filter (where wait_event_type = 'Lock')::int as lock_waiters,
+            count(*) filter (where state = 'active')::int as active_queries
+          from pg_stat_activity
+          where datname = current_database()
+        `);
+        payload.database.counts = counts.rows[0] || {};
+        payload.discordSync = discordJobs.rows[0] || {};
+        payload.database.activity = activity.rows[0] || {};
+      });
     } catch (error) {
       payload.ok = false;
       payload.status = "degraded";
       payload.database.ok = false;
       payload.database.error = "PostgreSQL niet bereikbaar";
+      if (includeDetails) payload.database.detail = error.message || String(error);
     }
   }
 
@@ -1269,6 +1326,19 @@ async function handleApi(req, res, url) {
     sendJson(res, payload.ok ? 200 : 503, payload);
     return;
   }
+  if (url.pathname === "/api/admin/health" && req.method === "GET") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const state = await Promise.resolve(peopleStorage.readState());
+    const authPermissions = permissionsForAuth(auth, state);
+    if (!authPermissions.canViewKaderPages && !authPermissions.canUseDevTools) {
+      sendJson(res, 403, { error: "Geen toegang tot systeemstatus." });
+      return;
+    }
+    const payload = await healthPayload({ includeDetails: true });
+    sendJson(res, payload.ok ? 200 : 503, payload);
+    return;
+  }
 
   if (url.pathname === "/api/client-error" && req.method === "POST") {
     try {
@@ -1363,12 +1433,17 @@ async function handleApi(req, res, url) {
           await persistDiscordProfileSync(state, profile, activityStartIndex);
         }
       } catch (error) {
-        if (error.status === 429 || /rate limit/i.test(error.message || "")) {
-          sendJson(res, 429, { authenticated: false, loginUrl: "/api/auth/login", error: "Discord rate limit actief. Wacht even en probeer opnieuw." });
+        const errorCode = authErrorCodeFromError(error);
+        if (errorCode === "rate-limited") {
+          sendJson(res, 429, { authenticated: false, loginUrl: "/api/auth/login", error: authErrorMessageForCode(errorCode) });
+          return;
+        }
+        if (errorCode === "database-busy") {
+          sendJson(res, 503, { authenticated: false, loginUrl: "/api/auth/login", error: authErrorMessageForCode(errorCode) });
           return;
         }
         clearSession(req, res);
-        sendJson(res, 401, { authenticated: false, loginUrl: "/api/auth/login" });
+        sendJson(res, 401, { authenticated: false, loginUrl: "/api/auth/login", error: authErrorMessageForCode(errorCode) });
         return;
       }
     }
@@ -1478,7 +1553,7 @@ async function handleApi(req, res, url) {
       res.end();
     } catch (error) {
       logServerError("Discord login failed", error);
-      redirectWithAuthError(req, res, (error.status === 429 || /rate limit/i.test(error.message || "")) ? "rate-limited" : "login-failed");
+      redirectWithAuthError(req, res, authErrorCodeFromError(error));
     }
     return;
   }
@@ -1495,7 +1570,7 @@ function serveStatic(req, res, url) {
     return;
   }
   const publicFormConfig = publicFormForRequest(req, url);
-  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek"]);
+  const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek", "systeemstatus"]);
   const publicFormAssets = new Set(["/public-forms.css", "/public-forms.js", "/client-guard.js"]);
   const requested = publicFormConfig ? (publicFormAssets.has(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
   if (requested === "/personeelsportaal-data.js") {

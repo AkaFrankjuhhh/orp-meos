@@ -335,10 +335,71 @@ function createPersoneelsportaalRouteHandler(deps) {
     return (state.people || []).filter((person) => previousSignatures.get(person.id) !== rankMutationSignature(person));
   }
 
+  function personMutationSignature(person) {
+    if (!person?.id) return "";
+    return JSON.stringify({
+      id: person.id || "",
+      name: person.name || "",
+      discordId: person.discordId || "",
+      discordUsername: person.discordUsername || "",
+      avatar: person.avatar || "",
+      rank: person.rank || "",
+      serviceNumber: person.serviceNumber || "",
+      permRole: person.permRole || "Geen",
+      rankDate: person.rankDate || "",
+      promotionDate: person.promotionDate || "",
+      hiredDate: person.hiredDate || "",
+      status: person.status || "Actief",
+      tasks: person.tasks || "",
+      previousServiceNumber: person.previousServiceNumber || "",
+      previousRank: person.previousRank || "",
+      dismissalDate: person.dismissalDate || "",
+      dismissalReason: person.dismissalReason || "",
+      archivedUntil: person.archivedUntil || "",
+      reactivatedDate: person.reactivatedDate || "",
+      portoPhone: person.portoPhone || "",
+      discordRoles: Array.isArray(person.discordRoles) ? person.discordRoles : [],
+      completedTrainings: Array.isArray(person.completedTrainings) ? person.completedTrainings : [],
+      completedOperational: Array.isArray(person.completedOperational) ? person.completedOperational : [],
+      badges: Array.isArray(person.badges) ? person.badges : [],
+      extraFunctions: Array.isArray(person.extraFunctions) ? person.extraFunctions : [],
+      rankHistory: Array.isArray(person.rankHistory) ? person.rankHistory : [],
+      discipline: Array.isArray(person.discipline) ? person.discipline : [],
+      mentorChecklist: person.mentorChecklist || {},
+      absenceStatusSource: person.absenceStatusSource || "",
+      ioStatus: person.ioStatus || {}
+    });
+  }
+
+  function personMutationSignatures(state) {
+    return new Map((state.people || []).map((person) => [person.id, personMutationSignature(person)]));
+  }
+
+  function personMutationChangedPeople(state, previousSignatures) {
+    return (state.people || []).filter((person) => previousSignatures.get(person.id) !== personMutationSignature(person));
+  }
+
   async function persistRankMutation(state, changedPeople, activityMessages) {
     normalizeAbsenceDrivenPeopleStatuses(state, currentDateOnly());
-    if (typeof peopleStorage.writePersonRankChanges === "function" && changedPeople.length) {
+    if (typeof peopleStorage.writePersonRankChanges === "function" && (changedPeople.length || activityMessages?.length)) {
       await Promise.resolve(peopleStorage.writePersonRankChanges(changedPeople, activityMessages));
+      return;
+    }
+    await Promise.resolve(peopleStorage.writeState(state));
+  }
+
+  async function persistPersonSnapshotMutation(state, changedPeople, activityMessages) {
+    normalizeAbsenceDrivenPeopleStatuses(state, currentDateOnly());
+    if (typeof peopleStorage.writePersonSnapshots === "function" && (changedPeople.length || activityMessages?.length)) {
+      await Promise.resolve(peopleStorage.writePersonSnapshots(changedPeople, activityMessages));
+      return;
+    }
+    await Promise.resolve(peopleStorage.writeState(state));
+  }
+
+  async function persistBlacklistMutation(state, entries, activityMessages) {
+    if (typeof peopleStorage.writeBlacklistEntries === "function") {
+      await Promise.resolve(peopleStorage.writeBlacklistEntries(entries, activityMessages));
       return;
     }
     await Promise.resolve(peopleStorage.writeState(state));
@@ -708,27 +769,31 @@ function createPersoneelsportaalRouteHandler(deps) {
       return;
     }
     try {
-      const isNewHire = ["recruitment_hire", "person_created"].includes(reason);
-      const waitsForDiscordRoles = isNewHire || reason === "qualification_updated" || ["person_restore", "person_reactivate"].includes(reason);
-      const roleWaitMaxAttempts = Number(process.env.DISCORD_REQUIRED_ROLE_MAX_ATTEMPTS || 288);
-      await enqueuePersonDiscordSync(person, reason, {
-        // New recruits, restored profiles and qualification updates can race Discord role propagation.
-        maxAttempts: waitsForDiscordRoles && Number.isFinite(roleWaitMaxAttempts) ? Math.max(1, Math.floor(roleWaitMaxAttempts)) : undefined
-      });
+      const syncOptions = discordSyncOptionsForReason(reason);
+      await enqueuePersonDiscordSync(person, reason, syncOptions);
       setDiscordSyncStatus(
         person,
         "retry_planned",
-        waitsForDiscordRoles ? "Wacht op Discord rollen of eerstvolgende worker-run." : "Sync staat in wachtrij.",
+        syncOptions.maxAttempts ? "Wacht op Discord rollen of eerstvolgende worker-run." : "Sync staat in wachtrij.",
         reason
       );
       state.activity = state.activity || [];
-      state.activity.push(`Discord profielsync ingepland voor ${person.name}${waitsForDiscordRoles ? "; wacht indien nodig op Discord rollen" : ""}.`);
+      state.activity.push(`Discord profielsync ingepland voor ${person.name}${syncOptions.maxAttempts ? "; wacht indien nodig op Discord rollen" : ""}.`);
     } catch (error) {
       const syncStatus = syncStatusFromError(error);
       setDiscordSyncStatus(person, syncStatus.state, syncStatus.message, reason);
       state.activity = state.activity || [];
       state.activity.push(`Discord profielsync inplannen mislukt voor ${person.name}: ${error.message || "onbekende fout"}.`);
     }
+  }
+
+  function discordSyncOptionsForReason(reason) {
+    const waitsForDiscordRoles = ["recruitment_hire", "person_created", "qualification_updated", "person_restore", "person_reactivate"].includes(reason);
+    const roleWaitMaxAttempts = Number(process.env.DISCORD_REQUIRED_ROLE_MAX_ATTEMPTS || 288);
+    return {
+      // Nieuwe medewerkers, herintreders en kwalificaties kunnen Discord role propagation net missen.
+      maxAttempts: waitsForDiscordRoles && Number.isFinite(roleWaitMaxAttempts) ? Math.max(1, Math.floor(roleWaitMaxAttempts)) : undefined
+    };
   }
 
   function queuePersonDiscordSyncAfterResponse(person, reason) {
@@ -741,7 +806,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       extraFunctions: Array.isArray(person.extraFunctions) ? [...person.extraFunctions] : []
     };
     const run = () => {
-      enqueuePersonDiscordSync(personSnapshot, reason)
+      enqueuePersonDiscordSync(personSnapshot, reason, discordSyncOptionsForReason(reason))
         .catch((error) => console.error(`[personeelsportaal] Discord profielsync na response mislukt voor ${personSnapshot.name || personSnapshot.id || "onbekend"}: ${error.message || error}`));
     };
     if (typeof setImmediate === "function") setImmediate(run);
@@ -1293,10 +1358,12 @@ function createPersoneelsportaalRouteHandler(deps) {
         createdAt: new Date().toISOString()
       });
       state.activity = state.activity || [];
+      const activityStartIndex = state.activity.length;
       state.activity.push(`${actor?.name || auth.profile.name} heeft voertuig ${seizure.plate || seizure.vehicle} in beslag genomen.`);
       await sendVehicleSeizureWebhook(state, seizure, actor, "created");
       await refreshVehicleSeizuresOnState(state);
-      await sendPeopleStateAfterMutation(res, auth, state);
+      await persistPersonSnapshotMutation(state, [], state.activity.slice(activityStartIndex));
+      sendPeopleStateResponse(res, auth, state);
       return;
     }
 
@@ -1344,10 +1411,12 @@ function createPersoneelsportaalRouteHandler(deps) {
         return;
       }
       state.activity = state.activity || [];
+      const activityStartIndex = state.activity.length;
       state.activity.push(`${actor?.name || auth.profile.name} heeft voertuig ${released.plate || released.vehicle} vrijgegeven.`);
       await sendVehicleSeizureWebhook(state, released, actor, "released");
       await refreshVehicleSeizuresOnState(state);
-      await sendPeopleStateAfterMutation(res, auth, state);
+      await persistPersonSnapshotMutation(state, [], state.activity.slice(activityStartIndex));
+      sendPeopleStateResponse(res, auth, state);
       return;
     }
 
@@ -1459,7 +1528,6 @@ function createPersoneelsportaalRouteHandler(deps) {
     state.activity = state.activity || [];
     state.activity.push(`${processedBy.name} heeft het ontslagformulier van ${person.name} verwerkt. Dienstnummer ${releasedNumber || "-"} is vrijgegeven.`);
     autoSortServiceNumbers(state);
-    await persistPeopleStateMutation(state);
     try {
       const webhookResult = await sendDiscordWebhook(
         personnelWebhookUrl("dismissal"),
@@ -2017,10 +2085,12 @@ function createPersoneelsportaalRouteHandler(deps) {
     };
     state.blacklist = Array.isArray(state.blacklist) ? state.blacklist : [];
     state.activity = state.activity || [];
+    const activityStartIndex = state.activity.length;
     state.blacklist.push(entry);
     state.activity.push(`${entry.name} is op de blacklist gezet door ${entry.blacklistedByName}.`);
     await sendBlacklistWebhook(state, entry, actor);
-    await sendPeopleStateAfterMutation(res, auth, state);
+    await persistBlacklistMutation(state, entry, state.activity.slice(activityStartIndex));
+    sendPeopleStateResponse(res, auth, state);
     return;
   }
 
@@ -2050,9 +2120,11 @@ function createPersoneelsportaalRouteHandler(deps) {
     entry.revokedByName = actor?.name || auth.profile.name || "Kader";
     entry.revokeReason = String(body.reason || "Blacklist ingetrokken.").trim();
     state.activity = state.activity || [];
+    const activityStartIndex = state.activity.length;
     state.activity.push(`Blacklist voor ${entry.name} is ingetrokken door ${entry.revokedByName}.`);
     await sendBlacklistWebhook(state, entry, actor);
-    await sendPeopleStateAfterMutation(res, auth, state);
+    await persistBlacklistMutation(state, entry, state.activity.slice(activityStartIndex));
+    sendPeopleStateResponse(res, auth, state);
     return;
   }
 
@@ -2093,7 +2165,9 @@ function createPersoneelsportaalRouteHandler(deps) {
 
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
-
+    const previousPersonSignatures = personMutationSignatures(state);
+    state.activity = state.activity || [];
+    const activityStartIndex = state.activity.length;
 
     const result = savePerson(state, {
       name,
@@ -2126,12 +2200,11 @@ function createPersoneelsportaalRouteHandler(deps) {
     } catch (error) {
       state.activity.push(`Aanname webhook kon niet verzonden worden voor ${result.person.name}.`);
     }
-    await persistPeopleStateMutation(state);
-    await syncChangedDiscordNicknames(state, previousNicknames);
-    await syncChangedDiscordRankRoles(state, previousRankRoles);
-    await queuePersonDiscordSync(state, result.person, "recruitment_hire");
-
-    await sendPeopleStateAfterMutation(res, auth, state);
+    const changedPeople = personMutationChangedPeople(state, previousPersonSignatures);
+    await persistPersonSnapshotMutation(state, changedPeople, state.activity.slice(activityStartIndex));
+    sendPeopleStateResponse(res, auth, state);
+    const queuedIds = queueChangedDiscordProfilesAfterResponse(state, previousNicknames, previousRankRoles, "recruitment_hire");
+    if (!queuedIds.has(result.person.id)) queuePersonDiscordSyncAfterResponse(result.person, "recruitment_hire");
 
     return;
   }
@@ -2158,6 +2231,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
+    const previousPersonSignatures = personMutationSignatures(state);
+    state.activity = state.activity || [];
+    const activityStartIndex = state.activity.length;
     const result = savePerson(state, personPayload);
     if (result.error) {
       sendJson(res, 400, { error: result.error });
@@ -2181,11 +2257,12 @@ function createPersoneelsportaalRouteHandler(deps) {
         state.activity.push(`Aanname webhook kon niet verzonden worden voor ${result.person.name}.`);
       }
     }
-    await persistPeopleStateMutation(state);
-    await syncChangedDiscordNicknames(state, previousNicknames);
-    await syncChangedDiscordRankRoles(state, previousRankRoles);
-    await queuePersonDiscordSync(state, result.person, existingBeforeSave ? "person_updated" : "person_created");
-    await sendPeopleStateAfterMutation(res, auth, state);
+    const changedPeople = personMutationChangedPeople(state, previousPersonSignatures);
+    await persistPersonSnapshotMutation(state, changedPeople, state.activity.slice(activityStartIndex));
+    sendPeopleStateResponse(res, auth, state);
+    const reason = existingBeforeSave ? "person_updated" : "person_created";
+    const queuedIds = queueChangedDiscordProfilesAfterResponse(state, previousNicknames, previousRankRoles, reason);
+    if (!queuedIds.has(result.person.id)) queuePersonDiscordSyncAfterResponse(result.person, reason);
     return;
   }
 
@@ -2206,17 +2283,20 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
+    const previousPersonSignatures = personMutationSignatures(state);
+    state.activity = state.activity || [];
+    const activityStartIndex = state.activity.length;
     const result = savePerson(state, { ...(body.person || {}), id: decodeURIComponent(updatePersonMatch[1]) });
     if (result.error) {
       sendJson(res, 400, { error: result.error });
       return;
     }
     applyManualAbsenceStatusSource(result.person, result.person.status);
-    await persistPeopleStateMutation(state);
-    await syncChangedDiscordNicknames(state, previousNicknames);
-    await syncChangedDiscordRankRoles(state, previousRankRoles);
-    await queuePersonDiscordSync(state, result.person, "person_updated");
-    await sendPeopleStateAfterMutation(res, auth, state);
+    const changedPeople = personMutationChangedPeople(state, previousPersonSignatures);
+    await persistPersonSnapshotMutation(state, changedPeople, state.activity.slice(activityStartIndex));
+    sendPeopleStateResponse(res, auth, state);
+    const queuedIds = queueChangedDiscordProfilesAfterResponse(state, previousNicknames, previousRankRoles, "person_updated");
+    if (!queuedIds.has(result.person.id)) queuePersonDiscordSyncAfterResponse(result.person, "person_updated");
     return;
   }
 
@@ -3260,6 +3340,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
     const previousRankSignatures = rankMutationSignatures(state);
+    const previousPersonSignatures = personMutationSignatures(state);
     const activityStartIndex = Array.isArray(state.activity) ? state.activity.length : 0;
     if (action === "promote") {
       const blockReason = promotionBlockReason(person, state, actor, permissions);
@@ -3319,7 +3400,6 @@ function createPersoneelsportaalRouteHandler(deps) {
           : `${person.name} is op ontslag gezet. Dienstnummer ${releasedNumber || "-"} is vrijgegeven.`
       );
       autoSortServiceNumbers(state);
-      await persistPeopleStateMutation(state);
       try {
         const webhookResult = await sendDiscordWebhook(
           personnelWebhookUrl("dismissal"),
@@ -3468,21 +3548,22 @@ function createPersoneelsportaalRouteHandler(deps) {
         queuePersonDiscordSyncAfterResponse(person, `person_${action}`);
       }
       return;
-    } else if (action !== "io" && !(action === "dismiss" && hasOvcFunctionBadge(person))) {
-      await syncChangedDiscordNicknames(state, previousNicknames);
-      await syncChangedDiscordRankRoles(state, previousRankRoles);
     }
-    const shouldQueueDismissSync = action === "dismiss" && !hasOvcFunctionBadge(person);
-    const shouldQueueRestoreSync = isCurrentPerson(person) && ["restore", "reactivate"].includes(action);
-    if (shouldQueueDismissSync || shouldQueueRestoreSync) {
-      await persistPeopleStateMutation(state);
+
+    if (["dismiss", "restore", "clear-history", "io"].includes(action)) {
+      const changedPeople = personMutationChangedPeople(state, previousPersonSignatures);
+      const activityMessages = (Array.isArray(state.activity) ? state.activity : []).slice(activityStartIndex);
+      await persistPersonSnapshotMutation(state, changedPeople, activityMessages);
+      sendPeopleStateResponse(res, auth, state);
+      if (action === "dismiss" && !hasOvcFunctionBadge(person)) {
+        queuePersonDiscordSyncAfterResponse(person, "person_dismiss");
+      }
+      if (action === "restore" && isCurrentPerson(person)) {
+        queuePersonDiscordSyncAfterResponse(person, "person_restore");
+      }
+      return;
     }
-    if (shouldQueueDismissSync) {
-      await queuePersonDiscordSync(state, person, "person_dismiss");
-    }
-    if (shouldQueueRestoreSync) {
-      await queuePersonDiscordSync(state, person, `person_${action}`);
-    }
+
     await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
