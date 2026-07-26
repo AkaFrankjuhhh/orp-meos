@@ -716,6 +716,7 @@ test("Discord sync manages portal function and badge roles", () => {
   const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
   const roleConfigCode = fs.readFileSync(path.join(process.cwd(), "scripts", "check-discord-role-config.js"), "utf8");
   const scriptCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-sync-person.js"), "utf8");
+  const profileBadgeRoute = routesCode.slice(routesCode.indexOf("const profileBadgesMatch"), routesCode.indexOf("const disciplineMatch"));
 
   assert.match(envExample, /DISCORD_MENTOR_LEIDING_ROLE_ID=/);
   assert.match(envExample, /DISCORD_POLITIE_DSI_ROLE_ID=/);
@@ -734,7 +735,12 @@ test("Discord sync manages portal function and badge roles", () => {
   assert.match(workerCode, /trainingNeededRoles/);
   assert.match(workerCode, /badgeRoles/);
   assert.match(routesCode, /syncTrainingRequirementRolesForPerson/);
-  assert.match(routesCode, /queuePersonDiscordSync\(state, person, "badge_updated"\)/);
+  assert.match(routesCode, /function queuePersonDiscordSyncAfterResponse\(person, reason\)/);
+  assert.match(routesCode, /if \(shouldQueueBadgeDiscordSync\) queuePersonDiscordSyncAfterResponse\(person, "badge_updated"\)/);
+  assert.ok(
+    profileBadgeRoute.indexOf("sendJson(res, 200") < profileBadgeRoute.indexOf('queuePersonDiscordSyncAfterResponse(person, "badge_updated")'),
+    "profile badge route should answer before queueing Discord sync"
+  );
   assert.match(routesCode, /peopleStorage\.writePersonProfileBadges\(person, badgeActivityMessages\)/);
   assert.match(peopleStoreCode, /async function writePersonProfileBadges\(person, activityMessage\)/);
   assert.match(peopleStoreCode, /badges = \$2::jsonb/);

@@ -95,7 +95,7 @@ const publicFormConfigs = {
     hostnames: formHosts("herintrede"),
     title: "ORP - Herintredingsformulier Defensie",
     subtitle: "Ben jij in het verleden Defensie geweest? Dan kan je via deze weg aangeven dat je terug wil komen. We streven ernaar om binnen een week te reageren.",
-    notice: "Houd er rekening mee dat jij niet terug komt op je oude rang. Ook dien je minimaal de rang Wachtmeester te zijn geweest en moet dit formulier binnen 6 maanden na ontslag ingediend zijn.",
+    notice: "Houd er rekening mee dat jij niet terug komt op je oude rang. Ook dien je minimaal de rang Wachtmeester te zijn geweest en moet dit formulier binnen 3 maanden na ontslag ingediend zijn.",
     accent: "#f59e0b",
     webhookEnv: "DISCORD_FORM_HERINTREDE_WEBHOOK_URL",
     questions: [
@@ -459,7 +459,7 @@ function applyOrganizationTextToForm(config) {
     config.subtitle = "Ben jij momenteel Defensie? Dan kan je via deze weg aangeven dat je wil overstappen. Let op dat je maximaal kan intreden op Agent.";
   }
   if (organization.key === "politie" && config.slug === "herintrede") {
-    config.notice = "Houd er rekening mee dat jij niet terug komt op je oude rang. Ook dien je minimaal de rang Agent te zijn geweest en moet dit formulier binnen 6 maanden na ontslag ingediend zijn.";
+    config.notice = "Houd er rekening mee dat jij niet terug komt op je oude rang. Ook dien je minimaal de rang Agent te zijn geweest en moet dit formulier binnen 3 maanden na ontslag ingediend zijn.";
     const previousRankQuestion = (config.questions || []).find((question) => question.id === "previousRank");
     if (previousRankQuestion) previousRankQuestion.options = [...organization.ranks];
   }

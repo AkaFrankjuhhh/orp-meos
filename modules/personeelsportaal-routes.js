@@ -691,6 +691,23 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
   }
 
+  function queuePersonDiscordSyncAfterResponse(person, reason) {
+    if (typeof enqueuePersonDiscordSync !== "function" || !person?.discordId) return;
+    const allowMissingServiceNumber = reason === "person_dismiss";
+    if (!allowMissingServiceNumber && (!person.rank || !person.serviceNumber)) return;
+    const personSnapshot = {
+      ...person,
+      badges: Array.isArray(person.badges) ? [...person.badges] : [],
+      extraFunctions: Array.isArray(person.extraFunctions) ? [...person.extraFunctions] : []
+    };
+    const run = () => {
+      enqueuePersonDiscordSync(personSnapshot, reason)
+        .catch((error) => console.error(`[personeelsportaal] Discord profielsync na response mislukt voor ${personSnapshot.name || personSnapshot.id || "onbekend"}: ${error.message || error}`));
+    };
+    if (typeof setImmediate === "function") setImmediate(run);
+    else setTimeout(run, 0);
+  }
+
   async function queueChangedDiscordProfiles(state, previousNicknames, previousRankRoles, reason) {
     const queuedIds = new Set();
     if (typeof enqueuePersonDiscordSync !== "function") return queuedIds;
@@ -2295,9 +2312,7 @@ function createPersoneelsportaalRouteHandler(deps) {
     state.activity = state.activity || [];
     const activityStartIndex = state.activity.length;
     state.activity.push(`Functies en badges bijgewerkt voor ${person.name}.`);
-    if (badgeChanges.length) {
-      await queuePersonDiscordSync(state, person, "badge_updated");
-    }
+    const shouldQueueBadgeDiscordSync = badgeChanges.length > 0;
     const badgeActivityMessages = state.activity.slice(activityStartIndex);
     if (typeof peopleStorage.writePersonProfileBadges === "function") {
       await Promise.resolve(peopleStorage.writePersonProfileBadges(person, badgeActivityMessages));
@@ -2308,9 +2323,11 @@ function createPersoneelsportaalRouteHandler(deps) {
         canViewLogbook: nextPermissions.canViewLogbook,
         permissions: nextPermissions
       });
+      if (shouldQueueBadgeDiscordSync) queuePersonDiscordSyncAfterResponse(person, "badge_updated");
       return;
     }
     await sendPeopleStateAfterMutation(res, auth, state);
+    if (shouldQueueBadgeDiscordSync) queuePersonDiscordSyncAfterResponse(person, "badge_updated");
     return;
   }
 

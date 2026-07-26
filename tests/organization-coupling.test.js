@@ -96,6 +96,16 @@ test("public form threads use the shared portal or government bot token", () => 
   assert.match(code, /MAIN_GOVERNMENT_DISCORD_BOT_TOKEN/);
 });
 
+test("re-entry forms require submission within three months", () => {
+  const defenceForms = loadPublicFormsForOrganization("defensie");
+  const policeForms = loadPublicFormsForOrganization("politie");
+
+  assert.match(defenceForms.publicFormFromSlug("herintrede").notice, /binnen 3 maanden na ontslag/);
+  assert.match(policeForms.publicFormFromSlug("herintrede").notice, /binnen 3 maanden na ontslag/);
+  assert.doesNotMatch(defenceForms.publicFormFromSlug("herintrede").notice, /6 maanden/);
+  assert.doesNotMatch(policeForms.publicFormFromSlug("herintrede").notice, /6 maanden/);
+});
+
 test("police has a DSI public form with police intake questions", () => {
   const policeForms = loadPublicFormsForOrganization("politie");
   const defenceForms = loadPublicFormsForOrganization("defensie");
