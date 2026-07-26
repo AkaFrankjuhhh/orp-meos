@@ -720,12 +720,10 @@ function createPersoneelsportaalRouteHandler(deps) {
     else setTimeout(run, 0);
   }
 
-  async function queueChangedDiscordProfiles(state, previousNicknames, previousRankRoles, reason) {
-    const queuedIds = new Set();
-    if (typeof enqueuePersonDiscordSync !== "function") return queuedIds;
+  function discordChangedProfileIds(state, previousNicknames, previousRankRoles) {
     const currentNicknames = discordNicknameSnapshot(state);
     const currentRankRoles = discordRankRoleSnapshot(state);
-    const changedIds = new Set([
+    return new Set([
       ...[...currentNicknames.entries()]
         .filter(([personId, nickname]) => previousNicknames.get(personId) !== nickname)
         .map(([personId]) => personId),
@@ -733,6 +731,24 @@ function createPersoneelsportaalRouteHandler(deps) {
         .filter(([personId, rankRole]) => previousRankRoles.get(personId) !== rankRole)
         .map(([personId]) => personId)
     ]);
+  }
+
+  function queueChangedDiscordProfilesAfterResponse(state, previousNicknames, previousRankRoles, reason) {
+    const queuedIds = new Set();
+    if (typeof enqueuePersonDiscordSync !== "function") return queuedIds;
+    const changedIds = discordChangedProfileIds(state, previousNicknames, previousRankRoles);
+    for (const person of state.people || []) {
+      if (!changedIds.has(person.id) || !isCurrentPerson(person)) continue;
+      queuePersonDiscordSyncAfterResponse(person, reason);
+      queuedIds.add(person.id);
+    }
+    return queuedIds;
+  }
+
+  async function queueChangedDiscordProfiles(state, previousNicknames, previousRankRoles, reason) {
+    const queuedIds = new Set();
+    if (typeof enqueuePersonDiscordSync !== "function") return queuedIds;
+    const changedIds = discordChangedProfileIds(state, previousNicknames, previousRankRoles);
     for (const person of state.people || []) {
       if (!changedIds.has(person.id) || !isCurrentPerson(person)) continue;
       await queuePersonDiscordSync(state, person, reason);
@@ -3414,10 +3430,12 @@ function createPersoneelsportaalRouteHandler(deps) {
 
     if (["promote", "demote"].includes(action)) {
       await persistPeopleStateMutation(state);
-      const queuedIds = await queueChangedDiscordProfiles(state, previousNicknames, previousRankRoles, `person_${action}`);
+      sendPeopleStateResponse(res, auth, state);
+      const queuedIds = queueChangedDiscordProfilesAfterResponse(state, previousNicknames, previousRankRoles, `person_${action}`);
       if (isCurrentPerson(person) && !queuedIds.has(person.id)) {
-        await queuePersonDiscordSync(state, person, `person_${action}`);
+        queuePersonDiscordSyncAfterResponse(person, `person_${action}`);
       }
+      return;
     } else if (action !== "io" && !(action === "dismiss" && hasOvcFunctionBadge(person))) {
       await syncChangedDiscordNicknames(state, previousNicknames);
       await syncChangedDiscordRankRoles(state, previousRankRoles);

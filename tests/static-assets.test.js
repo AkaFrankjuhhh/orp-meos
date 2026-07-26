@@ -360,7 +360,8 @@ test("people mutations persist rank changes before queueing Discord sync", () =>
   assert.match(personSaveBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queuePersonDiscordSync\(state, result\.person, existingBeforeSave \? "person_updated" : "person_created"\)/);
 
   const rankActionBlock = routesCode.slice(routesCode.indexOf('if (["promote", "demote"].includes(action))'), routesCode.indexOf('} else if (action !== "io"'));
-  assert.match(rankActionBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queueChangedDiscordProfiles\(state, previousNicknames, previousRankRoles, `person_\$\{action\}`\)/);
+  assert.match(rankActionBlock, /await persistPeopleStateMutation\(state\);[\s\S]*sendPeopleStateResponse\(res, auth, state\);[\s\S]*queueChangedDiscordProfilesAfterResponse\(state, previousNicknames, previousRankRoles, `person_\$\{action\}`\)/);
+  assert.match(rankActionBlock, /queuePersonDiscordSyncAfterResponse\(person, `person_\$\{action\}`\)/);
 });
 
 test("porto exposes the modern dispatcher test UI beside the classic UI", () => {
