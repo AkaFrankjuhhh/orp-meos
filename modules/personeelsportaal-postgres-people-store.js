@@ -405,6 +405,59 @@ function createPostgresPeopleStore(options = {}) {
     return person;
   }
 
+  async function writePersonRankChanges(people, activityMessage) {
+    // Promotie/degradatie raakt meestal een paar profielrijen. Vermijd de zware
+    // volledige state-write, want die kan door de people-write lock timeouts geven.
+    const changedPeople = (Array.isArray(people) ? people : [people]).filter((person) => person?.id);
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        for (const person of changedPeople) {
+          const result = await client.query(`
+            update people
+            set
+              rank = $2,
+              service_number = $3,
+              rank_date = $4,
+              promotion_date = $5,
+              hired_date = $6,
+              rank_history = $7::jsonb,
+              raw = $8::jsonb,
+              updated_at = now()
+            where id = $1
+          `, [
+            person.id,
+            person.rank || "",
+            person.serviceNumber || "",
+            person.rankDate || "",
+            person.promotionDate || "",
+            person.hiredDate || "",
+            json(person.rankHistory, []),
+            json(person, {})
+          ]);
+          if (result.rowCount !== 1) {
+            throw new Error("Personeelslid niet gevonden voor rang-update.");
+          }
+        }
+        const activityMessages = Array.isArray(activityMessage)
+          ? activityMessage.filter(Boolean)
+          : [activityMessage].filter(Boolean);
+        for (const message of activityMessages) {
+          await client.query(`
+            insert into activity_log(position, message)
+            values((select coalesce(max(position), -1) + 1 from activity_log), $1)
+          `, [String(message)]);
+        }
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    if (afterWrite) afterWrite();
+    return changedPeople;
+  }
+
 
   async function writePersonNotifications(person) {
     // Persoonsgebonden meldingen zitten in raw, zodat er geen losse notificatietabel nodig is.
@@ -484,7 +537,7 @@ function createPostgresPeopleStore(options = {}) {
     if (afterWrite) afterWrite();
     return entries;
   }
-  return { readState, writeState, writePersonQualifications, writePersonProfileBadges, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
+  return { readState, writeState, writePersonQualifications, writePersonProfileBadges, writePersonRankChanges, writePersonNotifications, writePersonDiscipline, writeManualHoursEntries, writeHourEntries, writeMentorChecklistGroups };
 }
 
 module.exports = { createPostgresPeopleStore };

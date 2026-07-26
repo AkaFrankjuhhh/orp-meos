@@ -350,8 +350,15 @@ test("portal chrome keeps topbar controls inside narrow desktop viewports", () =
 
 test("people mutations persist rank changes before queueing Discord sync", () => {
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const peopleStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-postgres-people-store.js"), "utf8");
 
   assert.match(routesCode, /async function persistPeopleStateMutation\(state\)/);
+  assert.match(routesCode, /async function persistRankMutation\(state, changedPeople, activityMessages\)/);
+  assert.match(routesCode, /function rankMutationChangedPeople\(state, previousSignatures\)/);
+  assert.match(peopleStoreCode, /async function writePersonRankChanges\(people, activityMessage\)/);
+  const rankStoreBlock = peopleStoreCode.slice(peopleStoreCode.indexOf("async function writePersonRankChanges"), peopleStoreCode.indexOf("async function writePersonNotifications"));
+  assert.match(rankStoreBlock, /update people[\s\S]*rank = \$2,[\s\S]*service_number = \$3,[\s\S]*rank_history = \$7::jsonb/);
+  assert.doesNotMatch(rankStoreBlock, /lockPeopleWrite/);
 
   const recruitmentBlock = routesCode.slice(routesCode.indexOf('queuePersonDiscordSync(state, result.person, "recruitment_hire"') - 240, routesCode.indexOf('queuePersonDiscordSync(state, result.person, "recruitment_hire"') + 120);
   assert.match(recruitmentBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queuePersonDiscordSync\(state, result\.person, "recruitment_hire"\)/);
@@ -360,7 +367,7 @@ test("people mutations persist rank changes before queueing Discord sync", () =>
   assert.match(personSaveBlock, /await persistPeopleStateMutation\(state\);[\s\S]*queuePersonDiscordSync\(state, result\.person, existingBeforeSave \? "person_updated" : "person_created"\)/);
 
   const rankActionBlock = routesCode.slice(routesCode.indexOf('if (["promote", "demote"].includes(action))'), routesCode.indexOf('} else if (action !== "io"'));
-  assert.match(rankActionBlock, /await persistPeopleStateMutation\(state\);[\s\S]*sendPeopleStateResponse\(res, auth, state\);[\s\S]*queueChangedDiscordProfilesAfterResponse\(state, previousNicknames, previousRankRoles, `person_\$\{action\}`\)/);
+  assert.match(rankActionBlock, /const changedRankPeople = rankMutationChangedPeople\(state, previousRankSignatures\);[\s\S]*await persistRankMutation\(state, changedRankPeople, rankActivityMessages\);[\s\S]*sendPeopleStateResponse\(res, auth, state\);[\s\S]*queueChangedDiscordProfilesAfterResponse\(state, previousNicknames, previousRankRoles, `person_\$\{action\}`\)/);
   assert.match(rankActionBlock, /queuePersonDiscordSyncAfterResponse\(person, `person_\$\{action\}`\)/);
 });
 

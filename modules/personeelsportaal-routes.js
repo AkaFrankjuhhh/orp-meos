@@ -316,6 +316,34 @@ function createPersoneelsportaalRouteHandler(deps) {
     await Promise.resolve(peopleStorage.writeState(state));
   }
 
+  function rankMutationSignature(person) {
+    return JSON.stringify({
+      rank: person?.rank || "",
+      serviceNumber: person?.serviceNumber || "",
+      rankDate: person?.rankDate || "",
+      promotionDate: person?.promotionDate || "",
+      hiredDate: person?.hiredDate || "",
+      rankHistory: Array.isArray(person?.rankHistory) ? person.rankHistory : []
+    });
+  }
+
+  function rankMutationSignatures(state) {
+    return new Map((state.people || []).map((person) => [person.id, rankMutationSignature(person)]));
+  }
+
+  function rankMutationChangedPeople(state, previousSignatures) {
+    return (state.people || []).filter((person) => previousSignatures.get(person.id) !== rankMutationSignature(person));
+  }
+
+  async function persistRankMutation(state, changedPeople, activityMessages) {
+    normalizeAbsenceDrivenPeopleStatuses(state, currentDateOnly());
+    if (typeof peopleStorage.writePersonRankChanges === "function" && changedPeople.length) {
+      await Promise.resolve(peopleStorage.writePersonRankChanges(changedPeople, activityMessages));
+      return;
+    }
+    await Promise.resolve(peopleStorage.writeState(state));
+  }
+
   function sendPeopleStateResponse(res, auth, state) {
     const permissions = permissionsForAuth(auth, state);
     sendJson(res, 200, {
@@ -3231,6 +3259,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     const body = await readBody(req);
     const previousNicknames = discordNicknameSnapshot(state);
     const previousRankRoles = discordRankRoleSnapshot(state);
+    const previousRankSignatures = rankMutationSignatures(state);
+    const activityStartIndex = Array.isArray(state.activity) ? state.activity.length : 0;
     if (action === "promote") {
       const blockReason = promotionBlockReason(person, state, actor, permissions);
       if (blockReason) {
@@ -3429,7 +3459,9 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
 
     if (["promote", "demote"].includes(action)) {
-      await persistPeopleStateMutation(state);
+      const changedRankPeople = rankMutationChangedPeople(state, previousRankSignatures);
+      const rankActivityMessages = (Array.isArray(state.activity) ? state.activity : []).slice(activityStartIndex);
+      await persistRankMutation(state, changedRankPeople, rankActivityMessages);
       sendPeopleStateResponse(res, auth, state);
       const queuedIds = queueChangedDiscordProfilesAfterResponse(state, previousNicknames, previousRankRoles, `person_${action}`);
       if (isCurrentPerson(person) && !queuedIds.has(person.id)) {
