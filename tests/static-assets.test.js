@@ -161,12 +161,14 @@ test("mentor checklist autosave is serialized against live refresh", () => {
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
 
-  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260722-mentor-test-draft/);
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260726-mentor-log-current/);
   assert.match(mentorCode, /let mentorChecklistSavePromise = null/);
   assert.match(mentorCode, /let mentorChecklistSaveQueued = false/);
   assert.match(mentorCode, /function mentorChecklistStaleAfterReactivation\(/);
   assert.match(mentorCode, /reactivatedDate/);
   assert.match(mentorCode, /function isMentorChecklistSaveActive\(/);
+  assert.match(mentorCode, /function isMentorLogPersonCurrent\(/);
+  assert.match(mentorCode, /typeof isCurrentProfile === "function" \? isCurrentProfile\(person\) : person\.status === "Actief"/);
   assert.match(mentorCode, /if \(mentorChecklistSavePromise\) return mentorChecklistSavePromise/);
   assert.match(mentorCode, /while \(mentorChecklistSaveQueued\)/);
   assert.match(appCode, /isMentorChecklistSaveActive\(\)/);
@@ -207,6 +209,7 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(serverCode, /type: "qualification"[\s\S]*addedTrainings: \[training\]/);
   assert.match(serverCode, /"trainer-overzicht", "trainer-ibt", "trainer-logboek"/);
   assert.match(trainerCode, /function trainerEntryAddedTrainings/);
+  assert.match(trainerCode, /typeof isCurrentProfile === "function" \? isCurrentProfile\(person\) : person\.status === "Actief"/);
   assert.match(trainerCode, /\/api\/trainer\/ibt-tests/);
   assert.match(trainerCode, /data-send-trainer-ibt/);
   assert.match(trainerCode, /data-open-trainer-ibt-detail/);
@@ -583,7 +586,7 @@ test("mentor tests render compact rows with a detail dialog", () => {
   const mentorCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "mentor.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
   assert.match(html, /mentorTestDetailDialog/);
-  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260722-mentor-test-draft/);
+  assert.match(html, /personeelsportaal\/mentor\.js\?v=20260726-mentor-log-current/);
   assert.match(mentorCode, /data-open-mentor-test-detail/);
   assert.match(mentorCode, /function openMentorTestDetailDialog/);
   assert.match(mentorCode, /mentorSelfTestCache\.unavailableReason/);

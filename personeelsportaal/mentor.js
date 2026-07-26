@@ -1128,9 +1128,13 @@ function mentorLogRowsForPerson(person, period = "halfyear") {
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
+function isMentorLogPersonCurrent(person) {
+  return typeof isCurrentProfile === "function" ? isCurrentProfile(person) : person.status === "Actief";
+}
+
 function mentorLogPeople() {
   return (state.people || [])
-    .filter((person) => person.status === "Actief")
+    .filter(isMentorLogPersonCurrent)
     .filter((person) => (person.badges || []).some((badge) => ["Mentor", "Mentor-Leiding"].includes(badge)))
     .sort((a, b) => (a.name || "").localeCompare(b.name || "", "nl"));
 }
