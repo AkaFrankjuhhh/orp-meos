@@ -5676,6 +5676,26 @@ html[data-typography="system"] .leadership-row .rank-count {
   line-height: 1;
 }
 
+#trainer-overzicht .trainer-overview-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) minmax(170px, 36%);
+  gap: 12px;
+  height: min(820px, calc(100vh - 188px));
+  min-height: 560px;
+  overflow: hidden;
+}
+
+#trainer-overzicht .trainer-overview-panel .trainer-stats {
+  margin-bottom: 0;
+}
+
+#trainerOverviewList {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+}
+
 .trainer-overview-row {
   grid-template-columns: minmax(220px, 1fr) minmax(220px, 0.9fr) minmax(84px, 0.25fr);
 }
@@ -5691,7 +5711,19 @@ html[data-typography="system"] .leadership-row .rank-count {
 }
 
 .trainer-person-log {
-  margin-top: 14px;
+  min-height: 0;
+  max-height: none;
+  margin-top: 0;
+  padding: 12px;
+  border: 1px solid rgba(134, 167, 214, 0.2);
+  border-radius: 12px;
+  background: rgba(7, 18, 34, 0.74);
+  box-shadow: 0 -12px 24px rgba(2, 8, 23, 0.18);
+}
+
+#trainer-overzicht .trainer-person-log {
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .trainer-detail-heading {
@@ -5716,6 +5748,22 @@ html[data-typography="system"] .leadership-row .rank-count {
   background: rgba(245, 158, 11, 0.14);
   font-size: 12px;
   font-weight: 900;
+}
+
+@media (max-width: 900px) {
+  #trainer-overzicht .trainer-overview-panel {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  #trainerOverviewList {
+    max-height: 52vh;
+  }
+
+  #trainer-overzicht .trainer-person-log {
+    max-height: 42vh;
+  }
 }
 
 .trainer-logbook-details {

@@ -206,6 +206,7 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
 
   assert.match(html, /data-trainer-section="true"/);
   assert.match(html, /data-page="trainer-overzicht"/);
+  assert.match(html, /class="panel trainer-overview-panel"/);
   assert.match(html, /data-page="trainer-ibt"/);
   assert.match(html, /id="trainerIbtCounter"/);
   assert.match(html, /trainerIbtDetailDialog/);
@@ -242,6 +243,9 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(publicFormsCode, /formState\.config\?\.reviewSurface !== "portal"/);
   assert.match(publicFormsHtml, /public-forms\.js\?v=20260722-portal-ibt-review/);
   assert.match(styles, /\.trainer-stats/);
+  assert.match(styles, /#trainer-overzicht \.trainer-overview-panel \{[\s\S]*grid-template-rows: auto auto minmax\(0, 1fr\) minmax\(170px, 36%\);/);
+  assert.match(styles, /#trainerOverviewList \{[\s\S]*overflow-y: auto;/);
+  assert.match(styles, /#trainer-overzicht \.trainer-person-log \{[\s\S]*overflow-y: auto;/);
   assert.match(styles, /\.trainer-ibt-row/);
 });
 
