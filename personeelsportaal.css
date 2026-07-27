@@ -4465,16 +4465,170 @@ body[data-device="mobile"] .i8-archive-row .i8-review-meta {
   margin: 0;
 }
 
+body.is-action-busy {
+  cursor: progress;
+}
+
+body.is-action-busy button:not(:disabled),
+body.is-action-busy input,
+body.is-action-busy select,
+body.is-action-busy textarea {
+  cursor: progress;
+}
+
+.system-health-section {
+  border: 1px solid rgba(134, 167, 214, 0.2);
+  border-radius: 8px;
+  background: rgba(7, 18, 34, 0.34);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.system-health-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.system-health-section-head h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.system-health-section-head p {
+  margin: 2px 0 0;
+}
+
+.system-health-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.system-health-table-wrap {
+  overflow-x: auto;
+}
+
+.system-health-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+
+.system-health-table th,
+.system-health-table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.system-health-table th {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.system-health-table td {
+  background: rgba(15, 23, 42, 0.62);
+  border-top: 1px solid rgba(134, 167, 214, 0.14);
+  border-bottom: 1px solid rgba(134, 167, 214, 0.14);
+}
+
+.system-health-table td:first-child {
+  border-left: 1px solid rgba(134, 167, 214, 0.14);
+  border-radius: 8px 0 0 8px;
+}
+
+.system-health-table td:last-child {
+  border-right: 1px solid rgba(134, 167, 214, 0.14);
+  border-radius: 0 8px 8px 0;
+}
+
+.system-health-table small,
+.system-health-profile-list span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.system-health-table.compact {
+  min-width: 620px;
+  margin-top: -4px;
+}
+
+.system-health-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 10px;
+  border: 1px solid rgba(134, 167, 214, 0.24);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.system-health-pill.ok {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #dcfce7;
+}
+
+.system-health-pill.warn {
+  border-color: rgba(245, 158, 11, 0.55);
+  color: #fde68a;
+}
+
+.system-health-pill.bad {
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fecaca;
+}
+
+.system-health-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.system-health-mini-grid .system-health-card {
+  min-height: 62px;
+  padding: 12px;
+}
+
+.system-health-empty {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
 @media (max-width: 900px) {
   .system-health-summary,
-  .system-health-grid {
+  .system-health-grid,
+  .system-health-mini-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .system-health-section-head {
+    flex-direction: column;
+  }
+
+  .system-health-actions {
+    justify-content: flex-start;
   }
 }
 
 @media (max-width: 560px) {
   .system-health-summary,
-  .system-health-grid {
+  .system-health-grid,
+  .system-health-mini-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -427,9 +427,33 @@ test("portal exposes a protected system health page", () => {
   assert.match(html, /id="systemHealthSummary"/);
   assert.match(appCode, /function canViewSystemHealth\(/);
   assert.match(appCode, /fetch\("\/api\/admin\/health"/);
+  assert.match(appCode, /function renderDiscordJobHealth\(/);
+  assert.match(appCode, /function renderProfileAuditHealth\(/);
+  assert.match(appCode, /function renderPortoHeartbeatHealth\(/);
+  assert.match(appCode, /data-system-health-action/);
   assert.match(styles, /\.system-health-card/);
+  assert.match(styles, /\.system-health-table/);
+  assert.match(styles, /\.system-health-pill/);
   assert.match(serverCode, /url\.pathname === "\/api\/admin\/health"/);
+  assert.match(serverCode, /url\.pathname === "\/api\/admin\/discord-jobs\/retry"/);
+  assert.match(serverCode, /url\.pathname === "\/api\/admin\/discord-jobs\/cleanup"/);
   assert.match(serverCode, /healthPayload\(\{ includeDetails: true \}\)/);
+  assert.match(serverCode, /payload\.discordSync\.failedByType/);
+  assert.match(serverCode, /payload\.profileAudit/);
+  assert.match(serverCode, /payload\.portoDebug/);
+});
+
+test("portal actions retry temporary database lock failures", () => {
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(appCode, /const ACTION_RETRY_DELAYS_MS = \[350, 1100\]/);
+  assert.match(appCode, /function isTemporaryActionFailure\(/);
+  assert.match(appCode, /lock timeout\|deadlock\|could not serialize/);
+  assert.match(appCode, /if \(pendingActionKeys\.size > 0 \|\| pendingActionKeys\.has\(actionKey\)\) return false;/);
+  assert.match(appCode, /await wait\(ACTION_RETRY_DELAYS_MS\[attempt\]\);/);
+  assert.match(appCode, /updateGlobalActionBusy\(\);/);
+  assert.match(styles, /body\.is-action-busy/);
 });
 
 test("portal login sync uses targeted profile writes", () => {

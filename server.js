@@ -23,7 +23,7 @@ const { createPublicFormsStore } = require("./modules/public-forms-store");
 const { startPortoDutyHoursJob } = require("./modules/porto-duty-hours-job");
 const { enqueuePersonDiscordSync, enqueueDiscordSyncJob } = require("./modules/discord-sync-jobs");
 const { normalizeDiscordId, isDevDiscordId } = require("./modules/ovc");
-const { isPersonLoginEligible } = require("./modules/person-status");
+const { isCurrentPerson, isPersonLoginEligible } = require("./modules/person-status");
 const { canUsePortalLogin } = require("./modules/portal-auth-rules");
 const {
   currentOrganization,
@@ -527,6 +527,127 @@ async function readPublicFormSubmitBody(req) {
   return { ...(await readBody(req)), files: [] };
 }
 
+const HEALTH_DISCORD_JOB_LIMIT = 12;
+const HEALTH_PROFILE_AUDIT_LIMIT = 12;
+const HEALTH_PORTO_UNIT_LIMIT = 12;
+
+function healthProfileSummary(person) {
+  return {
+    id: person.id || "",
+    name: person.name || "",
+    rank: person.rank || "",
+    serviceNumber: person.serviceNumber || person.service_number || "",
+    status: person.status || "Actief",
+    current: isCurrentPerson(person),
+    updatedAt: person.updatedAt || person.updated_at || ""
+  };
+}
+
+function buildProfileAuditFromState(state, limit = HEALTH_PROFILE_AUDIT_LIMIT) {
+  const byDiscordId = new Map();
+  for (const person of state?.people || []) {
+    const discordId = normalizeDiscordId(person.discordId || person.discord_id || "");
+    if (!discordId) continue;
+    if (!byDiscordId.has(discordId)) byDiscordId.set(discordId, []);
+    byDiscordId.get(discordId).push(person);
+  }
+
+  const duplicateDiscordIds = [...byDiscordId.entries()]
+    .filter(([, profiles]) => profiles.length > 1)
+    .map(([discordId, profiles]) => {
+      const orderedProfiles = profiles
+        .slice()
+        .sort((left, right) => {
+          const currentDelta = Number(isCurrentPerson(right)) - Number(isCurrentPerson(left));
+          if (currentDelta) return currentDelta;
+          return String(right.updatedAt || right.updated_at || "").localeCompare(String(left.updatedAt || left.updated_at || ""));
+        });
+      const currentCount = orderedProfiles.filter(isCurrentPerson).length;
+      return {
+        discordId,
+        total: orderedProfiles.length,
+        currentCount,
+        profiles: orderedProfiles.slice(0, 6).map(healthProfileSummary)
+      };
+    })
+    .sort((left, right) => {
+      const currentDelta = Number(right.currentCount > 1) - Number(left.currentCount > 1);
+      if (currentDelta) return currentDelta;
+      return right.total - left.total;
+    });
+
+  return {
+    duplicateDiscordIdCount: duplicateDiscordIds.length,
+    currentDuplicateDiscordIdCount: duplicateDiscordIds.filter((entry) => entry.currentCount > 1).length,
+    duplicateDiscordIds: duplicateDiscordIds.slice(0, limit)
+  };
+}
+
+function healthTimeMs(value) {
+  const time = Date.parse(value || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
+function buildPortoDebugFromState(state, limit = HEALTH_PORTO_UNIT_LIMIT) {
+  const activeUnits = (state?.portoUnits || []).filter((unit) => unit && unit.active !== false);
+  const assignedUnits = activeUnits.filter((unit) => unit.vehicleNumber);
+  const status0Units = activeUnits.filter((unit) => String(unit.status) === "0" && !unit.vehicleNumber);
+  const browserHeartbeatUnits = activeUnits.filter((unit) => unit.browserHeartbeatActive === true);
+  const browserClosePendingUnits = activeUnits.filter((unit) => unit.browserCloseSuspectedAt);
+  const nowMs = Date.now();
+  const staleUnits = activeUnits.filter((unit) => {
+    const lastSeenMs = healthTimeMs(unit.browserHeartbeatAt || unit.lastSeenAt || unit.updatedAt);
+    return lastSeenMs > 0 && nowMs - lastSeenMs > 2 * 60 * 1000;
+  });
+
+  const units = activeUnits
+    .slice()
+    .sort((left, right) => {
+      const leftTime = healthTimeMs(left.browserHeartbeatAt || left.lastSeenAt || left.updatedAt);
+      const rightTime = healthTimeMs(right.browserHeartbeatAt || right.lastSeenAt || right.updatedAt);
+      return leftTime - rightTime;
+    })
+    .slice(0, limit)
+    .map((unit) => ({
+      id: unit.id || "",
+      memberId: unit.memberId || "",
+      name: unit.name || "",
+      serviceNumber: unit.serviceNumber || "",
+      vehicleNumber: unit.vehicleNumber || "",
+      status: unit.status || "",
+      statusDetail: unit.statusDetail || "",
+      lastSeenAt: unit.lastSeenAt || "",
+      browserHeartbeatAt: unit.browserHeartbeatAt || "",
+      browserHeartbeatActive: unit.browserHeartbeatActive === true,
+      browserCloseSuspectedAt: unit.browserCloseSuspectedAt || "",
+      updatedAt: unit.updatedAt || ""
+    }));
+
+  return {
+    activeUnitCount: activeUnits.length,
+    activeAssignedCount: assignedUnits.length,
+    status0Count: status0Units.length,
+    browserHeartbeatActive: browserHeartbeatUnits.length,
+    browserClosePending: browserClosePendingUnits.length,
+    staleHeartbeatCount: staleUnits.length,
+    units
+  };
+}
+
+function healthCountsFromState(state) {
+  const people = state?.people || [];
+  return {
+    people: people.length,
+    active_people: people.filter((person) => person.status === "Actief").length,
+    current_people: people.filter(isCurrentPerson).length,
+    archived_people: people.filter((person) => !isCurrentPerson(person)).length,
+    active_sessions: typeof sessions.size === "function" ? sessions.size() : null,
+    activity_messages: Array.isArray(state?.activity) ? state.activity.length : 0,
+    active_porto_units: (state?.portoUnits || []).filter((unit) => unit?.active !== false).length,
+    vehicle_seizures: (state?.vehicleSeizures || []).length
+  };
+}
+
 async function healthPayload({ includeDetails = false } = {}) {
   const payload = {
     ok: true,
@@ -558,6 +679,8 @@ async function healthPayload({ includeDetails = false } = {}) {
           select
             (select count(*)::int from people) as people,
             (select count(*)::int from people where status = 'Actief') as active_people,
+            (select count(*)::int from people where lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')) as current_people,
+            (select count(*)::int from people where lower(coalesce(status, 'Actief')) in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')) as archived_people,
             (select count(*)::int from app_sessions where expires_at > now()) as active_sessions,
             (select count(*)::int from activity_log) as activity_messages,
             (select count(*)::int from porto_units where active is true) as active_porto_units,
@@ -571,6 +694,36 @@ async function healthPayload({ includeDetails = false } = {}) {
             max(created_at) as latest_created_at
           from discord_sync_jobs
         `);
+        const failedJobTypes = await client.query(`
+          select
+            type,
+            count(*)::int as count,
+            max(updated_at) as latest_updated_at,
+            (array_agg(last_error order by updated_at desc nulls last, created_at desc))[1] as latest_error
+          from discord_sync_jobs
+          where status = 'failed'
+          group by type
+          order by count desc, latest_updated_at desc nulls last
+          limit $1
+        `, [HEALTH_DISCORD_JOB_LIMIT]);
+        const recentFailedJobs = await client.query(`
+          select
+            id::text,
+            type,
+            coalesce(person_id, '') as person_id,
+            coalesce(discord_id, '') as discord_id,
+            attempts,
+            max_attempts,
+            coalesce(last_error, '') as last_error,
+            payload->>'channelKey' as channel_key,
+            payload->>'channelId' as channel_id,
+            created_at,
+            updated_at
+          from discord_sync_jobs
+          where status = 'failed'
+          order by updated_at desc nulls last, created_at desc
+          limit $1
+        `, [HEALTH_DISCORD_JOB_LIMIT]);
         const activity = await client.query(`
           select
             count(*) filter (where wait_event_type = 'Lock')::int as lock_waiters,
@@ -578,9 +731,143 @@ async function healthPayload({ includeDetails = false } = {}) {
           from pg_stat_activity
           where datname = current_database()
         `);
+        const profileAuditCounts = await client.query(`
+          with duplicate_ids as (
+            select
+              lower(discord_id) as discord_id,
+              count(*)::int as total,
+              count(*) filter (
+                where lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')
+              )::int as current_count
+            from people
+            where coalesce(discord_id, '') <> ''
+            group by lower(discord_id)
+            having count(*) > 1
+          )
+          select
+            count(*)::int as duplicate_discord_id_count,
+            count(*) filter (where current_count > 1)::int as current_duplicate_discord_id_count
+          from duplicate_ids
+        `);
+        const profileAudit = await client.query(`
+          select
+            lower(discord_id) as discord_id,
+            count(*)::int as total,
+            count(*) filter (
+              where lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')
+            )::int as current_count,
+            jsonb_agg(
+              jsonb_build_object(
+                'id', id,
+                'name', name,
+                'rank', coalesce(rank, ''),
+                'serviceNumber', coalesce(service_number, ''),
+                'status', coalesce(status, 'Actief'),
+                'current', lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist'),
+                'updatedAt', updated_at
+              )
+              order by (lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')) desc, updated_at desc nulls last
+            ) as profiles
+          from people
+          where coalesce(discord_id, '') <> ''
+          group by lower(discord_id)
+          having count(*) > 1
+          order by current_count desc, total desc
+          limit $1
+        `, [HEALTH_PROFILE_AUDIT_LIMIT]);
+        const portoDebug = await client.query(`
+          select
+            count(*) filter (where active is true)::int as active_unit_count,
+            count(*) filter (where active is true and coalesce(vehicle_number, '') <> '')::int as active_assigned_count,
+            count(*) filter (where active is true and status = '0' and coalesce(vehicle_number, '') = '')::int as status0_count,
+            count(*) filter (where active is true and raw->>'browserHeartbeatActive' = 'true')::int as browser_heartbeat_active,
+            count(*) filter (where active is true and coalesce(raw->>'browserCloseSuspectedAt', '') <> '')::int as browser_close_pending,
+            count(*) filter (
+              where active is true
+                and coalesce(
+                  case when raw->>'browserHeartbeatAt' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' then (raw->>'browserHeartbeatAt')::timestamptz end,
+                  last_seen_at,
+                  updated_at
+                ) < now() - interval '2 minutes'
+            )::int as stale_heartbeat_count
+          from porto_units
+        `);
+        const portoUnits = await client.query(`
+          select
+            id,
+            coalesce(member_id, '') as member_id,
+            coalesce(name, '') as name,
+            coalesce(service_number, '') as service_number,
+            coalesce(vehicle_number, '') as vehicle_number,
+            coalesce(status, '') as status,
+            coalesce(status_detail, '') as status_detail,
+            last_seen_at,
+            raw->>'browserHeartbeatAt' as browser_heartbeat_at,
+            raw->>'browserHeartbeatActive' as browser_heartbeat_active,
+            raw->>'browserCloseSuspectedAt' as browser_close_suspected_at,
+            updated_at
+          from porto_units
+          where active is true
+          order by coalesce(
+            case when raw->>'browserHeartbeatAt' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' then (raw->>'browserHeartbeatAt')::timestamptz end,
+            last_seen_at,
+            updated_at
+          ) asc nulls first
+          limit $1
+        `, [HEALTH_PORTO_UNIT_LIMIT]);
         payload.database.counts = counts.rows[0] || {};
         payload.discordSync = discordJobs.rows[0] || {};
+        payload.discordSync.failedByType = failedJobTypes.rows.map((row) => ({
+          type: row.type || "",
+          count: Number(row.count || 0),
+          latestUpdatedAt: row.latest_updated_at,
+          latestError: row.latest_error || ""
+        }));
+        payload.discordSync.recentFailed = recentFailedJobs.rows.map((row) => ({
+          id: row.id || "",
+          type: row.type || "",
+          personId: row.person_id || "",
+          discordId: row.discord_id || "",
+          attempts: Number(row.attempts || 0),
+          maxAttempts: Number(row.max_attempts || 0),
+          lastError: row.last_error || "",
+          channelKey: row.channel_key || row.channel_id || "",
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        }));
         payload.database.activity = activity.rows[0] || {};
+        payload.profileAudit = {
+          duplicateDiscordIdCount: Number(profileAuditCounts.rows[0]?.duplicate_discord_id_count || 0),
+          currentDuplicateDiscordIdCount: Number(profileAuditCounts.rows[0]?.current_duplicate_discord_id_count || 0),
+          duplicateDiscordIds: profileAudit.rows.map((row) => ({
+            discordId: row.discord_id || "",
+            total: Number(row.total || 0),
+            currentCount: Number(row.current_count || 0),
+            profiles: Array.isArray(row.profiles) ? row.profiles : []
+          }))
+        };
+        payload.portoDebug = {
+          activeUnitCount: Number(portoDebug.rows[0]?.active_unit_count || 0),
+          activeAssignedCount: Number(portoDebug.rows[0]?.active_assigned_count || 0),
+          status0Count: Number(portoDebug.rows[0]?.status0_count || 0),
+          browserHeartbeatActive: Number(portoDebug.rows[0]?.browser_heartbeat_active || 0),
+          browserClosePending: Number(portoDebug.rows[0]?.browser_close_pending || 0),
+          staleHeartbeatCount: Number(portoDebug.rows[0]?.stale_heartbeat_count || 0),
+          units: portoUnits.rows.map((row) => ({
+            id: row.id || "",
+            memberId: row.member_id || "",
+            name: row.name || "",
+            serviceNumber: row.service_number || "",
+            vehicleNumber: row.vehicle_number || "",
+            status: row.status || "",
+            statusDetail: row.status_detail || "",
+            lastSeenAt: row.last_seen_at,
+            browserHeartbeatAt: row.browser_heartbeat_at || "",
+            browserHeartbeatActive: row.browser_heartbeat_active === "true",
+            browserCloseSuspectedAt: row.browser_close_suspected_at || "",
+            updatedAt: row.updated_at
+          }))
+        };
       });
     } catch (error) {
       payload.ok = false;
@@ -589,9 +876,107 @@ async function healthPayload({ includeDetails = false } = {}) {
       payload.database.error = "PostgreSQL niet bereikbaar";
       if (includeDetails) payload.database.detail = error.message || String(error);
     }
+  } else if (includeDetails) {
+    try {
+      const state = await Promise.resolve(readState());
+      payload.database.counts = healthCountsFromState(state);
+      payload.discordSync = {
+        open: 0,
+        running: 0,
+        failed: 0,
+        latest_created_at: null,
+        failedByType: [],
+        recentFailed: []
+      };
+      payload.database.activity = { lock_waiters: 0, active_queries: 0 };
+      payload.profileAudit = buildProfileAuditFromState(state);
+      payload.portoDebug = buildPortoDebugFromState(state);
+    } catch (error) {
+      payload.ok = false;
+      payload.status = "degraded";
+      payload.database.error = "Lokale opslag niet bereikbaar";
+      payload.database.detail = error.message || String(error);
+    }
   }
 
   return payload;
+}
+
+async function requireSystemHealthAccess(req, res, { requireDevTools = false } = {}) {
+  const auth = requireAuth(req, res);
+  if (!auth) return null;
+  const state = await Promise.resolve(peopleStorage.readState());
+  const authPermissions = permissionsForAuth(auth, state);
+  if (!authPermissions.canViewKaderPages && !authPermissions.canUseDevTools) {
+    sendJson(res, 403, { error: "Geen toegang tot systeemstatus." });
+    return null;
+  }
+  if (requireDevTools && !authPermissions.canUseDevTools) {
+    sendJson(res, 403, { error: "Alleen dev-beheer kan Discord opdrachten aanpassen." });
+    return null;
+  }
+  return { auth, permissions: authPermissions, state };
+}
+
+function cleanDiscordJobHealthType(value) {
+  const type = String(value || "").trim();
+  if (!type || type === "all") return "";
+  return /^[a-z0-9_:-]{1,80}$/i.test(type) ? type : null;
+}
+
+async function handleDiscordJobHealthAction(req, res, action) {
+  const access = await requireSystemHealthAccess(req, res, { requireDevTools: true });
+  if (!access) return;
+  if (storageMode !== "postgres") {
+    sendJson(res, 409, { error: "Discord wachtrijbeheer is alleen beschikbaar met PostgreSQL opslag." });
+    return;
+  }
+  const body = await readBody(req);
+  const type = cleanDiscordJobHealthType(body.type);
+  if (type === null) {
+    sendJson(res, 400, { error: "Ongeldig Discord job-type." });
+    return;
+  }
+
+  const result = await withClient(async (client) => {
+    if (action === "retry") {
+      const params = type ? [type] : [];
+      const query = `
+        update discord_sync_jobs
+        set status = 'pending',
+            attempts = 0,
+            last_error = null,
+            run_after = now(),
+            locked_at = null,
+            locked_by = null,
+            updated_at = now()
+        where status = 'failed'
+          ${type ? "and type = $1" : ""}
+      `;
+      const update = await client.query(query, params);
+      return { changed: update.rowCount || 0 };
+    }
+    if (action === "cleanup") {
+      const params = type ? [type] : [];
+      const query = `
+        delete from discord_sync_jobs
+        where status = 'failed'
+          ${type ? "and type = $1" : ""}
+      `;
+      const update = await client.query(query, params);
+      return { changed: update.rowCount || 0 };
+    }
+    return { changed: 0 };
+  });
+
+  const payload = await healthPayload({ includeDetails: true });
+  sendJson(res, 200, {
+    ok: true,
+    action,
+    type: type || "all",
+    changed: result.changed,
+    health: payload
+  });
 }
 
 
@@ -1327,16 +1712,18 @@ async function handleApi(req, res, url) {
     return;
   }
   if (url.pathname === "/api/admin/health" && req.method === "GET") {
-    const auth = requireAuth(req, res);
-    if (!auth) return;
-    const state = await Promise.resolve(peopleStorage.readState());
-    const authPermissions = permissionsForAuth(auth, state);
-    if (!authPermissions.canViewKaderPages && !authPermissions.canUseDevTools) {
-      sendJson(res, 403, { error: "Geen toegang tot systeemstatus." });
-      return;
-    }
+    const access = await requireSystemHealthAccess(req, res);
+    if (!access) return;
     const payload = await healthPayload({ includeDetails: true });
     sendJson(res, payload.ok ? 200 : 503, payload);
+    return;
+  }
+  if (url.pathname === "/api/admin/discord-jobs/retry" && req.method === "POST") {
+    await handleDiscordJobHealthAction(req, res, "retry");
+    return;
+  }
+  if (url.pathname === "/api/admin/discord-jobs/cleanup" && req.method === "POST") {
+    await handleDiscordJobHealthAction(req, res, "cleanup");
     return;
   }
 

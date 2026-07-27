@@ -101,6 +101,7 @@ const REVIEW_COUNTER_FALLBACK_MS = 30000;
 const LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS = 1500;
 const SYSTEM_HEALTH_CACHE_MS = 10000;
 const MAX_TRAINING_CREDIT_TRAINERS = 5;
+const ACTION_RETRY_DELAYS_MS = [350, 1100];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -963,42 +964,84 @@ function saveActiveFormDraftBeforeAction() {
   }
 }
 
+function updateGlobalActionBusy() {
+  document.body?.classList.toggle("is-action-busy", pendingActionKeys.size > 0);
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function actionErrorText(payload) {
+  return String(payload?.error || payload?.message || "");
+}
+
+function isTemporaryActionFailure(response, payload = {}) {
+  const status = Number(response?.status || 0);
+  const message = actionErrorText(payload).toLowerCase();
+  if (![423, 425, 429, 500, 503, 504].includes(status)) return false;
+  return /lock timeout|deadlock|could not serialize|canceling statement|statement timeout|tijdelijk|druk|timeout/.test(message);
+}
+
 async function runAction(path, body = {}) {
   if (!serverBacked) return false;
   const actionKey = `${path}\n${JSON.stringify(body || {})}`;
-  if (pendingActionKeys.has(actionKey)) return false;
+  if (pendingActionKeys.size > 0 || pendingActionKeys.has(actionKey)) return false;
   pendingActionKeys.add(actionKey);
+  updateGlobalActionBusy();
   try {
     saveActiveFormDraftBeforeAction();
-    let response;
-    try {
-      response = await fetch(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-    } catch (error) {
+    let lastNetworkError = null;
+    for (let attempt = 0; attempt <= ACTION_RETRY_DELAYS_MS.length; attempt += 1) {
+      let response;
+      try {
+        response = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+      } catch (error) {
+        lastNetworkError = error;
+        if (attempt < ACTION_RETRY_DELAYS_MS.length) {
+          await wait(ACTION_RETRY_DELAYS_MS[attempt]);
+          continue;
+        }
+        await showSiteNotice("Verbinding met de server mislukt. Probeer opnieuw of vernieuw de pagina.", "Actie mislukt");
+        return false;
+      }
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        authProfile = null;
+        resetPermissions();
+        setLocked(true);
+        await showSiteNotice("Je sessie is verlopen. Log opnieuw in en probeer het formulier daarna opnieuw te versturen.", "Opnieuw inloggen");
+        return false;
+      }
+      const temporaryFailure = isTemporaryActionFailure(response, payload);
+      if (!response.ok && temporaryFailure && attempt < ACTION_RETRY_DELAYS_MS.length) {
+        await wait(ACTION_RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+      if (!response.ok) {
+        const message = temporaryFailure
+          ? "Database was even druk. Probeer het nogmaals; je formulierdraft blijft bewaard."
+          : payload.error || "Actie kon niet worden uitgevoerd.";
+        await showSiteNotice(message, "Actie mislukt");
+        await loadState();
+        return false;
+      }
+      applyServerState(payload);
+      suppressImmediateLiveRefresh();
+      return true;
+    }
+    if (lastNetworkError) {
       await showSiteNotice("Verbinding met de server mislukt. Probeer opnieuw of vernieuw de pagina.", "Actie mislukt");
       return false;
     }
-    const payload = await response.json().catch(() => ({}));
-    if (response.status === 401) {
-      authProfile = null;
-      resetPermissions();
-      setLocked(true);
-      await showSiteNotice("Je sessie is verlopen. Log opnieuw in en probeer het formulier daarna opnieuw te versturen.", "Opnieuw inloggen");
-      return false;
-    }
-    if (!response.ok) {
-      await showSiteNotice(payload.error || "Actie kon niet worden uitgevoerd.", "Actie mislukt");
-      await loadState();
-      return false;
-    }
-    applyServerState(payload);
-    suppressImmediateLiveRefresh();
-    return true;
+    return false;
   } finally {
     pendingActionKeys.delete(actionKey);
+    updateGlobalActionBusy();
   }
 }
 
@@ -2201,6 +2244,156 @@ function systemHealthCard(label, value, stateName = "neutral") {
   `;
 }
 
+function formatHealthAge(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return "net";
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m geleden`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}u geleden`;
+  return formatHealthTimestamp(value);
+}
+
+function truncateHealthText(value, maxLength = 120) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text || "-";
+  return `${text.slice(0, maxLength - 1)}...`;
+}
+
+function systemHealthPill(label, stateName = "neutral") {
+  return `<span class="system-health-pill ${escapeHtml(stateName)}">${escapeHtml(label)}</span>`;
+}
+
+function systemHealthSection(title, subtitle, body, actions = "") {
+  return `
+    <section class="system-health-section">
+      <div class="system-health-section-head">
+        <div>
+          <h3>${escapeHtml(title)}</h3>
+          ${subtitle ? `<p class="muted">${escapeHtml(subtitle)}</p>` : ""}
+        </div>
+        ${actions ? `<div class="system-health-actions">${actions}</div>` : ""}
+      </div>
+      ${body}
+    </section>
+  `;
+}
+
+function systemHealthJobButton(action, type, label) {
+  return `<button class="ghost small" type="button" data-system-health-action="${escapeHtml(action)}" data-system-health-job-type="${escapeHtml(type || "all")}">${escapeHtml(label)}</button>`;
+}
+
+function renderDiscordJobHealth(discordSync = {}) {
+  const groups = Array.isArray(discordSync.failedByType) ? discordSync.failedByType : [];
+  const recent = Array.isArray(discordSync.recentFailed) ? discordSync.recentFailed : [];
+  const canManage = Boolean(permissions.canUseDevTools);
+  const failedCount = Number(discordSync.failed || 0);
+  const actions = canManage && failedCount > 0
+    ? `${systemHealthJobButton("retry", "all", "Alles opnieuw")} ${systemHealthJobButton("cleanup", "all", "Alles opruimen")}`
+    : "";
+  if (!groups.length && !recent.length) {
+    return systemHealthSection("Discord opdrachten", "Wachtrij voor rollen, nicknames, DM's en porto-kanalen", `<p class="system-health-empty">Geen gefaalde Discord opdrachten.</p>`, actions);
+  }
+  const groupRows = groups.map((group) => `
+    <tr>
+      <td><strong>${escapeHtml(group.type || "-")}</strong></td>
+      <td>${escapeHtml(String(group.count ?? "-"))}</td>
+      <td>${escapeHtml(formatHealthAge(group.latestUpdatedAt))}</td>
+      <td title="${escapeHtml(group.latestError || "")}">${escapeHtml(truncateHealthText(group.latestError, 90))}</td>
+      <td>${canManage ? `${systemHealthJobButton("retry", group.type, "Retry")} ${systemHealthJobButton("cleanup", group.type, "Opruimen")}` : "-"}</td>
+    </tr>
+  `).join("");
+  const recentRows = recent.map((job) => `
+    <tr>
+      <td><strong>${escapeHtml(job.type || "-")}</strong><small>${escapeHtml(job.channelKey || job.discordId || job.personId || "")}</small></td>
+      <td>${escapeHtml(`${job.attempts || 0}/${job.maxAttempts || 0}`)}</td>
+      <td>${escapeHtml(formatHealthAge(job.updatedAt || job.createdAt))}</td>
+      <td title="${escapeHtml(job.lastError || "")}">${escapeHtml(truncateHealthText(job.lastError, 110))}</td>
+    </tr>
+  `).join("");
+  return systemHealthSection("Discord opdrachten", "Gefaalde opdrachten per type en laatste fouten", `
+    <div class="system-health-table-wrap">
+      <table class="system-health-table">
+        <thead><tr><th>Type</th><th>Aantal</th><th>Laatst</th><th>Laatste fout</th><th>Actie</th></tr></thead>
+        <tbody>${groupRows || `<tr><td colspan="5">Geen groepdetails.</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="system-health-table-wrap">
+      <table class="system-health-table compact">
+        <thead><tr><th>Recent</th><th>Pogingen</th><th>Laatst</th><th>Fout</th></tr></thead>
+        <tbody>${recentRows || `<tr><td colspan="4">Geen recente fouten.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `, actions);
+}
+
+function renderProfileAuditHealth(audit = {}) {
+  const duplicates = Array.isArray(audit.duplicateDiscordIds) ? audit.duplicateDiscordIds : [];
+  if (!duplicates.length) {
+    return systemHealthSection("Profiel-audit", "Controle op oude of dubbele Discord-koppelingen", `<p class="system-health-empty">Geen dubbele Discord-koppelingen gevonden.</p>`);
+  }
+  const duplicateCount = Number(audit.duplicateDiscordIdCount || duplicates.length);
+  const subtitle = duplicateCount > duplicates.length
+    ? `${duplicateCount} Discord ID's met meerdere profielen, eerste ${duplicates.length} getoond`
+    : `${duplicateCount} Discord ID's met meerdere profielen`;
+  const rows = duplicates.map((entry) => `
+    <tr>
+      <td><strong>${escapeHtml(entry.discordId || "-")}</strong></td>
+      <td>${systemHealthPill(`${entry.currentCount || 0} huidig`, Number(entry.currentCount || 0) > 1 ? "bad" : "ok")} ${systemHealthPill(`${entry.total || 0} totaal`, "neutral")}</td>
+      <td>
+        <div class="system-health-profile-list">
+          ${(entry.profiles || []).map((profile) => `
+            <span>${escapeHtml(`${profile.serviceNumber || "-"} - ${profile.name || "-"} (${profile.status || "Actief"})`)}</span>
+          `).join("")}
+        </div>
+      </td>
+    </tr>
+  `).join("");
+  return systemHealthSection("Profiel-audit", subtitle, `
+    <div class="system-health-table-wrap">
+      <table class="system-health-table">
+        <thead><tr><th>Discord ID</th><th>Impact</th><th>Profielen</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `);
+}
+
+function renderPortoHeartbeatHealth(portoDebug = {}) {
+  const units = Array.isArray(portoDebug.units) ? portoDebug.units : [];
+  const rows = units.map((unit) => {
+    const heartbeatAt = unit.browserHeartbeatAt || unit.lastSeenAt || unit.updatedAt;
+    const heartbeatMs = Date.parse(heartbeatAt || "");
+    const stale = Number.isFinite(heartbeatMs) && Date.now() - heartbeatMs > 2 * 60 * 1000;
+    const stateName = unit.browserCloseSuspectedAt ? "warn" : stale ? "warn" : unit.browserHeartbeatActive ? "ok" : "neutral";
+    const stateLabel = unit.browserCloseSuspectedAt ? "browser gesloten?" : stale ? "stale" : unit.browserHeartbeatActive ? "heartbeat" : "geen browser";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(unit.serviceNumber || "-")}</strong><small>${escapeHtml(unit.name || "-")}</small></td>
+        <td>${escapeHtml(unit.vehicleNumber || "Status 0")}</td>
+        <td>${escapeHtml(unit.statusDetail || (unit.status ? `Status ${unit.status}` : "-"))}</td>
+        <td>${escapeHtml(formatHealthAge(heartbeatAt))}</td>
+        <td>${systemHealthPill(stateLabel, stateName)}</td>
+      </tr>
+    `;
+  }).join("");
+  return systemHealthSection("Porto heartbeat", "Oudste actieve browser/porto-sessies eerst", `
+    <div class="system-health-mini-grid">
+      ${systemHealthCard("Actief", portoDebug.activeUnitCount ?? "-", "neutral")}
+      ${systemHealthCard("Ingedeeld", portoDebug.activeAssignedCount ?? "-", "neutral")}
+      ${systemHealthCard("Status 0", portoDebug.status0Count ?? "-", "neutral")}
+      ${systemHealthCard("Stale", portoDebug.staleHeartbeatCount ?? "-", Number(portoDebug.staleHeartbeatCount || 0) > 0 ? "warn" : "neutral")}
+    </div>
+    <div class="system-health-table-wrap">
+      <table class="system-health-table compact">
+        <thead><tr><th>Persoon</th><th>Eenheid</th><th>Status</th><th>Laatst gezien</th><th>Browser</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="5">Geen actieve porto sessies.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `);
+}
+
 function renderSystemHealthPayload(payload) {
   const summary = $("#systemHealthSummary");
   const details = $("#systemHealthDetails");
@@ -2224,6 +2417,8 @@ function renderSystemHealthPayload(payload) {
       ${systemHealthCard("Laatste check", formatHealthTimestamp(payload?.timestamp), "neutral")}
       ${systemHealthCard("Actieve leden", counts.active_people ?? "-", "neutral")}
       ${systemHealthCard("Personeel totaal", counts.people ?? "-", "neutral")}
+      ${systemHealthCard("Huidige profielen", counts.current_people ?? "-", "neutral")}
+      ${systemHealthCard("Oude profielen", counts.archived_people ?? "-", Number(counts.archived_people || 0) > 0 ? "warn" : "neutral")}
       ${systemHealthCard("Actieve porto units", counts.active_porto_units ?? "-", "neutral")}
       ${systemHealthCard("Voertuiginbeslagname", counts.vehicle_seizures ?? "-", "neutral")}
       ${systemHealthCard("Open Discord jobs", discordSync.open ?? "-", "neutral")}
@@ -2231,6 +2426,9 @@ function renderSystemHealthPayload(payload) {
       ${systemHealthCard("Failed Discord jobs", discordSync.failed ?? "-", Number(discordSync.failed || 0) > 0 ? "warn" : "neutral")}
       ${systemHealthCard("DB lock waiters", activity.lock_waiters ?? "-", Number(activity.lock_waiters || 0) > 0 ? "warn" : "neutral")}
     </div>
+    ${renderDiscordJobHealth(discordSync)}
+    ${renderProfileAuditHealth(payload?.profileAudit)}
+    ${renderPortoHeartbeatHealth(payload?.portoDebug)}
     <p class="muted system-health-footnote">Event bridge: ${escapeHtml(payload?.eventBridge?.enabled ? "aan" : "uit")} · Laatste Discord job: ${escapeHtml(formatHealthTimestamp(discordSync.latest_created_at))}</p>
   `;
 }
@@ -2263,6 +2461,49 @@ async function loadSystemHealth({ force = false } = {}) {
       systemHealthLoadPromise = null;
     });
   return systemHealthLoadPromise;
+}
+
+async function runSystemHealthJobAction(action, type, button) {
+  if (!permissions.canUseDevTools) return;
+  const endpoint = action === "cleanup" ? "/api/admin/discord-jobs/cleanup" : "/api/admin/discord-jobs/retry";
+  if (action === "cleanup") {
+    const scope = type && type !== "all" ? `gefaalde '${type}' opdrachten` : "alle gefaalde Discord opdrachten";
+    const confirmed = await showSiteConfirm(`Wil je ${scope} opruimen uit de wachtrij?`, "Discord opdrachten opruimen");
+    if (!confirmed) return;
+  }
+  const defaultText = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Bezig...";
+  }
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: type || "all" })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      await showSiteNotice(payload.error || "Discord opdrachtbeheer is mislukt.", "Actie mislukt");
+      return;
+    }
+    if (payload.health) {
+      systemHealthCache = payload.health;
+      systemHealthLoadedAt = Date.now();
+      renderSystemHealthPayload(payload.health);
+    } else {
+      await loadSystemHealth({ force: true });
+    }
+    const verb = action === "cleanup" ? "opgeruimd" : "opnieuw ingepland";
+    await showSiteNotice(`${payload.changed || 0} Discord opdracht(en) ${verb}.`, "Systeemstatus");
+  } catch (error) {
+    await showSiteNotice("Discord opdrachtbeheer is mislukt. Probeer opnieuw.", "Actie mislukt");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = defaultText;
+    }
+  }
 }
 
 function renderSystemHealth() {
@@ -2329,6 +2570,11 @@ function wireEvents() {
   });
   $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
   $("#refreshSystemHealthBtn")?.addEventListener("click", () => loadSystemHealth({ force: true }));
+  $("#systemHealthDetails")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-system-health-action]");
+    if (!button) return;
+    runSystemHealthJobAction(button.dataset.systemHealthAction, button.dataset.systemHealthJobType, button);
+  });
   const rankPie = $("#rankPie");
   rankPie?.addEventListener("mousemove", moveRankPieTooltip);
   rankPie?.addEventListener("mouseleave", hideRankPieTooltip);
