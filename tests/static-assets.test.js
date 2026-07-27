@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260727-boot-handshake/);
+  assert.match(html, /app\.js\?v=20260727-training-co-trainers/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -209,7 +209,7 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(html, /data-page="trainer-ibt"/);
   assert.match(html, /id="trainerIbtCounter"/);
   assert.match(html, /trainerIbtDetailDialog/);
-  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260722-ibt-silent-refresh/);
+  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260727-training-co-trainers/);
   assert.match(appCode, /"trainer-overzicht": "\/trainer-overzicht"/);
   assert.match(appCode, /function canViewTrainerOverview\(/);
   assert.match(appCode, /refreshTrainerIbtReviewsSilently\(\)/);
@@ -226,6 +226,7 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(serverCode, /type: "qualification"[\s\S]*addedTrainings: \[training\]/);
   assert.match(serverCode, /"trainer-overzicht", "trainer-ibt", "trainer-logboek"/);
   assert.match(trainerCode, /function trainerEntryAddedTrainings/);
+  assert.match(trainerCode, /function trainerEntryCoTrainerCredits/);
   assert.match(trainerCode, /typeof isCurrentProfile === "function" \? isCurrentProfile\(person\) : person\.status === "Actief"/);
   assert.match(trainerCode, /\/api\/trainer\/ibt-tests/);
   assert.match(trainerCode, /data-send-trainer-ibt/);
@@ -244,13 +245,35 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(styles, /\.trainer-ibt-row/);
 });
 
+test("training completion can credit co-trainers", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const trainerCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "trainer.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(html, /id="trainingCreditDialog"/);
+  assert.match(html, /id="trainingCoTrainerOptions"/);
+  assert.match(html, /data-training-co-trainer-row="3"/);
+  assert.match(appCode, /const MAX_TRAINING_CREDIT_TRAINERS = 5/);
+  assert.match(appCode, /function openTrainingCreditDialog/);
+  assert.match(appCode, /payload\.coTrainers = coTrainers/);
+  assert.match(routesCode, /function normalizeTrainingCoTrainers/);
+  assert.match(routesCode, /function trainingCoTrainerCredits/);
+  assert.match(routesCode, /coTrainerCredits/);
+  assert.match(trainerCode, /trainerEntryCoTrainerCredits/);
+  assert.match(trainerCode, /record\.isCoTrainer/);
+  assert.match(styles, /#trainingCreditDialog/);
+  assert.match(styles, /\.training-credit-co-trainers/);
+});
+
 test("profile badge context dialog groups controls with a summary", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260727-boot-handshake/);
+  assert.match(html, /personeelsportaal\.css\?v=20260727-training-co-trainers/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260726-branch-badge-management/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
@@ -355,7 +378,7 @@ test("portal chrome keeps topbar controls inside narrow desktop viewports", () =
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260727-boot-handshake/);
+  assert.match(html, /personeelsportaal\.css\?v=20260727-training-co-trainers/);
   assert.match(styles, /Portal chrome stability for browser zoom/);
   assert.match(styles, /body:not\(\.locked\) \{[\s\S]*overflow-x: clip;/);
   assert.match(styles, /\.topbar \{[\s\S]*flex-wrap: wrap;/);

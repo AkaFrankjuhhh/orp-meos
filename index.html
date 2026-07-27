@@ -87,7 +87,7 @@
       }
     </style>
     <link rel="stylesheet" href="/shared.css?v=20260727-boot-handshake" />
-    <link rel="stylesheet" href="/personeelsportaal.css?v=20260727-boot-handshake" />
+    <link rel="stylesheet" href="/personeelsportaal.css?v=20260727-training-co-trainers" />
   <script src="/portal-boot.js?v=20260727-boot-handshake" defer></script>
   <script src="/boot-failsafe.js?v=20260727-boot-handshake" defer></script>
   <script src="/portal-loader-failsafe.js?v=20260727-boot-handshake" defer></script>
@@ -988,6 +988,52 @@
       </form>
     </dialog>
 
+    <dialog id="trainingCreditDialog">
+      <form id="trainingCreditForm" method="dialog" class="dialog-form training-credit-dialog-form">
+        <div class="panel-head">
+          <div>
+            <h2>Training afvinken</h2>
+            <p class="muted" id="trainingCreditTarget">-</p>
+          </div>
+          <button class="ghost icon" type="button" id="closeTrainingCreditDialog">&times;</button>
+        </div>
+        <section class="training-credit-summary">
+          <div>
+            <span>Training</span>
+            <strong id="trainingCreditTrainingName">-</strong>
+          </div>
+          <div>
+            <span>Naam Trainer</span>
+            <strong id="trainingCreditPrimaryTrainer">-</strong>
+          </div>
+        </section>
+        <section id="trainingCoTrainerFields" class="training-credit-co-trainers" aria-label="Mede-trainers">
+          <datalist id="trainingCoTrainerOptions"></datalist>
+          <label data-training-co-trainer-row="0">
+            <span>Mede Trainer</span>
+            <input id="trainingCoTrainer1" list="trainingCoTrainerOptions" autocomplete="off" placeholder="Zoek op naam of dienstnummer" />
+          </label>
+          <label data-training-co-trainer-row="1" hidden>
+            <span>3e Trainer</span>
+            <input id="trainingCoTrainer2" list="trainingCoTrainerOptions" autocomplete="off" placeholder="Optionele extra trainer" />
+          </label>
+          <label data-training-co-trainer-row="2" hidden>
+            <span>4e Trainer</span>
+            <input id="trainingCoTrainer3" list="trainingCoTrainerOptions" autocomplete="off" placeholder="Optionele extra trainer" />
+          </label>
+          <label data-training-co-trainer-row="3" hidden>
+            <span>5e Trainer</span>
+            <input id="trainingCoTrainer4" list="trainingCoTrainerOptions" autocomplete="off" placeholder="Optionele extra trainer" />
+          </label>
+        </section>
+        <p class="muted">Laat mede-trainers leeg als de training alleen door jou is gegeven.</p>
+        <menu>
+          <button id="cancelTrainingCreditDialog" class="ghost" type="button">Annuleren</button>
+          <button class="primary" type="submit">Opslaan</button>
+        </menu>
+      </form>
+    </dialog>
+
     <dialog id="dismissalDialog">
       <form id="dismissalForm" method="dialog" class="dialog-form">
         <div class="panel-head">
@@ -1198,10 +1244,10 @@
     <script src="/personeelsportaal/people.js?v=20260629-current-absence-profiles"></script>
     <script src="/personeelsportaal/i8.js?v=20260722-i8-session-draft"></script>
     <script src="/personeelsportaal/mentor.js?v=20260726-mentor-log-current"></script>
-    <script src="/personeelsportaal/trainer.js?v=20260722-ibt-silent-refresh"></script>
+    <script src="/personeelsportaal/trainer.js?v=20260727-training-co-trainers"></script>
     <script src="/personeelsportaal/absence.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/archive.js?v=20260705-resignation-archive-state"></script>
     <script src="/personeelsportaal-data.js?v=20260628-deep-route-assets"></script>
-    <script src="/app.js?v=20260727-boot-handshake"></script>
+    <script src="/app.js?v=20260727-training-co-trainers"></script>
 </body>
 </html>

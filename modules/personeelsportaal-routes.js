@@ -1144,6 +1144,68 @@ function createPersoneelsportaalRouteHandler(deps) {
     return logEntry;
   }
 
+  function trainingCreditLabel(person) {
+    if (!person) return "";
+    const number = person.serviceNumber ? `${person.serviceNumber} - ` : "";
+    return `${number}${person.name || "Onbekend"}`;
+  }
+
+  function resolveTrainingCreditPerson(state, candidate = {}) {
+    const rawId = String(candidate.id || candidate.personId || "").trim();
+    const rawName = String(candidate.name || candidate.value || candidate.label || "").trim();
+    const normalizedName = rawName.toLowerCase();
+    return (state.people || []).find((person) => {
+      if (rawId && person.id === rawId) return true;
+      const labels = [
+        trainingCreditLabel(person),
+        person.name || "",
+        person.serviceNumber || "",
+        person.id || ""
+      ].map((item) => String(item || "").trim().toLowerCase()).filter(Boolean);
+      return normalizedName && labels.includes(normalizedName);
+    }) || null;
+  }
+
+  function normalizeTrainingCoTrainers(rawCoTrainers, state, actor, trainee) {
+    const rawList = Array.isArray(rawCoTrainers) ? rawCoTrainers : [];
+    const excluded = new Set([
+      actor?.id || "",
+      trainee?.id || "",
+      String(actor?.name || "").trim().toLowerCase(),
+      String(trainee?.name || "").trim().toLowerCase()
+    ].filter(Boolean));
+    const seen = new Set(excluded);
+    const coTrainers = [];
+    for (const item of rawList) {
+      const candidate = item && typeof item === "object" ? item : { name: item };
+      const matched = resolveTrainingCreditPerson(state, candidate);
+      const name = String(matched?.name || candidate.name || candidate.value || candidate.label || "").trim();
+      if (!name) continue;
+      if (matched && !isCurrentPerson(matched)) continue;
+      const key = matched?.id || name.toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      coTrainers.push({
+        id: matched?.id || "",
+        name,
+        serviceNumber: matched?.serviceNumber || "",
+        rank: matched?.rank || ""
+      });
+      if (coTrainers.length >= 4) break;
+    }
+    return coTrainers;
+  }
+
+  function trainingCoTrainerCredits(trainings, coTrainers) {
+    return trainings.flatMap((training) => coTrainers.map((trainer) => ({
+      training,
+      actorId: trainer.id || "",
+      actorName: trainer.name || "Onbekend",
+      serviceNumber: trainer.serviceNumber || "",
+      rank: trainer.rank || ""
+    })));
+  }
+
   function i8NumberForServer(form, forms = []) {
     if (form?.i8Number) return String(form.i8Number).padStart(3, "0");
     const ordered = forms.slice().sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
@@ -2329,6 +2391,8 @@ function createPersoneelsportaalRouteHandler(deps) {
     const removedTrainings = previousTrainingList.filter((item) => !nextTrainings.includes(item));
     const newOperational = nextOperational.filter((item) => !previousOperational.has(item));
     const removedOperational = previousOperationalList.filter((item) => !nextOperational.includes(item));
+    const coTrainers = newTrainings.length ? normalizeTrainingCoTrainers(body.coTrainers, state, actor, person) : [];
+    const coTrainerCredits = trainingCoTrainerCredits(newTrainings, coTrainers);
     if (!canManageAll) {
       const onlyIbtRevoked = removedTrainings.length <= 1 && removedTrainings.every((item) => item === "IBT");
       if (newTrainings.length || newOperational.length || removedOperational.length || !onlyIbtRevoked) {
@@ -2361,22 +2425,24 @@ function createPersoneelsportaalRouteHandler(deps) {
       ...removedOperational.map((item) => `${item} ingenomen`)
     ];
     if (changeDetails.length) {
+      const coTrainerDetails = coTrainers.length ? ` Mede-trainers: ${coTrainers.map((trainer) => trainer.name).join(", ")}.` : "";
       addProfileLog(person, {
         actor,
         type: "qualification",
         action: "Kwalificaties aangepast",
-        details: changeDetails.join(", "),
+        details: `${changeDetails.join(", ")}${coTrainerDetails}`,
         meta: {
           addedTrainings: newTrainings,
           addedOperational: newOperational,
           removedTrainings,
-          removedOperational
+          removedOperational,
+          coTrainerCredits
         }
       });
     }
     state.activity = state.activity || [];
     const activityMessage = changeDetails.length
-      ? `${actor.name} wijzigde kwalificaties voor ${person.name}: ${changeDetails.join(", ")}.`
+      ? `${actor.name} wijzigde kwalificaties voor ${person.name}: ${changeDetails.join(", ")}.${coTrainers.length ? ` Mede-trainers: ${coTrainers.map((trainer) => trainer.name).join(", ")}.` : ""}`
       : `Profiel kwalificaties bijgewerkt voor ${person.name}.`;
     const activityStartIndex = state.activity.length;
     state.activity.push(activityMessage);

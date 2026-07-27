@@ -1617,6 +1617,71 @@ dialog::backdrop {
   background: rgba(225, 112, 0, 0.12);
 }
 
+#trainingCreditDialog {
+  width: min(760px, calc(100vw - 28px));
+}
+
+.training-credit-dialog-form {
+  padding: clamp(18px, 2.2vw, 28px);
+}
+
+.training-credit-dialog-form .panel-head {
+  margin-bottom: 0;
+  align-items: start;
+}
+
+.training-credit-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.training-credit-summary div,
+.training-credit-co-trainers label {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.training-credit-summary span,
+.training-credit-co-trainers span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.training-credit-summary strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.training-credit-co-trainers {
+  display: grid;
+  gap: 10px;
+}
+
+.training-credit-co-trainers label {
+  display: grid;
+  gap: 8px;
+}
+
+.training-credit-co-trainers input {
+  width: 100%;
+}
+
+[data-theme="light"] .training-credit-summary div,
+[data-theme="light"] .training-credit-co-trainers label {
+  background: rgba(248, 250, 252, 0.78);
+}
+
 @media (max-width: 1180px) {
   .profile-badge-group-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1652,6 +1717,10 @@ dialog::backdrop {
 
   .profile-badge-dialog-actions button {
     width: 100%;
+  }
+
+  .training-credit-summary {
+    grid-template-columns: 1fr;
   }
 }
 

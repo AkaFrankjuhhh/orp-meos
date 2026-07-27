@@ -100,6 +100,7 @@ let mentorChecklistEditingUntil = 0;
 const REVIEW_COUNTER_FALLBACK_MS = 30000;
 const LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS = 1500;
 const SYSTEM_HEALTH_CACHE_MS = 10000;
+const MAX_TRAINING_CREDIT_TRAINERS = 5;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -589,6 +590,138 @@ async function showSiteTextInput({
     );
     dialog.showModal();
     textarea?.focus();
+  });
+}
+
+let trainingCreditDialogResolve = null;
+let trainingCreditOptionPeople = [];
+
+function trainingCreditTrainerLabel(person) {
+  if (!person) return "";
+  const number = person.serviceNumber ? `${person.serviceNumber} - ` : "";
+  return `${number}${person.name || "Onbekend"}`;
+}
+
+function trainingCreditPrimaryTrainer() {
+  return currentProfile() || authProfile || {};
+}
+
+function trainingCreditSelectablePeople(targetPerson) {
+  const primary = trainingCreditPrimaryTrainer();
+  return (state.people || [])
+    .filter((person) => isCurrentProfile(person))
+    .filter((person) => person.id !== targetPerson?.id)
+    .filter((person) => person.id !== primary?.id)
+    .sort((a, b) => compareServiceNumber(a.serviceNumber, b.serviceNumber) || String(a.name || "").localeCompare(String(b.name || ""), "nl"));
+}
+
+function fillTrainingCoTrainerOptions(targetPerson) {
+  const datalist = $("#trainingCoTrainerOptions");
+  if (!datalist) return;
+  trainingCreditOptionPeople = trainingCreditSelectablePeople(targetPerson);
+  datalist.innerHTML = trainingCreditOptionPeople
+    .map((person) => `<option value="${escapeHtml(trainingCreditTrainerLabel(person))}"></option>`)
+    .join("");
+}
+
+function resetTrainingCoTrainerFields() {
+  $$("[data-training-co-trainer-row] input").forEach((input) => {
+    input.value = "";
+  });
+  syncTrainingCoTrainerRows();
+}
+
+function syncTrainingCoTrainerRows() {
+  const rows = $$("[data-training-co-trainer-row]");
+  rows.forEach((row, index) => {
+    const previousInput = rows[index - 1]?.querySelector("input");
+    const shouldShow = index === 0 || Boolean(previousInput?.value.trim());
+    row.hidden = !shouldShow;
+    if (!shouldShow) {
+      const input = row.querySelector("input");
+      if (input) input.value = "";
+    }
+  });
+}
+
+function resolveTrainingCoTrainer(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const normalized = raw.toLowerCase();
+  const matched = trainingCreditOptionPeople.find((person) => {
+    const labels = [
+      trainingCreditTrainerLabel(person),
+      person.name || "",
+      person.serviceNumber || "",
+      person.id || ""
+    ].map((item) => String(item || "").trim().toLowerCase()).filter(Boolean);
+    return labels.includes(normalized);
+  });
+  if (matched) {
+    return {
+      id: matched.id || "",
+      name: matched.name || raw,
+      serviceNumber: matched.serviceNumber || "",
+      rank: matched.rank || ""
+    };
+  }
+  return { id: "", name: raw, serviceNumber: "", rank: "" };
+}
+
+function collectTrainingCoTrainers() {
+  const primary = trainingCreditPrimaryTrainer();
+  const seen = new Set([primary?.id || "", String(primary?.name || "").trim().toLowerCase()].filter(Boolean));
+  const coTrainers = [];
+  for (const input of $$("[data-training-co-trainer-row] input")) {
+    const resolved = resolveTrainingCoTrainer(input.value);
+    if (!resolved?.name) continue;
+    const key = resolved.id || resolved.name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    coTrainers.push(resolved);
+    if (coTrainers.length >= MAX_TRAINING_CREDIT_TRAINERS - 1) break;
+  }
+  return coTrainers;
+}
+
+function resolveTrainingCreditDialog(value) {
+  if (typeof trainingCreditDialogResolve === "function") trainingCreditDialogResolve(value);
+}
+
+function openTrainingCreditDialog({ trainingNames = [], targetPerson = null } = {}) {
+  const dialog = $("#trainingCreditDialog");
+  const form = $("#trainingCreditForm");
+  if (!dialog || !form) return Promise.resolve([]);
+  const primary = trainingCreditPrimaryTrainer();
+  $("#trainingCreditTarget").textContent = targetPerson
+    ? `${targetPerson.name || "Onbekend"} - ${targetPerson.serviceNumber || "-"}`
+    : "-";
+  $("#trainingCreditTrainingName").textContent = trainingNames.length > 1 ? trainingNames.join(", ") : trainingNames[0] || "-";
+  $("#trainingCreditPrimaryTrainer").textContent = primary?.name || "Onbekend";
+  fillTrainingCoTrainerOptions(targetPerson);
+  resetTrainingCoTrainerFields();
+
+  return new Promise((resolve) => {
+    let settled = false;
+    trainingCreditDialogResolve = (value) => {
+      if (settled) return;
+      settled = true;
+      trainingCreditDialogResolve = null;
+      resolve(value);
+    };
+    dialog.addEventListener(
+      "close",
+      () => {
+        if (!settled) {
+          settled = true;
+          trainingCreditDialogResolve = null;
+          resolve(null);
+        }
+      },
+      { once: true }
+    );
+    dialog.showModal();
+    $("#trainingCoTrainer1")?.focus();
   });
 }
 
@@ -2379,10 +2512,33 @@ function wireEvents() {
     }
     const completedTrainings = $$("[data-profile-check='training']:checked").map((input) => input.value);
     const completedOperational = $$("[data-profile-check='operational']:checked").map((input) => input.value);
-    if (await runAction(`/api/people/${encodeURIComponent(viewed.id)}/qualifications`, { completedTrainings, completedOperational })) {
+    const previousTrainings = new Set(Array.isArray(viewed.completedTrainings) ? viewed.completedTrainings : []);
+    const addedTrainings = completedTrainings.filter((item) => !previousTrainings.has(item));
+    let coTrainers = [];
+    if (event.target.dataset.profileCheck === "training" && event.target.checked && addedTrainings.length && canManageQualifications()) {
+      const result = await openTrainingCreditDialog({ trainingNames: addedTrainings, targetPerson: viewed });
+      if (result === null) {
+        renderProfile();
+        return;
+      }
+      coTrainers = result;
+    }
+    const payload = { completedTrainings, completedOperational };
+    if (coTrainers.length) payload.coTrainers = coTrainers;
+    if (await runAction(`/api/people/${encodeURIComponent(viewed.id)}/qualifications`, payload)) {
       render();
+    } else {
+      renderProfile();
     }
   });
+  $("#trainingCoTrainerFields")?.addEventListener("input", syncTrainingCoTrainerRows);
+  $("#trainingCreditForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    resolveTrainingCreditDialog(collectTrainingCoTrainers());
+    $("#trainingCreditDialog")?.close("confirm");
+  });
+  $("#closeTrainingCreditDialog")?.addEventListener("click", () => $("#trainingCreditDialog")?.close("cancel"));
+  $("#cancelTrainingCreditDialog")?.addEventListener("click", () => $("#trainingCreditDialog")?.close("cancel"));
   $("#logoutBtn").addEventListener("click", async () => {
     stopLiveUpdates();
     await fetch("/api/auth/logout", { method: "POST" });

@@ -41,18 +41,52 @@ function trainerEntryAddedTrainings(entry = {}) {
   return approvedTraining && configuredTrainings.has(approvedTraining) ? [approvedTraining] : [];
 }
 
+function trainerEntryCoTrainerCredits(entry = {}, trainings = trainerEntryAddedTrainings(entry)) {
+  const meta = entry.meta || {};
+  const configuredTrainings = new Set(profileTrainings || []);
+  const entryTrainings = new Set(trainings);
+  return (Array.isArray(meta.coTrainerCredits) ? meta.coTrainerCredits : [])
+    .map((credit) => ({
+      training: String(credit?.training || "").trim(),
+      actorId: String(credit?.actorId || "").trim(),
+      actorName: String(credit?.actorName || "").trim() || "Onbekend",
+      serviceNumber: String(credit?.serviceNumber || "").trim(),
+      rank: String(credit?.rank || "").trim()
+    }))
+    .filter((credit) => (
+      credit.training &&
+      configuredTrainings.has(credit.training) &&
+      (!entryTrainings.size || entryTrainings.has(credit.training))
+    ));
+}
+
 function trainerQualificationRecords() {
-  return (state.people || [])
-    .flatMap((person) => (Array.isArray(person.profileLog) ? person.profileLog : [])
-      .flatMap((entry) => trainerEntryAddedTrainings(entry).map((training) => ({
-        person,
-        entry,
-        training,
-        actorId: entry.actorId || "",
-        actorName: entry.actorName || "Onbekend",
-        createdAt: entry.createdAt || ""
-      }))))
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  const records = [];
+  for (const person of state.people || []) {
+    for (const entry of Array.isArray(person.profileLog) ? person.profileLog : []) {
+      const trainings = trainerEntryAddedTrainings(entry);
+      const seenCredits = new Set();
+      const pushRecord = (training, actorId, actorName, isCoTrainer = false) => {
+        const key = `${training}\n${actorId || String(actorName || "").toLowerCase()}\n${isCoTrainer ? "co" : "primary"}`;
+        if (seenCredits.has(key)) return;
+        seenCredits.add(key);
+        records.push({
+          person,
+          entry,
+          training,
+          actorId: actorId || "",
+          actorName: actorName || "Onbekend",
+          isCoTrainer,
+          createdAt: entry.createdAt || ""
+        });
+      };
+      trainings.forEach((training) => pushRecord(training, entry.actorId || "", entry.actorName || "Onbekend"));
+      trainerEntryCoTrainerCredits(entry, trainings).forEach((credit) => {
+        pushRecord(credit.training, credit.actorId, credit.actorName, true);
+      });
+    }
+  }
+  return records.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
 function trainerRecordsForPerson(personId) {
@@ -113,7 +147,7 @@ function renderTrainerPersonTrainingLog(personId = selectedTrainerProfileId) {
       ${records.map((record) => `
         <article class="leadership-detail-row trainer-training-row">
           <strong>${escapeHtml(record.training)} <span class="trainer-plus">+1</span></strong>
-          <span>Afgevinkt door ${escapeHtml(record.actorName || "Onbekend")} op ${escapeHtml(formatDateTime(record.createdAt))}</span>
+          <span>${record.isCoTrainer ? "Mede-trainer" : "Afgevinkt door"} ${escapeHtml(record.actorName || "Onbekend")} op ${escapeHtml(formatDateTime(record.createdAt))}</span>
           <p>${escapeHtml(record.entry.details || record.entry.action || "-")}</p>
         </article>
       `).join("")}
@@ -153,7 +187,7 @@ function renderTrainerOverview() {
         return `
           <button class="leadership-row leadership-row-button trainer-overview-row ${person.id === selectedTrainerProfileId ? "is-selected" : ""}" type="button" data-trainer-person="${escapeHtml(person.id)}">
             <strong>${escapeHtml(person.name || "Onbekend")}<small>${escapeHtml(person.rank || "-")} - ${escapeHtml(person.serviceNumber || "-")}</small></strong>
-            <span>${latest ? `${escapeHtml(latest.training)} door ${escapeHtml(latest.actorName || "Onbekend")}` : "Geen afvinkingen"}</span>
+            <span>${latest ? `${escapeHtml(latest.training)} door ${escapeHtml(latest.actorName || "Onbekend")}${latest.isCoTrainer ? " (mede-trainer)" : ""}` : "Geen afvinkingen"}</span>
             <span class="rank-count"><span>${escapeHtml(String(records.length))}</span></span>
           </button>
         `;
@@ -201,7 +235,7 @@ function renderTrainerLogbookDetails(group) {
         <article class="leadership-detail-row">
           <strong>${escapeHtml(record.person.name || "Onbekend")} - ${escapeHtml(record.training)} <span class="trainer-plus">+1</span></strong>
           <span>${escapeHtml(formatDateTime(record.createdAt))}</span>
-          <p>${escapeHtml(record.entry.details || record.entry.action || "-")}</p>
+          <p>${escapeHtml(record.isCoTrainer ? `Mede-trainer bij ${record.entry.actorName || "Onbekend"}` : record.entry.details || record.entry.action || "-")}</p>
         </article>
       `).join("")}
     </div>
