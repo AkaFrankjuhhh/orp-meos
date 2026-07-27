@@ -86,10 +86,27 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260726-system-health/);
+  assert.match(html, /app\.js\?v=20260727-boot-handshake/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
+});
+
+test("portal boot waits for the app before revealing the shell", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const bootCode = fs.readFileSync(path.join(process.cwd(), "portal-boot.js"), "utf8");
+  const loaderFailsafe = fs.readFileSync(path.join(process.cwd(), "portal-loader-failsafe.js"), "utf8");
+  const bootFailsafe = fs.readFileSync(path.join(process.cwd(), "boot-failsafe.js"), "utf8");
+
+  assert.match(html, /portal-boot\.js\?v=20260727-boot-handshake/);
+  assert.match(appCode, /function markPortalReady\(/);
+  assert.match(appCode, /window\.__orpBootReady\(\)/);
+  assert.doesNotMatch(bootCode, /DOMContentLoaded/);
+  assert.doesNotMatch(bootCode, /scheduleBootRelease|setTimeout\(releaseBoot/);
+  assert.match(bootCode, /verifyCriticalStylesheets/);
+  assert.doesNotMatch(loaderFailsafe, /setTimeout|orp-app-ready|orp-app-booting|style\.visibility/);
+  assert.doesNotMatch(bootFailsafe, /setTimeout|orp-app-ready|orp-app-booting|style\.visibility/);
 });
 
 test("porto saves duty hours before ended runtime units are cleaned up", () => {
@@ -233,7 +250,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260726-system-health/);
+  assert.match(html, /personeelsportaal\.css\?v=20260727-boot-handshake/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260726-branch-badge-management/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
@@ -338,7 +355,7 @@ test("portal chrome keeps topbar controls inside narrow desktop viewports", () =
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260726-system-health/);
+  assert.match(html, /personeelsportaal\.css\?v=20260727-boot-handshake/);
   assert.match(styles, /Portal chrome stability for browser zoom/);
   assert.match(styles, /body:not\(\.locked\) \{[\s\S]*overflow-x: clip;/);
   assert.match(styles, /\.topbar \{[\s\S]*flex-wrap: wrap;/);

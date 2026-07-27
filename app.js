@@ -942,6 +942,24 @@ function setLocked(locked) {
   if (notice) notice.hidden = !locked;
 }
 
+function markPortalReady() {
+  window.__orpPortalAppReady = true;
+  if (typeof window.__orpBootReady === "function") {
+    window.__orpBootReady();
+    return;
+  }
+  document.documentElement.classList.remove("orp-app-booting", "orp-app-load-error");
+  document.documentElement.classList.add("orp-app-ready");
+}
+
+function markPortalFailed(error) {
+  window.__orpPortalAppReady = false;
+  const message = error?.message || String(error || "Onbekende browserfout");
+  if (typeof window.__orpBootFail === "function") {
+    window.__orpBootFail(`Portaal starten mislukt: ${message}`);
+  }
+}
+
 function showLockError() {
   const errorCode = new URLSearchParams(window.location.search).get("authError");
   const messages = {
@@ -3154,6 +3172,7 @@ async function init() {
   wireEvents();
   const isAuthenticated = await loadAuth();
   if (!isAuthenticated) {
+    markPortalReady();
     return;
   }
   const hasState = await loadState();
@@ -3161,15 +3180,18 @@ async function init() {
     authProfile = null;
     resetPermissions();
     setLocked(true);
+    markPortalReady();
     return;
   }
   render();
   restoreSavedPage();
   startReviewCounterPolling();
   startLiveUpdates();
+  markPortalReady();
 }
 
 init().catch((error) => {
+  markPortalFailed(error);
   const errorElement = $("#lockError");
   if (errorElement) {
     errorElement.textContent = `Browserfout: ${error?.message || error}`;
