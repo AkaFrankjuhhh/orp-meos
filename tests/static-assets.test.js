@@ -278,7 +278,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
   assert.match(html, /personeelsportaal\.css\?v=20260727-training-co-trainers/);
-  assert.match(html, /personeelsportaal\/profile\.js\?v=20260726-branch-badge-management/);
+  assert.match(html, /personeelsportaal\/profile\.js\?v=20260727-profile-notes/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
   assert.match(profileCode, /function profileBadgeDialogGroups/);
@@ -298,6 +298,33 @@ test("profile badge context dialog groups controls with a summary", () => {
   assert.match(styles, /\.profile-badge-dialog-summary/);
   assert.match(styles, /\.profile-badge-group-grid/);
   assert.match(styles, /\.profile-badge-category/);
+});
+
+test("profile notes are private to self and authorized leadership", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
+  const permissionsCode = fs.readFileSync(path.join(process.cwd(), "modules", "permissions.js"), "utf8");
+  const domainCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-domain.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(html, /id="profileNotesPanel"/);
+  assert.match(html, /id="profileNoteText"/);
+  assert.match(html, /id="saveProfileNoteBtn"/);
+  assert.match(appCode, /function canViewProfileNotes\(person\)/);
+  assert.match(appCode, /function canManageProfileNotes\(\)/);
+  assert.match(appCode, /\/profile-note/);
+  assert.match(appCode, /function hasActiveProfileNoteInteraction/);
+  assert.match(profileCode, /function renderProfileNote/);
+  assert.match(profileCode, /person\.profileNote/);
+  assert.match(permissionsCode, /canViewAllProfileNotes: isKader \|\| isHoofdofficier \|\| isOfficiersraad/);
+  assert.match(permissionsCode, /canManageProfileNotes: isKader \|\| isHoofdofficier \|\| isOfficiersraad/);
+  assert.match(domainCode, /function profileNoteForView/);
+  assert.match(domainCode, /profileNote: person\.id === profileId \|\| permissions\?\.canViewAllProfileNotes[\s\S]*profileNoteForView\(person\.profileNote\)/);
+  assert.match(routesCode, /profileNoteMatch/);
+  assert.match(routesCode, /Alleen Kader, Hoofdofficier of Officiersraad mag profielnotities aanpassen/);
+  assert.match(styles, /\.profile-notes-panel textarea/);
 });
 
 test("archived resignation forms are not counted as open", () => {

@@ -399,6 +399,18 @@
               <div id="profileDisciplineLog" class="discipline-log"></div>
             </section>
 
+            <section id="profileNotesPanel" class="panel profile-notes-panel" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>Profielnotitie</h2>
+                  <p id="profileNoteVisibility" class="muted">Alleen zichtbaar voor dit profiel en bevoegde leiding.</p>
+                </div>
+                <button id="saveProfileNoteBtn" class="ghost small" type="button" hidden>Opslaan</button>
+              </div>
+              <textarea id="profileNoteText" rows="5" maxlength="2000" placeholder="Bijvoorbeeld: reden waarom promotie is uitgesteld." readonly></textarea>
+              <p id="profileNoteMeta" class="profile-note-meta muted"></p>
+            </section>
+
             <section id="profileAuditPanel" class="panel profile-audit-panel" hidden>
               <div class="panel-head">
                 <h2>Profiel-logboek</h2>
@@ -1239,7 +1251,7 @@
     <script src="/client-guard.js?v=20260628-deep-route-assets"></script>
     <script src="/shared-ui.js?v=20260703-ui-polish"></script>
     <script src="/personeelsportaal/module-registry.js?v=20260628-deep-route-assets"></script>
-    <script src="/personeelsportaal/profile.js?v=20260726-branch-badge-management"></script>
+    <script src="/personeelsportaal/profile.js?v=20260727-profile-notes"></script>
     <script src="/personeelsportaal/hours.js?v=20260628-month-to-date-hours"></script>
     <script src="/personeelsportaal/people.js?v=20260629-current-absence-profiles"></script>
     <script src="/personeelsportaal/i8.js?v=20260722-i8-session-draft"></script>

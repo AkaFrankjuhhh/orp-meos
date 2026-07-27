@@ -251,6 +251,7 @@ function savePerson(state, payload) {
     completedTrainings: existing?.completedTrainings || [],
     completedOperational: existing?.completedOperational || [],
     portoPhone: existing?.portoPhone || "",
+    profileNote: existing?.profileNote || null,
     discipline: existing?.discipline || [],
     mentorChecklist: existing?.mentorChecklist || { completed: false, testSent: false, testApproved: false, items: Array.from({ length: mentorChecklistCount }, () => false), notes: [] },
     status: existing?.status || "Actief",
@@ -438,6 +439,23 @@ function mentorChecklistItemCountForState(state) {
   return count || mentorChecklistCount;
 }
 
+function profileNoteForView(value) {
+  if (!value) return null;
+  if (typeof value === "string") {
+    const text = value.trim();
+    return text ? { text, updatedAt: "", updatedByName: "" } : null;
+  }
+  if (typeof value !== "object") return null;
+  const text = String(value.text || "").trim();
+  if (!text) return null;
+  return {
+    text,
+    updatedAt: value.updatedAt || "",
+    updatedById: value.updatedById || "",
+    updatedByName: value.updatedByName || ""
+  };
+}
+
 function stateForProfile(state, permissions, profileId = "") {
   const nextState = JSON.parse(JSON.stringify(state));
   const mentorItemCount = mentorChecklistItemCountForState(nextState);
@@ -448,7 +466,10 @@ function stateForProfile(state, permissions, profileId = "") {
       ? (Array.isArray(person.badges) ? person.badges : [])
       : (Array.isArray(person.badges) ? person.badges.filter((badge) => !restrictedTaskBadges.has(badge) || manageableRestrictedTaskBadges.has(badge)) : []),
     notifications: person.id === profileId ? (Array.isArray(person.notifications) ? person.notifications : []) : [],
-    profileLog: permissions?.canViewProfileAuditLog ? (Array.isArray(person.profileLog) ? person.profileLog : []) : []
+    profileLog: permissions?.canViewProfileAuditLog ? (Array.isArray(person.profileLog) ? person.profileLog : []) : [],
+    profileNote: person.id === profileId || permissions?.canViewAllProfileNotes
+      ? profileNoteForView(person.profileNote)
+      : null
   }));
   if (!permissions?.canViewLogbook) {
     nextState.activity = [];

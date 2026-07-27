@@ -401,6 +401,15 @@ function canViewProfileAuditLog() {
   return Boolean(permissions.canViewProfileAuditLog || hasKaderAccess());
 }
 
+function canViewProfileNotes(person) {
+  const current = currentProfile();
+  return Boolean(person && (person.id === current?.id || permissions.canViewAllProfileNotes || hasKaderAccess()));
+}
+
+function canManageProfileNotes() {
+  return Boolean(permissions.canManageProfileNotes || hasKaderAccess());
+}
+
 function canViewAllDiscipline() {
   return Boolean(permissions.canViewAllDiscipline || hasKaderAccess());
 }
@@ -1802,9 +1811,15 @@ function hasActiveMentorChecklistInteraction() {
   return activePageId() === "mentor-checklist" && (Date.now() < mentorChecklistEditingUntil || isSavingMentorChecklist || isTypingMentorNote || hasUnsavedMentorNote);
 }
 
+function hasActiveProfileNoteInteraction() {
+  const field = $("#profileNoteText");
+  return activePageId() === "mijn-profiel" && field && document.activeElement === field;
+}
+
 function hasActiveLiveEditInteraction() {
   const active = document.activeElement;
   if (!active) return false;
+  if (hasActiveProfileNoteInteraction()) return true;
   if (active.matches?.("textarea, input, select, [contenteditable='true']")) return true;
   if (active.closest?.("dialog[open], .site-notice-dialog[open]")) return true;
   return false;
@@ -2746,6 +2761,14 @@ function wireEvents() {
       : [...selectedBadges, ...existingBadges.filter((badge) => sideTaskSet.has(badge))];
     if (await runAction(`/api/people/${encodeURIComponent(personId)}/profile-badges`, { extraFunctions, badges })) {
       $("#profileBadgeDialog").close();
+      render();
+    }
+  });
+  $("#saveProfileNoteBtn")?.addEventListener("click", async () => {
+    const viewed = visibleProfile();
+    const noteField = $("#profileNoteText");
+    if (!viewed || !noteField || !canManageProfileNotes()) return;
+    if (await runAction(`/api/people/${encodeURIComponent(viewed.id)}/profile-note`, { profileNote: noteField.value })) {
       render();
     }
   });

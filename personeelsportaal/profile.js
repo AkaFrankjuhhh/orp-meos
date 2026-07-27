@@ -428,6 +428,31 @@ function renderProfileAuditLog(person) {
   });
 }
 
+function renderProfileNote(person) {
+  const panel = $("#profileNotesPanel");
+  const field = $("#profileNoteText");
+  const saveButton = $("#saveProfileNoteBtn");
+  const meta = $("#profileNoteMeta");
+  const visibility = $("#profileNoteVisibility");
+  if (!panel || !field || !saveButton || !meta || !visibility) return;
+  const canView = typeof canViewProfileNotes === "function" && canViewProfileNotes(person);
+  const canEdit = typeof canManageProfileNotes === "function" && canManageProfileNotes();
+  panel.hidden = !canView;
+  if (!canView) return;
+  const note = person?.profileNote && typeof person.profileNote === "object" ? person.profileNote : null;
+  if (document.activeElement !== field) {
+    field.value = note?.text || "";
+  }
+  field.readOnly = !canEdit;
+  saveButton.hidden = !canEdit;
+  visibility.textContent = canEdit
+    ? "Zichtbaar voor dit profiel, Kader, Hoofdofficier en Officiersraad."
+    : "Alleen jij en bevoegde leiding kunnen deze notitie zien.";
+  meta.textContent = note?.updatedAt
+    ? `Laatst bijgewerkt: ${formatDateTime(note.updatedAt)} door ${note.updatedByName || "Onbekend"}`
+    : "Nog geen notitie vastgelegd.";
+}
+
 function activeDisciplineEntries(person) {
   const now = new Date();
   return (person.discipline || []).filter((entry) => !entry.expiresAt || new Date(`${entry.expiresAt}T23:59:59`) >= now);
@@ -708,6 +733,7 @@ function renderProfile() {
   renderProfileBadges(viewed);
   renderProfileDistinctions(viewed);
   renderProfileAuditLog(viewed);
+  renderProfileNote(viewed);
   $("#profilePageHiredDate").textContent = formatDate(hiredDateFor(viewed));
   $("#profilePagePromotionDate").textContent = formatDate(viewed.promotionDate);
   renderProfileChecks(viewed);

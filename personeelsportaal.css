@@ -1071,6 +1071,33 @@ dialog::backdrop {
   min-height: 280px;
   overflow-y: visible;
 }
+
+.profile-progress-column > .profile-notes-panel {
+  grid-column: 1 / -1;
+}
+
+.profile-notes-panel textarea {
+  width: 100%;
+  min-height: 132px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 12px;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.profile-notes-panel textarea[readonly] {
+  color: var(--muted);
+}
+
+.profile-note-meta {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+}
 /* Profielpagina: voorkom overlap op halve desktopvensters en small-desktop breedtes. */
 .profile-main-layout,
 .profile-left-column,

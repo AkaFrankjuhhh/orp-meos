@@ -1144,6 +1144,15 @@ function createPersoneelsportaalRouteHandler(deps) {
     return logEntry;
   }
 
+  function normalizeProfileNoteText(value) {
+    return String(value || "").replace(/\r\n/g, "\n").trim().slice(0, 2000);
+  }
+
+  function currentProfileNoteText(person) {
+    const note = person?.profileNote;
+    return normalizeProfileNoteText(note && typeof note === "object" ? note.text : note);
+  }
+
   function trainingCreditLabel(person) {
     if (!person) return "";
     const number = person.serviceNumber ? `${person.serviceNumber} - ` : "";
@@ -2536,6 +2545,59 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     await sendPeopleStateAfterMutation(res, auth, state);
     if (shouldQueueBadgeDiscordSync) queuePersonDiscordSyncAfterResponse(person, "badge_updated");
+    return;
+  }
+
+  const profileNoteMatch = url.pathname.match(/^\/api\/people\/([^/]+)\/profile-note$/);
+  if (profileNoteMatch && req.method === "POST") {
+    const auth = requireAuth(req, res);
+    if (!auth) return;
+    const state = await readPeopleState();
+    const permissions = permissionsForAuth(auth, state);
+    if (!permissions.canManageProfileNotes) {
+      sendJson(res, 403, { error: "Alleen Kader, Hoofdofficier of Officiersraad mag profielnotities aanpassen." });
+      return;
+    }
+    const person = (state.people || []).find((entry) => entry.id === decodeURIComponent(profileNoteMatch[1]) && isCurrentPerson(entry));
+    if (!person) {
+      sendJson(res, 404, { error: "Personeelslid niet gevonden." });
+      return;
+    }
+    const body = await readBody(req);
+    const actor = (state.people || []).find((entry) => entry.id === auth.profile.id) || auth.profile;
+    const text = normalizeProfileNoteText(body.profileNote || body.note || body.text || "");
+    const previousText = currentProfileNoteText(person);
+    person.profileNote = text
+      ? {
+          text,
+          updatedAt: new Date().toISOString(),
+          updatedById: actor.id || "",
+          updatedByName: actor.name || "Onbekend"
+        }
+      : null;
+    const activityMessage = `Profielnotitie bijgewerkt voor ${person.name}.`;
+    if (text !== previousText) {
+      addProfileLog(person, {
+        actor,
+        type: "profile",
+        action: text ? "Profielnotitie bijgewerkt" : "Profielnotitie verwijderd",
+        details: "Inhoud afgeschermd."
+      });
+    }
+    state.activity = state.activity || [];
+    state.activity.push(activityMessage);
+    if (typeof peopleStorage.writePersonSnapshots === "function") {
+      await Promise.resolve(peopleStorage.writePersonSnapshots(person, activityMessage));
+      const nextPermissions = permissionsForAuth(auth, state);
+      sendJson(res, 200, {
+        ok: true,
+        state: stateForProfile(state, nextPermissions, auth.profile.id),
+        canViewLogbook: nextPermissions.canViewLogbook,
+        permissions: nextPermissions
+      });
+      return;
+    }
+    await sendPeopleStateAfterMutation(res, auth, state);
     return;
   }
 

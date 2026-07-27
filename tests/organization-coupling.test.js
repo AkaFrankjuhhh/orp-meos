@@ -380,3 +380,62 @@ test("branch leadership can see only manageable restricted badges", () => {
     assert.deepEqual(target.badges, ["DSI", "Mentor"]);
   });
 });
+
+test("profile notes are scoped to self unless leadership may view all", () => {
+  withOrganization("defensie", () => {
+    delete require.cache[require.resolve("../modules/organizations")];
+    delete require.cache[require.resolve("../modules/permissions")];
+    delete require.cache[require.resolve("../modules/personeelsportaal-domain")];
+    const { organizationConfigs } = require("../modules/organizations");
+    const { createPermissionServices } = require("../modules/permissions");
+    const { createPersoneelsportaalDomain } = require("../modules/personeelsportaal-domain");
+    const organization = organizationConfigs.defensie;
+    const services = createPermissionServices({
+      extraFunctions: organization.extraFunctions,
+      extraTasks: organization.extraTasks,
+      readState: () => ({ people: [] })
+    });
+    const state = {
+      people: [
+        { id: "self", name: "Eigen", extraFunctions: [], badges: [], profileNote: { text: "Eigen notitie" } },
+        { id: "target", name: "Doelwit", extraFunctions: [], badges: [], profileNote: { text: "Niet zichtbaar" } }
+      ]
+    };
+    const normalPermissions = services.permissionsForProfile({
+      id: "self",
+      name: "Eigen",
+      rank: "Marechaussee 2de Klasser",
+      status: "Actief",
+      permRole: "Geen",
+      extraFunctions: [],
+      badges: []
+    });
+    const domain = createPersoneelsportaalDomain();
+    const saved = domain.savePerson(state, {
+      id: "self",
+      name: "Eigen",
+      discordId: "123",
+      rank: "Marechaussee 2de Klasser",
+      serviceNumber: "74-01"
+    });
+    assert.equal(saved.person.profileNote.text, "Eigen notitie");
+
+    const normalFiltered = domain.stateForProfile(state, normalPermissions, "self");
+
+    assert.equal(normalFiltered.people.find((person) => person.id === "self").profileNote.text, "Eigen notitie");
+    assert.equal(normalFiltered.people.find((person) => person.id === "target").profileNote, null);
+
+    const officerPermissions = services.permissionsForProfile({
+      id: "self",
+      name: "Officier",
+      rank: "Marechaussee 2de Klasser",
+      status: "Actief",
+      permRole: "Geen",
+      extraFunctions: ["Officiersraad"],
+      badges: []
+    });
+    const officerFiltered = domain.stateForProfile(state, officerPermissions, "self");
+
+    assert.equal(officerFiltered.people.find((person) => person.id === "target").profileNote.text, "Niet zichtbaar");
+  });
+});

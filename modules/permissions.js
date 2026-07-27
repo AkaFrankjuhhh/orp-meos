@@ -149,6 +149,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageI8Discipline: isKader || isInterneZaken || isIzLeadership || isOvJ,
       canViewAllHours: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canManageHours: isKader || (canOfficerManage && (isHoofdofficier || isOfficiersraad)),
+      canViewAllProfileNotes: isKader || isHoofdofficier || isOfficiersraad,
+      canManageProfileNotes: isKader || isHoofdofficier || isOfficiersraad,
       canManageVehicleSeizures: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canViewOvJChannels: canViewI8Forms,
       canReviewI8Forms: canHandleI8Forms,
