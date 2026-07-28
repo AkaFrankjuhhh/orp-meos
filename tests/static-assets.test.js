@@ -529,6 +529,26 @@ test("portal login sync uses targeted profile writes", () => {
   assert.match(peopleStoreCode, /discord_username = \$2,[\s\S]*avatar = \$3,[\s\S]*discord_roles = \$4::jsonb,[\s\S]*perm_role = \$5/);
 });
 
+test("porto dev and management bypass assign regular 30 numbers", () => {
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const devBypassBlock = routesCode.slice(
+    routesCode.indexOf('url.pathname === "/api/porto/dev-bypass"'),
+    routesCode.indexOf('url.pathname === "/api/porto/management-bypass"')
+  );
+  const managementBypassBlock = routesCode.slice(
+    routesCode.indexOf('url.pathname === "/api/porto/management-bypass"'),
+    routesCode.indexOf('url.pathname === "/api/porto/auto-assign"')
+  );
+
+  for (const block of [devBypassBlock, managementBypassBlock]) {
+    assert.match(block, /previousVehicleNumber && previousVehicleNumber !== operatorVehicleNumber/);
+    assert.match(block, /firstAvailableRegularVehicleNumber\(state\)/);
+    assert.match(block, /Geen vrij regulier 30-nummer beschikbaar/);
+    assert.doesNotMatch(block, /availablePortoVehicleNumbers\(state\)/);
+    assert.doesNotMatch(block, /firstAvailableVehicleNumber\(state,\s*"30"\)/);
+  }
+});
+
 test("porto exposes the modern dispatcher test UI beside the classic UI", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const portoCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");

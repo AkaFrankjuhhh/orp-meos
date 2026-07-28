@@ -78,3 +78,15 @@ test("porto loskoppelen kiest eerst een vrij regulier roepnummer", () => {
 
   assert.equal(firstAvailableRegularPortoVehicleNumber(state, "30-00"), "30-02");
 });
+
+test("reguliere porto indeling gebruikt nooit het OPS nummer als vrije plek", () => {
+  const state = {
+    portoVehicleRanges: [
+      { prefix: "30", numbers: ["30-00", "30-01", "30-02"] },
+      { prefix: "32", numbers: ["32-01", "32-02"] }
+    ],
+    portoUnits: []
+  };
+
+  assert.equal(firstAvailableRegularPortoVehicleNumber(state, "30-00"), "30-01");
+});
