@@ -128,6 +128,7 @@ const publicFormConfigs = {
     hostnames: klachtenFormHosts(),
     title: "ORP - Klachtenformulier",
     subtitle: "Gebruik dit formulier om een klacht of melding richting Politie of Defensie Oranjestad door te geven.",
+    systemNotice: "Let op: zonder bewijs wordt de zaak direct afgesloten.",
     accent: "#ef4444",
     webhookEnv: "DISCORD_FORM_KLACHTEN_WEBHOOK_URL",
     questions: [
@@ -664,6 +665,7 @@ function publicFormClientConfig(config, profile = null) {
     title: config.title,
     eyebrow: publicFormEyebrow(config),
     subtitle: config.subtitle || "",
+    systemNotice: config.systemNotice || "",
     notice: config.notice || "",
     accent: config.accent || "#f59e0b",
     iconHref: publicFormIconHref(config),

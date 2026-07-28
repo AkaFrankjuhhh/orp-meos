@@ -1050,8 +1050,9 @@ function applyLoadedConfig(config) {
     ? (config.canAssignTickets ? "Wijs nieuwe gesprekken toe aan een vertrouwenspersoon." : "Bekijk de VID tickets die aan jou gekoppeld zijn.")
     : (config.subtitle || "");
   const notice = $("#formNotice");
-  notice.hidden = ticketPage || !config.notice;
-  notice.textContent = ticketPage ? "" : (config.notice || "");
+  const noticeText = [config.systemNotice, config.notice].filter(Boolean).join("\n\n");
+  notice.hidden = ticketPage || !noticeText;
+  notice.textContent = ticketPage ? "" : noticeText;
   const questionsElement = $("#questions");
   if (!questionsChangeBound) {
     questionsElement.addEventListener("change", () => {

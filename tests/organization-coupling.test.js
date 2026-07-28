@@ -150,6 +150,14 @@ test("police has a DSI public form with police intake questions", () => {
     policeForms.publicFormSubmissionThreadName(policeForms.publicFormFromSlug("klachten"), { caseNumber: 12 }),
     "zaaknummer 012"
   );
+  assert.equal(
+    policeForms.publicFormFromSlug("klachten").systemNotice,
+    "Let op: zonder bewijs wordt de zaak direct afgesloten."
+  );
+  assert.equal(
+    policeForms.publicFormClientConfig(policeForms.publicFormFromSlug("klachten")).systemNotice,
+    "Let op: zonder bewijs wordt de zaak direct afgesloten."
+  );
 });
 
 test("defence has an IBT review form on the IBT toets domain", () => {

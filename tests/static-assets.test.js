@@ -241,7 +241,9 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(publicFormsConfigCode, /reviewSurface: "portal"/);
   assert.match(publicFormsCode, /function canShowSubmissionReviewPanel\(/);
   assert.match(publicFormsCode, /formState\.config\?\.reviewSurface !== "portal"/);
-  assert.match(publicFormsHtml, /public-forms\.js\?v=20260722-portal-ibt-review/);
+  assert.match(publicFormsCode, /\[config\.systemNotice, config\.notice\]\.filter\(Boolean\)\.join\("\\n\\n"\)/);
+  assert.match(publicFormsConfigCode, /systemNotice: "Let op: zonder bewijs wordt de zaak direct afgesloten\."/);
+  assert.match(publicFormsHtml, /public-forms\.js\?v=20260728-complaint-evidence-notice/);
   assert.match(styles, /\.trainer-stats/);
   assert.match(styles, /#trainer-overzicht \.trainer-overview-panel \{[\s\S]*grid-template-rows: auto auto minmax\(0, 1fr\) minmax\(170px, 36%\);/);
   assert.match(styles, /#trainerOverviewList \{[\s\S]*overflow-y: auto;/);
