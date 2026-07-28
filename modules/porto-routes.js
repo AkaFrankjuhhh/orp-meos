@@ -1030,11 +1030,12 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 400, { error: "Ongeldige Porto status." });
         return true;
       }
-      const detail = status === "4" ? String(body.detail || "").trim() : "";
-      if (detail && !status4Reasons.has(detail)) {
+      const rawStatus4Detail = status === "4" ? String(body.detail || "").trim() : "";
+      if (rawStatus4Detail && !status4Reasons.has(rawStatus4Detail)) {
         sendJson(res, 400, { error: "Ongeldige Status 4 reden." });
         return true;
       }
+      const detail = status === "4" ? (rawStatus4Detail || "Niet beschikbaar") : "";
       const requestNote = status === "0" ? String(body.requestNote || "").trim().slice(0, 240) : "";
       ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];

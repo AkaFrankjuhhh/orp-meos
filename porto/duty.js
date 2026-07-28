@@ -1,6 +1,7 @@
 /* Porto dienstmodule: statusknoppen, dienstpaneel, voertuigkeuze en Status 0 flow. */
 
 let portoDutyTimeTimer = null;
+let portoModernStatus4Pending = false;
 
 function isDevBypassProfile() {
   return Boolean(portoCanUseDevTools);
@@ -314,8 +315,9 @@ function modernVehicleSelectHtml() {
 }
 
 function modernStatus4ChoicesHtml() {
+  const showChoices = portoModernStatus4Pending || String(portoDuty?.status) === "4";
   return `
-    <section class="porto-modern-status4-choices" ${String(portoDuty?.status) === "4" ? "" : "hidden"}>
+    <section class="porto-modern-status4-choices" ${showChoices ? "" : "hidden"}>
       <span>Status 4 reden</span>
       <div>
         <button type="button" data-modern-status4="Staandehouding">Staandehouding</button>
@@ -334,12 +336,15 @@ function renderModernDutyDashboard() {
   while (memberCardsList.length < 3) memberCardsList.push({ empty: true });
   const status = portoStatuses.find((entry) => entry.code === String(portoDuty.status)) || portoStatuses[0];
   const memberNames = members.map((member) => member.name).filter(Boolean).join(" + ") || portoProfile.name || "Onbekend";
-  const statusButtons = portoStatuses.map((entry) => `
-    <button class="porto-modern-status-button ${escapeHtml(entry.className)} ${entry.code === String(portoDuty.status) ? "active" : ""}" type="button" data-modern-status="${escapeHtml(entry.code)}">
+  const statusButtons = portoStatuses.map((entry) => {
+    const active = entry.code === String(portoDuty.status) || (entry.code === "4" && portoModernStatus4Pending);
+    return `
+    <button class="porto-modern-status-button ${escapeHtml(entry.className)} ${active ? "active" : ""}" type="button" data-modern-status="${escapeHtml(entry.code)}">
       <span>${modernDutyStatusIcon(entry.code)}</span>
       <em>${escapeHtml(entry.code)}</em>
       <strong>${escapeHtml(entry.label)}</strong>
-    </button>`).join("");
+    </button>`;
+  }).join("");
   const memberCards = memberCardsList.map((member, index) => {
     if (member.empty) {
       return `
@@ -703,6 +708,7 @@ async function updatePortoStatus(status, detail = "") {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       if (payload.code === "porto_recently_ended") {
+        portoModernStatus4Pending = false;
         setPortoSignedOffUntilStatus0(true);
         portoDuty = null;
         portoLastDutyLoadAt = Date.now();
@@ -716,8 +722,9 @@ async function updatePortoStatus(status, detail = "") {
       }
       showPortoInlineError(payload.error || "Porto status kon niet worden opgeslagen.");
       await showPortoNotice(payload.error || "Porto status kon niet worden opgeslagen.", "Status mislukt");
-      return;
+      return false;
     }
+    if (status !== "4" || detail) portoModernStatus4Pending = false;
     setPortoSignedOffUntilStatus0(status === "8" || Boolean(payload.recentlyEnded));
     if (typeof syncPortoBrowserHeartbeatForPayload === "function") syncPortoBrowserHeartbeatForPayload(payload);
     portoDuty = payload.unit || null;
@@ -728,6 +735,7 @@ async function updatePortoStatus(status, detail = "") {
     renderVehicleRanges();
     renderDutyPanel();
     renderOpsPanel();
+    return true;
   })()
     .finally(() => {
       portoStatusWritePromise = null;

@@ -313,6 +313,8 @@ let portoOpsUnitLayout = ["grid", "list"].includes(storedOpsLayout) ? storedOpsL
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
   if (!$("#portoOpsUnitContextMenu")?.hidden) return true;
+  if (portoModernStatus4Pending) return true;
+  if (document.querySelector(".porto-modern-status4-choices:not([hidden])")) return true;
   if (active?.closest?.("dialog[open], .site-notice-dialog[open]")) return true;
   if (active?.matches?.("textarea, [contenteditable='true']")) return true;
   return false;
@@ -957,20 +959,24 @@ document.addEventListener("click", (event) => {
   if (modernStatusButton) {
     const status = modernStatusButton.dataset.modernStatus;
     if (status === "4") {
-      const modernChoices = event.target.closest("#portoModernDutyDashboard")?.querySelector(".porto-modern-status4-choices");
-      if (modernChoices) modernChoices.hidden = false;
+      portoModernStatus4Pending = true;
+      renderDutyPanel();
     } else {
+      portoModernStatus4Pending = false;
       const modernChoices = event.target.closest("#portoModernDutyDashboard")?.querySelector(".porto-modern-status4-choices");
       if (modernChoices) modernChoices.hidden = true;
       $("#portoStatus4Choices").hidden = true;
       updatePortoStatus(status);
     }
+    return;
   }
   const modernStatus4Button = event.target.closest("[data-modern-status4]");
   if (modernStatus4Button) {
-    const modernChoices = modernStatus4Button.closest(".porto-modern-status4-choices");
-    if (modernChoices) modernChoices.hidden = true;
-    updatePortoStatus("4", modernStatus4Button.dataset.modernStatus4);
+    modernStatus4Button.disabled = true;
+    updatePortoStatus("4", modernStatus4Button.dataset.modernStatus4).finally(() => {
+      modernStatus4Button.disabled = false;
+    });
+    return;
   }
   const modernVehicleSelect = event.target.closest("[data-modern-vehicle]");
   if (modernVehicleSelect && event.type === "click") {
