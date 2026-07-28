@@ -541,6 +541,9 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(dutyCode, /data-porto-duty-session-time/);
   assert.match(dutyCode, /data-porto-duty-week-time/);
   assert.match(routesCode, /function portoDutyTimePayload/);
+  assert.match(routesCode, /function activePortoDutySessionWeekSeconds/);
+  assert.match(routesCode, /weekTotalSeconds \+= Math\.max\(0, activeSession\.total - activeSession\.counted\)/);
+  assert.match(routesCode, /if \(endedAt > startedAt\) return Math\.round\(\(endedAt - startedAt\) \/ 1000\)/);
   assert.match(routesCode, /buildPortoDutyHourEntries\(state/);
   assert.match(routesCode, /operationalWeekForDate\(now/);
   assert.match(portoStoreCode, /PORTO_DUTY_HOURS_ENTERED_BY_ID/);

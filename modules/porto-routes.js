@@ -256,13 +256,13 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   }
 
   function secondsFromHourEntry(entry) {
+    const startedAt = timestampMs(entry?.startedAt);
+    const endedAt = timestampMs(entry?.endedAt);
+    if (endedAt > startedAt) return Math.round((endedAt - startedAt) / 1000);
     const minutes = Number(entry?.minutes ?? entry?.durationMinutes);
     if (Number.isFinite(minutes) && minutes > 0) return Math.round(minutes * 60);
     const hours = Number(entry?.hours ?? entry?.hoursValue);
-    if (Number.isFinite(hours) && hours > 0) return Math.round(hours * 3600);
-    const startedAt = timestampMs(entry?.startedAt);
-    const endedAt = timestampMs(entry?.endedAt);
-    return endedAt > startedAt ? Math.round((endedAt - startedAt) / 1000) : 0;
+    return Number.isFinite(hours) && hours > 0 ? Math.round(hours * 3600) : 0;
   }
 
   function isPortoDutyHourEntry(entry) {
@@ -297,14 +297,54 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return [...byKey.values()];
   }
 
+  function rangeOverlapSeconds(startMs, endMs, rangeStartMs, rangeEndMs) {
+    const start = Math.max(startMs, rangeStartMs);
+    const end = Math.min(endMs, rangeEndMs);
+    return end > start ? Math.floor((end - start) / 1000) : 0;
+  }
+
+  function portoDutyEntryMatchesUnit(entry, unit) {
+    if (!entry || !unit) return false;
+    const entryUnitId = String(entry.sourceUnitId || "");
+    const unitId = String(unit.id || "");
+    if (entryUnitId && unitId && entryUnitId === unitId) return true;
+    const entryVehicleNumber = String(entry.sourceVehicleNumber || "");
+    return Boolean(entryVehicleNumber && entryVehicleNumber === String(unit.vehicleNumber || ""));
+  }
+
+  function activePortoDutySessionWeekSeconds(entries, person, unit, assignedAtMs, nowMs, week) {
+    if (!assignedAtMs || !person?.id || !unit?.vehicleNumber || unit.active === false) return { total: 0, counted: 0 };
+    const weekStartMs = week.startsAt.getTime();
+    const weekEndMs = week.endsAt.getTime();
+    const total = rangeOverlapSeconds(assignedAtMs, nowMs, weekStartMs, weekEndMs);
+    if (!total) return { total: 0, counted: 0 };
+    const activeStartMs = Math.max(assignedAtMs, weekStartMs);
+    const activeEndMs = Math.min(nowMs, weekEndMs);
+    const counted = entries
+      .filter((entry) => String(entry.personId || "") === String(person.id || "") && portoDutyEntryMatchesUnit(entry, unit))
+      .reduce((sum, entry) => {
+        const entryStartMs = timestampMs(entry.startedAt);
+        const entryEndMs = timestampMs(entry.endedAt);
+        if (entryEndMs > entryStartMs) {
+          return sum + rangeOverlapSeconds(entryStartMs, entryEndMs, activeStartMs, activeEndMs);
+        }
+        return sum + secondsFromHourEntry(entry);
+      }, 0);
+    return { total, counted };
+  }
+
   function portoDutyTimePayload(state, person, unit) {
     const now = new Date();
     const week = operationalWeekForDate(now, { timeZone: portoDutyHoursTimeZone });
     const assignedAtMs = unit?.active !== false && unit?.vehicleNumber ? timestampMs(unit.assignedAt || "") : 0;
-    const currentSessionSeconds = assignedAtMs ? Math.max(0, Math.floor((now.getTime() - assignedAtMs) / 1000)) : 0;
-    const weekTotalSeconds = currentWeekPortoDutyEntries(state, now, week)
+    const nowMs = now.getTime();
+    const currentSessionSeconds = assignedAtMs ? Math.max(0, Math.floor((nowMs - assignedAtMs) / 1000)) : 0;
+    const currentWeekEntries = currentWeekPortoDutyEntries(state, now, week);
+    let weekTotalSeconds = currentWeekEntries
       .filter((entry) => String(entry.personId || "") === String(person?.id || ""))
       .reduce((total, entry) => total + secondsFromHourEntry(entry), 0);
+    const activeSession = activePortoDutySessionWeekSeconds(currentWeekEntries, person, unit, assignedAtMs, nowMs, week);
+    weekTotalSeconds += Math.max(0, activeSession.total - activeSession.counted);
     return {
       generatedAt: now.toISOString(),
       timeZone: portoDutyHoursTimeZone,
