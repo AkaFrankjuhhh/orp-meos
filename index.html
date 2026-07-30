@@ -672,6 +672,13 @@
               <label class="full">Naam: OPS - OVD/OPCO<input id="i8OpcoOvd" type="text" autocomplete="off" placeholder="bv. Frank B." required /></label>
               <label class="full">Beschrijving (mag ook clip):<textarea id="i8Description" autocomplete="off" placeholder="Beschrijf hier zo gedetailleerd mogelijk je geweldsaanwending" required></textarea></label>
               <label class="full">Gebruikte geweldsmiddel:<input id="i8ForceUsed" type="text" autocomplete="off" placeholder="bv. HK P2000" required /></label>
+              <label class="full">Heb je gewaarschuwd voor het gebruiken van geweld?
+                <select id="i8ForceWarningGiven" autocomplete="off" required>
+                  <option value="yes" selected>Ja</option>
+                  <option value="no">Nee, waarom</option>
+                </select>
+              </label>
+              <label id="i8ForceWarningReasonField" class="full" hidden>Waarom niet gewaarschuwd?<textarea id="i8ForceWarningReason" autocomplete="off" placeholder="Leg uit waarom er niet gewaarschuwd is voor het gebruiken van geweld"></textarea></label>
               <label>Geweld tegen voertuig?:<textarea id="i8Vehicle" autocomplete="off" placeholder="Zo ja, verklaar" required></textarea></label>
               <label>Letsel bij derden:<textarea id="i8Injury" autocomplete="off" placeholder="Zo ja, verklaar" required></textarea></label>
               <label class="full check-line"><input id="i8Truth" type="checkbox" required /><span>Ik heb dit I8 formulier opgemaakt naar waarheid.</span></label>
@@ -1254,12 +1261,12 @@
     <script src="/personeelsportaal/profile.js?v=20260727-profile-notes"></script>
     <script src="/personeelsportaal/hours.js?v=20260628-month-to-date-hours"></script>
     <script src="/personeelsportaal/people.js?v=20260629-current-absence-profiles"></script>
-    <script src="/personeelsportaal/i8.js?v=20260722-i8-session-draft"></script>
+    <script src="/personeelsportaal/i8.js?v=20260731-i8-force-warning"></script>
     <script src="/personeelsportaal/mentor.js?v=20260726-mentor-log-current"></script>
     <script src="/personeelsportaal/trainer.js?v=20260727-training-co-trainers"></script>
     <script src="/personeelsportaal/absence.js?v=20260628-deep-route-assets"></script>
     <script src="/personeelsportaal/archive.js?v=20260705-resignation-archive-state"></script>
     <script src="/personeelsportaal-data.js?v=20260628-deep-route-assets"></script>
-    <script src="/app.js?v=20260727-training-co-trainers"></script>
+    <script src="/app.js?v=20260731-i8-force-warning"></script>
 </body>
 </html>

@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260727-training-co-trainers/);
+  assert.match(html, /app\.js\?v=20260731-i8-force-warning/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -707,11 +707,17 @@ test("I8 create form keeps a browser draft until server save succeeds", () => {
   assert.match(i8Code, /function clearI8Draft\(/);
   assert.match(i8Code, /function i8FieldHasUserInput\(/);
   assert.match(i8Code, /I8_DRAFT_DEFAULT_ONLY_FIELDS/);
+  assert.match(i8Code, /function updateI8ForceWarningReasonField\(/);
+  assert.match(i8Code, /function i8ForceWarningText\(form\)/);
+  assert.match(appCode, /forceWarningGiven: \$\("#i8ForceWarningGiven"\)\.value/);
+  assert.match(appCode, /forceWarningReason: \$\("#i8ForceWarningReason"\)\.value\.trim\(\)/);
   assert.match(appCode, /function saveActiveFormDraftBeforeAction\(/);
   assert.match(appCode, /saveActiveFormDraftBeforeAction\(\);/);
   assert.match(i8Code, /const ownSummary = \$\("#i8OwnSummary"\)/);
   assert.match(i8Code, /Totaal aantal eigen I8's/);
   assert.match(html, /id="i8OwnSummary"/);
+  assert.match(html, /id="i8ForceWarningGiven"/);
+  assert.match(html, /id="i8ForceWarningReason"/);
   assert.match(styles, /\.i8-own-summary/);
   assert.match(appCode, /button\.dataset\.i8Tab === "create"\) restoreI8Draft/);
   assert.match(appCode, /if \(!saved\) return;\s+clearI8Draft\(\);/);
@@ -719,7 +725,9 @@ test("I8 create form keeps a browser draft until server save succeeds", () => {
   assert.match(routesCode, /normalizeDiscordId\(auth\?\.session\?\.user\?\.id \|\| auth\?\.profile\?\.discordId \|\| ""\)/);
   assert.match(routesCode, /state: stateForProfile\(state, permissions, member\.id\)/);
   assert.match(routesCode, /\{ normalizeAbsences: false, profileId: member\.id \}/);
-  assert.match(html, /personeelsportaal\/i8\.js\?v=20260722-i8-session-draft/);
+  assert.match(html, /personeelsportaal\/i8\.js\?v=20260731-i8-force-warning/);
+  assert.match(routesCode, /forceWarningGiven/);
+  assert.match(routesCode, /forceWarningGiven === "no" && !forceWarningReason/);
 });
 
 test("browser profile identity ignores old profiles with the same Discord ID", () => {

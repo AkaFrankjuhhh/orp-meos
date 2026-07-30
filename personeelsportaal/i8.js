@@ -10,11 +10,19 @@ const I8_DRAFT_FIELDS = [
   "i8OpcoOvd",
   "i8Description",
   "i8ForceUsed",
+  "i8ForceWarningGiven",
+  "i8ForceWarningReason",
   "i8Vehicle",
   "i8Injury",
   "i8Truth"
 ];
-const I8_DRAFT_DEFAULT_ONLY_FIELDS = new Set(["i8Date"]);
+const I8_DRAFT_DEFAULT_ONLY_FIELDS = new Set(["i8Date", "i8ForceWarningGiven"]);
+
+function i8DraftDefaultValue(fieldId) {
+  if (fieldId === "i8Date") return today;
+  if (fieldId === "i8ForceWarningGiven") return "yes";
+  return "";
+}
 
 function canViewOvJLeadershipLog() {
   return Boolean(permissions.canViewOvJLeadershipLog || hasKaderAccess());
@@ -61,8 +69,19 @@ function i8FieldHasUserInput(fieldId) {
   if (field.type === "checkbox") return field.checked;
   const value = String(field.value || "").trim();
   if (!value) return false;
-  if (I8_DRAFT_DEFAULT_ONLY_FIELDS.has(fieldId)) return value !== today;
+  if (I8_DRAFT_DEFAULT_ONLY_FIELDS.has(fieldId)) return value !== i8DraftDefaultValue(fieldId);
   return true;
+}
+
+function updateI8ForceWarningReasonField() {
+  const select = $("#i8ForceWarningGiven");
+  const reasonField = $("#i8ForceWarningReasonField");
+  const reasonInput = $("#i8ForceWarningReason");
+  if (!select || !reasonField || !reasonInput) return;
+  const needsReason = select.value === "no";
+  reasonField.hidden = !needsReason;
+  reasonInput.required = needsReason;
+  if (!needsReason) reasonInput.value = "";
 }
 
 function i8FormHasUserInput() {
@@ -95,6 +114,8 @@ function restoreI8Draft(options = {}) {
   const raw = localStorage.getItem(i8DraftStorageKey());
   if (!raw) {
     if (!$("#i8Date").value) $("#i8Date").value = today;
+    if (!$("#i8ForceWarningGiven").value) $("#i8ForceWarningGiven").value = "yes";
+    updateI8ForceWarningReasonField();
     form.dataset.i8DraftRestored = "true";
     return false;
   }
@@ -112,11 +133,15 @@ function restoreI8Draft(options = {}) {
       }
     });
     if (!$("#i8Date").value) $("#i8Date").value = today;
+    if (!$("#i8ForceWarningGiven").value) $("#i8ForceWarningGiven").value = "yes";
+    updateI8ForceWarningReasonField();
     form.dataset.i8DraftRestored = "true";
     return true;
   } catch {
     localStorage.removeItem(i8DraftStorageKey());
     if (!$("#i8Date").value) $("#i8Date").value = today;
+    if (!$("#i8ForceWarningGiven").value) $("#i8ForceWarningGiven").value = "yes";
+    updateI8ForceWarningReasonField();
     form.dataset.i8DraftRestored = "true";
     return false;
   }
@@ -136,6 +161,7 @@ function bindI8DraftAutosave() {
   form.dataset.i8DraftAutosave = "true";
   form.addEventListener("input", saveI8Draft);
   form.addEventListener("change", saveI8Draft);
+  $("#i8ForceWarningGiven")?.addEventListener("change", updateI8ForceWarningReasonField);
 }
 
 function resetI8Form(options = {}) {
@@ -145,6 +171,8 @@ function resetI8Form(options = {}) {
   form.reset();
   $("#i8Name").value = currentMemberName();
   $("#i8Date").value = today;
+  $("#i8ForceWarningGiven").value = "yes";
+  updateI8ForceWarningReasonField();
   form.dataset.i8DraftRestored = "true";
 }
 
@@ -286,6 +314,16 @@ function renderI8DetailField(label, value) {
   return `<span><b>${escapeHtml(label)}</b>${escapeHtml(value || "-")}</span>`;
 }
 
+function i8ForceWarningText(form) {
+  const value = String(form?.forceWarningGiven || "").trim();
+  if (value === "yes") return "Ja";
+  if (value === "no") {
+    const reason = String(form?.forceWarningReason || "").trim();
+    return reason ? `Nee - ${reason}` : "Nee";
+  }
+  return "-";
+}
+
 function syncI8ArchiveDetailRoute(form, mode = "push") {
   if (!form || activePageId() !== "i8-archief") return;
   const number = i8NumberFor(form, state.i8Forms || []);
@@ -324,6 +362,7 @@ function openI8DetailDialog(formId, options = {}) {
         ${renderI8DetailField("Locatie", form.location)}
         ${renderI8DetailField("OPS - OVD/OPCO", form.opcoOvdName)}
         ${renderI8DetailField("Geweldsmiddel", form.forceUsed)}
+        ${renderI8DetailField("Gewaarschuwd voor geweld", i8ForceWarningText(form))}
         ${renderI8DetailField("Voertuig", form.vehicleViolence)}
         ${renderI8DetailField("Letsel derden", form.thirdPartyInjury)}
         ${renderI8DetailField("Ingediend", formatDateTime(form.createdAt))}

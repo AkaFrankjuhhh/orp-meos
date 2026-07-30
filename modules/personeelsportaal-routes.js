@@ -1242,6 +1242,8 @@ function createPersoneelsportaalRouteHandler(deps) {
       normalizeI8Text(form.opcoOvdName) === normalizeI8Text(body.opcoOvdName) &&
       normalizeI8Text(form.description) === normalizeI8Text(body.description) &&
       normalizeI8Text(form.forceUsed) === normalizeI8Text(body.forceUsed) &&
+      normalizeI8Text(form.forceWarningGiven) === normalizeI8Text(body.forceWarningGiven) &&
+      normalizeI8Text(form.forceWarningReason) === normalizeI8Text(body.forceWarningReason) &&
       normalizeI8Text(form.vehicleViolence) === normalizeI8Text(body.vehicleViolence) &&
       normalizeI8Text(form.thirdPartyInjury) === normalizeI8Text(body.thirdPartyInjury)
     );
@@ -1875,12 +1877,23 @@ function createPersoneelsportaalRouteHandler(deps) {
       "opcoOvdName",
       "description",
       "forceUsed",
+      "forceWarningGiven",
       "vehicleViolence",
       "thirdPartyInjury"
     ];
     const missingField = requiredFields.find((field) => !String(body[field] || "").trim());
     if (missingField || !body.truthConfirmed) {
       sendJson(res, 400, { error: "Vul alle verplichte I8 velden in en bevestig naar waarheid." });
+      return;
+    }
+    const forceWarningGiven = String(body.forceWarningGiven || "").trim();
+    const forceWarningReason = String(body.forceWarningReason || "").trim();
+    if (!["yes", "no"].includes(forceWarningGiven)) {
+      sendJson(res, 400, { error: "Kies of je gewaarschuwd hebt voor het gebruiken van geweld." });
+      return;
+    }
+    if (forceWarningGiven === "no" && !forceWarningReason) {
+      sendJson(res, 400, { error: "Leg uit waarom er niet gewaarschuwd is voor het gebruiken van geweld." });
       return;
     }
 
@@ -1913,6 +1926,8 @@ function createPersoneelsportaalRouteHandler(deps) {
       opcoOvdName: String(body.opcoOvdName || "").trim(),
       description: String(body.description || "").trim(),
       forceUsed: String(body.forceUsed || "").trim(),
+      forceWarningGiven,
+      forceWarningReason: forceWarningGiven === "no" ? forceWarningReason : "",
       vehicleViolence: String(body.vehicleViolence || "").trim(),
       thirdPartyInjury: String(body.thirdPartyInjury || "").trim(),
       truthConfirmed: true,

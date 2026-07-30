@@ -1070,6 +1070,7 @@ async function validateI8FormFields() {
     { selector: "#i8OpcoOvd", label: "Naam: OPS - OVD/OPCO" },
     { selector: "#i8Description", label: "Beschrijving" },
     { selector: "#i8ForceUsed", label: "Gebruikte geweldsmiddel" },
+    { selector: "#i8ForceWarningGiven", label: "Waarschuwing voor geweld" },
     { selector: "#i8Vehicle", label: "Geweld tegen voertuig" },
     { selector: "#i8Injury", label: "Letsel bij derden" }
   ];
@@ -1077,6 +1078,11 @@ async function validateI8FormFields() {
   if (missing) {
     await showSiteNotice(`Vul het veld '${missing.label}' handmatig in. Browser automatisch invullen telt soms niet goed mee.`, "I8 veld mist");
     $(missing.selector)?.focus();
+    return false;
+  }
+  if ($("#i8ForceWarningGiven")?.value === "no" && !String($("#i8ForceWarningReason")?.value || "").trim()) {
+    await showSiteNotice("Leg uit waarom er niet gewaarschuwd is voor het gebruiken van geweld.", "I8 toelichting mist");
+    $("#i8ForceWarningReason")?.focus();
     return false;
   }
   if (!$("#i8Truth")?.checked) {
@@ -2911,6 +2917,8 @@ function wireEvents() {
         opcoOvdName: $("#i8OpcoOvd").value.trim(),
         description: $("#i8Description").value.trim(),
         forceUsed: $("#i8ForceUsed").value.trim(),
+        forceWarningGiven: $("#i8ForceWarningGiven").value,
+        forceWarningReason: $("#i8ForceWarningReason").value.trim(),
         vehicleViolence: $("#i8Vehicle").value.trim(),
         thirdPartyInjury: $("#i8Injury").value.trim(),
         truthConfirmed: $("#i8Truth").checked
