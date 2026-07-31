@@ -27,9 +27,13 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
   const permissionAliases = organization.permissionAliases || {};
   const branchLeadershipTaskTargets = {
     "Trainer-Leiding": "Trainer",
+    "Trainer-Assist. Leiding": "Trainer",
     "Mentor-Leiding": "Mentor",
+    "Mentor-Assist. Leiding": "Mentor",
     "W&S-Leiding": "W&S",
+    "W&S-Assist. Leiding": "W&S",
     "IZ-Leiding": "Interne-Zaken",
+    "IZ-Assist. Leiding": "Interne-Zaken",
     "DSI-Leiding": "DSI",
     "KLu-Leiding": "KLu",
     "DNR-Leiding": "DNR",
@@ -37,7 +41,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     "VID-Leiding": "VID"
   };
   const branchLeadershipFunctionTargets = {
-    "HR-Leiding": "HR"
+    "HR-Leiding": "HR",
+    "HR-Assist. Leiding": "HR"
   };
 
   function hasFunctionBadge(functionBadges, badge) {
@@ -98,10 +103,11 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isTrainer = taskBadges.includes("Trainer");
     const isMentor = taskBadges.includes("Mentor");
     const isWs = taskBadges.includes("W&S");
-    const isMentorLeadership = taskBadges.includes("Mentor-Leiding");
+    const isWsLeadership = taskBadges.includes("W&S-Leiding") || taskBadges.includes("W&S-Assist. Leiding");
+    const isMentorLeadership = taskBadges.includes("Mentor-Leiding") || taskBadges.includes("Mentor-Assist. Leiding");
     const isOtcLeadership = taskBadges.includes("OTC-Leiding");
-    const isIzLeadership = taskBadges.includes("IZ-Leiding");
-    const isTrainerLeadership = taskBadges.includes("Trainer-Leiding");
+    const isIzLeadership = taskBadges.includes("IZ-Leiding") || taskBadges.includes("IZ-Assist. Leiding");
+    const isTrainerLeadership = taskBadges.includes("Trainer-Leiding") || taskBadges.includes("Trainer-Assist. Leiding");
     const manageableProfileTaskBadges = manageableProfileTaskBadgesFor(taskBadges);
     const manageableProfileFunctionBadges = manageableProfileFunctionBadgesFor(taskBadges);
     const canViewTrainerSection = canViewAsKader || isTrainer || isTrainerLeadership;
@@ -160,9 +166,9 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       canManageMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
       canManageMentorChecklistTemplate: isKader || isMentorLeadership || isOtcLeadership,
       canManageMentorTestTemplate: isMentorLeadership || isDevOverride,
-      canViewRecruitment: canViewAsKader || isWs || isHrManagement,
-      canRecruitPeople: isKader || isWs || isHrManagement,
-      canViewBlacklist: canViewAsKader || isWs,
+      canViewRecruitment: canViewAsKader || isWs || isWsLeadership || isHrManagement,
+      canRecruitPeople: isKader || isWs || isWsLeadership || isHrManagement,
+      canViewBlacklist: canViewAsKader || isWs || isWsLeadership,
       canManageBlacklist: isKader,
       canViewOvJLeadershipLog: canViewAsKader || taskBadges.includes("OvJ"),
       canViewMentorLeadershipLog: canViewAsKader || isMentorLeadership || isOtcLeadership,

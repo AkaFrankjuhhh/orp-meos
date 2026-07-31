@@ -153,6 +153,11 @@ const politieExtraTasks = [
   "HR-Leiding",
   "IZ-Leiding",
   "Trainer-Leiding",
+  "Trainer-Assist. Leiding",
+  "Mentor-Assist. Leiding",
+  "W&S-Assist. Leiding",
+  "HR-Assist. Leiding",
+  "IZ-Assist. Leiding",
   ...politieSideTaskBadges
 ];
 
@@ -464,7 +469,7 @@ const organizationConfigs = {
       i8ReviewMode: "ovjOnly",
       absenceReviewMode: "kaderAndHoofdofficier",
       officerManagementMode: "viewAndAbsenceOnly",
-      hrManagementAliases: ["Bestuur", "HR", "HR-Leiding"]
+      hrManagementAliases: ["Bestuur", "HR", "HR-Leiding", "HR-Assist. Leiding"]
     },
     rankColors: {
       "Eerste hoofdcommissaris": "#e17000",
@@ -498,6 +503,11 @@ const organizationConfigs = {
         { key: "hr-leiding", label: "HR-Leiding", envKey: "DISCORD_POLITIE_HR_LEIDING_ROLE_ID" },
         { key: "iz-leiding", label: "IZ-Leiding", envKey: "DISCORD_POLITIE_IZ_LEIDING_ROLE_ID" },
         { key: "trainer-leiding", label: "Trainer-Leiding", envKey: "DISCORD_POLITIE_TRAINER_LEIDING_ROLE_ID" },
+        { key: "trainer-assist-leiding", label: "Trainer-Assist. Leiding", envKey: "DISCORD_POLITIE_TRAINER_ASSIST_LEIDING_ROLE_ID" },
+        { key: "mentor-assist-leiding", label: "Mentor-Assist. Leiding", envKey: "DISCORD_POLITIE_MENTOR_ASSIST_LEIDING_ROLE_ID" },
+        { key: "w-s-assist-leiding", label: "W&S-Assist. Leiding", envKey: "DISCORD_POLITIE_WS_ASSIST_LEIDING_ROLE_ID" },
+        { key: "hr-assist-leiding", label: "HR-Assist. Leiding", envKey: "DISCORD_POLITIE_HR_ASSIST_LEIDING_ROLE_ID" },
+        { key: "iz-assist-leiding", label: "IZ-Assist. Leiding", envKey: "DISCORD_POLITIE_IZ_ASSIST_LEIDING_ROLE_ID" },
         { key: "dsi-leiding", label: "DSI-Leiding", envKey: "DISCORD_POLITIE_DSI_LEIDING_ROLE_ID" },
         { key: "dsi", label: "DSI", envKey: "DISCORD_POLITIE_DSI_ROLE_ID" },
         { key: "klu-leiding", label: "KLu-Leiding", envKey: "DISCORD_POLITIE_KLU_LEIDING_ROLE_ID" },

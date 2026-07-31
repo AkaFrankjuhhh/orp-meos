@@ -80,6 +80,7 @@ function profileTrainingLabel(training) {
 const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "Hoofdofficier", "Officiersraad", "OVC"];
 const profileBadgeExtraLeadership = ["Directie", "Teamchef", "Coördinator"];
 const profileBadgeTaskLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "HR-Leiding", "IZ-Leiding", "OvJ", "VID-Leiding", "OTC-Leiding"];
+const profileBadgeTaskAssistantLeadershipOrder = ["Trainer-Assist. Leiding", "Mentor-Assist. Leiding", "W&S-Assist. Leiding", "HR-Assist. Leiding", "IZ-Assist. Leiding"];
 const profileBadgeGeneralFunctionOrder = ["HR"];
 const profileBadgeTaskFunctionOrder = ["Trainer", "Mentor", "W&S", "Interne-Zaken", "hOvJ", "VID", "Operatie"];
 
@@ -158,11 +159,15 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
   );
   const otherFunctions = manageableFunctions.filter((item) => !organizationLeadership.includes(item) && !extraLeadership.includes(item) && !generalFunctions.includes(item));
   const leadershipTasks = orderedProfileBadgeItems(
-    tasks.filter((task) => task.endsWith("-Leiding") || task === "OvJ"),
+    tasks.filter((task) => (task.endsWith("-Leiding") && !profileBadgeTaskAssistantLeadershipOrder.includes(task)) || task === "OvJ"),
     profileBadgeTaskLeadershipOrder
   );
+  const assistantLeadershipTasks = orderedProfileBadgeItems(
+    tasks.filter((task) => profileBadgeTaskAssistantLeadershipOrder.includes(task)),
+    profileBadgeTaskAssistantLeadershipOrder
+  );
   const functionTasks = orderedProfileBadgeItems(
-    tasks.filter((task) => !leadershipTasks.includes(task)),
+    tasks.filter((task) => !leadershipTasks.includes(task) && !assistantLeadershipTasks.includes(task)),
     profileBadgeTaskFunctionOrder
   );
   const functionItems = [
@@ -196,6 +201,12 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
       profileBadgeCategory({
         title: "Leiding",
         items: leadershipTasks,
+        selected: selectedTasks,
+        kind: "task"
+      }),
+      profileBadgeCategory({
+        title: "Assist. Leiding",
+        items: assistantLeadershipTasks,
         selected: selectedTasks,
         kind: "task"
       }),

@@ -286,8 +286,12 @@ test("police board and HR can recruit and dismiss without full people management
     const organization = organizationConfigs.politie;
     assert.equal(organization.extraFunctions.includes("HR"), true);
     assert.equal(organization.extraTasks.includes("HR-Leiding"), true);
+    assert.equal(organization.extraTasks.includes("HR-Assist. Leiding"), true);
+    assert.equal(organization.extraTasks.includes("OvJ-Assist. Leiding"), false);
+    assert.equal(organization.extraTasks.includes("hOvJ-Assist. Leiding"), false);
     assert.equal(organization.discord.functionRoleMappings.some((mapping) => mapping.label === "HR" && mapping.envKey === "DISCORD_POLITIE_HR_ROLE_ID"), true);
     assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "HR-Leiding" && mapping.envKey === "DISCORD_POLITIE_HR_LEIDING_ROLE_ID"), true);
+    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "HR-Assist. Leiding" && mapping.envKey === "DISCORD_POLITIE_HR_ASSIST_LEIDING_ROLE_ID"), true);
 
     const services = createPermissionServices({
       extraFunctions: organization.extraFunctions,
@@ -298,7 +302,8 @@ test("police board and HR can recruit and dismiss without full people management
     const profiles = [
       { id: "politie-inspecteur", name: "Inspecteur", rank: "Inspecteur", status: "Actief", permRole: "Geen", badges: [] },
       { id: "politie-hr", name: "HR", rank: "Agent", status: "Actief", permRole: "HR", badges: [] },
-      { id: "politie-hr-leiding", name: "HR-Leiding", rank: "Agent", status: "Actief", permRole: "Geen", badges: ["HR-Leiding"] }
+      { id: "politie-hr-leiding", name: "HR-Leiding", rank: "Agent", status: "Actief", permRole: "Geen", badges: ["HR-Leiding"] },
+      { id: "politie-hr-assist", name: "HR-Assist", rank: "Agent", status: "Actief", permRole: "Geen", badges: ["HR-Assist. Leiding"] }
     ];
 
     for (const profile of profiles) {
@@ -326,9 +331,13 @@ test("branch leadership can manage only its own profile badge", () => {
       });
       const cases = [
         ["Trainer-Leiding", "Trainer"],
+        ["Trainer-Assist. Leiding", "Trainer"],
         ["Mentor-Leiding", "Mentor"],
+        ["Mentor-Assist. Leiding", "Mentor"],
         ["W&S-Leiding", "W&S"],
+        ["W&S-Assist. Leiding", "W&S"],
         ["IZ-Leiding", "Interne-Zaken"],
+        ["IZ-Assist. Leiding", "Interne-Zaken"],
         ["DSI-Leiding", "DSI"],
         ["KLu-Leiding", "KLu"],
         ["DNR-Leiding", "DNR"],
@@ -354,7 +363,7 @@ test("branch leadership can manage only its own profile badge", () => {
   }
 });
 
-test("HR-Leiding can manage the police HR function without full people management", () => {
+test("HR leadership can manage the police HR function without full people management", () => {
   withOrganization("politie", () => {
     const { organizationConfigs } = require("../modules/organizations");
     const { createPermissionServices } = require("../modules/permissions");
@@ -364,18 +373,20 @@ test("HR-Leiding can manage the police HR function without full people managemen
       extraTasks: organization.extraTasks,
       readState: () => ({ people: [] })
     });
-    const permissions = services.permissionsForProfile({
-      id: "politie-hr-leiding",
-      name: "HR-Leiding",
-      rank: "Agent",
-      status: "Actief",
-      permRole: "Geen",
-      badges: ["HR-Leiding"]
-    });
+    for (const badge of ["HR-Leiding", "HR-Assist. Leiding"]) {
+      const permissions = services.permissionsForProfile({
+        id: `politie-${badge}`,
+        name: badge,
+        rank: "Agent",
+        status: "Actief",
+        permRole: "Geen",
+        badges: [badge]
+      });
 
-    assert.equal(permissions.canManageProfileBadges, true);
-    assert.equal(permissions.canManagePeople, false);
-    assert.deepEqual(permissions.manageableProfileFunctionBadges, ["HR"]);
+      assert.equal(permissions.canManageProfileBadges, true);
+      assert.equal(permissions.canManagePeople, false);
+      assert.deepEqual(permissions.manageableProfileFunctionBadges, ["HR"]);
+    }
   });
 });
 
