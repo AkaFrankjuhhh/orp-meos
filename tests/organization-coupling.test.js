@@ -89,10 +89,27 @@ test("police and defensie expose K9 trainings in the profile", () => {
   }
 
   const politie = organizationConfigs.politie;
-  assert.ok(politie.profileTrainings.includes("OFF"), "politie mist OFF training");
+  assert.equal(politie.profileTrainingLabels.NH, "Noodhulp (NH)");
   assert.equal(politie.profileTrainingLabels.OFF, "Off-Road (OFF)");
-  assert.equal(politie.discord.qualificationRoleMappings.OFF.envKey, "DISCORD_POLITIE_OFF_ROLE_ID");
-  assert.equal(politie.discord.qualificationRoleMappings.OFF.label, "Off-Road (OFF)");
+  assert.equal(politie.profileTrainingLabels.ME, "Mobiele Eenheid (ME)");
+  for (const [training, envKey, roleId, label] of [
+    ["NH", "DISCORD_POLITIE_NH_ROLE_ID", "1468340097010368747", "Noodhulp (NH)"],
+    ["IBT", "DISCORD_POLITIE_IBT_ROLE_ID", "", "IBT"],
+    ["TLO", "DISCORD_POLITIE_TLO_ROLE_ID", "1492543958935539735", "TLO"],
+    ["OFF", "DISCORD_POLITIE_OFF_ROLE_ID", "1468338856553353256", "Off-Road (OFF)"],
+    ["SIV", "DISCORD_POLITIE_SIV_ROLE_ID", "1468339057489739878", "SIV"],
+    ["TMO", "DISCORD_POLITIE_TMO_ROLE_ID", "1468342410403909644", "TMO"],
+    ["ZULU", "DISCORD_POLITIE_ZULU_ROLE_ID", "1468340559696367659", "ZULU"],
+    ["OGM", "DISCORD_POLITIE_OGM_ROLE_ID", "1468339159889350736", "OGM"],
+    ["ME", "DISCORD_POLITIE_ME_ROLE_ID", "1468339400969683117", "Mobiele Eenheid (ME)"],
+    ["K9", "DISCORD_POLITIE_K9_ROLE_ID", "1527746931827277904", "K9"],
+    ["K9 Begeleider", "DISCORD_POLITIE_K9_BEGELEIDER_ROLE_ID", "1468339725709480138", "Hondenbegeleider"]
+  ]) {
+    assert.ok(politie.profileTrainings.includes(training), `politie mist ${training} training`);
+    assert.equal(politie.discord.qualificationRoleMappings[training].envKey, envKey);
+    assert.equal(politie.discord.qualificationRoleMappings[training].defaultRoleId || "", roleId);
+    assert.equal(politie.discord.qualificationRoleMappings[training].label, label);
+  }
 });
 
 test("public form threads use the shared portal or government bot token", () => {

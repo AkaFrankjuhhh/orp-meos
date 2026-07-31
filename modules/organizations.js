@@ -430,7 +430,9 @@ const organizationConfigs = {
     autoSortRanks: [],
     profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME", "K9", "K9 Begeleider"],
     profileTrainingLabels: {
-      OFF: "Off-Road (OFF)"
+      NH: "Noodhulp (NH)",
+      OFF: "Off-Road (OFF)",
+      ME: "Mobiele Eenheid (ME)"
     },
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
@@ -517,7 +519,17 @@ const organizationConfigs = {
       },
       qualificationRoleMappings: {
         Basis: { envKey: "DISCORD_POLITIE_MEOS_ROLE_ID", defaultRoleId: "1425715749862772818", label: "Politie MEOS" },
-        OFF: { envKey: "DISCORD_POLITIE_OFF_ROLE_ID", label: "Off-Road (OFF)" },
+        NH: { envKey: "DISCORD_POLITIE_NH_ROLE_ID", defaultRoleId: "1468340097010368747", label: "Noodhulp (NH)" },
+        IBT: { envKey: "DISCORD_POLITIE_IBT_ROLE_ID", label: "IBT" },
+        TLO: { envKey: "DISCORD_POLITIE_TLO_ROLE_ID", defaultRoleId: "1492543958935539735", label: "TLO" },
+        OFF: { envKey: "DISCORD_POLITIE_OFF_ROLE_ID", defaultRoleId: "1468338856553353256", label: "Off-Road (OFF)" },
+        SIV: { envKey: "DISCORD_POLITIE_SIV_ROLE_ID", defaultRoleId: "1468339057489739878", label: "SIV" },
+        TMO: { envKey: "DISCORD_POLITIE_TMO_ROLE_ID", defaultRoleId: "1468342410403909644", label: "TMO" },
+        ZULU: { envKey: "DISCORD_POLITIE_ZULU_ROLE_ID", defaultRoleId: "1468340559696367659", label: "ZULU" },
+        OGM: { envKey: "DISCORD_POLITIE_OGM_ROLE_ID", defaultRoleId: "1468339159889350736", label: "OGM" },
+        ME: { envKey: "DISCORD_POLITIE_ME_ROLE_ID", defaultRoleId: "1468339400969683117", label: "Mobiele Eenheid (ME)" },
+        K9: { envKey: "DISCORD_POLITIE_K9_ROLE_ID", defaultRoleId: "1527746931827277904", label: "K9" },
+        "K9 Begeleider": { envKey: "DISCORD_POLITIE_K9_BEGELEIDER_ROLE_ID", defaultRoleId: "1468339725709480138", label: "Hondenbegeleider" },
         OC: { envKey: "DISCORD_POLITIE_OC_ROLE_ID", defaultRoleId: "1424523648819003484", label: "OC" },
         OPCO: { envKey: "DISCORD_POLITIE_OPCO_ROLE_ID", defaultRoleId: "1424523648412155994", label: "OPCO" },
         "OVD-P": { envKey: "DISCORD_POLITIE_OVD_ROLE_ID", defaultRoleId: "1424523647816699996", label: "OVD-P" }

@@ -925,13 +925,25 @@ test("Discord sync manages portal function and badge roles", () => {
 
   assert.match(envExample, /DISCORD_MENTOR_LEIDING_ROLE_ID=/);
   assert.match(envExample, /DISCORD_POLITIE_DSI_ROLE_ID=/);
-  assert.match(envExample, /DISCORD_POLITIE_OFF_ROLE_ID=/);
+  assert.match(envExample, /DISCORD_POLITIE_NH_ROLE_ID=1468340097010368747/);
+  assert.match(envExample, /DISCORD_POLITIE_IBT_ROLE_ID=/);
+  assert.match(envExample, /DISCORD_POLITIE_TLO_ROLE_ID=1492543958935539735/);
+  assert.match(envExample, /DISCORD_POLITIE_OFF_ROLE_ID=1468338856553353256/);
+  assert.match(envExample, /DISCORD_POLITIE_SIV_ROLE_ID=1468339057489739878/);
+  assert.match(envExample, /DISCORD_POLITIE_TMO_ROLE_ID=1468342410403909644/);
+  assert.match(envExample, /DISCORD_POLITIE_ZULU_ROLE_ID=1468340559696367659/);
+  assert.match(envExample, /DISCORD_POLITIE_OGM_ROLE_ID=1468339159889350736/);
+  assert.match(envExample, /DISCORD_POLITIE_ME_ROLE_ID=1468339400969683117/);
+  assert.match(envExample, /DISCORD_POLITIE_K9_ROLE_ID=1527746931827277904/);
+  assert.match(envExample, /DISCORD_POLITIE_K9_BEGELEIDER_ROLE_ID=1468339725709480138/);
   assert.match(envExample, /DISCORD_TRAINING_NEEDED_BKV_ROLE_ID=1499476179537625128/);
   assert.match(envExample, /DISCORD_JUSTITIE_DEFENSIE_ROLE_ID=/);
   assert.match(envExample, /DISCORD_SEPARATOR_EXTRA_ROLE_ID=1526710886511939794/);
   assert.match(organizationsCode, /label: "Trainer", envKey: "DISCORD_TRAINER_ROLE_ID"/);
   assert.match(organizationsCode, /label: "DSI", envKey: "DISCORD_DSI_ROLE_ID"/);
-  assert.match(organizationsCode, /OFF: \{ envKey: "DISCORD_POLITIE_OFF_ROLE_ID", label: "Off-Road \(OFF\)" \}/);
+  assert.match(organizationsCode, /NH: \{ envKey: "DISCORD_POLITIE_NH_ROLE_ID", defaultRoleId: "1468340097010368747", label: "Noodhulp \(NH\)" \}/);
+  assert.match(organizationsCode, /OFF: \{ envKey: "DISCORD_POLITIE_OFF_ROLE_ID", defaultRoleId: "1468338856553353256", label: "Off-Road \(OFF\)" \}/);
+  assert.match(organizationsCode, /"K9 Begeleider": \{ envKey: "DISCORD_POLITIE_K9_BEGELEIDER_ROLE_ID", defaultRoleId: "1468339725709480138", label: "Hondenbegeleider" \}/);
   assert.match(organizationsCode, /label: "Extra", envKey: "DISCORD_SEPARATOR_EXTRA_ROLE_ID"[\s\S]*always: true/);
   assert.match(organizationsCode, /label: "Justitie-Defensie", envKey: "DISCORD_JUSTITIE_DEFENSIE_ROLE_ID"[\s\S]*badges: \["hOvJ"\]/);
   assert.match(organizationsCode, /trainingRequirementRoleMappings/);
