@@ -530,7 +530,6 @@ const organizationConfigs = {
       qualificationRoleMappings: {
         Basis: { envKey: "DISCORD_POLITIE_MEOS_ROLE_ID", defaultRoleId: "1425715749862772818", label: "Politie MEOS" },
         NH: { envKey: "DISCORD_POLITIE_NH_ROLE_ID", defaultRoleId: "1468340097010368747", label: "Noodhulp (NH)" },
-        IBT: { envKey: "DISCORD_POLITIE_IBT_ROLE_ID", label: "IBT" },
         TLO: { envKey: "DISCORD_POLITIE_TLO_ROLE_ID", defaultRoleId: "1492543958935539735", label: "TLO" },
         OFF: { envKey: "DISCORD_POLITIE_OFF_ROLE_ID", defaultRoleId: "1468338856553353256", label: "Off-Road (OFF)" },
         SIV: { envKey: "DISCORD_POLITIE_SIV_ROLE_ID", defaultRoleId: "1468339057489739878", label: "SIV" },
