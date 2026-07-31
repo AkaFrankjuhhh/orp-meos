@@ -429,6 +429,9 @@ const organizationConfigs = {
     ],
     autoSortRanks: [],
     profileTrainings: ["Basis", "NH", "IBT", "TLO", "OFF", "SIV", "TMO", "ZULU", "OGM", "ME", "K9", "K9 Begeleider"],
+    profileTrainingLabels: {
+      OFF: "Off-Road (OFF)"
+    },
     profileOperational: ["OC", "OPCO", "OVD-P"],
     extraTasks: politieExtraTasks,
     extraFunctions: ["Korpsleiding", "Bestuur", "HR", "OVC"],
@@ -514,6 +517,7 @@ const organizationConfigs = {
       },
       qualificationRoleMappings: {
         Basis: { envKey: "DISCORD_POLITIE_MEOS_ROLE_ID", defaultRoleId: "1425715749862772818", label: "Politie MEOS" },
+        OFF: { envKey: "DISCORD_POLITIE_OFF_ROLE_ID", label: "Off-Road (OFF)" },
         OC: { envKey: "DISCORD_POLITIE_OC_ROLE_ID", defaultRoleId: "1424523648819003484", label: "OC" },
         OPCO: { envKey: "DISCORD_POLITIE_OPCO_ROLE_ID", defaultRoleId: "1424523648412155994", label: "OPCO" },
         "OVD-P": { envKey: "DISCORD_POLITIE_OVD_ROLE_ID", defaultRoleId: "1424523647816699996", label: "OVD-P" }
@@ -676,6 +680,7 @@ function publicClientData(config = currentOrganization()) {
     serviceNumberGroups: config.serviceNumberGroups,
     today: new Date().toISOString().slice(0, 10),
     profileTrainings: config.profileTrainings,
+    profileTrainingLabels: config.profileTrainingLabels || {},
     profileOperational: config.profileOperational,
     porto: {
       operatorLabel,

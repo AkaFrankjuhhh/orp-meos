@@ -71,6 +71,12 @@ function profileBadgeDialogLabel(badge) {
   return profileBadgeDialogDisplayLabels[badge] || profileBadgeLabel(badge);
 }
 
+function profileTrainingLabel(training) {
+  const labels = window.DefensiePortalData?.profileTrainingLabels || {};
+  const key = String(training || "").trim();
+  return labels[key] || key;
+}
+
 const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "Hoofdofficier", "Officiersraad", "OVC"];
 const profileBadgeExtraLeadership = ["Directie", "Teamchef", "Coördinator"];
 const profileBadgeTaskLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "HR-Leiding", "IZ-Leiding", "OvJ", "VID-Leiding", "OTC-Leiding"];
@@ -282,7 +288,7 @@ function renderProfileChecks(current) {
         return `
         <label class="${isCompleted ? "is-completed" : "is-missing"}">
           <input type="checkbox" data-profile-check="${type}" value="${escapeHtml(item)}" ${isCompleted ? "checked" : ""} ${canEdit ? "" : "disabled"} />
-          ${escapeHtml(item)}
+          ${escapeHtml(type === "training" ? profileTrainingLabel(item) : item)}
         </label>
       `;
       })

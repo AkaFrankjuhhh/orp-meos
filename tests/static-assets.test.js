@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260731-i8-force-warning/);
+  assert.match(html, /app\.js\?v=20260731-police-off-training/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -228,7 +228,7 @@ test("trainer sidebar exposes training logs and IBT reviews", () => {
   assert.match(html, /data-page="trainer-ibt"/);
   assert.match(html, /id="trainerIbtCounter"/);
   assert.match(html, /trainerIbtDetailDialog/);
-  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260727-training-co-trainers/);
+  assert.match(html, /personeelsportaal\/trainer\.js\?v=20260731-police-off-training/);
   assert.match(appCode, /"trainer-overzicht": "\/trainer-overzicht"/);
   assert.match(appCode, /function canViewTrainerOverview\(/);
   assert.match(appCode, /refreshTrainerIbtReviewsSilently\(\)/);
@@ -298,10 +298,11 @@ test("profile badge context dialog groups controls with a summary", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
   assert.match(html, /personeelsportaal\.css\?v=20260727-training-co-trainers/);
-  assert.match(html, /personeelsportaal\/profile\.js\?v=20260731-police-hr-function/);
+  assert.match(html, /personeelsportaal\/profile\.js\?v=20260731-police-off-training/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
   assert.match(profileCode, /function profileBadgeDialogGroups/);
+  assert.match(profileCode, /function profileTrainingLabel\(/);
   assert.match(profileCode, /data-profile-badge-kind="\$\{escapeHtml\(kind\)\}"/);
   assert.match(profileCode, /profileBadgeTaskLeadershipOrder/);
   assert.doesNotMatch(profileCode, /profileBadgeOrganizationLeadership = \[[^\]]*"HR"/);
@@ -924,11 +925,13 @@ test("Discord sync manages portal function and badge roles", () => {
 
   assert.match(envExample, /DISCORD_MENTOR_LEIDING_ROLE_ID=/);
   assert.match(envExample, /DISCORD_POLITIE_DSI_ROLE_ID=/);
+  assert.match(envExample, /DISCORD_POLITIE_OFF_ROLE_ID=/);
   assert.match(envExample, /DISCORD_TRAINING_NEEDED_BKV_ROLE_ID=1499476179537625128/);
   assert.match(envExample, /DISCORD_JUSTITIE_DEFENSIE_ROLE_ID=/);
   assert.match(envExample, /DISCORD_SEPARATOR_EXTRA_ROLE_ID=1526710886511939794/);
   assert.match(organizationsCode, /label: "Trainer", envKey: "DISCORD_TRAINER_ROLE_ID"/);
   assert.match(organizationsCode, /label: "DSI", envKey: "DISCORD_DSI_ROLE_ID"/);
+  assert.match(organizationsCode, /OFF: \{ envKey: "DISCORD_POLITIE_OFF_ROLE_ID", label: "Off-Road \(OFF\)" \}/);
   assert.match(organizationsCode, /label: "Extra", envKey: "DISCORD_SEPARATOR_EXTRA_ROLE_ID"[\s\S]*always: true/);
   assert.match(organizationsCode, /label: "Justitie-Defensie", envKey: "DISCORD_JUSTITIE_DEFENSIE_ROLE_ID"[\s\S]*badges: \["hOvJ"\]/);
   assert.match(organizationsCode, /trainingRequirementRoleMappings/);

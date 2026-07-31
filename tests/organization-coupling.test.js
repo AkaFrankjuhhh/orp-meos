@@ -87,6 +87,12 @@ test("police and defensie expose K9 trainings in the profile", () => {
     assert.ok(trainings.includes("K9 Begeleider"), `${key} mist K9 Begeleider training`);
     assert.ok(trainings.indexOf("K9") < trainings.indexOf("K9 Begeleider"), `${key} K9 volgorde klopt niet`);
   }
+
+  const politie = organizationConfigs.politie;
+  assert.ok(politie.profileTrainings.includes("OFF"), "politie mist OFF training");
+  assert.equal(politie.profileTrainingLabels.OFF, "Off-Road (OFF)");
+  assert.equal(politie.discord.qualificationRoleMappings.OFF.envKey, "DISCORD_POLITIE_OFF_ROLE_ID");
+  assert.equal(politie.discord.qualificationRoleMappings.OFF.label, "Off-Road (OFF)");
 });
 
 test("public form threads use the shared portal or government bot token", () => {

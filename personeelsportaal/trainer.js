@@ -93,8 +93,12 @@ function trainerRecordsForPerson(personId) {
   return trainerQualificationRecords().filter((record) => record.person.id === personId);
 }
 
+function trainerTrainingLabel(training) {
+  return typeof profileTrainingLabel === "function" ? profileTrainingLabel(training) : String(training || "");
+}
+
 function trainerSearchText(person, records = []) {
-  return `${person.name || ""} ${person.rank || ""} ${person.serviceNumber || ""} ${records.map((record) => `${record.training} ${record.actorName}`).join(" ")}`.toLowerCase();
+  return `${person.name || ""} ${person.rank || ""} ${person.serviceNumber || ""} ${records.map((record) => `${record.training} ${trainerTrainingLabel(record.training)} ${record.actorName}`).join(" ")}`.toLowerCase();
 }
 
 function trainerOverviewPeople() {
@@ -146,7 +150,7 @@ function renderTrainerPersonTrainingLog(personId = selectedTrainerProfileId) {
       </div>
       ${records.map((record) => `
         <article class="leadership-detail-row trainer-training-row">
-          <strong>${escapeHtml(record.training)} <span class="trainer-plus">+1</span></strong>
+          <strong>${escapeHtml(trainerTrainingLabel(record.training))} <span class="trainer-plus">+1</span></strong>
           <span>${record.isCoTrainer ? "Mede-trainer" : "Afgevinkt door"} ${escapeHtml(record.actorName || "Onbekend")} op ${escapeHtml(formatDateTime(record.createdAt))}</span>
           <p>${escapeHtml(record.entry.details || record.entry.action || "-")}</p>
         </article>
@@ -187,7 +191,7 @@ function renderTrainerOverview() {
         return `
           <button class="leadership-row leadership-row-button trainer-overview-row ${person.id === selectedTrainerProfileId ? "is-selected" : ""}" type="button" data-trainer-person="${escapeHtml(person.id)}">
             <strong>${escapeHtml(person.name || "Onbekend")}<small>${escapeHtml(person.rank || "-")} - ${escapeHtml(person.serviceNumber || "-")}</small></strong>
-            <span>${latest ? `${escapeHtml(latest.training)} door ${escapeHtml(latest.actorName || "Onbekend")}${latest.isCoTrainer ? " (mede-trainer)" : ""}` : "Geen afvinkingen"}</span>
+            <span>${latest ? `${escapeHtml(trainerTrainingLabel(latest.training))} door ${escapeHtml(latest.actorName || "Onbekend")}${latest.isCoTrainer ? " (mede-trainer)" : ""}` : "Geen afvinkingen"}</span>
             <span class="rank-count"><span>${escapeHtml(String(records.length))}</span></span>
           </button>
         `;
@@ -233,7 +237,7 @@ function renderTrainerLogbookDetails(group) {
     <div class="leadership-detail-list trainer-logbook-details">
       ${group.records.map((record) => `
         <article class="leadership-detail-row">
-          <strong>${escapeHtml(record.person.name || "Onbekend")} - ${escapeHtml(record.training)} <span class="trainer-plus">+1</span></strong>
+          <strong>${escapeHtml(record.person.name || "Onbekend")} - ${escapeHtml(trainerTrainingLabel(record.training))} <span class="trainer-plus">+1</span></strong>
           <span>${escapeHtml(formatDateTime(record.createdAt))}</span>
           <p>${escapeHtml(record.isCoTrainer ? `Mede-trainer bij ${record.entry.actorName || "Onbekend"}` : record.entry.details || record.entry.action || "-")}</p>
         </article>

@@ -706,7 +706,10 @@ function openTrainingCreditDialog({ trainingNames = [], targetPerson = null } = 
   $("#trainingCreditTarget").textContent = targetPerson
     ? `${targetPerson.name || "Onbekend"} - ${targetPerson.serviceNumber || "-"}`
     : "-";
-  $("#trainingCreditTrainingName").textContent = trainingNames.length > 1 ? trainingNames.join(", ") : trainingNames[0] || "-";
+  const trainingLabels = trainingNames.map((training) => (
+    typeof profileTrainingLabel === "function" ? profileTrainingLabel(training) : training
+  ));
+  $("#trainingCreditTrainingName").textContent = trainingLabels.length > 1 ? trainingLabels.join(", ") : trainingLabels[0] || "-";
   $("#trainingCreditPrimaryTrainer").textContent = primary?.name || "Onbekend";
   fillTrainingCoTrainerOptions(targetPerson);
   resetTrainingCoTrainerFields();
