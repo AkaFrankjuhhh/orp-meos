@@ -962,8 +962,11 @@ test("Discord bot exposes training request dropdown and trainer info overview", 
   const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
   const webhooksCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-webhooks.js"), "utf8");
 
+  assert.match(envExample, /DISCORD_TRAINER_INFO_ENABLED=true/);
   assert.match(envExample, /DISCORD_TRAINER_INFO_CHANNEL_ID=1496169651695128627/);
   assert.match(envExample, /DISCORD_TRAINER_INFO_WEBHOOK_URL=/);
+  assert.match(workerCode, /trainerInfoOverviewEnabled/);
+  assert.match(workerCode, /organization\.key === "defensie" \? "1496169651695128627" : ""/);
   assert.match(workerCode, /voegtrainingtoe/);
   assert.match(workerCode, /training_request_select/);
   assert.match(workerCode, /Welke training wil je toevoegen/);

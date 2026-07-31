@@ -29,6 +29,11 @@ const {
 } = require("../modules/discord-sync-jobs");
 const { setDiscordSyncStatus, syncStatusFromError } = require("../modules/discord-sync-status");
 
+function enabledFromEnv(value, fallback = true) {
+  if (value == null || value === "") return fallback;
+  return !["0", "false", "nee", "no", "off"].includes(String(value).trim().toLowerCase());
+}
+
 const workerId = `discord-bot-${process.pid}`;
 const dailySyncTime = String(process.env.DISCORD_DAILY_SYNC_TIME || "05:00").trim();
 const dailySyncEnabled = String(process.env.DISCORD_DAILY_SYNC_ENABLED || "true").toLowerCase() !== "false";
@@ -48,8 +53,12 @@ const discordWebhooks = createDiscordWebhookServices();
 const nonRegularPortoDiscordChannelKey = nonRegularPortoDiscordChannel.key;
 const IZ_LEIDING_CHANNEL_ID = String(process.env.DISCORD_IZ_LEIDING_CHANNEL_ID || "1515083209132478596").trim();
 const IZ_LEIDING_ROLE_ID = String(process.env.DISCORD_IZ_LEIDING_ROLE_ID || "1515080646806995045").trim();
-const TRAINER_INFO_CHANNEL_ID = String(process.env.DISCORD_TRAINER_INFO_CHANNEL_ID || "1496169651695128627").trim();
-const TRAINER_INFO_WEBHOOK_URL = String(process.env.DISCORD_TRAINER_INFO_WEBHOOK_URL || "").trim();
+const trainerInfoOverviewEnabled = enabledFromEnv(process.env.DISCORD_TRAINER_INFO_ENABLED, gatewayEnabled);
+const defaultTrainerInfoChannelId = organization.key === "defensie" ? "1496169651695128627" : "";
+const TRAINER_INFO_CHANNEL_ID = trainerInfoOverviewEnabled
+  ? String(process.env.DISCORD_TRAINER_INFO_CHANNEL_ID || defaultTrainerInfoChannelId).trim()
+  : "";
+const TRAINER_INFO_WEBHOOK_URL = trainerInfoOverviewEnabled ? String(process.env.DISCORD_TRAINER_INFO_WEBHOOK_URL || "").trim() : "";
 const TRAINER_INFO_SETTINGS_KEY = `discord_trainer_training_overview_${organization.key}`;
 const SUGGESTION_CHANNELS = [
   {
