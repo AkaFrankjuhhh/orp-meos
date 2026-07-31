@@ -71,9 +71,10 @@ function profileBadgeDialogLabel(badge) {
   return profileBadgeDialogDisplayLabels[badge] || profileBadgeLabel(badge);
 }
 
-const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "HR", "Hoofdofficier", "Officiersraad", "OVC"];
+const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "Hoofdofficier", "Officiersraad", "OVC"];
 const profileBadgeExtraLeadership = ["Directie", "Teamchef", "Coördinator"];
 const profileBadgeTaskLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "HR-Leiding", "IZ-Leiding", "OvJ", "VID-Leiding", "OTC-Leiding"];
+const profileBadgeGeneralFunctionOrder = ["HR"];
 const profileBadgeTaskFunctionOrder = ["Trainer", "Mentor", "W&S", "Interne-Zaken", "hOvJ", "VID", "Operatie"];
 
 function orderedProfileBadgeItems(items, preferredOrder) {
@@ -105,6 +106,23 @@ function profileBadgeCategory({ title, items, selected, kind, emptyText = "" }) 
   `;
 }
 
+function profileBadgeMixedCategory({ title, items, selectedFunctions, selectedTasks, emptyText = "" }) {
+  if (!items.length && !emptyText) return "";
+  return `
+    <section class="profile-badge-category">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="profile-badge-category-items">
+        ${items.length
+          ? items.map(({ item, kind }) => {
+              const selected = kind === "function" ? selectedFunctions : selectedTasks;
+              return profileBadgeOption(item, selected.includes(item), kind);
+            }).join("")
+          : `<p class="muted">${escapeHtml(emptyText)}</p>`}
+      </div>
+    </section>
+  `;
+}
+
 function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunctions, selectedTasks, isSideMode }) {
   if (isSideMode) {
     return {
@@ -128,7 +146,11 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
     manageableFunctions.filter((item) => profileBadgeExtraLeadership.includes(item)),
     profileBadgeExtraLeadership
   );
-  const otherFunctions = manageableFunctions.filter((item) => !organizationLeadership.includes(item) && !extraLeadership.includes(item));
+  const generalFunctions = orderedProfileBadgeItems(
+    manageableFunctions.filter((item) => profileBadgeGeneralFunctionOrder.includes(item)),
+    profileBadgeGeneralFunctionOrder
+  );
+  const otherFunctions = manageableFunctions.filter((item) => !organizationLeadership.includes(item) && !extraLeadership.includes(item) && !generalFunctions.includes(item));
   const leadershipTasks = orderedProfileBadgeItems(
     tasks.filter((task) => task.endsWith("-Leiding") || task === "OvJ"),
     profileBadgeTaskLeadershipOrder
@@ -137,6 +159,10 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
     tasks.filter((task) => !leadershipTasks.includes(task)),
     profileBadgeTaskFunctionOrder
   );
+  const functionItems = [
+    ...generalFunctions.map((item) => ({ item, kind: "function" })),
+    ...functionTasks.map((item) => ({ item, kind: "task" }))
+  ];
 
   return {
     functionHtml: [
@@ -167,11 +193,11 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
         selected: selectedTasks,
         kind: "task"
       }),
-      profileBadgeCategory({
+      profileBadgeMixedCategory({
         title: "Functies",
-        items: functionTasks,
-        selected: [...selectedFunctions, ...selectedTasks],
-        kind: "task"
+        items: functionItems,
+        selectedFunctions,
+        selectedTasks
       })
     ].join("")
   };

@@ -298,13 +298,15 @@ test("profile badge context dialog groups controls with a summary", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
   assert.match(html, /personeelsportaal\.css\?v=20260727-training-co-trainers/);
-  assert.match(html, /personeelsportaal\/profile\.js\?v=20260727-profile-notes/);
+  assert.match(html, /personeelsportaal\/profile\.js\?v=20260731-police-hr-function/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
   assert.match(profileCode, /function profileBadgeDialogGroups/);
   assert.match(profileCode, /data-profile-badge-kind="\$\{escapeHtml\(kind\)\}"/);
   assert.match(profileCode, /profileBadgeTaskLeadershipOrder/);
-  assert.match(profileCode, /profileBadgeOrganizationLeadership = \[[^\]]*"HR"/);
+  assert.doesNotMatch(profileCode, /profileBadgeOrganizationLeadership = \[[^\]]*"HR"/);
+  assert.match(profileCode, /profileBadgeGeneralFunctionOrder = \[[^\]]*"HR"/);
+  assert.match(profileCode, /generalFunctions\.map\(\(item\) => \(\{ item, kind: "function" \}\)\)/);
   assert.match(profileCode, /profileBadgeTaskLeadershipOrder = \[[^\]]*"HR-Leiding"/);
   assert.match(profileCode, /manageableProfileTaskBadges\(\)\.includes\(task\)/);
   assert.match(profileCode, /manageableProfileFunctionBadges\(\)\.includes\(item\)/);
