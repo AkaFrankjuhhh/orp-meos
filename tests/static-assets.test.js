@@ -298,7 +298,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
   assert.match(html, /personeelsportaal\.css\?v=20260727-training-co-trainers/);
-  assert.match(html, /personeelsportaal\/profile\.js\?v=20260731-police-wijkagent-assist/);
+  assert.match(html, /personeelsportaal\/profile\.js\?v=20260731-aligned-badge-columns/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
   assert.match(profileCode, /function profileBadgeDialogGroups/);
@@ -306,14 +306,18 @@ test("profile badge context dialog groups controls with a summary", () => {
   assert.match(profileCode, /data-profile-badge-kind="\$\{escapeHtml\(kind\)\}"/);
   assert.match(profileCode, /profileBadgeTaskLeadershipOrder/);
   assert.match(profileCode, /profileBadgeTaskAssistantLeadershipOrder/);
-  assert.match(profileCode, /profileBadgeTaskLeadershipOrder = \[[^\]]*"ME-Leiding"/);
-  assert.match(profileCode, /profileBadgeTaskAssistantLeadershipOrder = \[[^\]]*"ME-Assist\. Leiding"/);
-  assert.match(profileCode, /profileBadgeTaskAssistantLeadershipOrder = \[[^\]]*"Wijkagent-Assist\. Leiding"/);
+  assert.match(profileCode, /profileBadgeBranchRows = \[/);
+  assert.match(profileCode, /function orderedProfileBadgeMixedItems/);
+  assert.match(profileCode, /leadership: "ME-Leiding", assistant: "ME-Assist\. Leiding", functionBadge: "ME"/);
+  assert.match(profileCode, /leadership: "Wijkagent-Leiding", assistant: "Wijkagent-Assist\. Leiding", functionBadge: "Wijkagent"/);
+  assert.match(profileCode, /profileBadgeTaskLeadershipOrder = \[\.\.\.profileBadgeBranchRows\.map/);
+  assert.match(profileCode, /profileBadgeFunctionOrder = \[\.\.\.profileBadgeBranchRows\.map/);
   assert.match(profileCode, /title: "Assist\. Leiding"/);
   assert.doesNotMatch(profileCode, /profileBadgeOrganizationLeadership = \[[^\]]*"HR"/);
   assert.match(profileCode, /profileBadgeGeneralFunctionOrder = \[[^\]]*"HR"/);
+  assert.match(profileCode, /orderedProfileBadgeMixedItems\(\[/);
   assert.match(profileCode, /generalFunctions\.map\(\(item\) => \(\{ item, kind: "function" \}\)\)/);
-  assert.match(profileCode, /profileBadgeTaskLeadershipOrder = \[[^\]]*"HR-Leiding"/);
+  assert.match(profileCode, /leadership: "HR-Leiding", assistant: "HR-Assist\. Leiding", functionBadge: "HR"/);
   assert.match(profileCode, /manageableProfileTaskBadges\(\)\.includes\(task\)/);
   assert.match(profileCode, /manageableProfileFunctionBadges\(\)\.includes\(item\)/);
   assert.match(profileCode, /updateProfileBadgeDialogSummary/);

@@ -79,15 +79,31 @@ function profileTrainingLabel(training) {
 
 const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "Hoofdofficier", "Officiersraad", "OVC"];
 const profileBadgeExtraLeadership = ["Directie", "Teamchef", "Coördinator"];
-const profileBadgeTaskLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "HR-Leiding", "IZ-Leiding", "ME-Leiding", "OvJ", "VID-Leiding", "OTC-Leiding"];
-const profileBadgeTaskAssistantLeadershipOrder = ["Trainer-Assist. Leiding", "Mentor-Assist. Leiding", "W&S-Assist. Leiding", "HR-Assist. Leiding", "IZ-Assist. Leiding", "ME-Assist. Leiding", "Wijkagent-Assist. Leiding"];
+const profileBadgeBranchRows = [
+  { leadership: "Trainer-Leiding", assistant: "Trainer-Assist. Leiding", functionBadge: "Trainer" },
+  { leadership: "Mentor-Leiding", assistant: "Mentor-Assist. Leiding", functionBadge: "Mentor" },
+  { leadership: "W&S-Leiding", assistant: "W&S-Assist. Leiding", functionBadge: "W&S" },
+  { leadership: "HR-Leiding", assistant: "HR-Assist. Leiding", functionBadge: "HR" },
+  { leadership: "IZ-Leiding", assistant: "IZ-Assist. Leiding", functionBadge: "Interne-Zaken" },
+  { leadership: "ME-Leiding", assistant: "ME-Assist. Leiding", functionBadge: "ME" },
+  { leadership: "Wijkagent-Leiding", assistant: "Wijkagent-Assist. Leiding", functionBadge: "Wijkagent" }
+];
+const profileBadgeTaskLeadershipOrder = [...profileBadgeBranchRows.map((row) => row.leadership), "OvJ", "VID-Leiding", "OTC-Leiding"];
+const profileBadgeTaskAssistantLeadershipOrder = profileBadgeBranchRows.map((row) => row.assistant);
+const profileBadgeFunctionOrder = [...profileBadgeBranchRows.map((row) => row.functionBadge), "hOvJ", "VID", "Operatie"];
 const profileBadgeGeneralFunctionOrder = ["HR"];
-const profileBadgeTaskFunctionOrder = ["Trainer", "Mentor", "W&S", "Interne-Zaken", "hOvJ", "VID", "Operatie"];
+const profileBadgeTaskFunctionOrder = profileBadgeFunctionOrder.filter((item) => !profileBadgeGeneralFunctionOrder.includes(item));
 
 function orderedProfileBadgeItems(items, preferredOrder) {
   const available = new Set(items);
   const ordered = preferredOrder.filter((item) => available.has(item));
   return [...ordered, ...items.filter((item) => !preferredOrder.includes(item))];
+}
+
+function orderedProfileBadgeMixedItems(items, preferredOrder) {
+  const available = new Map(items.map((entry) => [entry.item, entry]));
+  const ordered = preferredOrder.map((item) => available.get(item)).filter(Boolean);
+  return [...ordered, ...items.filter((entry) => !preferredOrder.includes(entry.item))];
 }
 
 function profileBadgeOption(item, checked, kind) {
@@ -170,10 +186,10 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
     tasks.filter((task) => !leadershipTasks.includes(task) && !assistantLeadershipTasks.includes(task)),
     profileBadgeTaskFunctionOrder
   );
-  const functionItems = [
-    ...generalFunctions.map((item) => ({ item, kind: "function" })),
-    ...functionTasks.map((item) => ({ item, kind: "task" }))
-  ];
+  const functionItems = orderedProfileBadgeMixedItems([
+    ...functionTasks.map((item) => ({ item, kind: "task" })),
+    ...generalFunctions.map((item) => ({ item, kind: "function" }))
+  ], profileBadgeFunctionOrder);
 
   return {
     functionHtml: [
