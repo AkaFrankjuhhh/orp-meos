@@ -132,11 +132,12 @@ test("modern porto status 4 reason menu survives live refresh", () => {
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
 
   assert.match(html, /porto\/duty\.js\?v=20260728-status4-pending/);
-  assert.match(html, /porto\.js\?v=20260728-status4-pending/);
+  assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(dutyCode, /let portoModernStatus4Pending = false/);
   assert.match(dutyCode, /const showChoices = portoModernStatus4Pending \|\| String\(portoDuty\?\.status\) === "4"/);
   assert.match(dutyCode, /entry\.code === "4" && portoModernStatus4Pending/);
   assert.match(portoCode, /if \(portoModernStatus4Pending\) return true/);
+  assert.match(portoCode, /const choiceMenu = \$\("#portoChoiceContextMenu"\);/);
   assert.match(portoCode, /portoModernStatus4Pending = true;\s+renderDutyPanel\(\);/);
   assert.match(portoCode, /updatePortoStatus\("4", modernStatus4Button\.dataset\.modernStatus4\)/);
   assert.match(routesCode, /const rawStatus4Detail = status === "4"/);
@@ -574,14 +575,17 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(html, /data-porto-ui-choice="modern"/);
   assert.match(html, /id="portoModernDutyDashboard"/);
   assert.match(html, /id="portoModernOpsDashboard"/);
-  assert.match(html, /porto\/ops\.js\?v=20260723-ops-duration-ticker/);
+  assert.match(html, /porto\/ops\.js\?v=20260731-ops-refresh-state/);
   assert.match(html, /porto\/duty\.js\?v=20260728-status4-pending/);
-  assert.match(html, /porto\.js\?v=20260728-status4-pending/);
+  assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(portoCode, /PORTO_UI_MODE_KEY/);
   assert.match(portoCode, /let portoDutyTime = null/);
   assert.match(portoCode, /function bindPortoUiToggle/);
   assert.match(opsCode, /portoDutyTime = payload\.dutyTime \|\| null/);
   assert.match(opsCode, /function renderModernOpsDashboard/);
+  assert.match(opsCode, /function isEditingModernOpsDashboard/);
+  assert.match(opsCode, /captureModernOpsDashboardState/);
+  assert.match(opsCode, /restoreModernOpsDashboardState/);
   assert.match(opsCode, /data-porto-modern-ops-duration-text/);
   assert.match(opsCode, /function updateOpsDurationDisplay/);
   assert.doesNotMatch(opsCode, /window\.setInterval\(\(\) => \{ renderOpsStatus\(\)/);
@@ -606,7 +610,7 @@ test("modern duty status layout stays aligned on desktop widths", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260723-ops-duration-ticker/);
+  assert.match(html, /porto\.css\?v=20260731-ops-refresh-state/);
   assert.match(styles, /body\[data-porto-ui="modern"\]\.porto-duty-workspace \.porto-modern-duty-meta-grid \{[\s\S]*margin-top: 0;/);
   assert.match(styles, /\.porto-modern-duty-meta-grid article > \.porto-modern-vehicle-select \{[\s\S]*grid-column: 1 \/ -1;/);
   const desktopBreakpointStart = styles.indexOf("@media (max-width: 1280px)");
@@ -634,7 +638,7 @@ test("porto profile dialog scroll avoids expensive backdrop repainting", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260723-ops-duration-ticker/);
+  assert.match(html, /porto\.css\?v=20260731-ops-refresh-state/);
   assert.match(styles, /\.porto-profile-dialog \{[\s\S]*contain: layout paint;/);
   assert.match(styles, /\.porto-profile-dialog::backdrop \{[\s\S]*backdrop-filter: none;/);
   assert.match(styles, /\.porto-profile-form \{[\s\S]*overscroll-behavior: contain;/);
@@ -651,7 +655,7 @@ test("porto K9 duty role stores a visible K9 name from the profile", () => {
   assert.match(html, /portoK9NameField/);
   assert.match(html, /portoK9Name/);
   assert.match(html, /porto\/profile\.js\?v=20260719-k9-duty-role/);
-  assert.match(html, /porto\.js\?v=20260728-status4-pending/);
+  assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(profileCode, /completedTrainings\)\s*&& portoProfile\.completedTrainings\.includes\("K9"\)/);
   assert.match(clientCode, /k9Name: k9NameInput/);
   assert.match(routesCode, /personHasK9Training/);
@@ -683,7 +687,7 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   assert.match(dutyCode, /function setPortoSignedOffUntilStatus0\(enabled\) \{[\s\S]*clearPortoAutoAssignTimer\(\);/);
   assert.match(routesCode, /if \(isRecentlyEnded\(person\.id\)\) \{[\s\S]*recentlyEndedError\(\)/);
   assert.match(html, /porto\/duty\.js\?v=20260728-status4-pending/);
-  assert.match(html, /porto\.js\?v=20260728-status4-pending/);
+  assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(envExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(envExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
@@ -699,11 +703,13 @@ test("porto live events refresh OPS status 0 without waiting for the poll thrott
 
   assert.match(clientCode, /loadPortoDuty\(\{ automatic: true, bypassAutoThrottle: scope === "porto" \}\)/);
   assert.match(clientCode, /function hasActivePortoLiveInteraction\(\)/);
+  assert.match(clientCode, /typeof isEditingModernOpsDashboard === "function" && isEditingModernOpsDashboard\(\)/);
   assert.doesNotMatch(clientCode, /active\?\.matches\?\.\("input"\)/);
   assert.doesNotMatch(clientCode, /isEditingOpsRequest[\s\S]{0,80}return true/);
   assert.match(dutyCode, /const bypassAutoThrottle = Boolean\(options\.bypassAutoThrottle\);/);
   assert.match(dutyCode, /if \(automatic && !bypassAutoThrottle\)/);
   assert.match(opsCode, /function scheduleOpsRequestRenderAfterInteraction\(\)/);
+  assert.match(opsCode, /function scheduleModernOpsDashboardRenderAfterInteraction\(\)/);
   assert.doesNotMatch(opsCode, /list\.matches\(":hover"\)/);
 });
 

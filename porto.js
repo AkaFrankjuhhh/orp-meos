@@ -73,6 +73,7 @@ let portoDutyPoll = null;
 let portoOpsPoll = null;
 let portoOpsRequestInteractionUntil = 0;
 let portoOpsRequestRenderTimer = null;
+let portoModernOpsDashboardRenderTimer = null;
 let portoEventSource = null;
 let portoLiveRefreshTimer = null;
 let portoLiveRefreshDeferTimer = null;
@@ -312,7 +313,11 @@ let portoOpsUnitLayout = ["grid", "list"].includes(storedOpsLayout) ? storedOpsL
 
 function hasActivePortoLiveInteraction() {
   const active = document.activeElement;
-  if (!$("#portoOpsUnitContextMenu")?.hidden) return true;
+  const opsContextMenu = $("#portoOpsUnitContextMenu");
+  const choiceMenu = $("#portoChoiceContextMenu");
+  if (opsContextMenu && !opsContextMenu.hidden) return true;
+  if (choiceMenu && !choiceMenu.hidden) return true;
+  if (typeof isEditingModernOpsDashboard === "function" && isEditingModernOpsDashboard()) return true;
   if (portoModernStatus4Pending) return true;
   if (document.querySelector(".porto-modern-status4-choices:not([hidden])")) return true;
   if (active?.closest?.("dialog[open], .site-notice-dialog[open]")) return true;
@@ -677,6 +682,17 @@ $("#portoOpsRequests").addEventListener("contextmenu", async (event) => {
   const request = event.target.closest("[data-ops-request]");
   if (!request?.dataset.opsRequest) return;
   await openPortoRequestContextMenu(event, request.dataset.opsRequest);
+});
+$("#portoModernOpsDashboard")?.addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".porto-modern-request-row, [data-ops-open-menu], [data-ops-status-unit], [data-ops-number-unit], [data-ops-vehicle-unit]")) {
+    holdOpsRequestInteraction();
+  }
+});
+$("#portoModernOpsDashboard")?.addEventListener("focusin", (event) => {
+  if (event.target.closest(".porto-modern-request-row")) holdOpsRequestInteraction();
+});
+$("#portoModernOpsDashboard")?.addEventListener("change", (event) => {
+  if (event.target.matches("[data-link-select], [data-category-select]")) holdOpsRequestInteraction();
 });
 $("#portoModernOpsDashboard")?.addEventListener("click", async (event) => {
   const dutyViewButton = event.target.closest("[data-modern-duty-view]");

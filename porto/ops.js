@@ -243,16 +243,26 @@ function holdOpsRequestInteraction() {
 
 function scheduleOpsRequestRenderAfterInteraction() {
   if (portoOpsRequestRenderTimer) return;
-  const delay = Math.max(100, portoOpsRequestInteractionUntil - Date.now() + 50);
+  const delay = Math.max(500, portoOpsRequestInteractionUntil - Date.now() + 50);
   portoOpsRequestRenderTimer = window.setTimeout(() => {
     portoOpsRequestRenderTimer = null;
     renderOpsRequests();
   }, delay);
 }
 
+function scheduleModernOpsDashboardRenderAfterInteraction() {
+  if (portoModernOpsDashboardRenderTimer) return;
+  const delay = Math.max(500, portoOpsRequestInteractionUntil - Date.now() + 50);
+  portoModernOpsDashboardRenderTimer = window.setTimeout(() => {
+    portoModernOpsDashboardRenderTimer = null;
+    renderModernOpsDashboard();
+  }, delay);
+}
+
 function isEditingOpsRequest() {
   const list = $("#portoOpsRequests");
   const active = document.activeElement;
+  if (list && active && list.contains(active) && active.matches("select")) return true;
   return Boolean(
     list &&
       Date.now() < portoOpsRequestInteractionUntil &&
@@ -260,6 +270,64 @@ function isEditingOpsRequest() {
       list.contains(active) &&
       active.matches("select, button")
   );
+}
+
+function isEditingModernOpsDashboard() {
+  const container = $("#portoModernOpsDashboard");
+  if (!container || container.hidden) return false;
+  const active = document.activeElement;
+  if (active && container.contains(active) && active.matches("[data-link-select], [data-category-select]")) return true;
+  return Boolean(
+    Date.now() < portoOpsRequestInteractionUntil &&
+      active &&
+      container.contains(active) &&
+      active.matches("select, button")
+  );
+}
+
+function captureModernOpsDashboardState(container) {
+  const list = container?.querySelector(".porto-modern-ops-list");
+  const active = document.activeElement;
+  const activeRequest = active?.closest?.(".porto-modern-request-row");
+  const activeSelectKind = active?.matches?.("[data-link-select]")
+    ? "link"
+    : active?.matches?.("[data-category-select]")
+      ? "category"
+      : "";
+  return {
+    listScrollTop: list?.scrollTop || 0,
+    activeSelect: activeRequest && activeSelectKind
+      ? { requestId: activeRequest.dataset.opsRequest, kind: activeSelectKind }
+      : null,
+    requestSelections: [...(container?.querySelectorAll(".porto-modern-request-row") || [])].map((row) => ({
+      requestId: row.dataset.opsRequest,
+      linkValue: row.querySelector("[data-link-select]")?.value || "",
+      categoryValue: row.querySelector("[data-category-select]")?.value || ""
+    }))
+  };
+}
+
+function restoreSelectValue(select, value) {
+  if (!select || value === undefined) return;
+  if ([...select.options].some((option) => option.value === value)) select.value = value;
+}
+
+function restoreModernOpsDashboardState(container, state) {
+  if (!container || !state) return;
+  const rows = [...container.querySelectorAll(".porto-modern-request-row")];
+  for (const selection of state.requestSelections || []) {
+    const row = rows.find((entry) => String(entry.dataset.opsRequest) === String(selection.requestId));
+    if (!row) continue;
+    restoreSelectValue(row.querySelector("[data-link-select]"), selection.linkValue);
+    restoreSelectValue(row.querySelector("[data-category-select]"), selection.categoryValue);
+  }
+  const list = container.querySelector(".porto-modern-ops-list");
+  if (list) list.scrollTop = state.listScrollTop || 0;
+  if (state.activeSelect?.requestId) {
+    const row = rows.find((entry) => String(entry.dataset.opsRequest) === String(state.activeSelect.requestId));
+    const selector = state.activeSelect.kind === "link" ? "[data-link-select]" : "[data-category-select]";
+    row?.querySelector(selector)?.focus({ preventScroll: true });
+  }
 }
 
 function renderOpsRequests({ force = false } = {}) {
@@ -578,12 +646,17 @@ function modernOpsChannelDisplay(unit) {
   };
 }
 
-function renderModernOpsDashboard() {
+function renderModernOpsDashboard({ force = false } = {}) {
   const container = $("#portoModernOpsDashboard");
   if (!container) return;
   const showPanel = Boolean(canUseOpsWorkspace() && portoCanManageOps && portoUiMode === "modern");
   container.hidden = !showPanel;
   if (!showPanel) return;
+  if (!force && isEditingModernOpsDashboard()) {
+    scheduleModernOpsDashboardRenderAfterInteraction();
+    return;
+  }
+  const renderState = captureModernOpsDashboardState(container);
   const units = sortedOpsUnitGroups(portoActiveUnits);
   const selectedUnit = modernOpsSelectedUnit(units);
   const stats = modernStatusBuckets(units);
@@ -690,6 +763,7 @@ function renderModernOpsDashboard() {
         ` : '<p class="muted">Selecteer een eenheid.</p>'}
       </aside>
     </section>`;
+  restoreModernOpsDashboardState(container, renderState);
 }
 
 function captureActiveDiscordChannelStatusInput() {
@@ -898,7 +972,7 @@ function renderOpsPanel({ forceRequests = false } = {}) {
   if (dutyViewButton) dutyViewButton.hidden = !(portoCanManageOps && isAssignedDuty() && !isCurrentOpsUser());
   renderOpsStatus();
   renderOpsLogAccess();
-  renderModernOpsDashboard();
+  renderModernOpsDashboard({ force: forceRequests });
   renderOpsRequests({ force: forceRequests });
   renderDiscordChannels();
   renderOpsUnits();
