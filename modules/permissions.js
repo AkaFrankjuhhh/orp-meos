@@ -37,6 +37,8 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     "DSI-Leiding": "DSI",
     "KLu-Leiding": "KLu",
     "DNR-Leiding": "DNR",
+    "Wijkagent-Leiding": "Wijkagent",
+    "Wijkagent-Assist. Leiding": "Wijkagent",
     "HRB-Leiding": "HRB",
     "VID-Leiding": "VID"
   };

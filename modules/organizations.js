@@ -139,7 +139,17 @@ const defensieExtraTasks = [
 ];
 
 const defensieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR", "HRB-Leiding", "HRB"];
-const politieSideTaskBadges = ["DSI-Leiding", "DSI", "KLu-Leiding", "KLu", "DNR-Leiding", "DNR"];
+const politieSideTaskBadges = [
+  "DSI-Leiding",
+  "DSI",
+  "KLu-Leiding",
+  "KLu",
+  "DNR-Leiding",
+  "DNR",
+  "Wijkagent-Leiding",
+  "Wijkagent-Assist. Leiding",
+  "Wijkagent"
+];
 
 const politieExtraTasks = [
   "Interne-Zaken",
@@ -153,11 +163,13 @@ const politieExtraTasks = [
   "HR-Leiding",
   "IZ-Leiding",
   "Trainer-Leiding",
+  "ME-Leiding",
   "Trainer-Assist. Leiding",
   "Mentor-Assist. Leiding",
   "W&S-Assist. Leiding",
   "HR-Assist. Leiding",
   "IZ-Assist. Leiding",
+  "ME-Assist. Leiding",
   ...politieSideTaskBadges
 ];
 
@@ -488,7 +500,7 @@ const organizationConfigs = {
       functionRoleMappings: [
         { key: "korpsleiding", label: "Korpsleiding", envKey: "DISCORD_POLITIE_KORPSLEIDING_ROLE_ID", defaultRoleId: "1423471166495916052", stateKey: "korpsleidingRoleId" },
         { key: "bestuur", label: "Bestuur", envKey: "DISCORD_POLITIE_BESTUUR_ROLE_ID", defaultRoleId: "1425219424943865987", stateKey: "bestuurRoleId" },
-        { key: "hr", label: "HR", envKey: "DISCORD_POLITIE_HR_ROLE_ID" },
+        { key: "hr", label: "HR", envKey: "DISCORD_POLITIE_HR_ROLE_ID", defaultRoleId: "1532700206175490200" },
         { key: "ovc", label: "OVC", envKey: "DISCORD_POLITIE_OVC_ROLE_ID" }
       ],
       taskRoleMappings: [
@@ -500,20 +512,25 @@ const organizationConfigs = {
         { key: "w-s", label: "W&S", envKey: "DISCORD_POLITIE_WS_ROLE_ID" },
         { key: "mentor-leiding", label: "Mentor-Leiding", envKey: "DISCORD_POLITIE_MENTOR_LEIDING_ROLE_ID" },
         { key: "w-s-leiding", label: "W&S-Leiding", envKey: "DISCORD_POLITIE_WS_LEIDING_ROLE_ID" },
-        { key: "hr-leiding", label: "HR-Leiding", envKey: "DISCORD_POLITIE_HR_LEIDING_ROLE_ID" },
+        { key: "hr-leiding", label: "HR-Leiding", envKey: "DISCORD_POLITIE_HR_LEIDING_ROLE_ID", defaultRoleId: "1532700114810835004" },
         { key: "iz-leiding", label: "IZ-Leiding", envKey: "DISCORD_POLITIE_IZ_LEIDING_ROLE_ID" },
         { key: "trainer-leiding", label: "Trainer-Leiding", envKey: "DISCORD_POLITIE_TRAINER_LEIDING_ROLE_ID" },
-        { key: "trainer-assist-leiding", label: "Trainer-Assist. Leiding", envKey: "DISCORD_POLITIE_TRAINER_ASSIST_LEIDING_ROLE_ID" },
-        { key: "mentor-assist-leiding", label: "Mentor-Assist. Leiding", envKey: "DISCORD_POLITIE_MENTOR_ASSIST_LEIDING_ROLE_ID" },
-        { key: "w-s-assist-leiding", label: "W&S-Assist. Leiding", envKey: "DISCORD_POLITIE_WS_ASSIST_LEIDING_ROLE_ID" },
-        { key: "hr-assist-leiding", label: "HR-Assist. Leiding", envKey: "DISCORD_POLITIE_HR_ASSIST_LEIDING_ROLE_ID" },
-        { key: "iz-assist-leiding", label: "IZ-Assist. Leiding", envKey: "DISCORD_POLITIE_IZ_ASSIST_LEIDING_ROLE_ID" },
+        { key: "me-leiding", label: "ME-Leiding", envKey: "DISCORD_POLITIE_ME_LEIDING_ROLE_ID", defaultRoleId: "1514667369660944402" },
+        { key: "trainer-assist-leiding", label: "Trainer-Assist. Leiding", envKey: "DISCORD_POLITIE_TRAINER_ASSIST_LEIDING_ROLE_ID", defaultRoleId: "1518668300899451042" },
+        { key: "mentor-assist-leiding", label: "Mentor-Assist. Leiding", envKey: "DISCORD_POLITIE_MENTOR_ASSIST_LEIDING_ROLE_ID", defaultRoleId: "1518668511101059082" },
+        { key: "w-s-assist-leiding", label: "W&S-Assist. Leiding", envKey: "DISCORD_POLITIE_WS_ASSIST_LEIDING_ROLE_ID", defaultRoleId: "1518667352475176980" },
+        { key: "hr-assist-leiding", label: "HR-Assist. Leiding", envKey: "DISCORD_POLITIE_HR_ASSIST_LEIDING_ROLE_ID", defaultRoleId: "1532700312333320244" },
+        { key: "iz-assist-leiding", label: "IZ-Assist. Leiding", envKey: "DISCORD_POLITIE_IZ_ASSIST_LEIDING_ROLE_ID", defaultRoleId: "1518668099468005493" },
+        { key: "me-assist-leiding", label: "ME-Assist. Leiding", envKey: "DISCORD_POLITIE_ME_ASSIST_LEIDING_ROLE_ID", defaultRoleId: "1514667366540378112" },
         { key: "dsi-leiding", label: "DSI-Leiding", envKey: "DISCORD_POLITIE_DSI_LEIDING_ROLE_ID" },
         { key: "dsi", label: "DSI", envKey: "DISCORD_POLITIE_DSI_ROLE_ID" },
         { key: "klu-leiding", label: "KLu-Leiding", envKey: "DISCORD_POLITIE_KLU_LEIDING_ROLE_ID" },
         { key: "klu", label: "KLu", envKey: "DISCORD_POLITIE_KLU_ROLE_ID" },
         { key: "dnr-leiding", label: "DNR-Leiding", envKey: "DISCORD_POLITIE_DNR_LEIDING_ROLE_ID" },
-        { key: "dnr", label: "DNR", envKey: "DISCORD_POLITIE_DNR_ROLE_ID" }
+        { key: "dnr", label: "DNR", envKey: "DISCORD_POLITIE_DNR_ROLE_ID" },
+        { key: "wijkagent-leiding", label: "Wijkagent-Leiding", envKey: "DISCORD_POLITIE_WIJKAGENT_LEIDING_ROLE_ID", defaultRoleId: "1524072585221112073" },
+        { key: "wijkagent-assist-leiding", label: "Wijkagent-Assist. Leiding", envKey: "DISCORD_POLITIE_WIJKAGENT_ASSIST_LEIDING_ROLE_ID", defaultRoleId: "1524072866209857576" },
+        { key: "wijkagent", label: "Wijkagent", envKey: "DISCORD_POLITIE_WIJKAGENT_ROLE_ID", defaultRoleId: "1485639884252381316" }
       ],
       rankRoleEnvKeys: {
         "Eerste hoofdcommissaris": "DISCORD_POLITIE_RANK_EERSTE_HOOFDCOMMISSARIS_ROLE_ID",

@@ -288,11 +288,19 @@ test("police board and HR can recruit and dismiss without full people management
     assert.equal(organization.extraFunctions.includes("HR"), true);
     assert.equal(organization.extraTasks.includes("HR-Leiding"), true);
     assert.equal(organization.extraTasks.includes("HR-Assist. Leiding"), true);
+    assert.equal(organization.extraTasks.includes("ME-Leiding"), true);
+    assert.equal(organization.extraTasks.includes("ME-Assist. Leiding"), true);
+    assert.equal(organization.sideTaskBadges.includes("Wijkagent-Leiding"), true);
+    assert.equal(organization.sideTaskBadges.includes("Wijkagent-Assist. Leiding"), true);
+    assert.equal(organization.sideTaskBadges.includes("Wijkagent"), true);
     assert.equal(organization.extraTasks.includes("OvJ-Assist. Leiding"), false);
     assert.equal(organization.extraTasks.includes("hOvJ-Assist. Leiding"), false);
-    assert.equal(organization.discord.functionRoleMappings.some((mapping) => mapping.label === "HR" && mapping.envKey === "DISCORD_POLITIE_HR_ROLE_ID"), true);
-    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "HR-Leiding" && mapping.envKey === "DISCORD_POLITIE_HR_LEIDING_ROLE_ID"), true);
-    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "HR-Assist. Leiding" && mapping.envKey === "DISCORD_POLITIE_HR_ASSIST_LEIDING_ROLE_ID"), true);
+    assert.equal(organization.discord.functionRoleMappings.some((mapping) => mapping.label === "HR" && mapping.envKey === "DISCORD_POLITIE_HR_ROLE_ID" && mapping.defaultRoleId === "1532700206175490200"), true);
+    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "HR-Leiding" && mapping.envKey === "DISCORD_POLITIE_HR_LEIDING_ROLE_ID" && mapping.defaultRoleId === "1532700114810835004"), true);
+    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "HR-Assist. Leiding" && mapping.envKey === "DISCORD_POLITIE_HR_ASSIST_LEIDING_ROLE_ID" && mapping.defaultRoleId === "1532700312333320244"), true);
+    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "ME-Leiding" && mapping.envKey === "DISCORD_POLITIE_ME_LEIDING_ROLE_ID" && mapping.defaultRoleId === "1514667369660944402"), true);
+    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "ME-Assist. Leiding" && mapping.envKey === "DISCORD_POLITIE_ME_ASSIST_LEIDING_ROLE_ID" && mapping.defaultRoleId === "1514667366540378112"), true);
+    assert.equal(organization.discord.taskRoleMappings.some((mapping) => mapping.label === "Wijkagent" && mapping.envKey === "DISCORD_POLITIE_WIJKAGENT_ROLE_ID" && mapping.defaultRoleId === "1485639884252381316"), true);
 
     const services = createPermissionServices({
       extraFunctions: organization.extraFunctions,
@@ -342,6 +350,8 @@ test("branch leadership can manage only its own profile badge", () => {
         ["DSI-Leiding", "DSI"],
         ["KLu-Leiding", "KLu"],
         ["DNR-Leiding", "DNR"],
+        ["Wijkagent-Leiding", "Wijkagent"],
+        ["Wijkagent-Assist. Leiding", "Wijkagent"],
         ["VID-Leiding", "VID"],
         ["HRB-Leiding", "HRB"]
       ].filter(([leadershipBadge, targetBadge]) => organization.extraTasks.includes(leadershipBadge) && organization.extraTasks.includes(targetBadge));
