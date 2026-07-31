@@ -1347,6 +1347,13 @@ function nestedSyncFailureFromResult(result) {
   ];
   for (const [label, part] of requiredParts) {
     if (!part) continue;
+    if (
+      label === "benodigde trainingsrollen"
+      && part.skipped
+      && String(part.reason || "").includes("Geen Discord benodigde trainingsrollen ingesteld")
+    ) {
+      continue;
+    }
     if (part.skipped) return new Error(`${label} overgeslagen: ${part.reason || "geen reden"}`);
     if (part.ok === false) return new Error(`${label} mislukt: ${part.reason || part.body || part.error || "onbekende fout"}`);
     const failedChange = Array.isArray(part.changes)
