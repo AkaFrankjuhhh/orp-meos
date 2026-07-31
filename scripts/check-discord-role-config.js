@@ -62,6 +62,71 @@ const missingSeparatorMappings = typeof bot.missingSeparatorRoleMappings === "fu
   ? bot.missingSeparatorRoleMappings()
   : separatorMappings.filter((mapping) => !String(mapping.roleId || "").trim());
 
+function roleCheck(group, label, envKey, roleId) {
+  return {
+    group,
+    label: String(label || envKey || "Onbekend").trim(),
+    envKey: String(envKey || "").trim(),
+    roleId: String(roleId || "").trim()
+  };
+}
+
+function configuredRoleChecks() {
+  return [
+    roleCheck("Hoofdrol", organization.requiredRoleLabel || organization.label || "Organisatie", organization.discord?.mainRole?.envKey, organizationMainRoleId(organization)),
+    ...rankMappings.map((mapping) => roleCheck("Rangrol", mapping.rank, mapping.envKey, mapping.roleId)),
+    ...qualificationMappings.map((mapping) => roleCheck("Kwalificatierol", mapping.label || mapping.qualification, mapping.envKey, mapping.roleId)),
+    ...trainingRequirementMappings.map((mapping) => roleCheck("Benodigde trainingsrol", mapping.label || mapping.requirement, mapping.envKey, mapping.roleId)),
+    ...badgeMappings.map((mapping) => roleCheck("Functie- en badgerol", mapping.label, mapping.envKey, mapping.roleId)),
+    ...separatorMappings.map((mapping) => roleCheck("Scheidingsrol", mapping.label, mapping.envKey, mapping.roleId))
+  ].filter((mapping) => mapping.roleId);
+}
+
+function parseDiscordJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function verifyConfiguredRoleIdsExist() {
+  if (String(process.env.DISCORD_ROLE_CONFIG_CHECK_EXISTENCE || "true").toLowerCase() === "false") return;
+  if (!process.env.DISCORD_BOT_TOKEN || !process.env.DISCORD_GUILD_ID) {
+    console.log("");
+    console.log("Discord role-ID bestaan: overgeslagen, bot token of guild ID ontbreekt.");
+    return;
+  }
+
+  const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.DISCORD_GUILD_ID}/roles`, {
+    headers: {
+      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`
+    }
+  });
+  const text = await response.text();
+  const data = text ? parseDiscordJson(text) : null;
+  if (!response.ok) {
+    console.log("");
+    console.log(`Discord role-ID bestaan: controle mislukt (${response.status}) ${data?.message || text || ""}`.trim());
+    process.exitCode = 1;
+    return;
+  }
+
+  const guildRoleIds = new Set((Array.isArray(data) ? data : []).map((role) => String(role?.id || "").trim()).filter(Boolean));
+  const invalidMappings = configuredRoleChecks().filter((mapping) => !guildRoleIds.has(mapping.roleId));
+  console.log("");
+  console.log("Discord role-ID bestaan:");
+  if (!invalidMappings.length) {
+    console.log("[ok] Alle ingestelde role IDs bestaan in de guild.");
+    return;
+  }
+
+  for (const mapping of invalidMappings) {
+    console.log(`[fout] ${mapping.group} ${mapping.label}: ${mapping.envKey}=${mapping.roleId} bestaat niet in guild ${process.env.DISCORD_GUILD_ID}.`);
+  }
+  process.exitCode = 1;
+}
+
 console.log(`Organisatie: ${organization.key}`);
 console.log(`Hoofdrol: ${organizationMainRoleId(organization) || "NIET INGESTELD"}`);
 console.log(`Bot token: ${process.env.DISCORD_BOT_TOKEN ? "ingesteld" : "NIET INGESTELD"}`);
@@ -164,3 +229,8 @@ if (missingSeparatorMappings.length) {
   }
   process.exitCode = 1;
 }
+
+verifyConfiguredRoleIdsExist().catch((error) => {
+  console.error(`Discord role-ID bestaan: controle mislukt: ${error.message}`);
+  process.exitCode = 1;
+});
