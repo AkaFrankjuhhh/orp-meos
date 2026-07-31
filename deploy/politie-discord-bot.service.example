@@ -10,8 +10,7 @@ WorkingDirectory=/opt/orp/politie-personeelsportaal
 Environment=NODE_ENV=production
 EnvironmentFile=/opt/orp/politie-personeelsportaal/.env
 Environment=ORP_ORGANIZATION=politie
-Environment=DISCORD_GATEWAY_ENABLED=false
-ExecStart=/usr/bin/node /opt/orp/politie-personeelsportaal/scripts/discord-bot-worker.js
+ExecStart=/usr/bin/env DISCORD_GATEWAY_ENABLED=false /usr/bin/node /opt/orp/politie-personeelsportaal/scripts/discord-bot-worker.js
 Restart=always
 RestartSec=5
 TimeoutStopSec=20
