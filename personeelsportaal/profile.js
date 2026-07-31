@@ -80,7 +80,7 @@ function profileTrainingLabel(training) {
 const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "Hoofdofficier", "Officiersraad", "OVC"];
 const profileBadgeExtraLeadership = ["Directie", "Teamchef", "Coördinator"];
 const profileBadgeTaskLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "HR-Leiding", "IZ-Leiding", "ME-Leiding", "OvJ", "VID-Leiding", "OTC-Leiding"];
-const profileBadgeTaskAssistantLeadershipOrder = ["Trainer-Assist. Leiding", "Mentor-Assist. Leiding", "W&S-Assist. Leiding", "HR-Assist. Leiding", "IZ-Assist. Leiding", "ME-Assist. Leiding"];
+const profileBadgeTaskAssistantLeadershipOrder = ["Trainer-Assist. Leiding", "Mentor-Assist. Leiding", "W&S-Assist. Leiding", "HR-Assist. Leiding", "IZ-Assist. Leiding", "ME-Assist. Leiding", "Wijkagent-Assist. Leiding"];
 const profileBadgeGeneralFunctionOrder = ["HR"];
 const profileBadgeTaskFunctionOrder = ["Trainer", "Mentor", "W&S", "Interne-Zaken", "hOvJ", "VID", "Operatie"];
 

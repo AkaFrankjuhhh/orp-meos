@@ -298,7 +298,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
   assert.match(html, /personeelsportaal\.css\?v=20260727-training-co-trainers/);
-  assert.match(html, /personeelsportaal\/profile\.js\?v=20260731-police-side-leadership/);
+  assert.match(html, /personeelsportaal\/profile\.js\?v=20260731-police-wijkagent-assist/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
   assert.match(profileCode, /function profileBadgeDialogGroups/);
@@ -308,6 +308,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   assert.match(profileCode, /profileBadgeTaskAssistantLeadershipOrder/);
   assert.match(profileCode, /profileBadgeTaskLeadershipOrder = \[[^\]]*"ME-Leiding"/);
   assert.match(profileCode, /profileBadgeTaskAssistantLeadershipOrder = \[[^\]]*"ME-Assist\. Leiding"/);
+  assert.match(profileCode, /profileBadgeTaskAssistantLeadershipOrder = \[[^\]]*"Wijkagent-Assist\. Leiding"/);
   assert.match(profileCode, /title: "Assist\. Leiding"/);
   assert.doesNotMatch(profileCode, /profileBadgeOrganizationLeadership = \[[^\]]*"HR"/);
   assert.match(profileCode, /profileBadgeGeneralFunctionOrder = \[[^\]]*"HR"/);
