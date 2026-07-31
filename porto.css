@@ -6753,3 +6753,33 @@ body[data-porto-ui="modern"] .porto-modern-ops-row .context-menu-trigger {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 }
+
+/* Modern OPS page scrolling: keep unit-list scrolling, but allow the page itself to move. */
+body[data-porto-ui="modern"].porto-ops-workspace.porto-blank {
+  height: auto;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body[data-porto-ui="modern"].porto-ops-workspace .porto-empty {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+body[data-porto-ui="modern"].porto-ops-workspace .porto-status-center {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+body[data-porto-ui="modern"].porto-ops-workspace .porto-modern-ops-dashboard {
+  margin-bottom: clamp(44px, 7vh, 96px);
+}
+
+body[data-porto-ui="modern"].porto-ops-workspace .porto-modern-ops-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
