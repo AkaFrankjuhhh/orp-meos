@@ -29,6 +29,9 @@ function collectOrganizationDiscordRoleIds(organization = currentOrganization())
   for (const mapping of Object.values(organization.discord?.qualificationRoleMappings || {})) {
     addRoleId(roleIds, envOrDefault(mapping.envKey, mapping.defaultRoleId));
   }
+  for (const mapping of organization.discord?.separatorRoleMappings || []) {
+    addRoleId(roleIds, envOrDefault([mapping.envKey, ...(mapping.envFallbackKeys || [])], mapping.defaultRoleId || mapping.roleId));
+  }
 
   return roleIds;
 }

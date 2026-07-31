@@ -946,6 +946,9 @@ test("Discord sync manages portal function and badge roles", () => {
   assert.match(envExample, /DISCORD_POLITIE_WIJKAGENT_LEIDING_ROLE_ID=1524072585221112073/);
   assert.match(envExample, /DISCORD_POLITIE_WIJKAGENT_ASSIST_LEIDING_ROLE_ID=1524072866209857576/);
   assert.match(envExample, /DISCORD_POLITIE_WIJKAGENT_ROLE_ID=1485639884252381316/);
+  assert.match(envExample, /DISCORD_POLITIE_SEPARATOR_RANG_ROLE_ID=1423472054136606761/);
+  assert.match(envExample, /DISCORD_POLITIE_SEPARATOR_SPECIALISATIES_ROLE_ID=1486666494464098426/);
+  assert.match(envExample, /DISCORD_POLITIE_SEPARATOR_PORTO_ROLE_ID=1459368187480244384/);
   assert.match(envExample, /DISCORD_POLITIE_NH_ROLE_ID=1468340097010368747/);
   assert.doesNotMatch(envExample, /DISCORD_POLITIE_IBT_ROLE_ID=/);
   assert.match(envExample, /DISCORD_POLITIE_TLO_ROLE_ID=1492543958935539735/);
@@ -972,6 +975,10 @@ test("Discord sync manages portal function and badge roles", () => {
   assert.match(organizationsCode, /label: "Wijkagent-Assist\. Leiding", envKey: "DISCORD_POLITIE_WIJKAGENT_ASSIST_LEIDING_ROLE_ID", defaultRoleId: "1524072866209857576"/);
   assert.match(organizationsCode, /label: "Wijkagent", envKey: "DISCORD_POLITIE_WIJKAGENT_ROLE_ID", defaultRoleId: "1485639884252381316"/);
   assert.match(organizationsCode, /const politieSideTaskBadges = \[[\s\S]*"Wijkagent"/);
+  assert.match(organizationsCode, /defaultRecruitCompletedTrainings: \["Basis"\]/);
+  assert.match(organizationsCode, /label: "Rang", envKey: "DISCORD_POLITIE_SEPARATOR_RANG_ROLE_ID", defaultRoleId: "1423472054136606761"[\s\S]*always: true/);
+  assert.match(organizationsCode, /label: "Specialisaties", envKey: "DISCORD_POLITIE_SEPARATOR_SPECIALISATIES_ROLE_ID", defaultRoleId: "1486666494464098426"[\s\S]*always: true/);
+  assert.match(organizationsCode, /label: "Porto", envKey: "DISCORD_POLITIE_SEPARATOR_PORTO_ROLE_ID", defaultRoleId: "1459368187480244384"[\s\S]*always: true/);
   assert.match(organizationsCode, /NH: \{ envKey: "DISCORD_POLITIE_NH_ROLE_ID", defaultRoleId: "1468340097010368747", label: "Noodhulp \(NH\)" \}/);
   assert.match(organizationsCode, /OFF: \{ envKey: "DISCORD_POLITIE_OFF_ROLE_ID", defaultRoleId: "1468338856553353256", label: "Off-Road \(OFF\)" \}/);
   assert.match(organizationsCode, /"K9 Begeleider": \{ envKey: "DISCORD_POLITIE_K9_BEGELEIDER_ROLE_ID", defaultRoleId: "1468339725709480138", label: "Hondenbegeleider" \}/);

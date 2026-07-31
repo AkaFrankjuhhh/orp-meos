@@ -416,6 +416,7 @@ const organizationConfigs = {
     requiredRoleLabel: "Politie",
     ranks: politieRanks,
     defaultRecruitRank: "Aspirant",
+    defaultRecruitCompletedTrainings: ["Basis"],
     customServiceNumbers: true,
     manualRecruitServiceNumber: false,
     manualRankChangeServiceNumber: false,
@@ -560,6 +561,11 @@ const organizationConfigs = {
         OPCO: { envKey: "DISCORD_POLITIE_OPCO_ROLE_ID", defaultRoleId: "1424523648412155994", label: "OPCO" },
         "OVD-P": { envKey: "DISCORD_POLITIE_OVD_ROLE_ID", defaultRoleId: "1424523647816699996", label: "OVD-P" }
       },
+      separatorRoleMappings: [
+        { key: "rang", label: "Rang", envKey: "DISCORD_POLITIE_SEPARATOR_RANG_ROLE_ID", defaultRoleId: "1423472054136606761", always: true },
+        { key: "specialisaties", label: "Specialisaties", envKey: "DISCORD_POLITIE_SEPARATOR_SPECIALISATIES_ROLE_ID", defaultRoleId: "1486666494464098426", always: true },
+        { key: "porto", label: "Porto", envKey: "DISCORD_POLITIE_SEPARATOR_PORTO_ROLE_ID", defaultRoleId: "1459368187480244384", always: true }
+      ],
       nicknameSymbols: politieNicknameSymbols,
       nicknameSymbolSeparator: " - ",
       portoOperatorLabel: "OC"

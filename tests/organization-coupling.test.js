@@ -89,6 +89,7 @@ test("police and defensie expose K9 trainings in the profile", () => {
   }
 
   const politie = organizationConfigs.politie;
+  assert.deepEqual(politie.defaultRecruitCompletedTrainings, ["Basis"]);
   assert.equal(politie.profileTrainingLabels.NH, "Noodhulp (NH)");
   assert.equal(politie.profileTrainingLabels.OFF, "Off-Road (OFF)");
   assert.equal(politie.profileTrainingLabels.ME, "Mobiele Eenheid (ME)");
@@ -111,6 +112,11 @@ test("police and defensie expose K9 trainings in the profile", () => {
   }
   assert.ok(politie.profileTrainings.includes("IBT"), "politie mist IBT training");
   assert.equal(politie.discord.qualificationRoleMappings.IBT, undefined);
+  assert.deepEqual(politie.discord.separatorRoleMappings.map((mapping) => [mapping.label, mapping.envKey, mapping.defaultRoleId, mapping.always]), [
+    ["Rang", "DISCORD_POLITIE_SEPARATOR_RANG_ROLE_ID", "1423472054136606761", true],
+    ["Specialisaties", "DISCORD_POLITIE_SEPARATOR_SPECIALISATIES_ROLE_ID", "1486666494464098426", true],
+    ["Porto", "DISCORD_POLITIE_SEPARATOR_PORTO_ROLE_ID", "1459368187480244384", true]
+  ]);
 });
 
 test("public form threads use the shared portal or government bot token", () => {

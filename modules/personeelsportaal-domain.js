@@ -262,6 +262,12 @@ function savePerson(state, payload) {
   const requestedRankDate = person.rankDate;
   let requestedServiceNumber = person.serviceNumber;
   const isOvcOnlyProfile = hasOvcFunctionBadge(person) && !person.rank && !person.serviceNumber;
+  if (!existing && !isOvcOnlyProfile && Array.isArray(organization.defaultRecruitCompletedTrainings)) {
+    const defaultTrainings = organization.defaultRecruitCompletedTrainings
+      .map((training) => String(training || "").trim())
+      .filter((training) => profileTrainings.includes(training));
+    person.completedTrainings = [...new Set([...person.completedTrainings, ...defaultTrainings])];
+  }
 
   if (
     organization.key === "politie" &&

@@ -71,6 +71,7 @@ test("police new aspirants receive the next aspirant call sign immediately", () 
 
   assert.equal(result.error, undefined);
   assert.equal(result.person.serviceNumber, "29-40");
+  assert.deepEqual(result.person.completedTrainings, ["Basis"]);
 });
 
 test("police edit rank automatically moves the call sign to the new rank range", () => {
