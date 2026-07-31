@@ -1348,9 +1348,9 @@ function nestedSyncFailureFromResult(result) {
   for (const [label, part] of requiredParts) {
     if (!part) continue;
     if (
-      label === "benodigde trainingsrollen"
+      ["benodigde trainingsrollen", "scheidingsrollen"].includes(label)
       && part.skipped
-      && String(part.reason || "").includes("Geen Discord benodigde trainingsrollen ingesteld")
+      && /^Geen Discord .* ingesteld\.$/.test(String(part.reason || ""))
     ) {
       continue;
     }
