@@ -1283,6 +1283,13 @@ async function syncPerson(person, reason = "Discord bot worker sync") {
 
 async function syncPersonForState(state, person, reason = "Discord bot worker sync") {
   if (!person?.discordId) return { skipped: true, reason: "Geen Discord ID" };
+  const ownership = isCurrentPerson(person)
+    ? await bot.enforceOrganizationRoleOwnershipForPerson(person, reason)
+    : null;
+  if (ownership) {
+    await sleep(350);
+    return ownership;
+  }
   const portoUnit = activePortoUnitForPerson(state, person);
   if (portoUnit) {
     const baseRoles = await bot.ensureBaseRolesForPerson(person, reason);

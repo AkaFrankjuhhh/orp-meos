@@ -40,6 +40,24 @@ async function withDiscordEnv(fn) {
   }
 }
 
+async function withTemporaryEnv(values, fn) {
+  const previousEnv = new Map(Object.keys(values).map((key) => [key, process.env[key]]));
+  const previousFetch = global.fetch;
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  try {
+    await fn();
+  } finally {
+    for (const [key, value] of previousEnv) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    global.fetch = previousFetch;
+  }
+}
+
 test("Discord rank sync clears managed rank roles for dismissed profiles", async () => {
   await withDiscordEnv(async () => {
     const calls = [];
@@ -127,5 +145,56 @@ test("Discord rank sync removes stale ranks when the desired rank role is not co
     assert.equal(result.missingDesiredRankRole, true);
     assert.equal(calls.some((call) => call.method === "PUT"), false);
     assert.equal(calls.filter((call) => call.method === "DELETE" && call.url.endsWith("/roles/rank-1")).length, 1);
+  });
+});
+
+test("Discord profile sync cleans lower-priority police roles for a defensie member", async () => {
+  await withTemporaryEnv({
+    ORP_ORGANIZATION: "politie",
+    DISCORD_BOT_TOKEN: "token",
+    DISCORD_GUILD_ID: "guild-1",
+    DISCORD_DEFENSIE_ROLE_ID: "defensie-main",
+    DISCORD_POLITIE_ROLE_ID: "politie-main",
+    DISCORD_POLITIE_RANK_HOOFDAGENT_ROLE_ID: "politie-rank",
+    DISCORD_POLITIE_MEOS_ROLE_ID: "politie-meos",
+    DISCORD_POLITIE_SEPARATOR_RANG_ROLE_ID: "politie-rang-separator",
+    DISCORD_POLITIE_SEPARATOR_SPECIALISATIES_ROLE_ID: "",
+    DISCORD_POLITIE_SEPARATOR_PORTO_ROLE_ID: "",
+    DISCORD_ORGANIZATION_ROLE_PRIORITY_ENABLED: "true",
+    DISCORD_ORGANIZATION_ROLE_PRIORITY: "defensie,politie"
+  }, async () => {
+    const calls = [];
+    global.fetch = async (url, options = {}) => {
+      calls.push({ url: String(url), method: options.method || "GET" });
+      if (String(url).endsWith("/guilds/guild-1/members/user-1")) {
+        return discordResponse(200, {
+          roles: ["defensie-main", "politie-main", "politie-rank", "politie-meos", "politie-rang-separator"]
+        });
+      }
+      if ((options.method || "GET") === "DELETE") {
+        return discordResponse(204);
+      }
+      throw new Error(`Unexpected Discord request: ${options.method || "GET"} ${url}`);
+    };
+
+    const bot = createDiscordBotServices();
+    const result = await bot.syncDiscordForPersonIfNeeded({
+      discordId: "user-1",
+      rank: "Hoofdagent",
+      serviceNumber: "26-64",
+      completedTrainings: ["Basis"],
+      status: "Actief"
+    });
+
+    assert.equal(result.skipped, true);
+    assert.equal(result.organizationRoleConflict, true);
+    assert.equal(result.cleanup?.ok, true);
+    assert.equal(calls.some((call) => call.method === "PUT"), false);
+    assert.equal(calls.some((call) => call.method === "PATCH"), false);
+    assert.equal(calls.filter((call) => call.method === "DELETE" && call.url.endsWith("/roles/politie-main")).length, 1);
+    assert.equal(calls.filter((call) => call.method === "DELETE" && call.url.endsWith("/roles/politie-rank")).length, 1);
+    assert.equal(calls.filter((call) => call.method === "DELETE" && call.url.endsWith("/roles/politie-meos")).length, 1);
+    assert.equal(calls.filter((call) => call.method === "DELETE" && call.url.endsWith("/roles/politie-rang-separator")).length, 1);
+    assert.equal(calls.some((call) => call.method === "DELETE" && call.url.endsWith("/roles/defensie-main")), false);
   });
 });
