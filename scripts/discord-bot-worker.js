@@ -112,13 +112,6 @@ const manualTrainingRequestOptions = [
     defaultRoleId: "1499476179537625128"
   },
   {
-    label: "Mentor-Traject",
-    value: "MENTOR_TRAJECT",
-    description: "Voeg Mentor-Traject Training Aanvraag toe.",
-    envKey: "DISCORD_TRAINING_REQUEST_MENTOR_TRAJECT_ROLE_ID",
-    defaultRoleId: ""
-  },
-  {
     label: "IBT",
     value: "IBT",
     description: "Voeg IBT Training Aanvraag toe.",
@@ -774,9 +767,7 @@ function rankIsAtLeast(rank, minimumRank) {
   return rankWeight(rank) <= rankWeight(minimumRank);
 }
 
-function trainingOverviewValue(people = [], mapping = {}) {
-  if (!mapping.roleId) return "**Discord rol:** niet ingesteld\n**Aantal aanvragen:** 0\n**Namen:** -";
-  if (!people.length) return "**Aantal aanvragen:** 0\n**Namen:** -";
+function trainingOverviewValue(people = []) {
   const names = [];
   let usedLength = 0;
   for (const person of people) {
@@ -815,17 +806,25 @@ async function buildTrainerInfoOverviewPayload() {
     await sleep(150);
   }
 
-  const fields = mappings.map((mapping) => ({
-    name: `Training: ${mapping.label}`,
-    value: trainingOverviewValue(grouped.get(mapping.value) || [], mapping),
-    inline: false
-  }));
+  const fields = mappings
+    .map((mapping) => ({
+      mapping,
+      people: grouped.get(mapping.value) || []
+    }))
+    .filter((entry) => entry.mapping.roleId && entry.people.length > 0)
+    .map((entry) => ({
+      name: `Training: ${entry.mapping.label}`,
+      value: trainingOverviewValue(entry.people),
+      inline: false
+    }));
 
   return {
     content: "",
     embeds: [{
       title: "Trainer-informatie",
-      description: "Live overzicht van leden met een openstaande training-aanvraag rol.",
+      description: fields.length
+        ? "Live overzicht van leden met een openstaande training-aanvraag rol."
+        : "Geen openstaande training-aanvragen.",
       color: 0xffa000,
       fields,
       footer: { text: `${organization.label} • laatst bijgewerkt` },
