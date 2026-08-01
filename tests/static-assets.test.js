@@ -360,6 +360,24 @@ test("profile notes are private to self and authorized leadership", () => {
   assert.match(styles, /\.profile-notes-panel textarea/);
 });
 
+test("portal dashboard and profile expose action-focused overview panels", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
+
+  assert.match(html, /id="actionCenterList"/);
+  assert.match(html, /id="profileTimelinePanel"/);
+  assert.match(appCode, /function dashboardActionItems\(/);
+  assert.match(appCode, /function renderActionCenter\(/);
+  assert.match(appCode, /data-action-center-page/);
+  assert.match(profileCode, /function profileTimelineEntries\(person\)/);
+  assert.match(profileCode, /canViewProfileNotes\(person\)/);
+  assert.match(profileCode, /canViewDisciplineFor\(person\)/);
+  assert.match(styles, /\.action-center-item/);
+  assert.match(styles, /\.profile-timeline-item/);
+});
+
 test("archived resignation forms are not counted as open", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");

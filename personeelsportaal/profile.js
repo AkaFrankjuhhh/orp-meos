@@ -512,6 +512,135 @@ function renderProfileNote(person) {
     : "Nog geen notitie vastgelegd.";
 }
 
+function profileTimelineTimestamp(value) {
+  if (!value) return 0;
+  const text = String(value);
+  const parsed = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T12:00:00` : text);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function profileTimelineDateLabel(value) {
+  const text = String(value || "");
+  if (!text) return "-";
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? formatDate(text) : formatDateTime(text);
+}
+
+function addProfileTimelineEntry(entries, entry) {
+  const timestamp = profileTimelineTimestamp(entry.date);
+  if (!timestamp || !entry.title) return;
+  entries.push({ ...entry, timestamp });
+}
+
+function rankHistoryTimelineTitle(entry) {
+  if (entry.action === "promote") return "Promotie";
+  if (entry.action === "demote") return "Degradatie";
+  if (entry.action === "service-number-normalized") return `${serviceNumberDisplayLabel} aangepast`;
+  return "Ranghistorie";
+}
+
+function profileTimelineEntries(person) {
+  const entries = [];
+  addProfileTimelineEntry(entries, {
+    date: hiredDateFor(person),
+    title: "Aangenomen",
+    detail: `${person.rank || "-"} - ${person.serviceNumber || "-"}`,
+    tone: "ok"
+  });
+
+  if (person.reactivatedDate) {
+    addProfileTimelineEntry(entries, {
+      date: person.reactivatedDate,
+      title: "Herintreding",
+      detail: `Terug in dienst als ${person.rank || "-"}`,
+      tone: "ok"
+    });
+  }
+
+  (Array.isArray(person.rankHistory) ? person.rankHistory : []).forEach((entry) => {
+    const changedBy = entry.changedByName ? ` Door: ${entry.changedByName}.` : "";
+    const previousNumber = entry.previousServiceNumber ? ` Vorig ${serviceNumberDisplayLabel.toLowerCase()}: ${entry.previousServiceNumber}.` : "";
+    addProfileTimelineEntry(entries, {
+      date: entry.date,
+      title: rankHistoryTimelineTitle(entry),
+      detail: `${entry.rank || person.rank || "-"} - ${entry.serviceNumber || person.serviceNumber || "-"}${previousNumber}${changedBy}`,
+      tone: entry.action === "demote" ? "warn" : "info"
+    });
+  });
+
+  if (canViewProfileAuditLog()) {
+    (Array.isArray(person.profileLog) ? person.profileLog : []).forEach((entry) => {
+      addProfileTimelineEntry(entries, {
+        date: entry.createdAt,
+        title: entry.action || "Profielactie",
+        detail: `${entry.details || "-"}${entry.actorName ? ` Door: ${entry.actorName}.` : ""}`,
+        tone: entry.type === "qualification" ? "ok" : "info"
+      });
+    });
+  }
+
+  if (typeof canViewProfileNotes === "function" && canViewProfileNotes(person)) {
+    const note = person?.profileNote && typeof person.profileNote === "object" ? person.profileNote : null;
+    if (note?.updatedAt) {
+      const noteText = String(note.text || "").trim();
+      addProfileTimelineEntry(entries, {
+        date: note.updatedAt,
+        title: "Profielnotitie bijgewerkt",
+        detail: `${noteText ? noteText.slice(0, 140) : "Notitie aangepast."}${note.updatedByName ? ` Door: ${note.updatedByName}.` : ""}`,
+        tone: "note"
+      });
+    }
+  }
+
+  if (typeof canViewDisciplineFor === "function" && canViewDisciplineFor(person)) {
+    (Array.isArray(person.discipline) ? person.discipline : []).forEach((entry) => {
+      const type = disciplineTypes[entry.type] || { label: entry.type || "Sanctie" };
+      addProfileTimelineEntry(entries, {
+        date: entry.issuedAt,
+        title: type.label || "Sanctie",
+        detail: `${entry.reason || "-"}${entry.issuedByName ? ` Door: ${entry.issuedByName}.` : ""}`,
+        tone: ["regular-strike", "i8-strike"].includes(entry.type) ? "bad" : "warn"
+      });
+    });
+  }
+
+  const canViewAbsences = (typeof isOwnProfile === "function" && isOwnProfile(person))
+    || (typeof canViewAbsenceOverview === "function" && canViewAbsenceOverview());
+  if (canViewAbsences) {
+    (state.absences || [])
+      .filter((entry) => entry.memberId === person.id)
+      .forEach((entry) => {
+        const status = typeof absenceStatus === "function" ? absenceStatus(entry) : (entry.status || "In afwachting");
+        addProfileTimelineEntry(entries, {
+          date: entry.reviewedAt || entry.requestedAt || entry.from,
+          title: `Afwezigheid ${status}`,
+          detail: `${formatDate(entry.from)} t/m ${formatDate(entry.to)} - ${entry.reason || "Geen reden opgegeven"}`,
+          tone: status === "Afgekeurd" ? "bad" : status === "Goedgekeurd" ? "ok" : "warn"
+        });
+      });
+  }
+
+  return entries.sort((a, b) => b.timestamp - a.timestamp).slice(0, 14);
+}
+
+function renderProfileTimeline(person) {
+  const panel = $("#profileTimelinePanel");
+  const list = $("#profileTimeline");
+  if (!panel || !list) return;
+  const entries = profileTimelineEntries(person);
+  panel.hidden = !entries.length;
+  list.innerHTML = entries.length
+    ? entries.map((entry) => `
+      <article class="profile-timeline-item ${escapeHtml(entry.tone || "info")}">
+        <time>${escapeHtml(profileTimelineDateLabel(entry.date))}</time>
+        <div>
+          <strong>${escapeHtml(entry.title)}</strong>
+          <p>${escapeHtml(entry.detail || "-")}</p>
+        </div>
+      </article>
+    `).join("")
+    : "";
+}
+
 function activeDisciplineEntries(person) {
   const now = new Date();
   return (person.discipline || []).filter((entry) => !entry.expiresAt || new Date(`${entry.expiresAt}T23:59:59`) >= now);
@@ -793,6 +922,7 @@ function renderProfile() {
   renderProfileDistinctions(viewed);
   renderProfileAuditLog(viewed);
   renderProfileNote(viewed);
+  renderProfileTimeline(viewed);
   $("#profilePageHiredDate").textContent = formatDate(hiredDateFor(viewed));
   $("#profilePagePromotionDate").textContent = formatDate(viewed.promotionDate);
   renderProfileChecks(viewed);

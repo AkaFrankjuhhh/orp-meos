@@ -1472,6 +1472,146 @@ function restoreSavedPage() {
   setPage(savedPage);
 }
 
+function systemHealthActionCount() {
+  if (!systemHealthCache || !canViewSystemHealth()) return 0;
+  const discordSync = systemHealthCache.discordSync || {};
+  const activity = systemHealthCache.database?.activity || {};
+  const portoDebug = systemHealthCache.portoDebug || {};
+  return Number(discordSync.failed || 0)
+    + Number(activity.lock_waiters || 0)
+    + Number(portoDebug.staleHeartbeatCount || 0);
+}
+
+function dashboardActionItems() {
+  const notifications = ownNotifications();
+  const unreadNotifications = notifications.filter((notification) => !notification.readAt).length;
+  const activeSeizures = (state.vehicleSeizures || []).filter((seizure) => vehicleSeizureStatusLabel(seizure) === "Actief").length;
+  const healthWarnings = systemHealthActionCount();
+  const items = [];
+
+  if (unreadNotifications > 0) {
+    items.push({
+      title: "Nieuwe meldingen",
+      count: unreadNotifications,
+      detail: "Open je meldingen om de laatste updates te bekijken.",
+      tone: "info",
+      action: "notifications",
+      button: "Bekijken"
+    });
+  }
+  if (canViewAbsenceOverview()) {
+    const count = typeof openAbsenceRequestCount === "function" ? openAbsenceRequestCount() : 0;
+    if (count > 0) {
+      items.push({
+        title: "Afwezigheid aanvragen",
+        count,
+        detail: "Aanvragen wachten op goedkeuring of afwijzing.",
+        tone: "warn",
+        page: "afwezigheid-overzicht",
+        button: "Controleren"
+      });
+    }
+  }
+  if (canViewResignationOverview()) {
+    const count = openResignationFormCount();
+    if (count > 0) {
+      items.push({
+        title: "Ontslagformulieren",
+        count,
+        detail: "Formulieren staan nog open voor verwerking.",
+        tone: "bad",
+        page: "ontslag-overzicht",
+        button: "Verwerken"
+      });
+    }
+  }
+  if (canViewOvJChannels()) {
+    const count = openI8ReviewCount();
+    if (count > 0) {
+      items.push({
+        title: "I8-controle",
+        count,
+        detail: "I8 formulieren wachten op behandeling.",
+        tone: "warn",
+        page: "i8-controleren",
+        button: "Openen"
+      });
+    }
+  }
+  if (canReviewTrainerIbtForms()) {
+    const count = typeof trainerIbtPendingReviewCount === "function" ? trainerIbtPendingReviewCount() : 0;
+    if (count > 0) {
+      items.push({
+        title: "IBT-toetsen",
+        count,
+        detail: "Ingeleverde toetsen moeten nog nagekeken worden.",
+        tone: "warn",
+        page: "trainer-ibt",
+        button: "Nakijken"
+      });
+    }
+  }
+  if (activeSeizures > 0) {
+    items.push({
+      title: "Voertuiginbeslagname",
+      count: activeSeizures,
+      detail: "Actieve voertuigen in de gezamenlijke lijst.",
+      tone: "info",
+      page: "voertuiginbeslagname",
+      button: "Naar lijst"
+    });
+  }
+  if (healthWarnings > 0) {
+    items.push({
+      title: "Systeemstatus",
+      count: healthWarnings,
+      detail: "Discord jobs, database locks of porto heartbeats vragen aandacht.",
+      tone: "bad",
+      page: "systeemstatus",
+      button: "Bekijken"
+    });
+  }
+
+  return items;
+}
+
+function renderActionCenter() {
+  const list = $("#actionCenterList");
+  const summary = $("#actionCenterSummary");
+  if (!list) return;
+  const items = dashboardActionItems();
+  const total = items.reduce((sum, item) => sum + Number(item.count || 0), 0);
+  if (summary) {
+    summary.textContent = items.length
+      ? `${total} openstaand${total === 1 ? "" : "e"} aandachtspunt${total === 1 ? "" : "en"}`
+      : "Geen openstaande aandachtspunten.";
+  }
+  if (!items.length) {
+    list.innerHTML = `
+      <article class="action-center-empty">
+        <strong>Alles rustig</strong>
+        <span>Er zijn geen openstaande taken voor jouw rechten.</span>
+      </article>
+    `;
+    return;
+  }
+  list.innerHTML = items.map((item) => {
+    const target = item.action === "notifications"
+      ? `data-action-center-notifications="true"`
+      : `data-action-center-page="${escapeHtml(item.page || "dashboard")}"`;
+    return `
+      <article class="action-center-item ${escapeHtml(item.tone || "info")}">
+        <span class="action-center-count">${escapeHtml(String(item.count || 0))}</span>
+        <div>
+          <strong>${escapeHtml(item.title)}</strong>
+          <p>${escapeHtml(item.detail || "")}</p>
+        </div>
+        <button class="ghost small" type="button" ${target}>${escapeHtml(item.button || "Openen")}</button>
+      </article>
+    `;
+  }).join("");
+}
+
 function renderDashboard() {
   const dashboardPeople = state.people.filter(isCurrentProfile);
   const activePeople = dashboardPeople.filter((person) => normalizedProfileStatus(person) === "Actief");
@@ -1580,6 +1720,7 @@ function renderDashboard() {
     })
     .join("");
 
+  renderActionCenter();
 }
 
 function rankPieSegmentFromEvent(event) {
@@ -2593,6 +2734,16 @@ function wireEvents() {
     if (activePageId() === "dashboard") renderDashboard();
   });
   $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+  $("#actionCenterList")?.addEventListener("click", (event) => {
+    const notificationsButton = event.target.closest("[data-action-center-notifications]");
+    if (notificationsButton) {
+      event.stopPropagation();
+      toggleNotificationPanel();
+      return;
+    }
+    const pageButton = event.target.closest("[data-action-center-page]");
+    if (pageButton?.dataset.actionCenterPage) setPage(pageButton.dataset.actionCenterPage);
+  });
   $("#refreshSystemHealthBtn")?.addEventListener("click", () => loadSystemHealth({ force: true }));
   $("#systemHealthDetails")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-system-health-action]");
