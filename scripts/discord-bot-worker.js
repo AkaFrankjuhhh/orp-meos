@@ -53,8 +53,9 @@ const discordWebhooks = createDiscordWebhookServices();
 const nonRegularPortoDiscordChannelKey = nonRegularPortoDiscordChannel.key;
 const IZ_LEIDING_CHANNEL_ID = String(process.env.DISCORD_IZ_LEIDING_CHANNEL_ID || "1515083209132478596").trim();
 const IZ_LEIDING_ROLE_ID = String(process.env.DISCORD_IZ_LEIDING_ROLE_ID || "1515080646806995045").trim();
-const trainerInfoOverviewEnabled = enabledFromEnv(process.env.DISCORD_TRAINER_INFO_ENABLED, gatewayEnabled);
-const defaultTrainerInfoChannelId = organization.key === "defensie" ? "1496169651695128627" : "";
+const trainerInfoOverviewAllowed = organization.key === "defensie";
+const trainerInfoOverviewEnabled = trainerInfoOverviewAllowed && enabledFromEnv(process.env.DISCORD_TRAINER_INFO_ENABLED, gatewayEnabled);
+const defaultTrainerInfoChannelId = "1496169651695128627";
 const TRAINER_INFO_CHANNEL_ID = trainerInfoOverviewEnabled
   ? String(process.env.DISCORD_TRAINER_INFO_CHANNEL_ID || defaultTrainerInfoChannelId).trim()
   : "";
@@ -509,6 +510,7 @@ async function registerClaimIzCommand() {
 }
 
 function trainingRequirementOptions() {
+  if (!trainerInfoOverviewAllowed) return [];
   return manualTrainingRequestOptions.map((option) => ({
     ...option,
     roleId: String(process.env[option.envKey] || option.defaultRoleId || "").trim(),
@@ -711,7 +713,7 @@ async function buildTrainerInfoOverviewPayload() {
     .map((option) => {
       const fullMapping = (typeof bot.allTrainingRequirementRoleMappings === "function" ? bot.allTrainingRequirementRoleMappings() : [])
         .find((entry) => entry.requirement === option.value);
-      return { ...option, roleId: String(fullMapping?.roleId || "").trim() };
+      return { ...option, roleId: String(option.roleId || fullMapping?.roleId || "").trim() };
     })
     .filter((mapping) => mapping.roleId);
   const grouped = new Map(mappings.map((mapping) => [mapping.value, []]));
@@ -797,6 +799,13 @@ async function handleAddTrainingCommand(interaction) {
     await acknowledgeInteraction(interaction, "Er zijn geen training-aanvraag rollen ingesteld.", true);
     return;
   }
+  const userId = String(interaction.member?.user?.id || interaction.user?.id || "").trim();
+  const state = await readPostgresState();
+  const person = findPersonByDiscordId(state.people || [], userId, { currentOnly: true });
+  if (!person) {
+    await acknowledgeInteraction(interaction, "Alleen actieve Defensie leden kunnen training-aanvragen toevoegen.", true);
+    return;
+  }
   await interactionCallback(interaction, {
     type: 4,
     data: {
@@ -831,6 +840,18 @@ async function handleTrainingRequestSelect(interaction) {
   }
   const state = await readPostgresState();
   const person = findPersonByDiscordId(state.people || [], userId, { currentOnly: true });
+  if (!person) {
+    await interactionCallback(interaction, {
+      type: 7,
+      data: {
+        content: "Alleen actieve Defensie leden kunnen training-aanvragen toevoegen.",
+        components: [],
+        flags: 64,
+        allowed_mentions: { parse: [] }
+      }
+    });
+    return;
+  }
   if (mapping.minimumRank && !rankIsAtLeast(person?.rank || "", mapping.minimumRank)) {
     await interactionCallback(interaction, {
       type: 7,

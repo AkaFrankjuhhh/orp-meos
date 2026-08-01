@@ -1028,11 +1028,14 @@ test("Discord bot exposes training request dropdown and trainer info overview", 
   assert.match(envExample, /DISCORD_TRAINER_INFO_ENABLED=true/);
   assert.match(envExample, /DISCORD_TRAINER_INFO_CHANNEL_ID=1496169651695128627/);
   assert.match(envExample, /DISCORD_TRAINER_INFO_WEBHOOK_URL=/);
+  assert.match(workerCode, /const trainerInfoOverviewAllowed = organization\.key === "defensie"/);
   assert.match(workerCode, /trainerInfoOverviewEnabled/);
-  assert.match(workerCode, /organization\.key === "defensie" \? "1496169651695128627" : ""/);
+  assert.match(workerCode, /if \(!trainerInfoOverviewAllowed\) return \[\]/);
+  assert.match(workerCode, /option\.roleId \|\| fullMapping\?\.roleId/);
   assert.match(workerCode, /voegtrainingtoe/);
   assert.match(workerCode, /training_request_select/);
   assert.match(workerCode, /Welke training wil je toevoegen/);
+  assert.match(workerCode, /Alleen actieve Defensie leden kunnen training-aanvragen toevoegen/);
   assert.match(workerCode, /label: "Zulu"/);
   assert.match(workerCode, /label: "Communicatie"/);
   assert.match(workerCode, /label: "EHBO"/);
