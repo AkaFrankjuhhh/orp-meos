@@ -105,12 +105,96 @@ const handledInteractionIds = new Map();
 
 const manualTrainingRequestOptions = [
   {
+    label: "BKV",
+    value: "BKV",
+    description: "Voeg BKV Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_BKV_ROLE_ID",
+    defaultRoleId: "1499476179537625128"
+  },
+  {
+    label: "Mentor-Traject",
+    value: "MENTOR_TRAJECT",
+    description: "Voeg Mentor-Traject Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_REQUEST_MENTOR_TRAJECT_ROLE_ID",
+    defaultRoleId: ""
+  },
+  {
+    label: "IBT",
+    value: "IBT",
+    description: "Voeg IBT Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_IBT_ROLE_ID",
+    defaultRoleId: "1499476290766639274"
+  },
+  {
+    label: "TMO",
+    value: "TMO",
+    description: "Voeg TMO Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_TMO_ROLE_ID",
+    defaultRoleId: "1499476379144552588"
+  },
+  {
+    label: "SIV",
+    value: "SIV",
+    description: "Voeg SIV Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_SIV_ROLE_ID",
+    defaultRoleId: "1499476432424796273"
+  },
+  {
     label: "Zulu",
     value: "ZULU",
     description: "Voeg Zulu Training Aanvraag toe.",
     envKey: "DISCORD_TRAINING_REQUEST_ZULU_ROLE_ID",
     defaultRoleId: "1501158324509478994",
     minimumRank: "Wachtmeester 1ste Klasser"
+  },
+  {
+    label: "OGM",
+    value: "OGM",
+    description: "Voeg OGM Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_OGM_ROLE_ID",
+    defaultRoleId: "1499476966233870346"
+  },
+  {
+    label: "Kustwacht",
+    value: "KW",
+    description: "Voeg Kustwacht Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_KW_ROLE_ID",
+    defaultRoleId: "1499476327877840907"
+  },
+  {
+    label: "SMG",
+    value: "SMG",
+    description: "Voeg SMG Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_SMG_ROLE_ID",
+    defaultRoleId: "1499477017945444452"
+  },
+  {
+    label: "OPS",
+    value: "OPS",
+    description: "Voeg OPS Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_OPS_ROLE_ID",
+    defaultRoleId: "1499476361968877763"
+  },
+  {
+    label: "OPCO",
+    value: "OPCO",
+    description: "Voeg OPCO Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_NEEDED_OPCO_ROLE_ID",
+    defaultRoleId: "1499476403031244820"
+  },
+  {
+    label: "K9",
+    value: "K9",
+    description: "Voeg K9 Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_REQUEST_K9_ROLE_ID",
+    defaultRoleId: ""
+  },
+  {
+    label: "K9 Begeleider",
+    value: "K9_BEGELEIDER",
+    description: "Voeg K9 Begeleider Training Aanvraag toe.",
+    envKey: "DISCORD_TRAINING_REQUEST_K9_BEGELEIDER_ROLE_ID",
+    defaultRoleId: ""
   },
   {
     label: "Communicatie",
@@ -690,8 +774,9 @@ function rankIsAtLeast(rank, minimumRank) {
   return rankWeight(rank) <= rankWeight(minimumRank);
 }
 
-function trainingOverviewValue(people = []) {
-  if (!people.length) return "**Aantal benodigden:** 0\n**Namen:** -";
+function trainingOverviewValue(people = [], mapping = {}) {
+  if (!mapping.roleId) return "**Discord rol:** niet ingesteld\n**Aantal aanvragen:** 0\n**Namen:** -";
+  if (!people.length) return "**Aantal aanvragen:** 0\n**Namen:** -";
   const names = [];
   let usedLength = 0;
   for (const person of people) {
@@ -703,7 +788,7 @@ function trainingOverviewValue(people = []) {
   }
   const remaining = people.length - names.length;
   return [
-    `**Aantal benodigden:** ${people.length}`,
+    `**Aantal aanvragen:** ${people.length}`,
     `**Namen:** ${names.join(", ")}${remaining > 0 ? ` en ${remaining} meer` : ""}`
   ].join("\n");
 }
@@ -714,9 +799,8 @@ async function buildTrainerInfoOverviewPayload() {
       const fullMapping = (typeof bot.allTrainingRequirementRoleMappings === "function" ? bot.allTrainingRequirementRoleMappings() : [])
         .find((entry) => entry.requirement === option.value);
       return { ...option, roleId: String(option.roleId || fullMapping?.roleId || "").trim() };
-    })
-    .filter((mapping) => mapping.roleId);
-  const grouped = new Map(mappings.map((mapping) => [mapping.value, []]));
+    });
+  const grouped = new Map(mappings.filter((mapping) => mapping.roleId).map((mapping) => [mapping.value, []]));
   const state = await readPostgresState();
   const people = (state.people || [])
     .filter((person) => isCurrentPerson(person) && String(person.discordId || "").trim());
@@ -725,6 +809,7 @@ async function buildTrainerInfoOverviewPayload() {
     const member = await bot.getGuildMember(person.discordId).catch(() => null);
     const roles = new Set((member?.data?.roles || []).map((roleId) => String(roleId || "").trim()));
     for (const mapping of mappings) {
+      if (!mapping.roleId) continue;
       if (roles.has(mapping.roleId)) grouped.get(mapping.value)?.push(person);
     }
     await sleep(150);
@@ -732,7 +817,7 @@ async function buildTrainerInfoOverviewPayload() {
 
   const fields = mappings.map((mapping) => ({
     name: `Training: ${mapping.label}`,
-    value: trainingOverviewValue(grouped.get(mapping.value) || []),
+    value: trainingOverviewValue(grouped.get(mapping.value) || [], mapping),
     inline: false
   }));
 
