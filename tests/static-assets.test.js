@@ -1051,6 +1051,11 @@ test("Discord bot exposes training request dropdown and trainer info overview", 
   assert.match(workerCode, /const trainerInfoOverviewAllowed = organization\.key === "defensie"/);
   assert.match(workerCode, /trainerInfoOverviewEnabled/);
   assert.match(workerCode, /if \(!trainerInfoOverviewAllowed\) return \[\]/);
+  assert.match(workerCode, /async function cleanupDisallowedTrainerInfoOverview\(/);
+  assert.match(workerCode, /Trainer-informatie is alleen voor Defensie/);
+  assert.match(workerCode, /await cleanupDisallowedTrainerInfoOverview\(\);[\s\S]*connectGateway\(\)/);
+  assert.match(workerCode, /organizationKey: organization\.key/);
+  assert.match(workerCode, /if \(!trainerInfoOverviewAllowed \|\| !TRAINER_INFO_CHANNEL_ID \|\| trainerInfoOverviewTimer\) return;/);
   assert.match(workerCode, /option\.roleId \|\| fullMapping\?\.roleId/);
   assert.match(workerCode, /entry\.mapping\.roleId && entry\.people\.length > 0/);
   assert.match(workerCode, /Geen openstaande training-aanvragen/);

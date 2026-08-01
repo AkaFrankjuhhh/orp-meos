@@ -739,7 +739,14 @@ async function readTrainerInfoMessageSettings() {
     "select value from app_settings where key = $1 limit 1",
     [TRAINER_INFO_SETTINGS_KEY]
   ));
-  return result.rows[0]?.value || {};
+  const settings = result.rows[0]?.value || {};
+  if (
+    settings.organizationKey
+    && String(settings.organizationKey || "").trim() !== organization.key
+  ) {
+    return {};
+  }
+  return settings;
 }
 
 async function saveTrainerInfoMessageSettings(settings = {}) {
@@ -748,6 +755,37 @@ async function saveTrainerInfoMessageSettings(settings = {}) {
     values($1, $2::jsonb, now())
     on conflict(key) do update set value = excluded.value, updated_at = now()
   `, [TRAINER_INFO_SETTINGS_KEY, JSON.stringify(settings)]));
+}
+
+async function deleteTrainerInfoMessageSettings() {
+  await withClient((client) => client.query(
+    "delete from app_settings where key = $1",
+    [TRAINER_INFO_SETTINGS_KEY]
+  ));
+}
+
+async function cleanupDisallowedTrainerInfoOverview() {
+  if (trainerInfoOverviewAllowed) return;
+  let settings = {};
+  try {
+    settings = await readTrainerInfoMessageSettings();
+  } catch (error) {
+    console.warn(`[discord-bot] trainer-informatie cleanup kon settings niet lezen: ${error.message}`);
+    return;
+  }
+  const channelId = String(settings.channelId || "").trim();
+  const messageId = String(settings.messageId || "").trim();
+  if (channelId && messageId) {
+    await bot.deleteMessage(channelId, messageId, "Trainer-informatie is alleen voor Defensie").catch((error) => {
+      console.warn(`[discord-bot] trainer-informatie cleanup kon bericht ${messageId} niet verwijderen: ${error.message}`);
+    });
+  }
+  if (Object.keys(settings).length) {
+    await deleteTrainerInfoMessageSettings().catch((error) => {
+      console.warn(`[discord-bot] trainer-informatie cleanup kon settings niet verwijderen: ${error.message}`);
+    });
+    console.log(`[discord-bot] trainer-informatie uitgeschakeld voor ${organization.label}; oude settings opgeruimd.`);
+  }
 }
 
 function displayPersonName(person = {}) {
@@ -785,6 +823,7 @@ function trainingOverviewValue(people = []) {
 }
 
 async function buildTrainerInfoOverviewPayload() {
+  if (!trainerInfoOverviewAllowed) return null;
   const mappings = trainingRequirementOptions()
     .map((option) => {
       const fullMapping = (typeof bot.allTrainingRequirementRoleMappings === "function" ? bot.allTrainingRequirementRoleMappings() : [])
@@ -835,8 +874,13 @@ async function buildTrainerInfoOverviewPayload() {
 }
 
 async function updateTrainerInfoOverview() {
+  if (!trainerInfoOverviewAllowed) {
+    await cleanupDisallowedTrainerInfoOverview();
+    return { skipped: true, reason: "Trainer-informatie is alleen voor Defensie" };
+  }
   if (!TRAINER_INFO_CHANNEL_ID || !trainingRequirementOptions().length) return { skipped: true };
   const payload = await buildTrainerInfoOverviewPayload();
+  if (!payload) return { skipped: true };
   const settings = await readTrainerInfoMessageSettings();
   const channelId = String(settings.channelId || TRAINER_INFO_CHANNEL_ID).trim();
   const messageId = String(settings.messageId || "").trim();
@@ -859,13 +903,13 @@ async function updateTrainerInfoOverview() {
   const createdMessageId = created?.data?.id || created?.messageId || created?.body?.id || "";
   const createdChannelId = created?.data?.channel_id || created?.channelId || created?.body?.channel_id || TRAINER_INFO_CHANNEL_ID;
   if (createdMessageId) {
-    await saveTrainerInfoMessageSettings({ channelId: createdChannelId, messageId: createdMessageId, delivery });
+    await saveTrainerInfoMessageSettings({ organizationKey: organization.key, channelId: createdChannelId, messageId: createdMessageId, delivery });
   }
   return { ok: true, action: "created", messageId: createdMessageId };
 }
 
 function scheduleTrainerInfoOverviewUpdate(delayMs = 10000) {
-  if (!TRAINER_INFO_CHANNEL_ID || trainerInfoOverviewTimer) return;
+  if (!trainerInfoOverviewAllowed || !TRAINER_INFO_CHANNEL_ID || trainerInfoOverviewTimer) return;
   trainerInfoOverviewTimer = setTimeout(async () => {
     trainerInfoOverviewTimer = null;
     try {
@@ -1837,6 +1881,7 @@ async function shutdown() {
 async function main() {
   if (!bot.isConfigured()) throw new Error("DISCORD_BOT_TOKEN en DISCORD_GUILD_ID moeten gevuld zijn.");
   await ensureDiscordSyncJobsTable();
+  await cleanupDisallowedTrainerInfoOverview();
   connectGateway();
   console.log(`[discord-bot] worker gestart: ${workerId}`);
   if (dailySyncEnabled) {
