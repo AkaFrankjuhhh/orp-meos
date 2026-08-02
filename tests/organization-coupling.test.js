@@ -78,6 +78,23 @@ test("defensie new recruits have default Discord base roles configured", () => {
   });
 });
 
+test("obsolete defensie extra leadership badges are not exposed", () => {
+  const { organizationConfigs } = require("../modules/organizations");
+  const defensie = organizationConfigs.defensie;
+  const obsoleteBadges = ["Directie", "Teamchef", "Co\u00f6rdinator"];
+  const separatorBadges = defensie.discord.separatorRoleMappings.flatMap((mapping) => mapping.badges || []);
+  const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
+  const staticDataCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal-data.js"), "utf8");
+
+  for (const badge of obsoleteBadges) {
+    assert.equal(defensie.extraFunctions.includes(badge), false);
+    assert.equal(defensie.discord.functionRoleMappings.some((mapping) => mapping.label === badge), false);
+    assert.equal(separatorBadges.includes(badge), false);
+    assert.equal(staticDataCode.includes(`"${badge}"`), false);
+  }
+  assert.doesNotMatch(profileCode, /Extra-leiding/);
+});
+
 test("police and defensie expose K9 trainings in the profile", () => {
   const { organizationConfigs } = require("../modules/organizations");
 

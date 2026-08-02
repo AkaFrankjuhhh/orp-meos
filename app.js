@@ -293,11 +293,12 @@ function isOvcFunctionBadge(value) {
 }
 
 function canonicalProfileFunctions(functions = []) {
+  const allowedFunctions = new Set(extraFunctions || []);
   const seen = new Set();
   const result = [];
   for (const badge of functions || []) {
     const next = isOvcFunctionBadge(badge) ? "OVC" : String(badge || "").trim();
-    if (!next || seen.has(next)) continue;
+    if (!next || !allowedFunctions.has(next) || seen.has(next)) continue;
     seen.add(next);
     result.push(next);
   }

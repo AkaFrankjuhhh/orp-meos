@@ -250,7 +250,7 @@ const organizationConfigs = {
     profileTrainings: ["BKV", "Mentor-Traject", "IBT", "TMO", "SIV", "ZULU", "OGM", "KW", "SMG", "K9", "K9 Begeleider"],
     profileOperational: ["OPS", "OPCO", "OVD"],
     extraTasks: defensieExtraTasks,
-    extraFunctions: ["Kader", "OVC", "Hoofdofficier", "Officiersraad", "Directie", "Teamchef", "Coördinator"],
+    extraFunctions: ["Kader", "OVC", "Hoofdofficier", "Officiersraad"],
     sideTaskBadges: defensieSideTaskBadges,
     restrictedTaskBadges: defensieSideTaskBadges,
     mentorRanks: ["Marechaussee 4de Klasser", "Marechaussee 3de Klasser", "Marechaussee 2de Klasser"],
@@ -317,10 +317,7 @@ const organizationConfigs = {
         { key: "kader", label: "Kader", envKey: "DISCORD_KADER_ROLE_ID", stateKey: "kaderRoleId" },
         { key: "ovc", label: "OVC", envKey: "DISCORD_OVC_ROLE_ID" },
         { key: "hoofdofficier", label: "Hoofdofficier", envKey: "DISCORD_HOOFDOFFICIER_ROLE_ID", stateKey: "hoofdofficierRoleId" },
-        { key: "officiersraad", label: "Officiersraad", envKey: "DISCORD_OFFICIERSRAAD_ROLE_ID", stateKey: "officiersraadRoleId" },
-        { key: "directie", label: "Directie", envKey: "DISCORD_DIRECTIE_ROLE_ID" },
-        { key: "teamchef", label: "Teamchef", envKey: "DISCORD_TEAMCHEF_ROLE_ID" },
-        { key: "coordinator", label: "Coördinator", envKey: "DISCORD_COORDINATOR_ROLE_ID" }
+        { key: "officiersraad", label: "Officiersraad", envKey: "DISCORD_OFFICIERSRAAD_ROLE_ID", stateKey: "officiersraadRoleId" }
       ],
       taskRoleMappings: [
         { key: "interne-zaken", label: "Interne-Zaken", envKey: "DISCORD_INTERNE_ZAKEN_ROLE_ID" },
@@ -391,7 +388,7 @@ const organizationConfigs = {
         { key: "justitie-defensie", label: "Justitie-Defensie", envKey: "DISCORD_JUSTITIE_DEFENSIE_ROLE_ID", envFallbackKeys: ["DISCORD_JUSTITIE_DEFENTIE_ROLE_ID"], badges: ["hOvJ"] },
         { key: "interne-zaken", label: "Interne-Zaken", envKey: "DISCORD_SEPARATOR_INTERNE_ZAKEN_ROLE_ID", defaultRoleId: "1515081334928834641", badges: ["Interne-Zaken", "VID", "VID-Leiding"] },
         { key: "socom", label: "SOCOM", envKey: "DISCORD_SEPARATOR_SOCOM_ROLE_ID", defaultRoleId: "1499478051715813406", badges: ["DSI", "DSI-Leiding", "HRB", "HRB-Leiding", "DNR", "DNR-Leiding", "KLu", "KLu-Leiding"] },
-        { key: "leiding", label: "Leiding", envKey: "DISCORD_SEPARATOR_LEIDING_ROLE_ID", defaultRoleId: "1423672593487233104", badges: ["Directie", "Teamchef", "Coördinator", "Afdelingscoördinator"] }
+        { key: "leiding", label: "Leiding", envKey: "DISCORD_SEPARATOR_LEIDING_ROLE_ID", defaultRoleId: "1423672593487233104", badges: ["Afdelingscoördinator"] }
       ],
       nicknameSymbols: defensieNicknameSymbols,
       portoOperatorLabel: "OPS"

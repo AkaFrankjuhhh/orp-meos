@@ -263,7 +263,7 @@ function renderPersonnelHourBadges(person) {
 const PROMOTION_TASK_REQUIREMENT_KEY = "__PROMOTION_TASK__";
 const PROMOTION_TASK_REQUIREMENT_LABEL = "Mentor/Trainer/Interne-Zaken/hOvJ/W&S";
 const MAJOR_LEADERSHIP_REQUIREMENT_KEY = "__MAJOR_LEADERSHIP__";
-const MAJOR_LEADERSHIP_REQUIREMENT_LABEL = "Directie/Teamchef/Coördinator/OVJ/leidingfunctie";
+const MAJOR_LEADERSHIP_REQUIREMENT_LABEL = "OVJ/leidingfunctie";
 const PROMOTION_TASK_BADGES = [
   "Mentor",
   "Mentor-Leiding",
@@ -275,9 +275,6 @@ const PROMOTION_TASK_BADGES = [
   "W&S-Leiding"
 ];
 const MAJOR_LEADERSHIP_BADGES = [
-  "Directie",
-  "Teamchef",
-  "Coördinator",
   "OvJ",
   "OVJ",
   "hOvJ",

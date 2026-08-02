@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260731-police-off-training/);
+  assert.match(html, /app\.js\?v=20260802-obsolete-extra-leadership/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -299,7 +299,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
   assert.match(html, /personeelsportaal\.css\?v=20260727-training-co-trainers/);
-  assert.match(html, /personeelsportaal\/profile\.js\?v=20260731-aligned-badge-columns/);
+  assert.match(html, /personeelsportaal\/profile\.js\?v=20260802-obsolete-extra-leadership/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
   assert.match(profileCode, /function profileBadgeDialogGroups/);

@@ -559,7 +559,7 @@ function createPersoneelsportaalRouteHandler(deps) {
       .filter((item) => allowed.has(item) && manageable.has(item))
       .filter((item, index, list) => list.indexOf(item) === index);
     return [
-      ...(previousItems || []).filter((item) => !manageable.has(item)),
+      ...(previousItems || []).filter((item) => allowed.has(item) && !manageable.has(item)),
       ...selected
     ].filter((item, index, list) => list.indexOf(item) === index);
   }

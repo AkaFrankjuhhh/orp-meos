@@ -78,7 +78,6 @@ function profileTrainingLabel(training) {
 }
 
 const profileBadgeOrganizationLeadership = ["Kader", "Korpsleiding", "Bestuur", "Hoofdofficier", "Officiersraad", "OVC"];
-const profileBadgeExtraLeadership = ["Directie", "Teamchef", "Coördinator"];
 const profileBadgeBranchRows = [
   { leadership: "Trainer-Leiding", assistant: "Trainer-Assist. Leiding", functionBadge: "Trainer" },
   { leadership: "Mentor-Leiding", assistant: "Mentor-Assist. Leiding", functionBadge: "Mentor" },
@@ -165,15 +164,11 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
     manageableFunctions.filter((item) => profileBadgeOrganizationLeadership.includes(item)),
     profileBadgeOrganizationLeadership
   );
-  const extraLeadership = orderedProfileBadgeItems(
-    manageableFunctions.filter((item) => profileBadgeExtraLeadership.includes(item)),
-    profileBadgeExtraLeadership
-  );
   const generalFunctions = orderedProfileBadgeItems(
     manageableFunctions.filter((item) => profileBadgeGeneralFunctionOrder.includes(item)),
     profileBadgeGeneralFunctionOrder
   );
-  const otherFunctions = manageableFunctions.filter((item) => !organizationLeadership.includes(item) && !extraLeadership.includes(item) && !generalFunctions.includes(item));
+  const otherFunctions = manageableFunctions.filter((item) => !organizationLeadership.includes(item) && !generalFunctions.includes(item));
   const leadershipTasks = orderedProfileBadgeItems(
     tasks.filter((task) => (task.endsWith("-Leiding") && !profileBadgeTaskAssistantLeadershipOrder.includes(task)) || task === "OvJ"),
     profileBadgeTaskLeadershipOrder
@@ -199,12 +194,6 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
         selected: selectedFunctions,
         kind: "function",
         emptyText: "Alleen Kader kan functie-badges toewijzen."
-      }),
-      profileBadgeCategory({
-        title: "Extra-leiding",
-        items: extraLeadership,
-        selected: selectedFunctions,
-        kind: "function"
       }),
       profileBadgeCategory({
         title: "Overig",
