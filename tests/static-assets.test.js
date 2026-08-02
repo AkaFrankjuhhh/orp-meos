@@ -337,6 +337,22 @@ test("profile badge context dialog groups controls with a summary", () => {
   assert.match(styles, /\.profile-badge-category/);
 });
 
+test("I.O can be cleared for current non-active profiles", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const peopleCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "people.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-routes.js"), "utf8");
+  const permissionsCode = fs.readFileSync(path.join(process.cwd(), "modules", "permissions.js"), "utf8");
+
+  assert.match(html, /personeelsportaal\/people\.js\?v=20260802-io-clear-current-profile/);
+  assert.match(peopleCode, /const isCurrent = typeof isCurrentProfile === "function" \? isCurrentProfile\(person\) : person\.status === "Actief"/);
+  assert.match(peopleCode, /const canChangeIoStatus = canManageInvestigationStatus\(\) && isCurrent/);
+  assert.match(peopleCode, /person\.ioStatus\?\.active[\s\S]*data-io-clear/);
+  assert.match(peopleCode, /person\.status === "Actief"[\s\S]*data-io-mark/);
+  assert.doesNotMatch(peopleCode, /canManageInvestigationStatus\(\) && person\.status === "Actief" \? \(person\.ioStatus\?\.active/);
+  assert.match(routesCode, /action === "io" && !permissions\.canManageInvestigationStatus/);
+  assert.match(permissionsCode, /canManageInvestigationStatus: isKader \|\| isHoofdofficier \|\| isOfficiersraad/);
+});
+
 test("profile notes are private to self and authorized leadership", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");

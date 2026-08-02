@@ -488,6 +488,15 @@ function renderPersonnelCard(person) {
   const isOvcOnly = typeof isOvcOnlyProfile === "function" && isOvcOnlyProfile(person);
   const status = statusInfoFor(person);
   const statusTitle = status.title || status.label;
+  const isCurrent = typeof isCurrentProfile === "function" ? isCurrentProfile(person) : person.status === "Actief";
+  const canChangeIoStatus = canManageInvestigationStatus() && isCurrent;
+  const ioActionHtml = canChangeIoStatus
+    ? (person.ioStatus?.active
+      ? `<button type="button" data-io-clear="${person.id}">I.O intrekken</button>`
+      : person.status === "Actief"
+        ? `<button type="button" data-io-mark="${person.id}">I.O Melden</button>`
+        : "")
+    : "";
   const rankServiceText = isOvcOnly
     ? "OVC"
     : `${person.rank || "-"} - ${person.serviceNumber || "Geen roepnummer"}`;
@@ -497,9 +506,7 @@ function renderPersonnelCard(person) {
           <button class="card-menu" type="button" aria-label="Meer opties" aria-expanded="false">...</button>
           <div class="card-menu-panel">
             <button type="button" data-open-person-profile="${person.id}">Profiel openen</button>
-            ${canManageInvestigationStatus() && person.status === "Actief" ? (person.ioStatus?.active
-              ? `<button type="button" data-io-clear="${person.id}">I.O intrekken</button>`
-              : `<button type="button" data-io-mark="${person.id}">I.O Melden</button>`) : ""}
+            ${ioActionHtml}
             ${hasKaderAccess() ? `<button type="button" data-edit="${person.id}">Bewerken</button>` : ""}
             ${hasKaderAccess() ? `<button type="button" data-clear-history="${person.id}">Rang geschiedenis wissen</button>` : ""}
           </div>

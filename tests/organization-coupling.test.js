@@ -272,6 +272,32 @@ test("mentor tests are not hard-coded to defensie only", () => {
   assert.match(code, /mentorTestsStore && mentorRanks\.length/);
 });
 
+test("defensie officer leadership can manage I.O status", () => {
+  withOrganization("defensie", () => {
+    const { organizationConfigs } = require("../modules/organizations");
+    const { createPermissionServices } = require("../modules/permissions");
+    const organization = organizationConfigs.defensie;
+    const services = createPermissionServices({
+      extraFunctions: organization.extraFunctions,
+      extraTasks: organization.extraTasks,
+      readState: () => ({ people: [] })
+    });
+
+    for (const permRole of ["Kader", "Hoofdofficier", "Officiersraad"]) {
+      const permissions = services.permissionsForProfile({
+        id: `defensie-${permRole}`,
+        name: permRole,
+        rank: "Wachtmeester",
+        status: "Actief",
+        permRole,
+        badges: []
+      });
+
+      assert.equal(permissions.canManageInvestigationStatus, true, `${permRole} moet I.O kunnen aanpassen`);
+    }
+  });
+});
+
 test("police leadership can view I8, mentor and discipline without becoming OvJ reviewers", () => {
   withOrganization("politie", () => {
     const { organizationConfigs } = require("../modules/organizations");
