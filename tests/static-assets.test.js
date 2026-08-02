@@ -99,12 +99,16 @@ test("portal boot waits for the app before revealing the shell", () => {
   const loaderFailsafe = fs.readFileSync(path.join(process.cwd(), "portal-loader-failsafe.js"), "utf8");
   const bootFailsafe = fs.readFileSync(path.join(process.cwd(), "boot-failsafe.js"), "utf8");
 
-  assert.match(html, /portal-boot\.js\?v=20260727-boot-handshake/);
+  assert.match(html, /portal-boot\.js\?v=20260802-stylesheet-retry/);
   assert.match(appCode, /function markPortalReady\(/);
   assert.match(appCode, /window\.__orpBootReady\(\)/);
   assert.doesNotMatch(bootCode, /DOMContentLoaded/);
   assert.doesNotMatch(bootCode, /scheduleBootRelease|setTimeout\(releaseBoot/);
   assert.match(bootCode, /verifyCriticalStylesheets/);
+  assert.match(bootCode, /maxStylesheetVerifyAttempts/);
+  assert.match(bootCode, /link\.sheet/);
+  assert.match(bootCode, /sheet\.ownerNode === link/);
+  assert.match(bootCode, /Stijlbestand kon niet laden:/);
   assert.doesNotMatch(loaderFailsafe, /setTimeout|orp-app-ready|orp-app-booting|style\.visibility/);
   assert.doesNotMatch(bootFailsafe, /setTimeout|orp-app-ready|orp-app-booting|style\.visibility/);
 });

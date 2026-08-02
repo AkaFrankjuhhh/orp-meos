@@ -1,6 +1,10 @@
 (function () {
   var root = document.documentElement;
   var fatalLoadError = false;
+  var stylesheetVerifyAttempts = 0;
+  var stylesheetVerifyTimer = 0;
+  var maxStylesheetVerifyAttempts = 8;
+  var stylesheetVerifyDelayMs = 250;
   var bootTimer = window.setTimeout(function () {
     showBootError("Portaal laden duurt te lang. Vernieuw de pagina; blijft dit gebeuren, sluit de browser volledig en open het portaal opnieuw.");
   }, 20000);
@@ -31,13 +35,26 @@
   window.__orpBootReady = releaseBoot;
   window.__orpBootFail = showBootError;
 
+  function assetPath(target) {
+    var value = target && (target.href || target.src);
+    if (!value) return "onbekend bestand";
+    try {
+      return new URL(value, window.location.href).pathname;
+    } catch (error) {
+      return String(value);
+    }
+  }
+
   window.addEventListener("error", function (event) {
     var target = event.target;
     if (target && target.tagName) {
       var tag = target.tagName.toUpperCase();
       var rel = String(target.rel || "").toLowerCase();
-      if ((tag === "LINK" && rel.indexOf("stylesheet") !== -1) || tag === "SCRIPT") {
-        showBootError("Een stijlbestand of script kon niet laden. Vernieuw de pagina; blijft dit gebeuren, controleer netwerk/cache.", { fatal: true });
+      if (tag === "LINK" && rel.indexOf("stylesheet") !== -1) {
+        if (target.dataset) target.dataset.orpLoadError = "1";
+        showBootError("Stijlbestand kon niet laden: " + assetPath(target) + ". Vernieuw de pagina; blijft dit gebeuren, controleer netwerk/cache.", { fatal: true });
+      } else if (tag === "SCRIPT") {
+        showBootError("Script kon niet laden: " + assetPath(target) + ". Vernieuw de pagina; blijft dit gebeuren, controleer netwerk/cache.", { fatal: true });
       }
       return;
     }
@@ -52,23 +69,61 @@
     }
   }, true);
 
+  function markStylesheetLoad(link) {
+    if (link.dataset) link.dataset.orpLoaded = "1";
+  }
+
+  function trackCriticalStylesheets() {
+    var links = document.querySelectorAll('link[rel~="stylesheet"]');
+    for (var index = 0; index < links.length; index += 1) {
+      var link = links[index];
+      if (link.dataset && link.dataset.orpBootTracked === "1") continue;
+      if (link.dataset) link.dataset.orpBootTracked = "1";
+      link.addEventListener("load", function (event) {
+        markStylesheetLoad(event.currentTarget);
+      });
+      link.addEventListener("error", function (event) {
+        if (event.currentTarget && event.currentTarget.dataset) event.currentTarget.dataset.orpLoadError = "1";
+      });
+      if (link.sheet) markStylesheetLoad(link);
+    }
+  }
+
   function stylesheetIsAvailable(link) {
+    if (!link) return true;
+    if (link.dataset && link.dataset.orpLoadError === "1") return false;
+    if (link.sheet || (link.dataset && link.dataset.orpLoaded === "1")) return true;
     var href = link.href;
     for (var index = 0; index < document.styleSheets.length; index += 1) {
-      if (document.styleSheets[index].href === href) return true;
+      var sheet = document.styleSheets[index];
+      if (sheet.ownerNode === link || sheet.href === href) return true;
     }
     return false;
   }
 
   function verifyCriticalStylesheets() {
+    trackCriticalStylesheets();
     var links = document.querySelectorAll('link[rel~="stylesheet"]');
+    var missing = [];
     for (var index = 0; index < links.length; index += 1) {
       if (!stylesheetIsAvailable(links[index])) {
-        showBootError("Een stijlbestand kon niet laden. Vernieuw de pagina; blijft dit gebeuren, controleer netwerk/cache.", { fatal: true });
-        return;
+        missing.push(assetPath(links[index]));
       }
     }
+    if (!missing.length) {
+      stylesheetVerifyAttempts = 0;
+      return;
+    }
+    if (stylesheetVerifyAttempts < maxStylesheetVerifyAttempts) {
+      stylesheetVerifyAttempts += 1;
+      window.clearTimeout(stylesheetVerifyTimer);
+      stylesheetVerifyTimer = window.setTimeout(verifyCriticalStylesheets, stylesheetVerifyDelayMs);
+      return;
+    }
+    showBootError("Een stijlbestand kon niet laden: " + missing.join(", ") + ". Vernieuw de pagina; blijft dit gebeuren, controleer netwerk/cache.", { fatal: true });
   }
+
+  trackCriticalStylesheets();
 
   if (document.readyState === "complete") {
     window.setTimeout(verifyCriticalStylesheets, 0);
