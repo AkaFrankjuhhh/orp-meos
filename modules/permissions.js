@@ -28,12 +28,22 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
   const branchLeadershipTaskTargets = {
     "Trainer-Leiding": "Trainer",
     "Trainer-Assist. Leiding": "Trainer",
+    "Co\u00f6rdinator Trainer": "Trainer",
     "Mentor-Leiding": "Mentor",
     "Mentor-Assist. Leiding": "Mentor",
+    "Co\u00f6rdinator Mentor": "Mentor",
     "W&S-Leiding": "W&S",
     "W&S-Assist. Leiding": "W&S",
+    "Directie W&S": "W&S",
+    "Teamchef W&S": "W&S",
+    "Co\u00f6rdinator W&S": "W&S",
     "IZ-Leiding": "Interne-Zaken",
     "IZ-Assist. Leiding": "Interne-Zaken",
+    "Directie Operatie": "Operatie",
+    "Teamchef Operatie": "Operatie",
+    "Co\u00f6rdinator Operatie": "Operatie",
+    "Directie OTC": ["Mentor", "Trainer"],
+    "Teamchef OTC": ["Mentor", "Trainer"],
     "DSI-Leiding": "DSI",
     "KLu-Leiding": "KLu",
     "DNR-Leiding": "DNR",
@@ -73,8 +83,9 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
 
   function manageableProfileTaskBadgesFor(taskBadges) {
     return Object.entries(branchLeadershipTaskTargets)
-      .filter(([leadershipBadge, targetBadge]) => taskBadges.includes(leadershipBadge) && extraTasks.includes(targetBadge))
-      .map(([, targetBadge]) => targetBadge)
+      .filter(([leadershipBadge]) => taskBadges.includes(leadershipBadge))
+      .flatMap(([, targetBadge]) => Array.isArray(targetBadge) ? targetBadge : [targetBadge])
+      .filter((targetBadge) => extraTasks.includes(targetBadge))
       .filter((badge, index, list) => list.indexOf(badge) === index);
   }
 
@@ -105,11 +116,21 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const isTrainer = taskBadges.includes("Trainer");
     const isMentor = taskBadges.includes("Mentor");
     const isWs = taskBadges.includes("W&S");
-    const isWsLeadership = taskBadges.includes("W&S-Leiding") || taskBadges.includes("W&S-Assist. Leiding");
-    const isMentorLeadership = taskBadges.includes("Mentor-Leiding") || taskBadges.includes("Mentor-Assist. Leiding");
-    const isOtcLeadership = taskBadges.includes("OTC-Leiding");
+    const isWsLeadership = taskBadges.includes("W&S-Leiding")
+      || taskBadges.includes("W&S-Assist. Leiding")
+      || taskBadges.includes("Directie W&S")
+      || taskBadges.includes("Teamchef W&S")
+      || taskBadges.includes("Co\u00f6rdinator W&S");
+    const isMentorLeadership = taskBadges.includes("Mentor-Leiding")
+      || taskBadges.includes("Mentor-Assist. Leiding")
+      || taskBadges.includes("Co\u00f6rdinator Mentor");
+    const isOtcLeadership = taskBadges.includes("OTC-Leiding")
+      || taskBadges.includes("Directie OTC")
+      || taskBadges.includes("Teamchef OTC");
     const isIzLeadership = taskBadges.includes("IZ-Leiding") || taskBadges.includes("IZ-Assist. Leiding");
-    const isTrainerLeadership = taskBadges.includes("Trainer-Leiding") || taskBadges.includes("Trainer-Assist. Leiding");
+    const isTrainerLeadership = taskBadges.includes("Trainer-Leiding")
+      || taskBadges.includes("Trainer-Assist. Leiding")
+      || taskBadges.includes("Co\u00f6rdinator Trainer");
     const manageableProfileTaskBadges = manageableProfileTaskBadgesFor(taskBadges);
     const manageableProfileFunctionBadges = manageableProfileFunctionBadgesFor(taskBadges);
     const canViewTrainerSection = canViewAsKader || isTrainer || isTrainerLeadership;

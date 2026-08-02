@@ -1639,6 +1639,15 @@ dialog::backdrop {
   align-items: stretch;
 }
 
+body.portal-org-defensie #profileBadgeDialog:not([data-mode="side"]) .profile-badge-group-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+body.portal-org-defensie #profileBadgeDialog:not([data-mode="side"]) .profile-badge-category.is-defensie-extra-leiding {
+  grid-column: 1 / span 4;
+  min-height: 150px;
+}
+
 #profileBadgeFunctionOptions,
 #profileBadgeTaskOptions {
   display: contents;
@@ -1801,6 +1810,14 @@ dialog::backdrop {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  body.portal-org-defensie #profileBadgeDialog:not([data-mode="side"]) .profile-badge-group-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.portal-org-defensie #profileBadgeDialog:not([data-mode="side"]) .profile-badge-category.is-defensie-extra-leiding {
+    grid-column: auto;
+  }
+
   .profile-badge-category {
     min-height: 0;
   }
@@ -1813,6 +1830,10 @@ dialog::backdrop {
 
   .profile-badge-dialog-summary,
   .profile-badge-group-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.portal-org-defensie #profileBadgeDialog:not([data-mode="side"]) .profile-badge-group-grid {
     grid-template-columns: 1fr;
   }
 

@@ -64,7 +64,10 @@ function profileBadgeLabel(badge) {
 }
 
 const profileBadgeDialogDisplayLabels = {
-  "Interne-Zaken": "IZ"
+  "Interne-Zaken": "IZ",
+  "IZ-Leiding": "Leiding-IZ",
+  "VID-Leiding": "Leiding-VID",
+  OvJ: "OVJ"
 };
 
 function profileBadgeDialogLabel(badge) {
@@ -92,6 +95,13 @@ const profileBadgeTaskAssistantLeadershipOrder = profileBadgeBranchRows.map((row
 const profileBadgeFunctionOrder = [...profileBadgeBranchRows.map((row) => row.functionBadge), "hOvJ", "VID", "Operatie"];
 const profileBadgeGeneralFunctionOrder = ["HR"];
 const profileBadgeTaskFunctionOrder = profileBadgeFunctionOrder.filter((item) => !profileBadgeGeneralFunctionOrder.includes(item));
+const profileBadgeDefensieDirectieOrder = ["Directie Operatie", "Directie W&S", "Directie OTC"];
+const profileBadgeDefensieTeamchefOrder = ["Teamchef Operatie", "Teamchef W&S", "Teamchef OTC"];
+const profileBadgeDefensieCoordinatorOrder = ["Co\u00f6rdinator Operatie", "Co\u00f6rdinator W&S", "Co\u00f6rdinator Mentor", "Co\u00f6rdinator Trainer"];
+const profileBadgeDefensieFunctionOrder = ["Trainer", "Mentor", "W&S", "Interne-Zaken", "hOvJ", "VID"];
+const profileBadgeDefensieExtraLeadershipOrder = ["IZ-Leiding", "VID-Leiding", "OvJ"];
+const profileBadgeDefensieLegacyLeadershipOrder = ["Trainer-Leiding", "Mentor-Leiding", "W&S-Leiding", "OTC-Leiding"];
+const profileBadgeDefensieLegacyFunctionOrder = ["Operatie"];
 
 function orderedProfileBadgeItems(items, preferredOrder) {
   const available = new Set(items);
@@ -114,10 +124,10 @@ function profileBadgeOption(item, checked, kind) {
   `;
 }
 
-function profileBadgeCategory({ title, items, selected, kind, emptyText = "" }) {
+function profileBadgeCategory({ title, items, selected, kind, emptyText = "", className = "" }) {
   if (!items.length && !emptyText) return "";
   return `
-    <section class="profile-badge-category">
+    <section class="profile-badge-category ${escapeHtml(className)}">
       <h3>${escapeHtml(title)}</h3>
       <div class="profile-badge-category-items">
         ${items.length
@@ -126,6 +136,13 @@ function profileBadgeCategory({ title, items, selected, kind, emptyText = "" }) 
       </div>
     </section>
   `;
+}
+
+function profileBadgeDepartmentItems(tasks, order) {
+  return orderedProfileBadgeItems(
+    tasks.filter((task) => order.includes(task)),
+    order
+  );
 }
 
 function profileBadgeMixedCategory({ title, items, selectedFunctions, selectedTasks, emptyText = "" }) {
@@ -169,6 +186,70 @@ function profileBadgeDialogGroups({ manageableFunctions, tasks, selectedFunction
     profileBadgeGeneralFunctionOrder
   );
   const otherFunctions = manageableFunctions.filter((item) => !organizationLeadership.includes(item) && !generalFunctions.includes(item));
+  if ((window.DefensiePortalData?.organization?.key || "defensie") === "defensie") {
+    const directieTasks = profileBadgeDepartmentItems(tasks, profileBadgeDefensieDirectieOrder);
+    const teamchefTasks = profileBadgeDepartmentItems(tasks, profileBadgeDefensieTeamchefOrder);
+    const coordinatorTasks = profileBadgeDepartmentItems(tasks, profileBadgeDefensieCoordinatorOrder);
+    const regularFunctionTasks = orderedProfileBadgeItems(
+      tasks.filter((task) => profileBadgeDefensieFunctionOrder.includes(task)
+        || (selectedTasks.includes(task) && profileBadgeDefensieLegacyFunctionOrder.includes(task))),
+      [...profileBadgeDefensieFunctionOrder, ...profileBadgeDefensieLegacyFunctionOrder]
+    );
+    const selectedLegacyTasks = orderedProfileBadgeItems(
+      tasks.filter((task) => selectedTasks.includes(task) && profileBadgeDefensieLegacyLeadershipOrder.includes(task)),
+      profileBadgeDefensieLegacyLeadershipOrder
+    );
+    const extraLeadershipTasks = orderedProfileBadgeItems(
+      [
+        ...tasks.filter((task) => profileBadgeDefensieExtraLeadershipOrder.includes(task)),
+        ...selectedLegacyTasks
+      ],
+      [...profileBadgeDefensieExtraLeadershipOrder, ...profileBadgeDefensieLegacyLeadershipOrder]
+    );
+
+    return {
+      functionHtml: profileBadgeCategory({
+        title: `${organizationLabel}-Leiding`,
+        items: organizationLeadership,
+        selected: selectedFunctions,
+        kind: "function",
+        emptyText: "Alleen Kader kan functie-badges toewijzen."
+      }),
+      taskHtml: [
+        profileBadgeCategory({
+          title: "Directie",
+          items: directieTasks,
+          selected: selectedTasks,
+          kind: "task"
+        }),
+        profileBadgeCategory({
+          title: "Teamchef",
+          items: teamchefTasks,
+          selected: selectedTasks,
+          kind: "task"
+        }),
+        profileBadgeCategory({
+          title: "Co\u00f6rdinator",
+          items: coordinatorTasks,
+          selected: selectedTasks,
+          kind: "task"
+        }),
+        profileBadgeCategory({
+          title: "Functies",
+          items: regularFunctionTasks,
+          selected: selectedTasks,
+          kind: "task"
+        }),
+        profileBadgeCategory({
+          title: "Extra-Leiding",
+          items: extraLeadershipTasks,
+          selected: selectedTasks,
+          kind: "task",
+          className: "is-defensie-extra-leiding"
+        })
+      ].join("")
+    };
+  }
   const leadershipTasks = orderedProfileBadgeItems(
     tasks.filter((task) => (task.endsWith("-Leiding") && !profileBadgeTaskAssistantLeadershipOrder.includes(task)) || task === "OvJ"),
     profileBadgeTaskLeadershipOrder

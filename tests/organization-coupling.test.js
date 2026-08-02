@@ -83,7 +83,6 @@ test("obsolete defensie extra leadership badges are not exposed", () => {
   const defensie = organizationConfigs.defensie;
   const obsoleteBadges = ["Directie", "Teamchef", "Co\u00f6rdinator"];
   const separatorBadges = defensie.discord.separatorRoleMappings.flatMap((mapping) => mapping.badges || []);
-  const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const staticDataCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal-data.js"), "utf8");
 
   for (const badge of obsoleteBadges) {
@@ -92,7 +91,30 @@ test("obsolete defensie extra leadership badges are not exposed", () => {
     assert.equal(separatorBadges.includes(badge), false);
     assert.equal(staticDataCode.includes(`"${badge}"`), false);
   }
-  assert.doesNotMatch(profileCode, /Extra-leiding/);
+});
+
+test("defensie department leadership badges share Discord roles", () => {
+  const { organizationConfigs } = require("../modules/organizations");
+  const defensie = organizationConfigs.defensie;
+  const mappings = new Map(defensie.discord.taskRoleMappings.map((mapping) => [mapping.label, mapping]));
+
+  for (const badge of ["Directie Operatie", "Teamchef Operatie", "Co\u00f6rdinator Operatie"]) {
+    assert.equal(defensie.extraTasks.includes(badge), true, `${badge} mist in extraTasks`);
+    assert.equal(mappings.get(badge)?.envKey, "DISCORD_OPERATIE_LEIDING_ROLE_ID");
+    assert.equal(mappings.get(badge)?.defaultRoleId, "1426544464293527684");
+  }
+
+  for (const badge of ["Directie W&S", "Teamchef W&S", "Co\u00f6rdinator W&S"]) {
+    assert.equal(defensie.extraTasks.includes(badge), true, `${badge} mist in extraTasks`);
+    assert.equal(mappings.get(badge)?.envKey, "DISCORD_WS_MANAGEMENT_ROLE_ID");
+    assert.equal(mappings.get(badge)?.defaultRoleId, "1425219423849152512");
+  }
+
+  for (const badge of ["Directie OTC", "Teamchef OTC", "Co\u00f6rdinator Mentor", "Co\u00f6rdinator Trainer"]) {
+    assert.equal(defensie.extraTasks.includes(badge), true, `${badge} mist in extraTasks`);
+    assert.equal(mappings.get(badge)?.envKey, "DISCORD_OTC_MANAGEMENT_ROLE_ID");
+    assert.equal(mappings.get(badge)?.defaultRoleId, "1425219424872300667");
+  }
 });
 
 test("police and defensie expose K9 trainings in the profile", () => {
@@ -394,6 +416,14 @@ test("branch leadership can manage only its own profile badge", () => {
         ["Mentor-Assist. Leiding", "Mentor"],
         ["W&S-Leiding", "W&S"],
         ["W&S-Assist. Leiding", "W&S"],
+        ["Directie W&S", "W&S"],
+        ["Teamchef W&S", "W&S"],
+        ["Co\u00f6rdinator W&S", "W&S"],
+        ["Directie Operatie", "Operatie"],
+        ["Teamchef Operatie", "Operatie"],
+        ["Co\u00f6rdinator Operatie", "Operatie"],
+        ["Co\u00f6rdinator Mentor", "Mentor"],
+        ["Co\u00f6rdinator Trainer", "Trainer"],
         ["IZ-Leiding", "Interne-Zaken"],
         ["IZ-Assist. Leiding", "Interne-Zaken"],
         ["DSI-Leiding", "DSI"],
@@ -421,6 +451,34 @@ test("branch leadership can manage only its own profile badge", () => {
       }
     });
   }
+});
+
+test("defensie OTC department leadership can manage mentor and trainer badges", () => {
+  withOrganization("defensie", () => {
+    const { organizationConfigs } = require("../modules/organizations");
+    const { createPermissionServices } = require("../modules/permissions");
+    const organization = organizationConfigs.defensie;
+    const services = createPermissionServices({
+      extraFunctions: organization.extraFunctions,
+      extraTasks: organization.extraTasks,
+      readState: () => ({ people: [] })
+    });
+
+    for (const badge of ["Directie OTC", "Teamchef OTC"]) {
+      const permissions = services.permissionsForProfile({
+        id: `defensie-${badge}`,
+        name: badge,
+        rank: "Wachtmeester",
+        status: "Actief",
+        permRole: "Geen",
+        badges: [badge]
+      });
+
+      assert.equal(permissions.canManageProfileBadges, true);
+      assert.deepEqual(permissions.manageableProfileTaskBadges, ["Mentor", "Trainer"]);
+      assert.equal(permissions.canViewMentorOverview, true);
+    }
+  });
 });
 
 test("HR leadership can manage the police HR function without full people management", () => {

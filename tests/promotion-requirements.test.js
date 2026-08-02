@@ -44,6 +44,20 @@ test("Wachtmeester needs promotion task badge before promotion to 1ste Klasser",
   );
 });
 
+test("department leadership badges do not satisfy the regular promotion task requirement", () => {
+  const person = {
+    rank: "Wachtmeester",
+    completedTrainings: ["BKV", "IBT", "Mentor-Traject", "KW", "TMO"],
+    completedOperational: ["OPS"],
+    badges: ["Directie Operatie", "Teamchef W&S", "Co\u00f6rdinator Trainer"]
+  };
+
+  assert.deepEqual(
+    missingPromotionRequirements(organizationConfigs.defensie, person, "Wachtmeester"),
+    ["Mentor/Trainer/Interne-Zaken/hOvJ/W&S"]
+  );
+});
+
 test("Marechaussee 1ste Klasser does not need promotion task badge before Wachtmeester", () => {
   const person = {
     rank: "Marechaussee 1ste Klasser",
