@@ -37,6 +37,7 @@ let authProfile = null;
 let serverBacked = false;
 let canViewLogbook = false;
 let permissions = {};
+let portalStateLoaded = false;
 const pendingActionKeys = new Set();
 let pendingDismissalId = "";
 let pendingRestoreId = "";
@@ -99,12 +100,17 @@ let rankPieSegments = [];
 let mentorChecklistEditingUntil = 0;
 const REVIEW_COUNTER_FALLBACK_MS = 30000;
 const LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS = 1500;
-const SYSTEM_HEALTH_CACHE_MS = 10000;
+const SYSTEM_HEALTH_CACHE_MS = 30000;
 const MAX_TRAINING_CREDIT_TRAINERS = 5;
 const ACTION_RETRY_DELAYS_MS = [350, 1100];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+function isSystemHealthRoutePath() {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  return path.toLowerCase() === pageRouteMap.systeemstatus;
+}
 
 function currentLoginPeriod(date = new Date()) {
   const hour = date.getHours();
@@ -932,6 +938,7 @@ async function loadState() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       serverBacked = false;
+      portalStateLoaded = false;
       const errorElement = $("#lockError");
       const shouldShowStateError = response.status !== 401 || freshLoginRedirected() || payload.error !== "Niet ingelogd";
       if (errorElement && shouldShowStateError) {
@@ -942,9 +949,11 @@ async function loadState() {
     }
     state = { ...structuredClone(defaultState), ...payload };
     serverBacked = true;
+    portalStateLoaded = true;
     return true;
   } catch (error) {
     serverBacked = false;
+    portalStateLoaded = false;
     const errorElement = $("#lockError");
     if (errorElement) {
       errorElement.textContent = "Server data kon niet geladen worden. Controleer of de server draait.";
@@ -957,6 +966,8 @@ async function loadState() {
 function applyServerState(payload) {
   if (!payload?.state) return;
   state = { ...structuredClone(defaultState), ...payload.state };
+  serverBacked = true;
+  portalStateLoaded = true;
   if (typeof resetMentorTestCaches === "function") resetMentorTestCaches();
   if ("canViewLogbook" in payload) {
     canViewLogbook = Boolean(payload.canViewLogbook);
@@ -2039,6 +2050,7 @@ function renderLiveScope(scope = "state") {
 async function refreshReviewCounters() {
   if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
   if (document.visibilityState === "hidden") return;
+  if (activePageId() === "systeemstatus") return;
   if (isMentorTestStaticPageActive()) return;
   if (reviewCounterLoadPromise) return reviewCounterLoadPromise;
   if (hasOpenTransientMenu() || hasActiveMentorChecklistInteraction() || hasActiveLiveEditInteraction()) return;
@@ -2101,6 +2113,11 @@ function scheduleLiveRefresh(scope = "state") {
     liveRefreshTimer = null;
     if (isLiveRefreshSuppressed()) {
       pendingLiveScopes.clear();
+      return;
+    }
+    if (activePageId() === "systeemstatus") {
+      pendingLiveScopes.clear();
+      renderSystemHealth();
       return;
     }
     if (!authProfile || !serverBacked || document.body.classList.contains("locked")) return;
@@ -2678,6 +2695,57 @@ function renderSystemHealth() {
   loadSystemHealth();
 }
 
+function renderCurrentProfileChip() {
+  const current = currentProfile() || authProfile || {};
+  const name = current.name || "Ingelogd";
+  $("#currentName").textContent = name;
+  $("#currentService").textContent = current.serviceNumber || "-";
+  $("#currentAvatar").src = current.avatar ? current.avatar : avatarFor({ name });
+  $("#loginBtn").hidden = Boolean(authProfile);
+  $("#logoutBtn").hidden = !authProfile;
+}
+
+function renderSystemHealthShell() {
+  setLocked(false);
+  document.documentElement.dataset.theme = "dark";
+  renderKaderNavigation();
+  renderCurrentProfileChip();
+  renderNotifications();
+  renderSystemHealth();
+}
+
+async function ensurePortalStateLoaded() {
+  if (portalStateLoaded) return true;
+  const loaded = await loadState();
+  if (!loaded) return false;
+  startReviewCounterPolling();
+  startLiveUpdates();
+  return true;
+}
+
+async function navigateToPage(page) {
+  const targetPage = validPage(page);
+  if (targetPage !== "systeemstatus" && !portalStateLoaded) {
+    const loaded = await ensurePortalStateLoaded();
+    if (!loaded) return;
+    setPage(targetPage);
+    render();
+    return;
+  }
+  setPage(targetPage);
+}
+
+async function navigateToOwnProfile() {
+  if (!portalStateLoaded) {
+    const loaded = await ensurePortalStateLoaded();
+    if (!loaded) return;
+    openProfilePage("");
+    render();
+    return;
+  }
+  openProfilePage("");
+}
+
 function toggleNotificationPanel() {
   const panel = $("#notificationPanel");
   const bell = $("#notificationBell");
@@ -2694,6 +2762,10 @@ function render() {
   }
   setLocked(false);
   document.documentElement.dataset.theme = "dark";
+  if (activePageId() === "systeemstatus") {
+    renderSystemHealthShell();
+    return;
+  }
   renderKaderNavigation();
   renderProfile();
   renderNotifications();
@@ -2734,7 +2806,7 @@ function wireEvents() {
   window.addEventListener("orp-ui-mode-change", () => {
     if (activePageId() === "dashboard") renderDashboard();
   });
-  $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+  $$(".nav-item[data-page]").forEach((button) => button.addEventListener("click", () => navigateToPage(button.dataset.page)));
   $("#actionCenterList")?.addEventListener("click", (event) => {
     const notificationsButton = event.target.closest("[data-action-center-notifications]");
     if (notificationsButton) {
@@ -2743,7 +2815,7 @@ function wireEvents() {
       return;
     }
     const pageButton = event.target.closest("[data-action-center-page]");
-    if (pageButton?.dataset.actionCenterPage) setPage(pageButton.dataset.actionCenterPage);
+    if (pageButton?.dataset.actionCenterPage) navigateToPage(pageButton.dataset.actionCenterPage);
   });
   $("#refreshSystemHealthBtn")?.addEventListener("click", () => loadSystemHealth({ force: true }));
   $("#systemHealthDetails")?.addEventListener("click", (event) => {
@@ -2767,8 +2839,8 @@ function wireEvents() {
   $("#authLoginBtn").addEventListener("click", () => {
     window.location.href = authLoginUrl();
   });
-  $("#profileOpenBtn").addEventListener("click", () => openProfilePage(""));
-  $("#profileOpenText").addEventListener("click", () => openProfilePage(""));
+  $("#profileOpenBtn").addEventListener("click", () => navigateToOwnProfile());
+  $("#profileOpenText").addEventListener("click", () => navigateToOwnProfile());
   $("#notificationBell")?.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleNotificationPanel();
@@ -3760,6 +3832,14 @@ async function init() {
   wireEvents();
   const isAuthenticated = await loadAuth();
   if (!isAuthenticated) {
+    markPortalReady();
+    return;
+  }
+  if (isSystemHealthRoutePath() && canViewSystemHealth()) {
+    suppressRouteSync = true;
+    setPage("systeemstatus");
+    suppressRouteSync = false;
+    render();
     markPortalReady();
     return;
   }

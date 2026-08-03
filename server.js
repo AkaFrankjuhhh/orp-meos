@@ -530,6 +530,7 @@ async function readPublicFormSubmitBody(req) {
 const HEALTH_DISCORD_JOB_LIMIT = 12;
 const HEALTH_PROFILE_AUDIT_LIMIT = 12;
 const HEALTH_PORTO_UNIT_LIMIT = 12;
+const HEALTH_PERMISSION_CACHE_MS = 60 * 1000;
 
 function healthProfileSummary(person) {
   return {
@@ -682,7 +683,7 @@ async function healthPayload({ includeDetails = false } = {}) {
             (select count(*)::int from people where lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')) as current_people,
             (select count(*)::int from people where lower(coalesce(status, 'Actief')) in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')) as archived_people,
             (select count(*)::int from app_sessions where expires_at > now()) as active_sessions,
-            (select count(*)::int from activity_log) as activity_messages,
+            null::int as activity_messages,
             (select count(*)::int from porto_units where active is true) as active_porto_units,
             (select count(*)::int from vehicle_seizures) as vehicle_seizures
         `);
@@ -693,6 +694,7 @@ async function healthPayload({ includeDetails = false } = {}) {
             count(*) filter (where status = 'failed')::int as failed,
             max(created_at) as latest_created_at
           from discord_sync_jobs
+          where status in ('pending', 'running', 'failed')
         `);
         const failedJobTypes = await client.query(`
           select
@@ -905,8 +907,20 @@ async function healthPayload({ includeDetails = false } = {}) {
 async function requireSystemHealthAccess(req, res, { requireDevTools = false } = {}) {
   const auth = requireAuth(req, res);
   if (!auth) return null;
-  const state = await Promise.resolve(peopleStorage.readState());
-  const authPermissions = permissionsForAuth(auth, state);
+  const cachedPermissions = auth.session?.systemHealthPermissions;
+  const cachedPermissionAgeMs = Date.now() - Number(auth.session?.systemHealthPermissionsAt || 0);
+  const canUseCachedPermissions = cachedPermissions && cachedPermissionAgeMs >= 0 && cachedPermissionAgeMs < HEALTH_PERMISSION_CACHE_MS;
+  let state = null;
+  let authPermissions = canUseCachedPermissions ? cachedPermissions : null;
+  if (!authPermissions) {
+    state = await Promise.resolve(peopleStorage.readState());
+    authPermissions = permissionsForAuth(auth, state);
+    if (auth.session) {
+      auth.session.systemHealthPermissions = authPermissions;
+      auth.session.systemHealthPermissionsAt = Date.now();
+      if (!auth.session.dev && typeof sessions.save === "function") sessions.save(auth.session.id, auth.session);
+    }
+  }
   if (!authPermissions.canViewKaderPages && !authPermissions.canUseDevTools) {
     sendJson(res, 403, { error: "Geen toegang tot systeemstatus." });
     return null;
@@ -1837,6 +1851,8 @@ async function handleApi(req, res, url) {
     const permissionState = authState || await Promise.resolve(peopleStorage.readState());
     const authPermissions = permissionsForAuth(auth, permissionState);
     auth.session.profile = { ...auth.profile };
+    auth.session.systemHealthPermissions = authPermissions;
+    auth.session.systemHealthPermissionsAt = Date.now();
     if (!auth.session.dev && typeof sessions.save === "function") sessions.save(auth.session.id, auth.session);
     sendJson(res, 200, {
       authenticated: true,

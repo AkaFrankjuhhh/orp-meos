@@ -79,6 +79,7 @@ async function ensureDiscordSyncJobsTable() {
       )
     `);
     await client.query("CREATE INDEX IF NOT EXISTS discord_sync_jobs_status_run_idx ON discord_sync_jobs(status, run_after, created_at)");
+    await client.query("CREATE INDEX IF NOT EXISTS discord_sync_jobs_status_updated_idx ON discord_sync_jobs(status, updated_at DESC, created_at DESC)");
     await client.query("CREATE INDEX IF NOT EXISTS discord_sync_jobs_person_idx ON discord_sync_jobs(person_id, created_at DESC)");
     await client.query("CREATE INDEX IF NOT EXISTS discord_sync_jobs_discord_idx ON discord_sync_jobs(discord_id, created_at DESC)");
   });
