@@ -454,6 +454,9 @@ function renderProfileDistinctions(person) {
 }
 
 const PROFILE_LOG_PREVIEW_LIMIT = 3;
+const PROFILE_ACTIVITY_LIMIT = 18;
+const PROFILE_ACTIVITY_FILTERS = new Set(["all", "badges", "absence", "training", "rank"]);
+let activeProfileActivityFilter = "all";
 const profileLogDialogState = new Map();
 
 function profileAuditEntryHtml(entry) {
@@ -495,8 +498,9 @@ function renderProfileLogPreview(container, key, options) {
   }
 
   profileLogDialogState.set(key, options);
-  const previewHtml = entries.slice(0, PROFILE_LOG_PREVIEW_LIMIT).map(options.renderEntry).join("");
-  const remainingCount = Math.max(0, entries.length - PROFILE_LOG_PREVIEW_LIMIT);
+  const previewLimit = Number(options.previewLimit || PROFILE_LOG_PREVIEW_LIMIT);
+  const previewHtml = entries.slice(0, previewLimit).map(options.renderEntry).join("");
+  const remainingCount = Math.max(0, entries.length - previewLimit);
   const moreButton = remainingCount > 0
     ? `
       <div class="profile-log-more-row">
@@ -526,13 +530,18 @@ function openProfileLogDialog(key) {
 }
 
 function renderProfileAuditLog(person) {
+  const layout = $("#profileActivityLayout");
   const panel = $("#profileAuditPanel");
   const list = $("#profileAuditLog");
   const absenceList = $("#profileAbsenceLog");
   if (!panel || !list || !absenceList) return;
   const canView = canViewProfileAuditLog();
   panel.hidden = !canView;
-  if (!canView) return;
+  if (layout) layout.classList.toggle("has-summary", canView);
+  if (!canView) {
+    profileLogDialogState.clear();
+    return;
+  }
   profileLogDialogState.clear();
   const entries = (Array.isArray(person.profileLog) ? [...person.profileLog] : [])
     .filter((entry) => ["qualification", "badges", "profile"].includes(entry.type || "profile"));
@@ -542,6 +551,7 @@ function renderProfileAuditLog(person) {
     subtitle: person ? `${person.name || "Onbekend"} - volledig overzicht` : "Volledig overzicht",
     entries,
     emptyText: "Geen trainer- of badgeacties gevonden.",
+    previewLimit: 1,
     renderEntry: profileAuditEntryHtml
   });
 
@@ -553,6 +563,7 @@ function renderProfileAuditLog(person) {
     subtitle: person ? `${person.name || "Onbekend"} - volledig overzicht` : "Volledig overzicht",
     entries: absenceEntries,
     emptyText: "Geen afwezigheden gevonden.",
+    previewLimit: 1,
     renderEntry: profileAbsenceEntryHtml
   });
 }
@@ -608,12 +619,60 @@ function rankHistoryTimelineTitle(entry) {
   return "Ranghistorie";
 }
 
+function profileActivityKindForLog(entry) {
+  if (entry.type === "qualification") return "training";
+  if (entry.type === "badges") return "badges";
+  return "profile";
+}
+
+function profileActivityKindLabel(kind) {
+  const labels = {
+    absence: "Afwezigheid",
+    badges: "Badges",
+    discipline: "Sanctie",
+    note: "Notitie",
+    profile: "Profiel",
+    rank: "Rang",
+    training: "Training"
+  };
+  return labels[kind] || "Profiel";
+}
+
+function profileActivityFilterLabel(filter) {
+  const labels = {
+    all: "Alle activiteiten",
+    absence: "afwezigheden",
+    badges: "badge-wijzigingen",
+    rank: "promoties en rangwijzigingen",
+    training: "trainingen"
+  };
+  return labels[filter] || "activiteiten";
+}
+
+function updateProfileActivityFilterButtons() {
+  $$("[data-profile-activity-filter]").forEach((button) => {
+    const active = (button.dataset.profileActivityFilter || "all") === activeProfileActivityFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+}
+
+function setProfileActivityFilter(filter) {
+  activeProfileActivityFilter = PROFILE_ACTIVITY_FILTERS.has(filter) ? filter : "all";
+  updateProfileActivityFilterButtons();
+  if (typeof visibleProfile === "function") {
+    const person = visibleProfile();
+    if (person) renderProfileTimeline(person);
+  }
+}
+
 function profileTimelineEntries(person) {
   const entries = [];
   addProfileTimelineEntry(entries, {
     date: hiredDateFor(person),
     title: "Aangenomen",
     detail: `${person.rank || "-"} - ${person.serviceNumber || "-"}`,
+    kind: "profile",
     tone: "ok"
   });
 
@@ -622,6 +681,7 @@ function profileTimelineEntries(person) {
       date: person.reactivatedDate,
       title: "Herintreding",
       detail: `Terug in dienst als ${person.rank || "-"}`,
+      kind: "profile",
       tone: "ok"
     });
   }
@@ -633,6 +693,7 @@ function profileTimelineEntries(person) {
       date: entry.date,
       title: rankHistoryTimelineTitle(entry),
       detail: `${entry.rank || person.rank || "-"} - ${entry.serviceNumber || person.serviceNumber || "-"}${previousNumber}${changedBy}`,
+      kind: "rank",
       tone: entry.action === "demote" ? "warn" : "info"
     });
   });
@@ -643,6 +704,7 @@ function profileTimelineEntries(person) {
         date: entry.createdAt,
         title: entry.action || "Profielactie",
         detail: `${entry.details || "-"}${entry.actorName ? ` Door: ${entry.actorName}.` : ""}`,
+        kind: profileActivityKindForLog(entry),
         tone: entry.type === "qualification" ? "ok" : "info"
       });
     });
@@ -656,6 +718,7 @@ function profileTimelineEntries(person) {
         date: note.updatedAt,
         title: "Profielnotitie bijgewerkt",
         detail: `${noteText ? noteText.slice(0, 140) : "Notitie aangepast."}${note.updatedByName ? ` Door: ${note.updatedByName}.` : ""}`,
+        kind: "note",
         tone: "note"
       });
     }
@@ -668,6 +731,7 @@ function profileTimelineEntries(person) {
         date: entry.issuedAt,
         title: type.label || "Sanctie",
         detail: `${entry.reason || "-"}${entry.issuedByName ? ` Door: ${entry.issuedByName}.` : ""}`,
+        kind: "discipline",
         tone: ["regular-strike", "i8-strike"].includes(entry.type) ? "bad" : "warn"
       });
     });
@@ -684,31 +748,48 @@ function profileTimelineEntries(person) {
           date: entry.reviewedAt || entry.requestedAt || entry.from,
           title: `Afwezigheid ${status}`,
           detail: `${formatDate(entry.from)} t/m ${formatDate(entry.to)} - ${entry.reason || "Geen reden opgegeven"}`,
+          kind: "absence",
           tone: status === "Afgekeurd" ? "bad" : status === "Goedgekeurd" ? "ok" : "warn"
         });
       });
   }
 
-  return entries.sort((a, b) => b.timestamp - a.timestamp).slice(0, 14);
+  return entries.sort((a, b) => b.timestamp - a.timestamp);
+}
+
+function profileTimelineEntryHtml(entry) {
+  const kind = entry.kind || "profile";
+  return `
+    <article class="profile-activity-item profile-timeline-item ${escapeHtml(entry.tone || "info")}" data-activity-kind="${escapeHtml(kind)}">
+      <div class="profile-activity-date">
+        <time>${escapeHtml(profileTimelineDateLabel(entry.date))}</time>
+        <span>${escapeHtml(profileActivityKindLabel(kind))}</span>
+      </div>
+      <div class="profile-activity-card">
+        <strong>${escapeHtml(entry.title)}</strong>
+        <p>${escapeHtml(entry.detail || "-")}</p>
+      </div>
+    </article>
+  `;
 }
 
 function renderProfileTimeline(person) {
   const panel = $("#profileTimelinePanel");
   const list = $("#profileTimeline");
   if (!panel || !list) return;
+  updateProfileActivityFilterButtons();
   const entries = profileTimelineEntries(person);
-  panel.hidden = !entries.length;
-  list.innerHTML = entries.length
-    ? entries.map((entry) => `
-      <article class="profile-timeline-item ${escapeHtml(entry.tone || "info")}">
-        <time>${escapeHtml(profileTimelineDateLabel(entry.date))}</time>
-        <div>
-          <strong>${escapeHtml(entry.title)}</strong>
-          <p>${escapeHtml(entry.detail || "-")}</p>
-        </div>
-      </article>
-    `).join("")
-    : "";
+  const filteredEntries = activeProfileActivityFilter === "all"
+    ? entries
+    : entries.filter((entry) => entry.kind === activeProfileActivityFilter);
+  const visibleEntries = filteredEntries.slice(0, PROFILE_ACTIVITY_LIMIT);
+  const overflowCount = Math.max(0, filteredEntries.length - visibleEntries.length);
+  panel.hidden = false;
+  list.innerHTML = visibleEntries.length
+    ? `${visibleEntries.map(profileTimelineEntryHtml).join("")}${overflowCount > 0 ? `
+      <div class="profile-activity-overflow">Nog ${overflowCount} oudere activiteiten verborgen.</div>
+    ` : ""}`
+    : `<div class="feed-item">Geen ${escapeHtml(profileActivityFilterLabel(activeProfileActivityFilter))} gevonden.</div>`;
 }
 
 function activeDisciplineEntries(person) {

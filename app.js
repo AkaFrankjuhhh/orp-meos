@@ -2980,6 +2980,15 @@ function wireEvents() {
     openProfileBadgeDialog(sideTarget ? "side" : "main");
   });
   $("#mijn-profiel").addEventListener("click", (event) => {
+    const activityFilterTarget = event.target.closest("[data-profile-activity-filter]");
+    if (activityFilterTarget) {
+      event.preventDefault();
+      if (typeof setProfileActivityFilter === "function") {
+        setProfileActivityFilter(activityFilterTarget.dataset.profileActivityFilter || "all");
+      }
+      return;
+    }
+
     const logMoreTarget = event.target.closest("[data-profile-log-more]");
     if (logMoreTarget) {
       event.preventDefault();

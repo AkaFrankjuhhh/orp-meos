@@ -415,14 +415,19 @@ test("portal dashboard and profile expose action-focused overview panels", () =>
 
   assert.match(html, /id="actionCenterList"/);
   assert.match(html, /id="profileTimelinePanel"/);
+  assert.match(html, /id="profileActivityLayout"/);
+  assert.match(html, /data-profile-activity-filter="badges"/);
   assert.match(appCode, /function dashboardActionItems\(/);
   assert.match(appCode, /function renderActionCenter\(/);
   assert.match(appCode, /data-action-center-page/);
+  assert.match(appCode, /data-profile-activity-filter/);
   assert.match(profileCode, /function profileTimelineEntries\(person\)/);
+  assert.match(profileCode, /function setProfileActivityFilter\(filter\)/);
   assert.match(profileCode, /canViewProfileNotes\(person\)/);
   assert.match(profileCode, /canViewDisciplineFor\(person\)/);
   assert.match(styles, /\.action-center-item/);
-  assert.match(styles, /\.profile-timeline-item/);
+  assert.match(styles, /\.profile-activity-layout\.has-summary/);
+  assert.match(styles, /\.profile-activity-item/);
 });
 
 test("archived resignation forms are not counted as open", () => {

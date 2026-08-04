@@ -422,31 +422,43 @@
               <p id="profileNoteMeta" class="profile-note-meta muted"></p>
             </section>
 
-            <section id="profileTimelinePanel" class="panel profile-timeline-panel">
-              <div class="panel-head">
-                <div>
-                  <h2>Tijdlijn</h2>
-                  <p class="muted">Belangrijkste profielmomenten op volgorde.</p>
+            <div id="profileActivityLayout" class="profile-activity-layout">
+              <section id="profileTimelinePanel" class="panel profile-activity-panel">
+                <div class="panel-head profile-activity-head">
+                  <div>
+                    <h2>Activiteit</h2>
+                    <p class="muted">Belangrijkste profielmomenten en logboekregels.</p>
+                  </div>
+                  <div id="profileActivityFilters" class="profile-activity-filters" role="tablist" aria-label="Profielactiviteit">
+                    <button class="ghost small active" type="button" data-profile-activity-filter="all">Alles</button>
+                    <button class="ghost small" type="button" data-profile-activity-filter="badges">Badges</button>
+                    <button class="ghost small" type="button" data-profile-activity-filter="absence">Afwezigheid</button>
+                    <button class="ghost small" type="button" data-profile-activity-filter="training">Training</button>
+                    <button class="ghost small" type="button" data-profile-activity-filter="rank">Promoties</button>
+                  </div>
                 </div>
-              </div>
-              <div id="profileTimeline" class="profile-timeline"></div>
-            </section>
+                <div id="profileTimeline" class="profile-activity-list"></div>
+              </section>
 
-            <section id="profileAuditPanel" class="panel profile-audit-panel" hidden>
-              <div class="panel-head">
-                <h2>Profiel-logboek</h2>
-              </div>
-              <div class="profile-log-sections">
-                <section class="profile-log-section">
-                  <h3>Trainer/Badge Logboek</h3>
-                  <div id="profileAuditLog" class="profile-audit-log"></div>
-                </section>
-                <section class="profile-log-section">
-                  <h3>Afwezigheid logboek</h3>
-                  <div id="profileAbsenceLog" class="profile-audit-log"></div>
-                </section>
-              </div>
-            </section>
+              <aside id="profileAuditPanel" class="panel profile-activity-summary-panel" hidden>
+                <div class="panel-head">
+                  <div>
+                    <h2>Profielcontext</h2>
+                    <p class="muted">Laatste logboekmomenten</p>
+                  </div>
+                </div>
+                <div class="profile-activity-summary">
+                  <section class="profile-summary-card">
+                    <h3>Trainer/Badge Logboek</h3>
+                    <div id="profileAuditLog" class="profile-audit-log"></div>
+                  </section>
+                  <section class="profile-summary-card">
+                    <h3>Afwezigheid logboek</h3>
+                    <div id="profileAbsenceLog" class="profile-audit-log"></div>
+                  </section>
+                </div>
+              </aside>
+            </div>
           </div>
         </div>
       </section>
