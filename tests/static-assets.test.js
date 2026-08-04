@@ -135,7 +135,7 @@ test("modern porto status 4 reason menu survives live refresh", () => {
   const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
 
-  assert.match(html, /porto\/duty\.js\?v=20260728-status4-pending/);
+  assert.match(html, /porto\/duty\.js\?v=20260804-status8-rejoin-guard/);
   assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(dutyCode, /let portoModernStatus4Pending = false/);
   assert.match(dutyCode, /const showChoices = portoModernStatus4Pending \|\| String\(portoDuty\?\.status\) === "4"/);
@@ -624,7 +624,7 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(html, /id="portoModernDutyDashboard"/);
   assert.match(html, /id="portoModernOpsDashboard"/);
   assert.match(html, /porto\/ops\.js\?v=20260731-ops-refresh-state/);
-  assert.match(html, /porto\/duty\.js\?v=20260728-status4-pending/);
+  assert.match(html, /porto\/duty\.js\?v=20260804-status8-rejoin-guard/);
   assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(portoCode, /PORTO_UI_MODE_KEY/);
   assert.match(portoCode, /let portoDutyTime = null/);
@@ -725,9 +725,11 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   assert.match(routesCode, /4 \* 60 \* 60 \* 1000/);
   assert.match(routesCode, /PORTO_BROWSER_CLOSE_GRACE_MS/);
   assert.match(routesCode, /60 \* 60 \* 1000/);
+  assert.match(routesCode, /15 \* 60 \* 1000/);
   assert.match(routesCode, /const heartbeatChanged = markPortoBrowserHeartbeat\(unit\);/);
   assert.match(routesCode, /if \(heartbeatChanged\) await persistPortoState\(state, \{ units: state\.portoUnits \}\);/);
   assert.match(clientCode, /function syncPortoBrowserHeartbeatForPayload\(payload\)/);
+  assert.match(dutyCode, /manualStatusChange: true/);
   assert.match(clientCode, /heartbeat && heartbeat\.active === false/);
   assert.match(clientCode, /schedulePortoLiveRefresh\("porto"\)/);
   assert.match(clientCode, /event\.persisted/);
@@ -735,15 +737,19 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   assert.match(dutyCode, /syncPortoBrowserHeartbeatForPayload\(payload\)/);
   assert.match(dutyCode, /if \(portoSignedOffUntilStatus0\) return;/);
   assert.match(dutyCode, /function setPortoSignedOffUntilStatus0\(enabled\) \{[\s\S]*clearPortoAutoAssignTimer\(\);/);
+  assert.match(routesCode, /manualStatusChange = body\.manualStatusChange === true/);
+  assert.match(routesCode, /recentlyEnded && status === "0" && !manualStatusChange/);
   assert.match(routesCode, /if \(isRecentlyEnded\(person\.id\)\) \{[\s\S]*recentlyEndedError\(\)/);
-  assert.match(html, /porto\/duty\.js\?v=20260728-status4-pending/);
+  assert.match(html, /porto\/duty\.js\?v=20260804-status8-rejoin-guard/);
   assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(envExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(envExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
+  assert.match(envExample, /PORTO_STATUS8_REJOIN_GUARD_MS=900000/);
   assert.match(policeEnvExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(policeEnvExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(policeEnvExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
+  assert.match(policeEnvExample, /PORTO_STATUS8_REJOIN_GUARD_MS=900000/);
 });
 
 test("porto live events refresh OPS status 0 without waiting for the poll throttle", () => {

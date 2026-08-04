@@ -703,7 +703,7 @@ async function updatePortoStatus(status, detail = "") {
     const response = await fetch("/api/porto/status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, detail, requestNote })
+      body: JSON.stringify({ status, detail, requestNote, manualStatusChange: true })
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {

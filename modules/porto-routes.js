@@ -102,7 +102,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const configuredStatus8RejoinGuardMs = Number(process.env.PORTO_STATUS8_REJOIN_GUARD_MS);
   const status8RejoinGuardMs = Number.isFinite(configuredStatus8RejoinGuardMs)
     ? Math.max(0, configuredStatus8RejoinGuardMs)
-    : 90000;
+    : 15 * 60 * 1000;
   const configuredBrowserTimeoutMs = Number(process.env.PORTO_BROWSER_TIMEOUT_MS);
   const portoBrowserTimeoutMs = Number.isFinite(configuredBrowserTimeoutMs)
     ? (configuredBrowserTimeoutMs <= 0 ? 0 : Math.max(60000, configuredBrowserTimeoutMs))
@@ -1037,6 +1037,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       }
       const detail = status === "4" ? (rawStatus4Detail || "Niet beschikbaar") : "";
       const requestNote = status === "0" ? String(body.requestNote || "").trim().slice(0, 240) : "";
+      const manualStatusChange = body.manualStatusChange === true;
       ensurePortoVehicleRanges(state);
       state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
       const now = new Date().toISOString();
@@ -1044,6 +1045,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const changedByOpsEligibility = closeIneligiblePortoOpsUnits(state, now);
       let unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
       const recentlyEnded = isRecentlyEnded(person.id);
+      if (recentlyEnded && status === "0" && !manualStatusChange) {
+        if (changedByOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
+        await sendPortoState(res, state, person, null, { recentlyEnded: true });
+        return true;
+      }
       if (recentlyEnded && !["0", "8"].includes(status)) {
         if (changedByOpsEligibility) await persistPortoState(state, { settings: true, units: state.portoUnits });
         sendJson(res, 409, recentlyEndedError());
