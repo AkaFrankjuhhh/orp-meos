@@ -181,7 +181,8 @@ function sidebarIconSvg(name) {
     plusUser: '<path d="M15 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M16 11h6"/>',
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
     folder: '<path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-    car: '<path d="M5 17h14"/><path d="M6 17l1-6h10l1 6"/><path d="M8 11l2-4h4l2 4"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>'
+    car: '<path d="M5 17h14"/><path d="M6 17l1-6h10l1 6"/><path d="M8 11l2-4h4l2 4"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>',
+    meos: '<rect x="4" y="5" width="16" height="12" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M8 9h8"/><path d="M8 13h5"/>'
   };
   return `<svg class="nav-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name] || icons.file}</svg>`;
 }
@@ -214,9 +215,14 @@ function enhanceSidebarIcons() {
     archief: "folder",
     logboek: "log"
   };
+  const iconByNavCode = {
+    MEOS: "meos"
+  };
   $$(".nav-item").forEach((button) => {
     if (button.querySelector(".nav-icon")) return;
-    const iconName = button.hasAttribute("data-open-porto") ? "porto" : iconByPage[button.dataset.page] || "file";
+    const iconName = button.hasAttribute("data-open-porto")
+      ? "porto"
+      : iconByNavCode[button.dataset.navIcon] || iconByPage[button.dataset.page] || "file";
     const icon = document.createElement("span");
     icon.className = "nav-icon";
     icon.innerHTML = sidebarIconSvg(iconName);

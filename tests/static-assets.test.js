@@ -86,10 +86,23 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260803-system-health-fast-path/);
+  assert.match(html, /app\.js\?v=20260804-meos-sidebar/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
+});
+
+test("portal sidebar links MEOS below Porto before the dashboard spacer", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
+  const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
+  const sharedStyles = fs.readFileSync(path.join(process.cwd(), "shared.css"), "utf8");
+
+  assert.match(html, /shared\.css\?v=20260804-meos-sidebar/);
+  assert.match(html, /href="https:\/\/meos\.oranjestadrp\.nl\/"[^>]*>MEOS<\/a>/);
+  assert.ok(html.indexOf("data-open-porto") < html.indexOf("https://meos.oranjestadrp.nl/"));
+  assert.ok(html.indexOf("https://meos.oranjestadrp.nl/") < html.indexOf('<div class="nav-spacer"'));
+  assert.match(appCode, /MEOS: "meos"/);
+  assert.match(sharedStyles, /\.nav-item \{[\s\S]*text-decoration: none;/);
 });
 
 test("portal boot waits for the app before revealing the shell", () => {

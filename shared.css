@@ -252,6 +252,7 @@ button {
 .nav-item {
   padding: 12px 14px;
   text-align: left;
+  text-decoration: none;
 }
 
 .nav-item-spaced {
