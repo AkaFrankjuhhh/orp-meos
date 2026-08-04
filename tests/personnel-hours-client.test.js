@@ -45,6 +45,39 @@ test("porto clock entries are summed when no manual hour entry exists", () => {
   assert.equal(context.effectiveHourEntryFor("p1", 2026, 26).hours, 0.5);
 });
 
+test("overlapping porto clock intervals are counted once per person", () => {
+  const context = loadHoursModuleWithState({
+    hours: [
+      {
+        id: "porto-duty-u1-p1",
+        personId: "p1",
+        weekYear: 2026,
+        weekNumber: 32,
+        minutes: 270,
+        startedAt: "2026-08-03T18:00:00.000Z",
+        endedAt: "2026-08-03T22:30:00.000Z",
+        source: "porto-duty-clock",
+        sourceUnitId: "unit-a"
+      },
+      {
+        id: "porto-duty-u2-p1",
+        personId: "p1",
+        weekYear: 2026,
+        weekNumber: 32,
+        minutes: 270,
+        startedAt: "2026-08-03T18:00:00.000Z",
+        endedAt: "2026-08-03T22:30:00.000Z",
+        source: "porto-duty-clock",
+        sourceUnitId: "unit-b"
+      }
+    ]
+  });
+
+  const entry = context.effectiveHourEntryFor("p1", 2026, 32);
+  assert.equal(entry.hours, 4.5);
+  assert.equal(entry.clockHours, 4.5);
+});
+
 test("month total ignores future weeks that are already saved in the same month", () => {
   const context = loadHoursModuleWithState({
     hours: [

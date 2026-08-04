@@ -57,6 +57,51 @@ function hourValueForEntry(entry) {
   return Number(entry?.hours) || Number(entry?.minutes || 0) / 60 || 0;
 }
 
+function isPortoDutyHourEntry(entry) {
+  const source = String(entry?.source || "").trim().toLowerCase();
+  return source === "porto-duty-clock"
+    || String(entry?.enteredById || "") === "system:porto-duty-clock"
+    || String(entry?.id || "").startsWith("porto-duty-");
+}
+
+function hourEntryIntervalMs(entry) {
+  const start = Date.parse(entry?.startedAt || "");
+  const end = Date.parse(entry?.endedAt || "");
+  return Number.isFinite(start) && Number.isFinite(end) && end > start ? { start, end } : null;
+}
+
+function mergedClockHours(entries) {
+  const intervals = [];
+  let fallbackHours = 0;
+  for (const entry of entries) {
+    if (isPortoDutyHourEntry(entry)) {
+      const interval = hourEntryIntervalMs(entry);
+      if (interval) {
+        intervals.push(interval);
+        continue;
+      }
+    }
+    fallbackHours += hourValueForEntry(entry);
+  }
+  intervals.sort((a, b) => a.start - b.start || a.end - b.end);
+  let mergedMs = 0;
+  let active = null;
+  for (const interval of intervals) {
+    if (!active) {
+      active = { ...interval };
+      continue;
+    }
+    if (interval.start <= active.end) {
+      active.end = Math.max(active.end, interval.end);
+      continue;
+    }
+    mergedMs += active.end - active.start;
+    active = { ...interval };
+  }
+  if (active) mergedMs += active.end - active.start;
+  return fallbackHours + mergedMs / 3600000;
+}
+
 function manualHourEntryFor(personId, weekYear, weekNumber) {
   return hourEntriesFor(personId, weekYear, weekNumber).find(isManualHourEntry) || null;
 }
@@ -65,9 +110,7 @@ function effectiveHourEntryFor(personId, weekYear, weekNumber) {
   const entries = hourEntriesFor(personId, weekYear, weekNumber);
   if (!entries.length) return null;
   const manual = entries.find(isManualHourEntry);
-  const clockHours = entries
-    .filter((entry) => !isManualHourEntry(entry))
-    .reduce((sum, entry) => sum + hourValueForEntry(entry), 0);
+  const clockHours = mergedClockHours(entries.filter((entry) => !isManualHourEntry(entry)));
   const hours = (manual ? hourValueForEntry(manual) : 0) + clockHours;
   return {
     ...(manual || entries[0]),

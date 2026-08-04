@@ -630,6 +630,7 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
   const portoStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-postgres-store.js"), "utf8");
+  const peopleStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "personeelsportaal-postgres-people-store.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
   assert.match(html, /data-porto-ui-choice="classic"/);
@@ -660,8 +661,12 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(routesCode, /weekTotalSeconds \+= Math\.max\(0, activeSession\.total - activeSession\.counted\)/);
   assert.match(routesCode, /if \(endedAt > startedAt\) return Math\.round\(\(endedAt - startedAt\) \/ 1000\)/);
   assert.match(routesCode, /buildPortoDutyHourEntries\(state/);
+  assert.match(routesCode, /activeSourceUnitIds/);
+  assert.match(routesCode, /if \(sourceUnitId && activeSourceUnitIds\.has\(sourceUnitId\)\) continue/);
   assert.match(routesCode, /operationalWeekForDate\(now/);
   assert.match(portoStoreCode, /PORTO_DUTY_HOURS_ENTERED_BY_ID/);
+  assert.match(portoStoreCode, /deleteStalePortoDutyHourEntries\(client, entries\)/);
+  assert.match(peopleStoreCode, /deleteStalePortoDutyHourEntries\(client, entries\)/);
   assert.match(styles, /body\[data-porto-ui="modern"\]\.porto-duty-workspace/);
   assert.match(styles, /\.porto-modern-ops-dashboard/);
   assert.match(styles, /\.porto-modern-duty-time-card/);

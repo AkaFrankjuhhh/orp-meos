@@ -1,5 +1,10 @@
 const { readPostgresState } = require("./postgres-state");
 const { withClient } = require("./db");
+const {
+  PORTO_DUTY_HOURS_ENTERED_BY_ID,
+  PORTO_DUTY_HOURS_SOURCE,
+  portoDutyHourCleanupGroups
+} = require("./porto-duty-hours");
 
 function json(value, fallback) {
   return JSON.stringify(value == null ? fallback : value);
@@ -237,6 +242,31 @@ function createPostgresPeopleStore(options = {}) {
       asDateTime(entry.enteredAt),
       json(entry, {})
     ]);
+  }
+
+  async function deleteStalePortoDutyHourEntries(client, entries) {
+    for (const group of portoDutyHourCleanupGroups(entries)) {
+      await client.query(
+        `delete from hours
+         where week_year = $1
+           and week_number = $2
+           and raw->>'sourceUnitId' = $3
+           and (
+             entered_by_id = $4
+             or id like 'porto-duty-%'
+             or raw->>'source' = $5
+           )
+           and not (id = any($6::text[]))`,
+        [
+          group.weekYear,
+          group.weekNumber,
+          group.sourceUnitId,
+          PORTO_DUTY_HOURS_ENTERED_BY_ID,
+          PORTO_DUTY_HOURS_SOURCE,
+          group.ids
+        ]
+      );
+    }
   }
 
   async function writeHours(client, hours) {
@@ -598,6 +628,7 @@ function createPostgresPeopleStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await deleteStalePortoDutyHourEntries(client, entries);
         for (const entry of entries) {
           await upsertHourEntry(client, entry);
         }

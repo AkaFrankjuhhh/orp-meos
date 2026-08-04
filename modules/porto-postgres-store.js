@@ -2,6 +2,7 @@ const { withClient } = require("./db");
 const {
   DEFAULT_PORTO_DUTY_HOURS_START_WEEK,
   buildPortoDutyHourEntries,
+  portoDutyHourCleanupGroups,
   PORTO_DUTY_HOURS_ENTERED_BY_ID,
   PORTO_DUTY_HOURS_SOURCE
 } = require("./porto-duty-hours");
@@ -264,6 +265,31 @@ async function upsertHourEntry(client, entry) {
   ]);
 }
 
+async function deleteStalePortoDutyHourEntries(client, entries) {
+  for (const group of portoDutyHourCleanupGroups(entries)) {
+    await client.query(
+      `delete from hours
+       where week_year = $1
+         and week_number = $2
+         and raw->>'sourceUnitId' = $3
+         and (
+           entered_by_id = $4
+           or id like 'porto-duty-%'
+           or raw->>'source' = $5
+         )
+         and not (id = any($6::text[]))`,
+      [
+        group.weekYear,
+        group.weekNumber,
+        group.sourceUnitId,
+        PORTO_DUTY_HOURS_ENTERED_BY_ID,
+        PORTO_DUTY_HOURS_SOURCE,
+        group.ids
+      ]
+    );
+  }
+}
+
 async function upsertPortoUnit(client, unit) {
   if (unit.active === false || unit.status === "8" || unit.endedAt) {
     await deletePortoUnitIfCurrent(client, unit);
@@ -497,6 +523,7 @@ function createPostgresPortoStore(options = {}) {
     await withClient(async (client) => {
       await client.query("begin");
       try {
+        await deleteStalePortoDutyHourEntries(client, entries);
         for (const entry of entries) await upsertHourEntry(client, entry);
         await client.query("commit");
       } catch (error) {

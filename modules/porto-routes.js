@@ -265,6 +265,39 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     return Number.isFinite(hours) && hours > 0 ? Math.round(hours * 3600) : 0;
   }
 
+  function mergedHourEntrySeconds(entries, rangeStartMs = null, rangeEndMs = null) {
+    const intervals = [];
+    let fallbackSeconds = 0;
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      const startedAt = timestampMs(entry?.startedAt);
+      const endedAt = timestampMs(entry?.endedAt);
+      if (endedAt > startedAt) {
+        const start = Number.isFinite(rangeStartMs) ? Math.max(startedAt, rangeStartMs) : startedAt;
+        const end = Number.isFinite(rangeEndMs) ? Math.min(endedAt, rangeEndMs) : endedAt;
+        if (end > start) intervals.push({ start, end });
+        continue;
+      }
+      fallbackSeconds += secondsFromHourEntry(entry);
+    }
+    intervals.sort((a, b) => a.start - b.start || a.end - b.end);
+    let mergedSeconds = 0;
+    let active = null;
+    for (const interval of intervals) {
+      if (!active) {
+        active = { ...interval };
+        continue;
+      }
+      if (interval.start <= active.end) {
+        active.end = Math.max(active.end, interval.end);
+        continue;
+      }
+      mergedSeconds += Math.round((active.end - active.start) / 1000);
+      active = { ...interval };
+    }
+    if (active) mergedSeconds += Math.round((active.end - active.start) / 1000);
+    return fallbackSeconds + mergedSeconds;
+  }
+
   function isPortoDutyHourEntry(entry) {
     if (!entry) return false;
     if (entry.source === PORTO_DUTY_HOURS_SOURCE) return true;
@@ -274,6 +307,16 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   function currentWeekPortoDutyEntries(state, now, week) {
     const byKey = new Map();
+    const generatedEntries = buildPortoDutyHourEntries(state, {
+      now,
+      timeZone: portoDutyHoursTimeZone,
+      startWeek: portoDutyHoursStartWeek
+    });
+    const activeSourceUnitIds = new Set(
+      (state?.portoUnits || [])
+        .filter((unit) => unit?.active !== false && unit?.assignedAt && unit?.id)
+        .map((unit) => String(unit.id))
+    );
     const addEntry = (entry) => {
       if (!entry || Number(entry.weekYear) !== week.weekYear || Number(entry.weekNumber) !== week.weekNumber) return;
       if (!isPortoDutyHourEntry(entry)) return;
@@ -288,12 +331,12 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const previous = byKey.get(key);
       if (!previous || secondsFromHourEntry(entry) >= secondsFromHourEntry(previous)) byKey.set(key, entry);
     };
-    for (const entry of Array.isArray(state?.hours) ? state.hours : []) addEntry(entry);
-    for (const entry of buildPortoDutyHourEntries(state, {
-      now,
-      timeZone: portoDutyHoursTimeZone,
-      startWeek: portoDutyHoursStartWeek
-    })) addEntry(entry);
+    for (const entry of Array.isArray(state?.hours) ? state.hours : []) {
+      const sourceUnitId = String(entry?.sourceUnitId || "");
+      if (sourceUnitId && activeSourceUnitIds.has(sourceUnitId)) continue;
+      addEntry(entry);
+    }
+    for (const entry of generatedEntries) addEntry(entry);
     return [...byKey.values()];
   }
 
@@ -320,16 +363,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     if (!total) return { total: 0, counted: 0 };
     const activeStartMs = Math.max(assignedAtMs, weekStartMs);
     const activeEndMs = Math.min(nowMs, weekEndMs);
-    const counted = entries
-      .filter((entry) => String(entry.personId || "") === String(person.id || "") && portoDutyEntryMatchesUnit(entry, unit))
-      .reduce((sum, entry) => {
-        const entryStartMs = timestampMs(entry.startedAt);
-        const entryEndMs = timestampMs(entry.endedAt);
-        if (entryEndMs > entryStartMs) {
-          return sum + rangeOverlapSeconds(entryStartMs, entryEndMs, activeStartMs, activeEndMs);
-        }
-        return sum + secondsFromHourEntry(entry);
-      }, 0);
+    const counted = mergedHourEntrySeconds(
+      entries.filter((entry) => String(entry.personId || "") === String(person.id || "") && portoDutyEntryMatchesUnit(entry, unit)),
+      activeStartMs,
+      activeEndMs
+    );
     return { total, counted };
   }
 
@@ -340,9 +378,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     const nowMs = now.getTime();
     const currentSessionSeconds = assignedAtMs ? Math.max(0, Math.floor((nowMs - assignedAtMs) / 1000)) : 0;
     const currentWeekEntries = currentWeekPortoDutyEntries(state, now, week);
-    let weekTotalSeconds = currentWeekEntries
-      .filter((entry) => String(entry.personId || "") === String(person?.id || ""))
-      .reduce((total, entry) => total + secondsFromHourEntry(entry), 0);
+    let weekTotalSeconds = mergedHourEntrySeconds(
+      currentWeekEntries.filter((entry) => String(entry.personId || "") === String(person?.id || ""))
+    );
     const activeSession = activePortoDutySessionWeekSeconds(currentWeekEntries, person, unit, assignedAtMs, nowMs, week);
     weekTotalSeconds += Math.max(0, activeSession.total - activeSession.counted);
     return {

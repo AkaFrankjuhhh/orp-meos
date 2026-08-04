@@ -102,7 +102,21 @@ function findPerson(reference, indexes) {
   return null;
 }
 
-function unitParticipants(unit, indexes) {
+function groupedParticipantIdsByVehicle(units, indexes) {
+  const byVehicle = new Map();
+  for (const unit of Array.isArray(units) ? units : []) {
+    const vehicleNumber = String(unit?.vehicleNumber || "").trim();
+    if (!vehicleNumber) continue;
+    const person = findPerson(unit, indexes);
+    if (!person?.id) continue;
+    const current = byVehicle.get(vehicleNumber) || new Set();
+    current.add(String(person.id));
+    byVehicle.set(vehicleNumber, current);
+  }
+  return byVehicle;
+}
+
+function unitParticipants(unit, indexes, groupedIdsByVehicle = new Map()) {
   const participants = [];
   const seen = new Set();
   const add = (person) => {
@@ -110,13 +124,20 @@ function unitParticipants(unit, indexes) {
     seen.add(String(person.id));
     participants.push(person);
   };
-  add(findPerson(unit, indexes));
+  const owner = findPerson(unit, indexes);
+  add(owner);
+  const vehicleNumber = String(unit?.vehicleNumber || "").trim();
+  const groupedIds = vehicleNumber ? groupedIdsByVehicle.get(vehicleNumber) : null;
   const linked = [
     ...(Array.isArray(unit.linkedWith) ? unit.linkedWith : []),
     ...(Array.isArray(unit.linkedMembers) ? unit.linkedMembers : []),
     ...(Array.isArray(unit.members) ? unit.members : [])
   ];
-  for (const reference of linked) add(findPerson(reference, indexes));
+  for (const reference of linked) {
+    const person = findPerson(reference, indexes);
+    if (person?.id && groupedIds?.has(String(person.id)) && String(person.id) !== String(owner?.id || "")) continue;
+    add(person);
+  }
   return participants;
 }
 
@@ -133,6 +154,7 @@ function buildPortoDutyHourEntries(state, options = {}) {
   const startWeek = parsePortoDutyHoursStartWeek(options.startWeek);
   const units = Array.isArray(state?.portoUnits) ? state.portoUnits : [];
   const indexes = peopleIndexes(state?.people);
+  const groupedIdsByVehicle = groupedParticipantIdsByVehicle(units, indexes);
   const entries = [];
   for (const unit of units) {
     if (!unit) continue;
@@ -140,7 +162,7 @@ function buildPortoDutyHourEntries(state, options = {}) {
     if (!startedAt) continue;
     const endedAt = unitEndDate(unit, now);
     if (!endedAt || endedAt <= startedAt) continue;
-    const participants = unitParticipants(unit, indexes);
+    const participants = unitParticipants(unit, indexes, groupedIdsByVehicle);
     if (!participants.length) continue;
     const segments = splitRangeByOperationalWeeks(startedAt, endedAt, { timeZone });
     for (const person of participants) {
@@ -180,11 +202,32 @@ function buildPortoDutyHourEntries(state, options = {}) {
   return entries;
 }
 
+function portoDutyHourCleanupGroups(entries) {
+  const groups = new Map();
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    if (!isPortoDutyClockEntry(entry)) continue;
+    const sourceUnitId = String(entry.sourceUnitId || "").trim();
+    const weekYear = Number(entry.weekYear || 0);
+    const weekNumber = Number(entry.weekNumber || 0);
+    const id = String(entry.id || "").trim();
+    if (!sourceUnitId || !Number.isInteger(weekYear) || !Number.isInteger(weekNumber) || !id) continue;
+    const key = `${sourceUnitId}::${weekYear}::${weekNumber}`;
+    const group = groups.get(key) || { sourceUnitId, weekYear, weekNumber, ids: new Set() };
+    group.ids.add(id);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map((group) => ({
+    ...group,
+    ids: [...group.ids]
+  }));
+}
+
 module.exports = {
   DEFAULT_PORTO_DUTY_HOURS_START_WEEK,
   PORTO_DUTY_HOURS_ENTERED_BY_ID,
   PORTO_DUTY_HOURS_SOURCE,
   buildPortoDutyHourEntries,
   filterPortoDutyHourEntriesByStartWeek,
+  portoDutyHourCleanupGroups,
   parsePortoDutyHoursStartWeek
 };
