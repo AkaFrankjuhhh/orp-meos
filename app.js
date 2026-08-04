@@ -48,6 +48,7 @@ let pendingI8ArchiveDeleteId = "";
 let pendingAbsenceId = "";
 let selectedMentorProfileId = "";
 let activeI8Tab = "list";
+let activeVehicleSeizureTab = "list";
 const pageStorageKey = `orp-${organizationKey}-current-page`;
 const profileStorageKey = `orp-${organizationKey}-current-profile`;
 const mentorStorageKey = `orp-${organizationKey}-current-mentor`;
@@ -2189,7 +2190,17 @@ function vehicleSeizuresSorted() {
   ));
 }
 
+function setVehicleSeizureTab(tab) {
+  activeVehicleSeizureTab = tab === "create" ? "create" : "list";
+  $$("[data-vehicle-seizure-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.vehicleSeizureTab === activeVehicleSeizureTab);
+  });
+  $("#vehicleSeizureListPanel")?.classList.toggle("active", activeVehicleSeizureTab === "list");
+  $("#vehicleSeizureCreatePanel")?.classList.toggle("active", activeVehicleSeizureTab === "create");
+}
+
 function renderVehicleSeizures() {
+  setVehicleSeizureTab(activeVehicleSeizureTab);
   const list = $("#vehicleSeizureList");
   if (!list) return;
   const query = ($("#vehicleSeizureSearchInput")?.value || "").trim().toLowerCase();
@@ -3062,6 +3073,9 @@ function wireEvents() {
   $("#blacklistSearchInput")?.addEventListener("input", renderBlacklist);
   $("#vehicleSeizureSearchInput")?.addEventListener("input", renderVehicleSeizures);
   $("#vehicleSeizureStatusFilter")?.addEventListener("change", renderVehicleSeizures);
+  $$("[data-vehicle-seizure-tab]").forEach((button) => {
+    button.addEventListener("click", () => setVehicleSeizureTab(button.dataset.vehicleSeizureTab));
+  });
   $("#vehicleSeizureList")?.addEventListener("click", async (event) => {
     const releaseButton = event.target.closest("[data-vehicle-seizure-release]");
     if (!releaseButton || !canManageVehicleSeizures()) return;
@@ -3795,11 +3809,13 @@ function wireEvents() {
       if (!saved) return;
       form.reset();
       renderVehicleSeizures();
+      setVehicleSeizureTab("list");
       const message = $("#vehicleSeizureMessage");
       if (message) {
-        message.textContent = "Voertuiginbeslagname opgeslagen.";
-        message.hidden = false;
+        message.textContent = "";
+        message.hidden = true;
       }
+      await showSiteNotice("Voertuiginbeslagname opgeslagen.", "Opgeslagen");
     } finally {
       form.dataset.submitting = "false";
       setSubmitBusy(form, false);

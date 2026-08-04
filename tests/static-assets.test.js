@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260804-meos-sidebar/);
+  assert.match(html, /app\.js\?v=20260804-vehicle-seizure-tabs/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -176,13 +176,17 @@ test("suggestion threads and vehicle seizures are wired", () => {
   const politieEnvExample = fs.readFileSync(path.join(process.cwd(), ".env.politie.example"), "utf8");
 
   assert.match(html, /data-page="voertuiginbeslagname"/);
+  assert.match(html, /data-vehicle-seizure-tab="list"/);
+  assert.match(html, /data-vehicle-seizure-tab="create"/);
   assert.match(html, /vehicle-seizure-workspace/);
   assert.match(html, /vehicleSeizureOverviewTitle/);
-  assert.match(html, /Registreer een nieuwe inbeslagname/);
+  assert.match(html, /Inbeslaggenomen voertuigen/);
+  assert.match(html, /Nieuwe inbeslagname opstellen/);
   assert.match(html, /id="vehicleSeizureForm"/);
   assert.match(html, /id="vehicleSeizureList"/);
   assert.match(appCode, /voertuiginbeslagname: "\/voertuiginbeslagname"/);
   assert.match(appCode, /function renderVehicleSeizures\(/);
+  assert.match(appCode, /function setVehicleSeizureTab\(/);
   assert.match(appCode, /\/api\/vehicle-seizures/);
   assert.match(appCode, /vehicle-seizures/);
   assert.match(styles, /\.vehicle-seizure-workspace/);
@@ -315,7 +319,7 @@ test("profile badge context dialog groups controls with a summary", () => {
   const profileCode = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "profile.js"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260802-defensie-department-badges/);
+  assert.match(html, /personeelsportaal\.css\?v=20260804-vehicle-seizure-tabs/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260802-defensie-department-badges/);
   assert.match(html, /personeelsportaal-data\.js\?v=20260802-defensie-department-badges/);
   assert.match(html, /id="profileBadgeSummary"/);
@@ -503,7 +507,7 @@ test("portal chrome keeps topbar controls inside narrow desktop viewports", () =
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "personeelsportaal.css"), "utf8");
 
-  assert.match(html, /personeelsportaal\.css\?v=20260802-defensie-department-badges/);
+  assert.match(html, /personeelsportaal\.css\?v=20260804-vehicle-seizure-tabs/);
   assert.match(styles, /Portal chrome stability for browser zoom/);
   assert.match(styles, /body:not\(\.locked\) \{[\s\S]*overflow-x: clip;/);
   assert.match(styles, /\.topbar \{[\s\S]*flex-wrap: wrap;/);

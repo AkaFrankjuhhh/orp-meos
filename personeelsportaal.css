@@ -633,12 +633,13 @@ label {
   gap: 16px;
 }
 
+.vehicle-seizure-tabs {
+  margin-top: 2px;
+}
+
 .vehicle-seizure-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.75fr);
-  gap: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+  display: block;
+  min-width: 0;
 }
 
 .vehicle-seizure-overview,
@@ -650,8 +651,7 @@ label {
 }
 
 .vehicle-seizure-create {
-  padding-left: 20px;
-  border-left: 1px solid var(--line);
+  padding: 0;
 }
 
 .vehicle-seizure-column-head {
@@ -671,7 +671,7 @@ label {
 }
 
 .vehicle-seizure-form {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .vehicle-seizure-form textarea {
@@ -795,23 +795,13 @@ label {
 }
 
 @media (max-width: 1180px) {
-  .vehicle-seizure-workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .vehicle-seizure-create {
-    padding-top: 16px;
-    padding-left: 0;
-    border-top: 1px solid var(--line);
-    border-left: 0;
+    padding: 0;
   }
 }
 
 @media (max-width: 760px) {
-  .vehicle-seizure-workspace {
-    gap: 16px;
-  }
-
+  .vehicle-seizure-form,
   .vehicle-seizure-toolbar,
   .vehicle-seizure-meta {
     grid-template-columns: 1fr;
