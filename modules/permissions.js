@@ -126,7 +126,9 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       || taskBadges.includes("Co\u00f6rdinator Mentor");
     const isOtcLeadership = taskBadges.includes("OTC-Leiding")
       || taskBadges.includes("Directie OTC")
-      || taskBadges.includes("Teamchef OTC");
+      || taskBadges.includes("Teamchef OTC")
+      || taskBadges.includes("Co\u00f6rdinator Mentor")
+      || taskBadges.includes("Co\u00f6rdinator Trainer");
     const isIzLeadership = taskBadges.includes("IZ-Leiding") || taskBadges.includes("IZ-Assist. Leiding");
     const isTrainerLeadership = taskBadges.includes("Trainer-Leiding")
       || taskBadges.includes("Trainer-Assist. Leiding")

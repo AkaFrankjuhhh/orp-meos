@@ -412,12 +412,13 @@ function createDiscordBotServices(options = {}) {
   }
 
   function normalizeBadgeRoleMapping(mapping, type) {
+    const envKeys = [mapping?.envKey || "", ...(mapping?.envFallbackKeys || [])];
     return {
       type,
       key: mapping?.key || "",
       label: mapping?.label || mapping?.key || "",
       envKey: mapping?.envKey || "",
-      roleId: envOrDefault(mapping?.envKey || "", mapping?.defaultRoleId || mapping?.roleId || "")
+      roleId: envOrDefault(envKeys, mapping?.defaultRoleId || mapping?.roleId || "")
     };
   }
 

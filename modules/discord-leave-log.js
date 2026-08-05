@@ -14,10 +14,10 @@ function collectOrganizationDiscordRoleIds(organization = currentOrganization())
   addRoleId(roleIds, organizationMainRoleId(organization));
 
   for (const mapping of organization.discord?.functionRoleMappings || []) {
-    addRoleId(roleIds, envOrDefault(mapping.envKey, mapping.defaultRoleId));
+    addRoleId(roleIds, envOrDefault([mapping.envKey, ...(mapping.envFallbackKeys || [])], mapping.defaultRoleId));
   }
   for (const mapping of organization.discord?.taskRoleMappings || []) {
-    addRoleId(roleIds, envOrDefault(mapping.envKey, mapping.defaultRoleId));
+    addRoleId(roleIds, envOrDefault([mapping.envKey, ...(mapping.envFallbackKeys || [])], mapping.defaultRoleId));
   }
   for (const mapping of Object.values(organization.discord?.rankRoleEnvKeys || {})) {
     if (typeof mapping === "string") {

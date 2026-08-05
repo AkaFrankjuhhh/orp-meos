@@ -112,9 +112,13 @@ test("defensie department leadership badges share Discord roles", () => {
 
   for (const badge of ["Directie OTC", "Teamchef OTC", "Co\u00f6rdinator Mentor", "Co\u00f6rdinator Trainer"]) {
     assert.equal(defensie.extraTasks.includes(badge), true, `${badge} mist in extraTasks`);
-    assert.equal(mappings.get(badge)?.envKey, "DISCORD_OTC_MANAGEMENT_ROLE_ID");
+    assert.equal(mappings.get(badge)?.envKey, "DISCORD_OTC_LEIDING_ROLE_ID");
+    assert.deepEqual(mappings.get(badge)?.envFallbackKeys, ["DISCORD_OTC_MANAGEMENT_ROLE_ID"]);
     assert.equal(mappings.get(badge)?.defaultRoleId, "1425219424872300667");
   }
+
+  assert.equal(mappings.get("OTC-Leiding")?.envKey, "DISCORD_OTC_LEIDING_ROLE_ID");
+  assert.equal(mappings.get("OTC-Leiding")?.defaultRoleId, "1425219424872300667");
 });
 
 test("police and defensie expose K9 trainings in the profile", () => {
@@ -504,6 +508,24 @@ test("defensie OTC department leadership can manage mentor and trainer badges", 
 
       assert.equal(permissions.canManageProfileBadges, true);
       assert.deepEqual(permissions.manageableProfileTaskBadges, ["Mentor", "Trainer"]);
+      assert.equal(permissions.canViewMentorOverview, true);
+    }
+
+    for (const [badge, manageableBadges] of [
+      ["Co\u00f6rdinator Mentor", ["Mentor"]],
+      ["Co\u00f6rdinator Trainer", ["Trainer"]]
+    ]) {
+      const permissions = services.permissionsForProfile({
+        id: `defensie-${badge}`,
+        name: badge,
+        rank: "Wachtmeester",
+        status: "Actief",
+        permRole: "Geen",
+        badges: [badge]
+      });
+
+      assert.equal(permissions.canManageProfileBadges, true);
+      assert.deepEqual(permissions.manageableProfileTaskBadges, manageableBadges);
       assert.equal(permissions.canViewMentorOverview, true);
     }
   });
