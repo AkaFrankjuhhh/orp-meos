@@ -39,6 +39,10 @@ function timestampMs(value) {
 
 const PORTO_UNIT_FRESHNESS_FIELDS = ["updatedAt", "endedAt", "assignedAt", "requestedAt"];
 const RUNTIME_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+const configuredTombstoneRetentionMs = Number(process.env.PORTO_UNIT_TOMBSTONE_RETENTION_MS || process.env.PORTO_STATUS8_REJOIN_GUARD_MS);
+const PORTO_UNIT_TOMBSTONE_RETENTION_MS = Number.isFinite(configuredTombstoneRetentionMs)
+  ? Math.max(60000, configuredTombstoneRetentionMs)
+  : 30 * 60 * 1000;
 
 let lastRuntimeCleanupAt = 0;
 
@@ -114,23 +118,28 @@ async function cleanupRuntimePortoUnits(client, { force = false } = {}) {
   lastRuntimeCleanupAt = now;
   await client.query(
     `delete from porto_units
-     where active is not true
+     where (active is not true
         or status = '8'
-        or ended_at is not null`
+        or ended_at is not null)
+       and coalesce(ended_at, updated_at, last_seen_at, now()) <= now() - ($1::double precision * interval '1 millisecond')`,
+    [PORTO_UNIT_TOMBSTONE_RETENTION_MS]
   );
 }
 
-async function deletePortoUnitIfCurrent(client, unit) {
-  const incomingUpdatedAt = portoUnitWriteTimestamp(unit, new Date(0));
-  await client.query(
-    `delete from porto_units
-     where id = $1
-       and (
-         coalesce($2::timestamptz, 'epoch'::timestamptz) >= coalesce(updated_at, 'epoch'::timestamptz)
-         or $3::boolean is true
-       )`,
-    [unit.id, incomingUpdatedAt, unit.active === false || unit.status === "8" || Boolean(unit.endedAt)]
+async function hasNewerPortoMemberTombstone(client, unit, incomingUpdatedAt) {
+  if (!unit?.memberId || unit.active === false || unit.status === "8" || unit.endedAt) return false;
+  const result = await client.query(
+    `select id
+     from porto_units
+     where member_id = $1
+       and id <> $2
+       and (active is not true or status = '8' or ended_at is not null)
+       and status_detail = 'Uit dienst'
+       and coalesce(ended_at, updated_at, last_seen_at, 'epoch'::timestamptz) >= coalesce($3::timestamptz, 'epoch'::timestamptz)
+     limit 1`,
+    [unit.memberId, unit.id, incomingUpdatedAt]
   );
+  return result.rowCount > 0;
 }
 
 function personFromRow(row) {
@@ -291,14 +300,10 @@ async function deleteStalePortoDutyHourEntries(client, entries) {
 }
 
 async function upsertPortoUnit(client, unit) {
-  if (unit.active === false || unit.status === "8" || unit.endedAt) {
-    await deletePortoUnitIfCurrent(client, unit);
-    return;
-  }
-
   const rawUnit = { ...unit };
   delete rawUnit.forceCloseDuplicateMemberUnits;
   const incomingUpdatedAt = portoUnitWriteTimestamp(unit, new Date());
+  if (await hasNewerPortoMemberTombstone(client, unit, incomingUpdatedAt)) return;
   if (unit.active !== false && unit.memberId) {
     if (unit.vehicleNumber) {
       await client.query(

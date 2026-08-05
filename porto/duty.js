@@ -69,6 +69,7 @@ function setPortoSignedOffUntilStatus0(enabled) {
     window.clearTimeout(portoLiveRefreshDeferTimer);
     portoLiveRefreshDeferTimer = null;
   }
+  if (typeof setPortoBrowserHeartbeat === "function") setPortoBrowserHeartbeat(false);
 }
 
 function clearPortoAutoAssignTimer() {
@@ -697,7 +698,14 @@ async function loadPortoDuty(options = {}) {
 async function updatePortoStatus(status, detail = "") {
   if (portoStatusWritePromise) await portoStatusWritePromise.catch(() => {});
   portoStatusWritePromise = (async () => {
+    const wasSignedOffGuarded = Boolean(portoSignedOffUntilStatus0);
     if (status === "0") setPortoSignedOffUntilStatus0(false);
+    if (status === "8") {
+      setPortoSignedOffUntilStatus0(true);
+      if (typeof syncPortoBrowserHeartbeatForPayload === "function") {
+        syncPortoBrowserHeartbeatForPayload({ unit: null, recentlyEnded: true });
+      }
+    }
     const requestNoteInput = $("#portoStatusRequestInput");
     const requestNote = status === "0" ? String(requestNoteInput?.value || "").trim() : "";
     const response = await fetch("/api/porto/status", {
@@ -722,6 +730,12 @@ async function updatePortoStatus(status, detail = "") {
       }
       showPortoInlineError(payload.error || "Porto status kon niet worden opgeslagen.");
       await showPortoNotice(payload.error || "Porto status kon niet worden opgeslagen.", "Status mislukt");
+      if (status === "8" && payload.code !== "porto_recently_ended") {
+        setPortoSignedOffUntilStatus0(wasSignedOffGuarded);
+        if (!wasSignedOffGuarded && typeof setPortoBrowserHeartbeat === "function") {
+          setPortoBrowserHeartbeat(Boolean(portoDuty && String(portoDuty.status || "") !== "8"));
+        }
+      }
       return false;
     }
     if (status !== "4" || detail) portoModernStatus4Pending = false;

@@ -148,7 +148,7 @@ test("modern porto status 4 reason menu survives live refresh", () => {
   const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
 
-  assert.match(html, /porto\/duty\.js\?v=20260804-status8-rejoin-guard/);
+  assert.match(html, /porto\/duty\.js\?v=20260805-status8-tombstone/);
   assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(dutyCode, /let portoModernStatus4Pending = false/);
   assert.match(dutyCode, /const showChoices = portoModernStatus4Pending \|\| String\(portoDuty\?\.status\) === "4"/);
@@ -651,7 +651,7 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(html, /id="portoModernDutyDashboard"/);
   assert.match(html, /id="portoModernOpsDashboard"/);
   assert.match(html, /porto\/ops\.js\?v=20260731-ops-refresh-state/);
-  assert.match(html, /porto\/duty\.js\?v=20260804-status8-rejoin-guard/);
+  assert.match(html, /porto\/duty\.js\?v=20260805-status8-tombstone/);
   assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(portoCode, /PORTO_UI_MODE_KEY/);
   assert.match(portoCode, /let portoDutyTime = null/);
@@ -749,6 +749,7 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
   const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
+  const portoStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-postgres-store.js"), "utf8");
   const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
   const policeEnvExample = fs.readFileSync(path.join(process.cwd(), ".env.politie.example"), "utf8");
 
@@ -766,21 +767,28 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   assert.match(clientCode, /event\.persisted/);
   assert.doesNotMatch(clientCode, /beforeunload", sendPortoBrowserClosedSignal/);
   assert.match(dutyCode, /syncPortoBrowserHeartbeatForPayload\(payload\)/);
+  assert.match(dutyCode, /if \(status === "8"\) \{[\s\S]*setPortoSignedOffUntilStatus0\(true\)/);
+  assert.match(dutyCode, /setPortoBrowserHeartbeat\(false\)/);
   assert.match(dutyCode, /if \(portoSignedOffUntilStatus0\) return;/);
   assert.match(dutyCode, /function setPortoSignedOffUntilStatus0\(enabled\) \{[\s\S]*clearPortoAutoAssignTimer\(\);/);
+  assert.match(portoStoreCode, /PORTO_UNIT_TOMBSTONE_RETENTION_MS/);
+  assert.match(portoStoreCode, /hasNewerPortoMemberTombstone/);
+  assert.match(portoStoreCode, /coalesce\(ended_at, updated_at, last_seen_at, now\(\)\) <= now\(\) - \(\$1::double precision \* interval '1 millisecond'\)/);
   assert.match(routesCode, /manualStatusChange = body\.manualStatusChange === true/);
   assert.match(routesCode, /recentlyEnded && status === "0" && !manualStatusChange/);
   assert.match(routesCode, /if \(isRecentlyEnded\(person\.id\)\) \{[\s\S]*recentlyEndedError\(\)/);
-  assert.match(html, /porto\/duty\.js\?v=20260804-status8-rejoin-guard/);
+  assert.match(html, /porto\/duty\.js\?v=20260805-status8-tombstone/);
   assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
   assert.match(envExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(envExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
   assert.match(envExample, /PORTO_STATUS8_REJOIN_GUARD_MS=900000/);
+  assert.match(envExample, /PORTO_UNIT_TOMBSTONE_RETENTION_MS=1800000/);
   assert.match(policeEnvExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(policeEnvExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(policeEnvExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);
   assert.match(policeEnvExample, /PORTO_STATUS8_REJOIN_GUARD_MS=900000/);
+  assert.match(policeEnvExample, /PORTO_UNIT_TOMBSTONE_RETENTION_MS=1800000/);
 });
 
 test("porto live events refresh OPS status 0 without waiting for the poll throttle", () => {
