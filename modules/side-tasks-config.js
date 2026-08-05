@@ -15,10 +15,10 @@ const SIDE_TASK_DEFINITIONS = {
     allowAlias: true,
     dsiUnits: {
       prefix: "50",
-      min: 3,
+      min: 2,
       max: 99,
       capacity: 3,
-      commandUnits: { TCO: "50-01", ACO: "50-02" }
+      commandUnits: { TCO: "50-00", ACO: "50-01" }
     },
     commandRoleDefaults: {
       ACO: "1517546277913628695",

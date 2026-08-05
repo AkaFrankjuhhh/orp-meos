@@ -387,7 +387,7 @@ function dsiContextMenu() {
   appState.members
     .filter((entry) => entry.status !== "8" && entry.unitNumber)
     .forEach((entry) => unitCounts.set(entry.unitNumber, (unitCounts.get(entry.unitNumber) || 0) + 1));
-  const firstRegularUnit = Number(appState.me.task?.dsiUnits?.min || 3);
+  const firstRegularUnit = Number(appState.me.task?.dsiUnits?.min || 2);
   const unitPrefix = String(appState.me.task?.dsiUnits?.prefix || "50");
   const capacity = Number(appState.me.task?.dsiUnits?.capacity || 3);
   const units = [...unitCounts.entries()]

@@ -26,7 +26,8 @@ test("DSI status 0 requires saved callsign and alias", () => {
 test("DSI uses the 50 unit range", () => {
   const dsiTask = sideTaskForKey("DSI");
   assert.equal(dsiTask.dsiUnits.prefix, "50");
-  assert.deepEqual(dsiTask.dsiUnits.commandUnits, { TCO: "50-01", ACO: "50-02" });
+  assert.equal(dsiTask.dsiUnits.min, 2);
+  assert.deepEqual(dsiTask.dsiUnits.commandUnits, { TCO: "50-00", ACO: "50-01" });
 });
 
 test("DSI unit assignment does not hard-code the old 24 range", () => {
@@ -34,6 +35,8 @@ test("DSI unit assignment does not hard-code the old 24 range", () => {
   const uiCode = fs.readFileSync(path.join(process.cwd(), "side-tasks.js"), "utf8");
   assert.doesNotMatch(storeCode, /`24-\$\{String\(index\)/);
   assert.doesNotMatch(storeCode, /\^24-/);
+  assert.match(storeCode, /TCO: `\$\{DSI_UNIT_PREFIX\}-00`, ACO: `\$\{DSI_UNIT_PREFIX\}-01`/);
+  assert.match(storeCode, /const DSI_FIRST_REGULAR_UNIT = Number\(DSI_UNITS\.min \|\| 2\)/);
   assert.doesNotMatch(uiCode, /24-eenheid|24-eenheden|24-nummer/);
 });
 

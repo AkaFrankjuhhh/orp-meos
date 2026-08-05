@@ -7,8 +7,8 @@ let sideTaskPool = null;
 const DSI_UNITS = sideTaskForKey("DSI")?.dsiUnits || {};
 const DSI_UNIT_PREFIX = String(DSI_UNITS.prefix || "50");
 const DSI_OLD_UNIT_PREFIXES = ["24"].filter((prefix) => prefix !== DSI_UNIT_PREFIX);
-const DSI_COMMAND_UNITS = Object.freeze(DSI_UNITS.commandUnits || { TCO: `${DSI_UNIT_PREFIX}-01`, ACO: `${DSI_UNIT_PREFIX}-02` });
-const DSI_FIRST_REGULAR_UNIT = Number(DSI_UNITS.min || 3);
+const DSI_COMMAND_UNITS = Object.freeze(DSI_UNITS.commandUnits || { TCO: `${DSI_UNIT_PREFIX}-00`, ACO: `${DSI_UNIT_PREFIX}-01` });
+const DSI_FIRST_REGULAR_UNIT = Number(DSI_UNITS.min || 2);
 const DSI_LAST_REGULAR_UNIT = Number(DSI_UNITS.max || 99);
 const DSI_UNIT_CAPACITY = Number(DSI_UNITS.capacity || 3);
 const DNR_UNITS = sideTaskForKey("DNR")?.dnrUnits || [];
@@ -170,6 +170,18 @@ async function ensureSideTaskSchema() {
          where task_key = 'DSI'
            and unit_number ~ ($1 || '-[0-9]{2}$')`,
         [oldPrefix, DSI_UNIT_PREFIX]
+      );
+    }
+    for (const [commandRole, unitNumber] of Object.entries(DSI_COMMAND_UNITS)) {
+      await client.query(
+        `update side_task_members
+         set unit_number = $2,
+             raw = jsonb_set(raw, '{unitNumber}', to_jsonb($2::text), true),
+             updated_at = now()
+         where task_key = 'DSI'
+           and command_role = $1
+           and unit_number <> $2`,
+        [commandRole, unitNumber]
       );
     }
     await client.query("create index if not exists side_task_members_task_unit_idx on side_task_members(task_key, unit_number) where unit_number <> ''");
@@ -641,7 +653,7 @@ function createSideTasksStore() {
     const match = new RegExp(`^${DSI_UNIT_PREFIX}-(\\d{1,2})$`).exec(String(number || "").trim());
     if (!match) return "";
     const suffix = Number(match[1]);
-    return suffix >= 1 && suffix <= DSI_LAST_REGULAR_UNIT ? formatDsiUnit(suffix) : "";
+    return suffix >= 0 && suffix <= DSI_LAST_REGULAR_UNIT ? formatDsiUnit(suffix) : "";
   }
 
   function isReservedDsiUnit(unitNumber) {
