@@ -292,7 +292,7 @@ const organizationConfigs = {
       { label: "Hoofdofficier", ranks: ["Kolonel", "Luitenant-Kolonel", "Majoor"] }
     ],
     permissionAliases: {
-      kader: ["Kader", "OVC", "Overheidscoordinator"],
+      kader: ["Kader"],
       viewAsKader: ["Kader", "OVC", "Overheidscoordinator"],
       hoofdofficier: ["Hoofdofficier"],
       officiersraad: ["Officiersraad"]
@@ -489,7 +489,7 @@ const organizationConfigs = {
       { label: "Bestuur", ranks: ["Hoofdinspecteur", "Inspecteur"] }
     ],
     permissionAliases: {
-      kader: ["Korpsleiding", "OVC", "Overheidscoordinator"],
+      kader: ["Korpsleiding"],
       viewAsKader: ["Korpsleiding", "Bestuur", "OVC", "Overheidscoordinator"],
       hoofdofficier: ["Bestuur"],
       officiersraad: []

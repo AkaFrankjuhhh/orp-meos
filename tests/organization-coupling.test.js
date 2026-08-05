@@ -320,6 +320,34 @@ test("defensie officer leadership can manage I.O status", () => {
   });
 });
 
+test("OVC can view leadership pages without becoming Kader or Korpsleiding", () => {
+  for (const key of ["defensie", "politie"]) {
+    withOrganization(key, () => {
+      const { organizationConfigs } = require("../modules/organizations");
+      const { createPermissionServices } = require("../modules/permissions");
+      const organization = organizationConfigs[key];
+      const services = createPermissionServices({
+        extraFunctions: organization.extraFunctions,
+        extraTasks: organization.extraTasks,
+        readState: () => ({ people: [] })
+      });
+      const permissions = services.permissionsForProfile({
+        id: `${key}-ovc`,
+        name: "OVC",
+        rank: key === "politie" ? "Agent" : "Wachtmeester",
+        status: "Actief",
+        permRole: "OVC",
+        badges: []
+      });
+
+      assert.equal(services.isKaderProfile({ permRole: "OVC", status: "Actief" }), false);
+      assert.equal(permissions.canViewKaderPages, true);
+      assert.equal(permissions.canManagePeople, false);
+      assert.equal(permissions.canManagePersonnelRanks, false);
+    });
+  }
+});
+
 test("police leadership can view I8, mentor and discipline without becoming OvJ reviewers", () => {
   withOrganization("politie", () => {
     const { organizationConfigs } = require("../modules/organizations");
