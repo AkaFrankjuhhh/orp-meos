@@ -1094,7 +1094,7 @@ async function validateI8FormFields() {
     { selector: "#i8ForceUsed", label: "Gebruikte geweldsmiddel" },
     { selector: "#i8ForceWarningGiven", label: "Waarschuwing voor geweld" },
     { selector: "#i8Vehicle", label: "Geweld tegen voertuig" },
-    { selector: "#i8Injury", label: "Letsel bij derden" }
+    { selector: "#i8Injury", label: "Letsel bij verdachte/slachtoffer" }
   ];
   const missing = fields.find((field) => !String($(field.selector)?.value || "").trim());
   if (missing) {
