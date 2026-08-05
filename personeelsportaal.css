@@ -4682,6 +4682,13 @@ body.is-action-busy textarea {
   font-size: 0.78rem;
 }
 
+.system-health-table code {
+  color: #bfdbfe;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .system-health-table.compact {
   min-width: 620px;
   margin-top: -4px;

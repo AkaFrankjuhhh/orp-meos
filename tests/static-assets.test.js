@@ -562,6 +562,7 @@ test("portal exposes a protected system health page", () => {
   assert.match(appCode, /function canViewSystemHealth\(/);
   assert.match(appCode, /fetch\("\/api\/admin\/health"/);
   assert.match(appCode, /function renderDiscordJobHealth\(/);
+  assert.match(appCode, /function renderDiscordRoleConfigHealth\(/);
   assert.match(appCode, /function renderProfileAuditHealth\(/);
   assert.match(appCode, /function renderPortoHeartbeatHealth\(/);
   assert.match(appCode, /data-system-health-action/);
@@ -573,7 +574,10 @@ test("portal exposes a protected system health page", () => {
   assert.match(serverCode, /url\.pathname === "\/api\/admin\/discord-jobs\/cleanup"/);
   assert.match(serverCode, /healthPayload\(\{ includeDetails: true \}\)/);
   assert.match(serverCode, /payload\.discordSync\.failedByType/);
+  assert.match(serverCode, /payload\.discordRoleConfig/);
+  assert.match(serverCode, /buildDiscordRoleConfigHealth/);
   assert.match(serverCode, /payload\.profileAudit/);
+  assert.match(serverCode, /archivedSharingCurrent/);
   assert.match(serverCode, /payload\.portoDebug/);
 });
 

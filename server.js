@@ -530,6 +530,7 @@ async function readPublicFormSubmitBody(req) {
 const HEALTH_DISCORD_JOB_LIMIT = 12;
 const HEALTH_PROFILE_AUDIT_LIMIT = 12;
 const HEALTH_PORTO_UNIT_LIMIT = 12;
+const HEALTH_ROLE_CONFIG_LIMIT = 18;
 const HEALTH_PERMISSION_CACHE_MS = 60 * 1000;
 
 function healthProfileSummary(person) {
@@ -577,10 +578,86 @@ function buildProfileAuditFromState(state, limit = HEALTH_PROFILE_AUDIT_LIMIT) {
       return right.total - left.total;
     });
 
+  const archivedSharingCurrent = [...byDiscordId.entries()]
+    .map(([discordId, profiles]) => {
+      const orderedProfiles = profiles
+        .slice()
+        .sort((left, right) => {
+          const currentDelta = Number(isCurrentPerson(right)) - Number(isCurrentPerson(left));
+          if (currentDelta) return currentDelta;
+          return String(right.updatedAt || right.updated_at || "").localeCompare(String(left.updatedAt || left.updated_at || ""));
+        });
+      const currentCount = orderedProfiles.filter(isCurrentPerson).length;
+      const archivedCount = orderedProfiles.length - currentCount;
+      return {
+        discordId,
+        currentCount,
+        archivedCount,
+        profiles: orderedProfiles.slice(0, 6).map(healthProfileSummary)
+      };
+    })
+    .filter((entry) => entry.currentCount > 0 && entry.archivedCount > 0)
+    .sort((left, right) => {
+      const archivedDelta = right.archivedCount - left.archivedCount;
+      if (archivedDelta) return archivedDelta;
+      return right.currentCount - left.currentCount;
+    });
+  const archivedDiscordProfileCount = [...byDiscordId.values()]
+    .flat()
+    .filter((person) => !isCurrentPerson(person))
+    .length;
+
   return {
     duplicateDiscordIdCount: duplicateDiscordIds.length,
     currentDuplicateDiscordIdCount: duplicateDiscordIds.filter((entry) => entry.currentCount > 1).length,
-    duplicateDiscordIds: duplicateDiscordIds.slice(0, limit)
+    archivedDiscordProfileCount,
+    archivedSharingCurrentCount: archivedSharingCurrent.length,
+    duplicateDiscordIds: duplicateDiscordIds.slice(0, limit),
+    archivedSharingCurrent: archivedSharingCurrent.slice(0, limit)
+  };
+}
+
+function healthRoleCheck(group, label, envKey, roleId) {
+  return {
+    group: String(group || "Overig").trim(),
+    label: String(label || envKey || "Onbekend").trim(),
+    envKey: String(envKey || "").trim(),
+    roleId: String(roleId || "").trim()
+  };
+}
+
+function buildDiscordRoleConfigHealth(limit = HEALTH_ROLE_CONFIG_LIMIT) {
+  const rankMappings = typeof discordBot.allRankRoleMappings === "function" ? discordBot.allRankRoleMappings() : [];
+  const qualificationMappings = typeof discordBot.allQualificationRoleMappings === "function" ? discordBot.allQualificationRoleMappings() : [];
+  const trainingRequirementMappings = typeof discordBot.allTrainingRequirementRoleMappings === "function" ? discordBot.allTrainingRequirementRoleMappings() : [];
+  const badgeMappings = typeof discordBot.allBadgeRoleMappings === "function" ? discordBot.allBadgeRoleMappings() : [];
+  const separatorMappings = typeof discordBot.allSeparatorRoleMappings === "function" ? discordBot.allSeparatorRoleMappings() : [];
+  const checks = [
+    healthRoleCheck("Hoofdrol", organization.requiredRoleLabel || organization.label || "Organisatie", organization.discord?.mainRole?.envKey, organizationMainRoleId(organization)),
+    ...rankMappings.map((mapping) => healthRoleCheck("Rangrollen", mapping.rank, mapping.envKey, mapping.roleId)),
+    ...qualificationMappings.map((mapping) => healthRoleCheck("Kwalificatierollen", mapping.label || mapping.qualification, mapping.envKey, mapping.roleId)),
+    ...trainingRequirementMappings.map((mapping) => healthRoleCheck("Trainingsaanvragen", mapping.label || mapping.requirement, mapping.envKey, mapping.roleId)),
+    ...badgeMappings.map((mapping) => healthRoleCheck("Functies en badges", mapping.label || mapping.key, mapping.envKey, mapping.roleId)),
+    ...separatorMappings.map((mapping) => healthRoleCheck("Scheidingsrollen", mapping.label || mapping.key, mapping.envKey, mapping.roleId))
+  ].filter((mapping) => mapping.envKey || mapping.roleId);
+  const groupsByName = new Map();
+  for (const check of checks) {
+    const current = groupsByName.get(check.group) || { group: check.group, configured: 0, missing: 0, total: 0 };
+    current.total += 1;
+    if (check.roleId) current.configured += 1;
+    else current.missing += 1;
+    groupsByName.set(check.group, current);
+  }
+  const missing = checks.filter((check) => !check.roleId);
+  return {
+    botTokenConfigured: Boolean(process.env.DISCORD_BOT_TOKEN),
+    guildIdConfigured: Boolean(process.env.DISCORD_GUILD_ID),
+    botConfigured: typeof discordBot.isConfigured === "function" ? Boolean(discordBot.isConfigured()) : Boolean(process.env.DISCORD_BOT_TOKEN && process.env.DISCORD_GUILD_ID),
+    configuredCount: checks.length - missing.length,
+    missingCount: missing.length,
+    totalCount: checks.length,
+    groups: [...groupsByName.values()],
+    missing: missing.slice(0, limit)
   };
 }
 
@@ -734,7 +811,7 @@ async function healthPayload({ includeDetails = false } = {}) {
           where datname = current_database()
         `);
         const profileAuditCounts = await client.query(`
-          with duplicate_ids as (
+          with grouped_discord_ids as (
             select
               lower(discord_id) as discord_id,
               count(*)::int as total,
@@ -744,12 +821,13 @@ async function healthPayload({ includeDetails = false } = {}) {
             from people
             where coalesce(discord_id, '') <> ''
             group by lower(discord_id)
-            having count(*) > 1
           )
           select
-            count(*)::int as duplicate_discord_id_count,
-            count(*) filter (where current_count > 1)::int as current_duplicate_discord_id_count
-          from duplicate_ids
+            count(*) filter (where total > 1)::int as duplicate_discord_id_count,
+            count(*) filter (where total > 1 and current_count > 1)::int as current_duplicate_discord_id_count,
+            (select count(*)::int from people where coalesce(discord_id, '') <> '' and lower(coalesce(status, 'Actief')) in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')) as archived_discord_profile_count,
+            count(*) filter (where current_count > 0 and (total - current_count) > 0)::int as archived_sharing_current_count
+          from grouped_discord_ids
         `);
         const profileAudit = await client.query(`
           select
@@ -775,6 +853,41 @@ async function healthPayload({ includeDetails = false } = {}) {
           group by lower(discord_id)
           having count(*) > 1
           order by current_count desc, total desc
+          limit $1
+        `, [HEALTH_PROFILE_AUDIT_LIMIT]);
+        const archivedSharingCurrent = await client.query(`
+          with grouped_discord_ids as (
+            select
+              lower(discord_id) as discord_id,
+              count(*)::int as total,
+              count(*) filter (
+                where lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')
+              )::int as current_count
+            from people
+            where coalesce(discord_id, '') <> ''
+            group by lower(discord_id)
+          )
+          select
+            g.discord_id,
+            g.current_count,
+            (g.total - g.current_count)::int as archived_count,
+            jsonb_agg(
+              jsonb_build_object(
+                'id', p.id,
+                'name', p.name,
+                'rank', coalesce(p.rank, ''),
+                'serviceNumber', coalesce(p.service_number, ''),
+                'status', coalesce(p.status, 'Actief'),
+                'current', lower(coalesce(p.status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist'),
+                'updatedAt', p.updated_at
+              )
+              order by (lower(coalesce(p.status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')) desc, p.updated_at desc nulls last
+            ) as profiles
+          from grouped_discord_ids g
+          join people p on lower(p.discord_id) = g.discord_id
+          where g.current_count > 0 and (g.total - g.current_count) > 0
+          group by g.discord_id, g.current_count, g.total
+          order by (g.total - g.current_count) desc, g.current_count desc
           limit $1
         `, [HEALTH_PROFILE_AUDIT_LIMIT]);
         const portoDebug = await client.query(`
@@ -841,13 +954,22 @@ async function healthPayload({ includeDetails = false } = {}) {
         payload.profileAudit = {
           duplicateDiscordIdCount: Number(profileAuditCounts.rows[0]?.duplicate_discord_id_count || 0),
           currentDuplicateDiscordIdCount: Number(profileAuditCounts.rows[0]?.current_duplicate_discord_id_count || 0),
+          archivedDiscordProfileCount: Number(profileAuditCounts.rows[0]?.archived_discord_profile_count || 0),
+          archivedSharingCurrentCount: Number(profileAuditCounts.rows[0]?.archived_sharing_current_count || 0),
           duplicateDiscordIds: profileAudit.rows.map((row) => ({
             discordId: row.discord_id || "",
             total: Number(row.total || 0),
             currentCount: Number(row.current_count || 0),
             profiles: Array.isArray(row.profiles) ? row.profiles : []
+          })),
+          archivedSharingCurrent: archivedSharingCurrent.rows.map((row) => ({
+            discordId: row.discord_id || "",
+            currentCount: Number(row.current_count || 0),
+            archivedCount: Number(row.archived_count || 0),
+            profiles: Array.isArray(row.profiles) ? row.profiles : []
           }))
         };
+        payload.discordRoleConfig = buildDiscordRoleConfigHealth();
         payload.portoDebug = {
           activeUnitCount: Number(portoDebug.rows[0]?.active_unit_count || 0),
           activeAssignedCount: Number(portoDebug.rows[0]?.active_assigned_count || 0),
@@ -892,6 +1014,7 @@ async function healthPayload({ includeDetails = false } = {}) {
       };
       payload.database.activity = { lock_waiters: 0, active_queries: 0 };
       payload.profileAudit = buildProfileAuditFromState(state);
+      payload.discordRoleConfig = buildDiscordRoleConfigHealth();
       payload.portoDebug = buildPortoDebugFromState(state);
     } catch (error) {
       payload.ok = false;
@@ -899,6 +1022,10 @@ async function healthPayload({ includeDetails = false } = {}) {
       payload.database.error = "Lokale opslag niet bereikbaar";
       payload.database.detail = error.message || String(error);
     }
+  }
+
+  if (includeDetails && !payload.discordRoleConfig) {
+    payload.discordRoleConfig = buildDiscordRoleConfigHealth();
   }
 
   return payload;

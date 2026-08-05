@@ -1496,9 +1496,14 @@ function systemHealthActionCount() {
   const discordSync = systemHealthCache.discordSync || {};
   const activity = systemHealthCache.database?.activity || {};
   const portoDebug = systemHealthCache.portoDebug || {};
+  const profileAudit = systemHealthCache.profileAudit || {};
+  const roleConfig = systemHealthCache.discordRoleConfig || {};
   return Number(discordSync.failed || 0)
     + Number(activity.lock_waiters || 0)
-    + Number(portoDebug.staleHeartbeatCount || 0);
+    + Number(portoDebug.staleHeartbeatCount || 0)
+    + Number(profileAudit.currentDuplicateDiscordIdCount || 0)
+    + Number(profileAudit.archivedSharingCurrentCount || 0)
+    + Number(roleConfig.missingCount || 0);
 }
 
 function dashboardActionItems() {
@@ -2528,15 +2533,57 @@ function renderDiscordJobHealth(discordSync = {}) {
   `, actions);
 }
 
+function renderDiscordRoleConfigHealth(roleConfig = {}) {
+  const groups = Array.isArray(roleConfig.groups) ? roleConfig.groups : [];
+  const missing = Array.isArray(roleConfig.missing) ? roleConfig.missing : [];
+  const groupRows = groups.map((group) => `
+    <tr>
+      <td><strong>${escapeHtml(group.group || "-")}</strong></td>
+      <td>${systemHealthPill(`${group.configured || 0} ok`, Number(group.missing || 0) > 0 ? "warn" : "ok")}</td>
+      <td>${systemHealthPill(`${group.missing || 0} mist`, Number(group.missing || 0) > 0 ? "bad" : "ok")}</td>
+      <td>${escapeHtml(String(group.total ?? "-"))}</td>
+    </tr>
+  `).join("");
+  const missingRows = missing.map((mapping) => `
+    <tr>
+      <td><strong>${escapeHtml(mapping.group || "-")}</strong><small>${escapeHtml(mapping.label || "-")}</small></td>
+      <td><code>${escapeHtml(mapping.envKey || "-")}</code></td>
+      <td>${escapeHtml(mapping.roleId || "Niet ingesteld")}</td>
+    </tr>
+  `).join("");
+  return systemHealthSection("Discord rollen/config", "Lokale controle op ontbrekende .env role-ID koppelingen", `
+    <div class="system-health-mini-grid">
+      ${systemHealthCard("Bot token", roleConfig.botTokenConfigured ? "ingesteld" : "mist", roleConfig.botTokenConfigured ? "ok" : "bad")}
+      ${systemHealthCard("Guild ID", roleConfig.guildIdConfigured ? "ingesteld" : "mist", roleConfig.guildIdConfigured ? "ok" : "bad")}
+      ${systemHealthCard("Role koppelingen", `${roleConfig.configuredCount ?? 0}/${roleConfig.totalCount ?? 0}`, Number(roleConfig.missingCount || 0) > 0 ? "warn" : "ok")}
+      ${systemHealthCard("Ontbrekend", roleConfig.missingCount ?? 0, Number(roleConfig.missingCount || 0) > 0 ? "bad" : "ok")}
+    </div>
+    <div class="system-health-table-wrap">
+      <table class="system-health-table compact">
+        <thead><tr><th>Groep</th><th>Ingesteld</th><th>Mist</th><th>Totaal</th></tr></thead>
+        <tbody>${groupRows || `<tr><td colspan="4">Geen rolconfig gevonden.</td></tr>`}</tbody>
+      </table>
+    </div>
+    ${missingRows ? `
+      <div class="system-health-table-wrap">
+        <table class="system-health-table compact">
+          <thead><tr><th>Ontbreekt</th><th>Env key</th><th>Waarde</th></tr></thead>
+          <tbody>${missingRows}</tbody>
+        </table>
+      </div>
+    ` : `<p class="system-health-empty">Alle bekende rolkoppelingen hebben een waarde.</p>`}
+  `);
+}
+
 function renderProfileAuditHealth(audit = {}) {
   const duplicates = Array.isArray(audit.duplicateDiscordIds) ? audit.duplicateDiscordIds : [];
-  if (!duplicates.length) {
-    return systemHealthSection("Profiel-audit", "Controle op oude of dubbele Discord-koppelingen", `<p class="system-health-empty">Geen dubbele Discord-koppelingen gevonden.</p>`);
+  const archivedSharingCurrent = Array.isArray(audit.archivedSharingCurrent) ? audit.archivedSharingCurrent : [];
+  const hasWarnings = duplicates.length || archivedSharingCurrent.length || Number(audit.archivedDiscordProfileCount || 0) > 0;
+  if (!hasWarnings) {
+    return systemHealthSection("Profiel-audit", "Controle op oude of dubbele Discord-koppelingen", `<p class="system-health-empty">Geen oude of dubbele Discord-koppelingen gevonden.</p>`);
   }
   const duplicateCount = Number(audit.duplicateDiscordIdCount || duplicates.length);
-  const subtitle = duplicateCount > duplicates.length
-    ? `${duplicateCount} Discord ID's met meerdere profielen, eerste ${duplicates.length} getoond`
-    : `${duplicateCount} Discord ID's met meerdere profielen`;
+  const archivedSharingCount = Number(audit.archivedSharingCurrentCount || archivedSharingCurrent.length);
   const rows = duplicates.map((entry) => `
     <tr>
       <td><strong>${escapeHtml(entry.discordId || "-")}</strong></td>
@@ -2550,11 +2597,36 @@ function renderProfileAuditHealth(audit = {}) {
       </td>
     </tr>
   `).join("");
-  return systemHealthSection("Profiel-audit", subtitle, `
+  const archiveRows = archivedSharingCurrent.map((entry) => `
+    <tr>
+      <td><strong>${escapeHtml(entry.discordId || "-")}</strong></td>
+      <td>${systemHealthPill(`${entry.currentCount || 0} huidig`, "ok")} ${systemHealthPill(`${entry.archivedCount || 0} oud`, Number(entry.archivedCount || 0) > 0 ? "warn" : "neutral")}</td>
+      <td>
+        <div class="system-health-profile-list">
+          ${(entry.profiles || []).map((profile) => `
+            <span>${escapeHtml(`${profile.serviceNumber || "-"} - ${profile.name || "-"} (${profile.status || "Actief"})`)}</span>
+          `).join("")}
+        </div>
+      </td>
+    </tr>
+  `).join("");
+  return systemHealthSection("Profiel-audit", "Controle op oude profielen en dubbele Discord-koppelingen", `
+    <div class="system-health-mini-grid">
+      ${systemHealthCard("Dubbele Discord IDs", duplicateCount, duplicateCount > 0 ? "warn" : "ok")}
+      ${systemHealthCard("Dubbel huidig", audit.currentDuplicateDiscordIdCount ?? 0, Number(audit.currentDuplicateDiscordIdCount || 0) > 0 ? "bad" : "ok")}
+      ${systemHealthCard("Oud + huidig", archivedSharingCount, archivedSharingCount > 0 ? "warn" : "ok")}
+      ${systemHealthCard("Oude profielen", audit.archivedDiscordProfileCount ?? 0, Number(audit.archivedDiscordProfileCount || 0) > 0 ? "warn" : "ok")}
+    </div>
     <div class="system-health-table-wrap">
       <table class="system-health-table">
         <thead><tr><th>Discord ID</th><th>Impact</th><th>Profielen</th></tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody>${rows || `<tr><td colspan="3">Geen dubbele Discord ID's.</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="system-health-table-wrap">
+      <table class="system-health-table compact">
+        <thead><tr><th>Oud + huidig</th><th>Impact</th><th>Profielen</th></tr></thead>
+        <tbody>${archiveRows || `<tr><td colspan="3">Geen oude profielen gekoppeld aan een huidig profiel.</td></tr>`}</tbody>
       </table>
     </div>
   `);
@@ -2626,6 +2698,7 @@ function renderSystemHealthPayload(payload) {
       ${systemHealthCard("Failed Discord jobs", discordSync.failed ?? "-", Number(discordSync.failed || 0) > 0 ? "warn" : "neutral")}
       ${systemHealthCard("DB lock waiters", activity.lock_waiters ?? "-", Number(activity.lock_waiters || 0) > 0 ? "warn" : "neutral")}
     </div>
+    ${renderDiscordRoleConfigHealth(payload?.discordRoleConfig)}
     ${renderDiscordJobHealth(discordSync)}
     ${renderProfileAuditHealth(payload?.profileAudit)}
     ${renderPortoHeartbeatHealth(payload?.portoDebug)}
