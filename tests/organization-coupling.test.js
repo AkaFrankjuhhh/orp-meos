@@ -121,6 +121,33 @@ test("defensie department leadership badges share Discord roles", () => {
   assert.equal(mappings.get("OTC-Leiding")?.defaultRoleId, "1425219424872300667");
 });
 
+test("defensie OTC role helpers honor the legacy management env fallback", () => {
+  const previousOrganization = process.env.ORP_ORGANIZATION;
+  const previousPrimary = process.env.DISCORD_OTC_LEIDING_ROLE_ID;
+  const previousFallback = process.env.DISCORD_OTC_MANAGEMENT_ROLE_ID;
+  process.env.ORP_ORGANIZATION = "defensie";
+  delete process.env.DISCORD_OTC_LEIDING_ROLE_ID;
+  process.env.DISCORD_OTC_MANAGEMENT_ROLE_ID = "legacy-otc-role";
+  delete require.cache[require.resolve("../modules/organizations")];
+  delete require.cache[require.resolve("../modules/discord-bot")];
+
+  try {
+    const { createDiscordBotServices } = require("../modules/discord-bot");
+    const mappings = createDiscordBotServices().configuredRoleMappings();
+    assert.equal(mappings.find((mapping) => mapping.label === "Co\u00f6rdinator Trainer")?.roleId, "legacy-otc-role");
+    assert.equal(mappings.find((mapping) => mapping.label === "Directie OTC")?.roleId, "legacy-otc-role");
+  } finally {
+    if (previousOrganization === undefined) delete process.env.ORP_ORGANIZATION;
+    else process.env.ORP_ORGANIZATION = previousOrganization;
+    if (previousPrimary === undefined) delete process.env.DISCORD_OTC_LEIDING_ROLE_ID;
+    else process.env.DISCORD_OTC_LEIDING_ROLE_ID = previousPrimary;
+    if (previousFallback === undefined) delete process.env.DISCORD_OTC_MANAGEMENT_ROLE_ID;
+    else process.env.DISCORD_OTC_MANAGEMENT_ROLE_ID = previousFallback;
+    delete require.cache[require.resolve("../modules/organizations")];
+    delete require.cache[require.resolve("../modules/discord-bot")];
+  }
+});
+
 test("police and defensie expose K9 trainings in the profile", () => {
   const { organizationConfigs } = require("../modules/organizations");
 

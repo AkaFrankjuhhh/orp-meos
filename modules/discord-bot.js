@@ -337,7 +337,7 @@ function createDiscordBotServices(options = {}) {
       .map((mapping) => ({
         key: mapping.key,
         label: mapping.label,
-        roleId: envOrDefault(mapping.envKey, mapping.defaultRoleId)
+        roleId: envOrDefault([mapping.envKey, ...(mapping.envFallbackKeys || [])], mapping.defaultRoleId)
       }))
       .filter((mapping) => String(mapping.roleId || "").trim());
   }
