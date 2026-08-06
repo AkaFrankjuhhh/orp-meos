@@ -8,6 +8,10 @@ const {
   hasOvcFunctionBadge,
   normalizeOvcFunctionBadges
 } = require("./ovc");
+const {
+  DEFAULT_PORTO_DUTY_HOURS_START_WEEK,
+  buildPortoDutyHourEntries
+} = require("./porto-duty-hours");
 const { isCurrentPerson } = require("./person-status");
 
 // Centrale Personeelsportaal domeinregels: rangen, dienstnummers, profieldata en mutaties.
@@ -462,6 +466,31 @@ function profileNoteForView(value) {
   };
 }
 
+function appendLivePortoDutyHourEntries(state) {
+  const activeUnits = (state.portoUnits || []).filter((unit) => (
+    unit?.active !== false &&
+    String(unit.status || "") !== "8" &&
+    unit.vehicleNumber &&
+    unit.assignedAt &&
+    unit.id
+  ));
+  if (!activeUnits.length) return;
+  const activeSourceUnitIds = new Set(activeUnits.map((unit) => String(unit.id)));
+  const baseHours = (state.hours || []).filter((entry) => !activeSourceUnitIds.has(String(entry?.sourceUnitId || "")));
+  const liveEntries = buildPortoDutyHourEntries({
+    people: state.people || [],
+    portoUnits: activeUnits
+  }, {
+    now: new Date(),
+    timeZone: process.env.PORTO_DUTY_HOURS_TIME_ZONE || "Europe/Amsterdam",
+    startWeek: process.env.PORTO_DUTY_HOURS_START_WEEK || DEFAULT_PORTO_DUTY_HOURS_START_WEEK
+  }).map((entry) => ({
+    ...entry,
+    isLivePortoDuty: true
+  }));
+  state.hours = [...baseHours, ...liveEntries];
+}
+
 function stateForProfile(state, permissions, profileId = "") {
   const nextState = JSON.parse(JSON.stringify(state));
   const mentorItemCount = mentorChecklistItemCountForState(nextState);
@@ -483,6 +512,7 @@ function stateForProfile(state, permissions, profileId = "") {
   if (!permissions?.canViewAllHours) {
     nextState.portoOpsLog = (nextState.portoOpsLog || []).filter((entry) => entry.memberId === profileId);
   }
+  appendLivePortoDutyHourEntries(nextState);
   if (!permissions?.canViewAllHours) {
     nextState.hours = (nextState.hours || []).filter((entry) => entry.personId === profileId);
   }

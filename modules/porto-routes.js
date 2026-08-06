@@ -1227,7 +1227,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         reviewStatus: "dev-bypass",
         assignedById: person.id,
         assignedByName: "Dev bypass",
-        assignedAt: now,
+        assignedAt: unit.assignedAt || now,
         status: "1",
         statusDetail: "Beschikbaar",
         lastSeenAt: now,
@@ -1283,7 +1283,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         reviewStatus: "management-bypass",
         assignedById: person.id,
         assignedByName: managementBypassLabel,
-        assignedAt: now,
+        assignedAt: unit.assignedAt || now,
         status: "1",
         statusDetail: "Beschikbaar",
         lastSeenAt: now,
@@ -1640,7 +1640,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           reviewStatus: "unlinked",
           assignedById: person.id,
           assignedByName: person.name,
-          assignedAt: now,
+          assignedAt: unit.assignedAt || now,
           updatedAt: now
         });
         const duplicateUnitsClosed = closeDuplicateActiveUnitsForMember(state, unit.memberId, unit.id, now);
@@ -1857,7 +1857,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
           reviewStatus: unit.reviewStatus,
           assignedById: person.id,
           assignedByName: person.name,
-          assignedAt: now,
+          assignedAt: entry.assignedAt || now,
           updatedAt: now,
           lastSeenAt: entry.lastSeenAt || now
         });
@@ -1961,7 +1961,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const targetStatusDetail = unitHasActiveStatus
         ? (unit.statusDetail || statusDefinition[targetStatus] || "Beschikbaar")
         : (linkedStatusSource?.statusDetail || statusDefinition[targetStatus] || "Beschikbaar");
-      const assignedAt = new Date().toISOString();
+      const assignedAt = unitHasActiveStatus && unit.assignedAt ? unit.assignedAt : new Date().toISOString();
       const targetDiscordChannelKey = linkToVehicleNumber ? (linkedStatusSource?.discordChannelKey || "") : "";
       Object.assign(unit, {
         vehicleNumber,

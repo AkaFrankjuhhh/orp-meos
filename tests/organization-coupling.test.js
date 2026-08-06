@@ -39,6 +39,16 @@ test("porto unlink assigns the next regular unit instead of reusing the operator
   assert.match(unlinkBlock, /firstAvailableRegularVehicleNumber\(state\)/);
   assert.doesNotMatch(unlinkBlock, /firstAvailableVehicleNumber\(state,\s*currentRange\.prefix\)/);
   assert.match(unlinkBlock, /const targetRange = vehicleRangeForNumber\(state, vehicleNumber\) \|\| currentRange/);
+  assert.match(unlinkBlock, /assignedAt: unit\.assignedAt \|\| now/);
+});
+
+test("porto reassign keeps the active duty start while moving units", () => {
+  const code = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const reassignBlock = code.slice(code.indexOf('url.pathname === "/api/porto/reassign"'), code.indexOf('url.pathname === "/api/porto/assign"'));
+  const assignBlock = code.slice(code.indexOf('url.pathname === "/api/porto/assign"'));
+
+  assert.match(reassignBlock, /assignedAt: entry\.assignedAt \|\| now/);
+  assert.match(assignBlock, /const assignedAt = unitHasActiveStatus && unit\.assignedAt \? unit\.assignedAt : new Date\(\)\.toISOString\(\)/);
 });
 
 test("porto duty roles include K9 for police and defensie", () => {
@@ -674,5 +684,32 @@ test("profile notes are scoped to self unless leadership may view all", () => {
     const officerFiltered = domain.stateForProfile(state, officerPermissions, "self");
 
     assert.equal(officerFiltered.people.find((person) => person.id === "target").profileNote.text, "Niet zichtbaar");
+  });
+});
+
+test("profile state includes live porto duty hours for the active profile", () => {
+  withOrganization("defensie", () => {
+    delete require.cache[require.resolve("../modules/organizations")];
+    delete require.cache[require.resolve("../modules/personeelsportaal-domain")];
+    const { createPersoneelsportaalDomain } = require("../modules/personeelsportaal-domain");
+    const startedAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+    const filtered = createPersoneelsportaalDomain().stateForProfile({
+      people: [
+        { id: "self", name: "Mats", status: "Actief", serviceNumber: "73-08" },
+        { id: "other", name: "Flcvia", status: "Actief", serviceNumber: "73-09" }
+      ],
+      hours: [],
+      portoUnits: [
+        { id: "unit-self", memberId: "self", vehicleNumber: "73-08", status: "1", assignedAt: startedAt, active: true },
+        { id: "unit-other", memberId: "other", vehicleNumber: "73-09", status: "1", assignedAt: startedAt, active: true }
+      ]
+    }, {}, "self");
+
+    const liveEntries = filtered.hours.filter((entry) => entry.isLivePortoDuty);
+    assert.equal(liveEntries.length, 1);
+    assert.equal(liveEntries[0].personId, "self");
+    assert.equal(liveEntries[0].sourceUnitId, "unit-self");
+    assert.ok(liveEntries[0].minutes > 0);
   });
 });
