@@ -802,23 +802,23 @@ function createDiscordBotServices(options = {}) {
     }
   }
 
-  function looksLikeActiveDsiNickname(nickname) {
+  function looksLikeActiveSideTaskNickname(nickname) {
     return /^(?:(?:ACO|TCO)\s+)?\[(?:24-\d{2}|[A-Za-z]{1,10}-\d{1,3})\]\s+\S/.test(String(nickname || "").trim());
   }
 
-  async function activeDsiNicknameProtection(discordId, currentNickname) {
+  async function activeSideTaskNicknameProtection(discordId, currentNickname) {
     try {
-      const member = await sideTasksStore.findActiveDsiNicknameMember(discordId);
-      if (member) return { source: "DSI-status", member };
+      const member = await sideTasksStore.findActiveSideTaskNicknameMember(discordId);
+      if (member) return { source: `${member.taskKey}-status`, member };
     } catch (error) {
       // De herkenning hieronder blijft een veilige terugval wanneer een oudere
       // service nog geen centrale neventakendatabase kent.
       if (!dsiNicknameGuardWarningShown) {
         dsiNicknameGuardWarningShown = true;
-        console.warn(`DSI nickname-bescherming kon de neventakendatabase niet lezen: ${error.message}`);
+        console.warn(`Neventaken nickname-bescherming kon de neventakendatabase niet lezen: ${error.message}`);
       }
     }
-    if (looksLikeActiveDsiNickname(currentNickname)) return { source: "bestaande DSI-naam" };
+    if (looksLikeActiveSideTaskNickname(currentNickname)) return { source: "bestaande neventakennaam" };
     return null;
   }
 
@@ -1081,9 +1081,9 @@ function createDiscordBotServices(options = {}) {
     const conflict = organizationRoleConflictForMember(memberResult);
     if (conflict) return organizationRoleConflictResult(conflict);
     if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
-    const dsiProtection = await activeDsiNicknameProtection(memberId, memberResult.data?.nick);
+    const dsiProtection = await activeSideTaskNicknameProtection(memberId, memberResult.data?.nick);
     if (dsiProtection) {
-      return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
+      return { skipped: true, reason: `Neventaken nickname blijft behouden (${dsiProtection.source}).` };
     }
     const desiredNickname = buildServiceNickname(person);
     const result = await setNickname(memberId, desiredNickname, auditReason);
@@ -1101,9 +1101,9 @@ function createDiscordBotServices(options = {}) {
     if (conflict) return organizationRoleConflictResult(conflict);
     if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
     const currentNickname = memberResult.data?.nick || "";
-    const dsiProtection = await activeDsiNicknameProtection(memberId, currentNickname);
+    const dsiProtection = await activeSideTaskNicknameProtection(memberId, currentNickname);
     if (dsiProtection) {
-      return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
+      return { skipped: true, reason: `Neventaken nickname blijft behouden (${dsiProtection.source}).` };
     }
     if (nicknameHasPortoDutyPrefix(currentNickname) && !auditReasonAllowsNormalNicknameOverDuty(auditReason)) {
       return { ok: true, unchanged: true, nickname: currentNickname, protectedPortoDuty: true };
@@ -1124,9 +1124,9 @@ function createDiscordBotServices(options = {}) {
     if (conflict) return organizationRoleConflictResult(conflict);
     if (!memberHasRequiredDefensieRole(memberResult)) return missingDefensieRoleResult();
     const currentNickname = memberResult.data?.nick || "";
-    const dsiProtection = await activeDsiNicknameProtection(memberId, currentNickname);
+    const dsiProtection = await activeSideTaskNicknameProtection(memberId, currentNickname);
     if (dsiProtection) {
-      return { skipped: true, reason: `DSI nickname blijft behouden (${dsiProtection.source}).` };
+      return { skipped: true, reason: `Neventaken nickname blijft behouden (${dsiProtection.source}).` };
     }
     if (currentNickname === desiredNickname) return { ok: true, unchanged: true, nickname: desiredNickname };
     const result = await setNickname(memberId, desiredNickname, auditReason);

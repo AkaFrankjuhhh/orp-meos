@@ -6,7 +6,8 @@ const {
   sideTaskForKey,
   permissionsForTask,
   dnrUnitsForRoles,
-  canUseDnrUnit
+  canUseDnrUnit,
+  statusOptionsForTask
 } = require("../modules/side-tasks-config");
 const { shouldSyncDsiNicknameForStatus, requireDsiIdentityForStatus } = require("../modules/side-tasks-dsi");
 
@@ -46,6 +47,47 @@ test("DSI members can assign ACO and TCO labels", () => {
   const permissions = permissionsForTask(dsiTask, ["dsi-member-role"], "discord-user");
   assert.equal(permissions.hasAccess, true);
   assert.equal(permissions.canAssignDsiCommand, true);
+});
+
+test("HRB supports automatic HRB units and CM/PLAVA command slots", () => {
+  process.env.SIDE_TASK_HRB_MEMBER_ROLE_IDS = "hrb-member-role";
+  const hrbTask = sideTaskForKey("HRB");
+  const permissions = permissionsForTask(hrbTask, ["hrb-member-role"], "discord-user");
+  const statuses = statusOptionsForTask(hrbTask).map((status) => status.value);
+
+  assert.equal(hrbTask.allowAlias, true);
+  assert.equal(hrbTask.aliasProfile.numberSource, "auto");
+  assert.equal(hrbTask.aliasProfile.nicknameTemplate, "[{number}] {name}");
+  assert.equal(hrbTask.hrbUnits.prefix, "HRB");
+  assert.equal(hrbTask.hrbUnits.min, 2);
+  assert.deepEqual(hrbTask.hrbUnits.commandUnits, { CM: "HRB-00", PLAVA: "HRB-01" });
+  assert.deepEqual(statuses, ["0", "1", "4", "8"]);
+  assert.equal(permissions.hasAccess, true);
+  assert.equal(permissions.canAssignHrbCommand, true);
+});
+
+test("HRB unit assignment is handled server-side with protected nicknames", () => {
+  const storeCode = fs.readFileSync(path.join(process.cwd(), "modules", "side-tasks-store.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "side-tasks-server.js"), "utf8");
+  const clientCode = fs.readFileSync(path.join(process.cwd(), "side-tasks.js"), "utf8");
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+
+  assert.match(storeCode, /const HRB_COMMAND_UNITS = Object\.freeze/);
+  assert.match(storeCode, /CM: `\$\{HRB_UNIT_PREFIX\}-00`, PLAVA: `\$\{HRB_UNIT_PREFIX\}-01`/);
+  assert.match(storeCode, /const HRB_FIRST_REGULAR_UNIT = Number\(HRB_UNITS\.min \|\| 2\)/);
+  assert.match(storeCode, /async function assignHrbUnit/);
+  assert.match(storeCode, /async function assignHrbCommandRole/);
+  assert.match(storeCode, /findActiveSideTaskNicknameMember/);
+  assert.match(serverCode, /store\.assignHrbUnit\(task\.key, member\.id, "", status\)/);
+  assert.match(serverCode, /const hrbCommandMatch/);
+  assert.match(serverCode, /side-tasks\\\/hrb\\\/members/);
+  assert.match(clientCode, /function hrbContextMenu/);
+  assert.match(clientCode, /data-hrb-member/);
+  assert.match(clientCode, /data-action="hrb-set-command-role"/);
+  assert.match(clientCode, /CM opnemen/);
+  assert.match(clientCode, /PLAVA opnemen/);
+  assert.match(botCode, /findActiveSideTaskNicknameMember/);
+  assert.match(botCode, /Neventaken nickname blijft behouden/);
 });
 
 test("LR supports automatic recherche unit ranges", () => {

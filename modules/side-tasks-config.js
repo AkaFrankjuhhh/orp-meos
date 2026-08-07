@@ -41,7 +41,23 @@ const SIDE_TASK_DEFINITIONS = {
     label: "HRB",
     displayName: "Hoog Risico Beveiliging",
     logoUrl: "/assets/hrb-logo.png",
-    allowAlias: false,
+    allowAlias: true,
+    aliasProfile: {
+      numberLabel: "HRB roepnummer",
+      numberPlaceholder: "Automatisch",
+      aliasLabel: "Schuilnaam",
+      aliasPlaceholder: "Optioneel",
+      aliasRequiredForActive: false,
+      numberSource: "auto",
+      nicknameTemplate: "[{number}] {name}"
+    },
+    hrbUnits: {
+      prefix: "HRB",
+      min: 2,
+      max: 99,
+      capacity: 1,
+      commandUnits: { CM: "HRB-00", PLAVA: "HRB-01" }
+    },
     specialties: [
       { label: "Konvooi", roleId: "1504458999439954090" },
       { label: "Breach", roleId: "1504459148186615918" },
@@ -275,6 +291,8 @@ function permissionsForTask(task, memberRoles, discordId) {
   const canManageMembers = isDev || hasLeadershipRole || hasSubleadershipRole;
   const canManageDsiUnits = task.key === "DSI" && (canManageMembers || hasAcoRole || hasTcoRole);
   const canAssignDsiCommand = task.key === "DSI" && (canManageMembers || hasMemberRole || hasAcoRole || hasTcoRole);
+  const canManageHrbUnits = task.key === "HRB" && canManageMembers;
+  const canAssignHrbCommand = task.key === "HRB" && (canManageMembers || hasMemberRole);
   const canManageDnrUnits = task.key === "DNR" && (canManageMembers || hasDnrUnitLeadershipRole);
   return {
     isDev,
@@ -282,6 +300,8 @@ function permissionsForTask(task, memberRoles, discordId) {
     canManageMembers,
     canManageDsiUnits,
     canAssignDsiCommand,
+    canManageHrbUnits,
+    canAssignHrbCommand,
     canManageDnrUnits,
     canSignOffDnrMembers: canManageDnrUnits,
     canUseAlias: task.allowAlias,
@@ -320,7 +340,7 @@ function statusOption(value) {
 }
 
 function statusOptionsForTask(task) {
-  return task?.key === "DSI"
+  return ["DSI", "HRB"].includes(task?.key)
     ? SIDE_TASK_STATUS_OPTIONS
     : SIDE_TASK_STATUS_OPTIONS.filter((option) => option.value !== "0");
 }

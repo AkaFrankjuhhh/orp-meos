@@ -11,10 +11,21 @@ const DSI_COMMAND_UNITS = Object.freeze(DSI_UNITS.commandUnits || { TCO: `${DSI_
 const DSI_FIRST_REGULAR_UNIT = Number(DSI_UNITS.min || 2);
 const DSI_LAST_REGULAR_UNIT = Number(DSI_UNITS.max || 99);
 const DSI_UNIT_CAPACITY = Number(DSI_UNITS.capacity || 3);
+const HRB_UNITS = sideTaskForKey("HRB")?.hrbUnits || {};
+const HRB_UNIT_PREFIX = String(HRB_UNITS.prefix || "HRB");
+const HRB_COMMAND_UNITS = Object.freeze(HRB_UNITS.commandUnits || { CM: `${HRB_UNIT_PREFIX}-00`, PLAVA: `${HRB_UNIT_PREFIX}-01` });
+const HRB_FIRST_REGULAR_UNIT = Number(HRB_UNITS.min || 2);
+const HRB_LAST_REGULAR_UNIT = Number(HRB_UNITS.max || 99);
+const HRB_UNIT_CAPACITY = Number(HRB_UNITS.capacity || 1);
+const SIDE_TASK_COMMAND_ROLES = new Set([...Object.keys(DSI_COMMAND_UNITS), ...Object.keys(HRB_COMMAND_UNITS)]);
 const DNR_UNITS = sideTaskForKey("DNR")?.dnrUnits || [];
 
 function formatDsiUnit(index) {
   return `${DSI_UNIT_PREFIX}-${String(index).padStart(2, "0")}`;
+}
+
+function formatHrbUnit(index) {
+  return `${HRB_UNIT_PREFIX}-${String(index).padStart(2, "0")}`;
 }
 
 function dnrUnitForKey(unitKey) {
@@ -184,6 +195,19 @@ async function ensureSideTaskSchema() {
         [commandRole, unitNumber]
       );
     }
+    for (const [commandRole, unitNumber] of Object.entries(HRB_COMMAND_UNITS)) {
+      await client.query(
+        `update side_task_members
+         set unit_number = $2,
+             call_sign = $2,
+             raw = jsonb_set(raw, '{unitNumber}', to_jsonb($2::text), true),
+             updated_at = now()
+         where task_key = 'HRB'
+           and command_role = $1
+           and unit_number <> $2`,
+        [commandRole, unitNumber]
+      );
+    }
     await client.query("create index if not exists side_task_members_task_unit_idx on side_task_members(task_key, unit_number) where unit_number <> ''");
     await client.query("create unique index if not exists side_task_members_task_command_role_uidx on side_task_members(task_key, command_role) where command_role <> ''");
     await client.query(`
@@ -228,7 +252,7 @@ function normalizeMember(taskKey, member) {
     aliasName: String(member.aliasName || "").trim(),
     originalNickname: String(member.originalNickname || "").trim(),
     unitNumber: String(member.unitNumber || "").trim(),
-    commandRole: ["ACO", "TCO"].includes(String(member.commandRole || "").trim()) ? String(member.commandRole).trim() : "",
+    commandRole: SIDE_TASK_COMMAND_ROLES.has(String(member.commandRole || "").trim()) ? String(member.commandRole).trim() : "",
     status,
     statusDetail: String(member.statusDetail || statusOption(status).label).trim(),
     specialties: Array.isArray(member.specialties) ? member.specialties : [],
@@ -282,6 +306,23 @@ function createSideTasksStore() {
          where task_key = 'DSI'
            and discord_id = $1
            and status in ('0', '1', '4')
+         limit 1`,
+        [normalizedDiscordId]
+      );
+      return memberFromRow(result.rows[0]);
+    });
+  }
+
+  async function findActiveSideTaskNicknameMember(discordId) {
+    const normalizedDiscordId = String(discordId || "").trim();
+    if (!normalizedDiscordId) return null;
+    return withSideTaskClient(async (client) => {
+      const result = await client.query(
+        `select * from side_task_members
+         where task_key in ('DSI', 'HRB')
+           and discord_id = $1
+           and status in ('0', '1', '4')
+         order by case task_key when 'DSI' then 0 else 1 end
          limit 1`,
         [normalizedDiscordId]
       );
@@ -445,6 +486,7 @@ function createSideTasksStore() {
         `update side_task_members
          set status = '8',
              status_detail = $2,
+             call_sign = case when task_key = 'HRB' then '' else call_sign end,
              unit_number = '',
              command_role = '',
              raw = coalesce(raw, '{}'::jsonb)
@@ -658,6 +700,17 @@ function createSideTasksStore() {
 
   function isReservedDsiUnit(unitNumber) {
     return Object.values(DSI_COMMAND_UNITS).includes(unitNumber);
+  }
+
+  function hrbUnitNumber(number) {
+    const match = new RegExp(`^${HRB_UNIT_PREFIX}-(\\d{1,2})$`, "i").exec(String(number || "").trim());
+    if (!match) return "";
+    const suffix = Number(match[1]);
+    return suffix >= 0 && suffix <= HRB_LAST_REGULAR_UNIT ? formatHrbUnit(suffix) : "";
+  }
+
+  function isReservedHrbUnit(unitNumber) {
+    return Object.values(HRB_COMMAND_UNITS).includes(unitNumber);
   }
 
   async function assignDnrUnit(taskKey, memberId, unitKey = "", options = {}) {
@@ -922,12 +975,162 @@ function createSideTasksStore() {
     });
   }
 
+  async function assignHrbUnit(taskKey, memberId, requestedUnitNumber = "", status = "1") {
+    const nextStatus = ["0", "1", "4"].includes(String(status)) ? String(status) : "1";
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query("select pg_advisory_xact_lock(hashtext($1))", [`side-task-hrb-units:${taskKey}`]);
+        const memberResult = await client.query("select * from side_task_members where task_key = $1 and id = $2 for update", [taskKey, String(memberId)]);
+        const member = memberFromRow(memberResult.rows[0]);
+        if (!member) {
+          const error = new Error("HRB-lid niet gevonden.");
+          error.status = 404;
+          throw error;
+        }
+        const commandUnit = HRB_COMMAND_UNITS[member.commandRole] || "";
+        let unitNumber = commandUnit || hrbUnitNumber(requestedUnitNumber);
+        if (requestedUnitNumber && !unitNumber) {
+          const error = new Error(`Kies een geldig ${HRB_UNIT_PREFIX}-nummer.`);
+          error.status = 400;
+          throw error;
+        }
+        if (requestedUnitNumber && isReservedHrbUnit(unitNumber) && !commandUnit) {
+          const error = new Error(`${HRB_COMMAND_UNITS.CM} en ${HRB_COMMAND_UNITS.PLAVA} zijn gereserveerd voor CM/PLAVA. Reguliere HRB-nummers beginnen bij ${formatHrbUnit(HRB_FIRST_REGULAR_UNIT)}.`);
+          error.status = 403;
+          throw error;
+        }
+        const activeUnits = await client.query(
+          "select unit_number, count(*)::int as count from side_task_members where task_key = $1 and status <> '8' and unit_number <> '' group by unit_number",
+          [taskKey]
+        );
+        const counts = new Map(activeUnits.rows.map((row) => [row.unit_number, Number(row.count || 0)]));
+        if (!unitNumber && !requestedUnitNumber && member.status !== "8" && member.unitNumber && !isReservedHrbUnit(member.unitNumber)) {
+          unitNumber = member.unitNumber;
+        }
+        if (unitNumber) {
+          const ownUnit = member.status !== "8" ? member.unitNumber : "";
+          const existingCount = counts.get(unitNumber) || 0;
+          if (unitNumber !== ownUnit && existingCount >= HRB_UNIT_CAPACITY) {
+            const error = new Error(`Deze ${HRB_UNIT_PREFIX}-eenheid is al bezet.`);
+            error.status = 409;
+            throw error;
+          }
+        } else {
+          for (let index = HRB_FIRST_REGULAR_UNIT; index <= HRB_LAST_REGULAR_UNIT; index += 1) {
+            const candidate = formatHrbUnit(index);
+            if (!counts.has(candidate)) {
+              unitNumber = candidate;
+              break;
+            }
+          }
+          if (!unitNumber) {
+            const error = new Error(`Geen vrij ${HRB_UNIT_PREFIX}-nummer beschikbaar.`);
+            error.status = 409;
+            throw error;
+          }
+        }
+        const result = await client.query(
+          "update side_task_members set unit_number = $3, call_sign = $3, status = $4, status_detail = $5, updated_at = now() where task_key = $1 and id = $2 returning *",
+          [taskKey, String(memberId), unitNumber, nextStatus, statusOption(nextStatus).label]
+        );
+        await client.query("commit");
+        return memberFromRow(result.rows[0]);
+      } catch (error) {
+        await client.query("rollback").catch(() => {});
+        throw error;
+      }
+    });
+  }
+
+  async function assignHrbCommandRole(taskKey, memberId, commandRole) {
+    const normalizedRole = ["", "CM", "PLAVA"].includes(String(commandRole || "").trim()) ? String(commandRole || "").trim() : null;
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query("select pg_advisory_xact_lock(hashtext($1))", [`side-task-hrb-command:${taskKey}`]);
+        const memberResult = await client.query("select * from side_task_members where task_key = $1 and id = $2 for update", [taskKey, String(memberId)]);
+        const member = memberFromRow(memberResult.rows[0]);
+        if (!member) {
+          const error = new Error("HRB-lid niet gevonden.");
+          error.status = 404;
+          throw error;
+        }
+        if (normalizedRole === null) {
+          const error = new Error("Ongeldige HRB command-keuze.");
+          error.status = 400;
+          throw error;
+        }
+
+        if (!normalizedRole) {
+          let replacementUnitNumber = "";
+          const remainsInService = member.status !== "8";
+          if (remainsInService) {
+            const activeUnits = await client.query(
+              `select unit_number
+               from side_task_members
+               where task_key = $1 and id <> $2 and status <> '8' and unit_number <> ''
+               group by unit_number`,
+              [taskKey, String(memberId)]
+            );
+            const usedUnits = new Set(activeUnits.rows.map((row) => row.unit_number));
+            for (let index = HRB_FIRST_REGULAR_UNIT; index <= HRB_LAST_REGULAR_UNIT; index += 1) {
+              const candidate = formatHrbUnit(index);
+              if (!usedUnits.has(candidate)) {
+                replacementUnitNumber = candidate;
+                break;
+              }
+            }
+            if (!replacementUnitNumber) {
+              const error = new Error(`Geen vrij regulier ${HRB_UNIT_PREFIX}-nummer beschikbaar.`);
+              error.status = 409;
+              throw error;
+            }
+          }
+          const result = await client.query(
+            `update side_task_members
+             set command_role = '', unit_number = $3, call_sign = $3,
+                 updated_at = now()
+             where task_key = $1 and id = $2
+             returning *`,
+            [taskKey, String(memberId), replacementUnitNumber]
+          );
+          await client.query("commit");
+          return memberFromRow(result.rows[0]);
+        }
+
+        const occupied = await client.query(
+          "select id from side_task_members where task_key = $1 and command_role = $2 and id <> $3 limit 1 for update",
+          [taskKey, normalizedRole, String(memberId)]
+        );
+        if (occupied.rows.length) {
+          const error = new Error(`${normalizedRole} is al toegewezen. Verwijder eerst de huidige ${normalizedRole}.`);
+          error.status = 409;
+          throw error;
+        }
+
+        const result = await client.query(
+          "update side_task_members set command_role = $3, unit_number = $4, call_sign = $4, updated_at = now() where task_key = $1 and id = $2 returning *",
+          [taskKey, String(memberId), normalizedRole, HRB_COMMAND_UNITS[normalizedRole]]
+        );
+        await client.query("commit");
+        return memberFromRow(result.rows[0]);
+      } catch (error) {
+        await client.query("rollback").catch(() => {});
+        throw error;
+      }
+    });
+  }
+
   return {
     ensureSideTaskSchema,
     listMembers,
     findMemberByDiscordId,
     findMemberById,
     findActiveDsiNicknameMember,
+    findActiveSideTaskNicknameMember,
     upsertMember,
     syncMemberFromDiscord,
     updateMember,
@@ -935,8 +1138,10 @@ function createSideTasksStore() {
     signOffTimedOutClientMembers,
     updateMemberProfile,
     assignDsiUnit,
+    assignHrbUnit,
     assignDnrUnit,
     assignDsiCommandRole,
+    assignHrbCommandRole,
     deleteMember,
     listArchives,
     archiveMemberByDiscordId,

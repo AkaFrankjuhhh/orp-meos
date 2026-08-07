@@ -448,6 +448,7 @@ async function applyDsiNicknameIfNeeded(task, member, nextStatus) {
 function shouldSyncAliasNicknameForStatus(task, status) {
   if (!task.allowAlias) return false;
   if (task.key === "DSI") return shouldSyncDsiNicknameForStatus(status);
+  if (task.key === "HRB") return ["0", "1", "4", "8"].includes(String(status));
   return ["1", "4", "8"].includes(String(status));
 }
 
@@ -513,6 +514,9 @@ function aliasNumberForTask(task, member, portalIdentity = null) {
     return displayNumber || "";
   }
   if (task.key === "DNR") {
+    return member.unitNumber || normalizeAliasNumber(task, member.callSign);
+  }
+  if (task.key === "HRB") {
     return member.unitNumber || normalizeAliasNumber(task, member.callSign);
   }
   return normalizeAliasNumber(task, member.callSign);
@@ -685,6 +689,7 @@ function publicTask(task, session = null) {
       numberSource: task.aliasProfile.numberSource || "manual"
     } : null,
     dsiUnits: task.dsiUnits || null,
+    hrbUnits: task.hrbUnits || null,
     dnrUnits: publicDnrUnits(task, session),
     specialties: task.specialties.map((specialty) => ({ label: specialty.label }))
   };
@@ -894,7 +899,7 @@ async function handleApi(req, res, task, url) {
       requireAllowedDnrUnit(task, sanitizeText(body.dnrUnitKey, 40), session);
     }
     let member = await store.updateMemberProfile(task.key, existing.id, {
-      callSign: ["rank", "unit"].includes(task.aliasProfile?.numberSource) ? existing.callSign : normalizeAliasNumber(task, body.callSign),
+      callSign: ["rank", "unit", "auto"].includes(task.aliasProfile?.numberSource) ? existing.callSign : normalizeAliasNumber(task, body.callSign),
       aliasName: sanitizeText(body.aliasName, 80),
       raw: {
         ...(task.key === "DNR" && body.dnrUnitKey !== undefined ? { dnrUnitKey: sanitizeText(body.dnrUnitKey, 40) } : {}),
@@ -916,10 +921,11 @@ async function handleApi(req, res, task, url) {
     let member = await ensureSessionMember(task, session);
     if (!member) return jsonError(res, 404, "Lid niet gevonden.");
     const aliasActivation = task.allowAlias && status !== "8";
+    const pendingAutoUnitAssignment = task.key === "HRB" && ["0", "1"].includes(status);
     if (aliasActivation && (body.callSign !== undefined || body.aliasName !== undefined || body.undercover !== undefined)) {
       const profilePatch = {
         ...member,
-        callSign: task.aliasProfile?.numberSource === "rank"
+        callSign: ["rank", "auto"].includes(task.aliasProfile?.numberSource)
           ? member.callSign
           : body.callSign !== undefined ? normalizeAliasNumber(task, body.callSign) : member.callSign,
         aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : member.aliasName,
@@ -932,16 +938,20 @@ async function handleApi(req, res, task, url) {
       if (task.key === "DNR") requireAllowedDnrUnit(task, dnrUnitKeyForMember(task, profilePatch), session);
       // Valideer voordat we opslaan: een incomplete browserdraft mag nooit
       // reeds opgeslagen profielgegevens leegmaken.
-      const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(member.discordId) : null;
-      validateAliasProfileForStatus(task, profilePatch, status, validationIdentity);
+      if (!pendingAutoUnitAssignment) {
+        const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(member.discordId) : null;
+        validateAliasProfileForStatus(task, profilePatch, status, validationIdentity);
+      }
       member = await store.updateMemberProfile(task.key, member.id, profilePatch);
     }
-    if (task.allowAlias) {
+    if (task.allowAlias && !pendingAutoUnitAssignment) {
       const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(member.discordId) : null;
       validateAliasProfileForStatus(task, member, status, validationIdentity);
     }
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
+    } else if (task.key === "HRB" && ["0", "1"].includes(status)) {
+      member = await store.assignHrbUnit(task.key, member.id, "", status);
     } else if (task.key === "DNR" && status === "1") {
       const dnrUnitKey = dnrUnitKeyForMember(task, member);
       requireAllowedDnrUnit(task, dnrUnitKey, session);
@@ -956,8 +966,9 @@ async function handleApi(req, res, task, url) {
       member = await store.updateMember(task.key, member.id, {
         status,
         statusDetail: statusOption(status).label,
-        callSign: task.aliasProfile?.numberSource === "rank" && status !== "8" ? aliasNumberForTask(task, member, rankNumberIdentity) : member.callSign,
-        unitNumber: ((task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole) || (task.key === "DNR" && status === "8")) ? "" : member.unitNumber,
+        callSign: task.key === "HRB" && status === "8" ? "" : task.aliasProfile?.numberSource === "rank" && status !== "8" ? aliasNumberForTask(task, member, rankNumberIdentity) : member.callSign,
+        unitNumber: ((task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole) || (["DNR", "HRB"].includes(task.key) && status === "8")) ? "" : member.unitNumber,
+        commandRole: task.key === "HRB" && status === "8" ? "" : member.commandRole,
         specialties: specialtiesForRoles(task, session.roles || [])
       });
     }
@@ -1073,6 +1084,24 @@ async function handleApi(req, res, task, url) {
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
 
+  const hrbCommandMatch = url.pathname.match(/^\/api\/side-tasks\/hrb\/members\/([^/]+)\/command-role$/);
+  if (hrbCommandMatch && req.method === "POST") {
+    if (task.key !== "HRB") return jsonError(res, 404, "Niet gevonden.");
+    const member = await store.findMemberById(task.key, decodeURIComponent(hrbCommandMatch[1]));
+    if (!member) return jsonError(res, 404, "HRB-lid niet gevonden.");
+    const isOwnProfile = member.discordId === session.user.id;
+    if (!isOwnProfile && !session.permissions.canManageHrbUnits) return jsonError(res, 403, "Alleen HRB-leiding kan andere leden indelen.");
+    if (!session.permissions.canAssignHrbCommand) return jsonError(res, 403, "Alleen HRB-leden kunnen CM/PLAVA opnemen.");
+    const body = await readBody(req);
+    const commandRole = ["", "CM", "PLAVA"].includes(String(body.commandRole || "").trim()) ? String(body.commandRole || "").trim() : null;
+    if (commandRole === null) return jsonError(res, 400, "Ongeldige CM/PLAVA-keuze.");
+    if (commandRole && member.status === "8") return jsonError(res, 400, "Meld dit HRB-lid eerst aan voordat je CM/PLAVA gebruikt.");
+    const updated = await store.assignHrbCommandRole(task.key, member.id, commandRole);
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, updated.status);
+    publishSideTaskUpdate(task, "hrb-command-role-updated", { memberId: nicknameResult.member.id, commandRole });
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
+  }
+
   const memberMatch = url.pathname.match(/^\/api\/side-tasks\/members\/([^/]+)$/);
   if (memberMatch && req.method === "PATCH") {
     if (!session.permissions.canManageMembers) return jsonError(res, 403, "Geen beheerrechten.");
@@ -1082,7 +1111,7 @@ async function handleApi(req, res, task, url) {
     const status = body.status ? validateStatus(task, body.status) : existing.status;
     const nextMemberProfile = {
       ...existing,
-      callSign: task.aliasProfile?.numberSource === "rank"
+      callSign: ["rank", "auto"].includes(task.aliasProfile?.numberSource)
         ? existing.callSign
         : body.callSign !== undefined ? normalizeAliasNumber(task, body.callSign) : existing.callSign,
       aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
@@ -1095,7 +1124,8 @@ async function handleApi(req, res, task, url) {
     if (task.key === "DNR" && body.dnrUnitKey !== undefined) {
       requireAllowedDnrUnit(task, sanitizeText(body.dnrUnitKey, 40), session);
     }
-    if (task.allowAlias) {
+    const pendingAutoUnitAssignment = task.key === "HRB" && ["0", "1"].includes(status);
+    if (task.allowAlias && !pendingAutoUnitAssignment) {
       const validationIdentity = task.aliasProfile?.numberSource === "rank" ? await portalIdentityForDiscordId(existing.discordId) : null;
       validateAliasProfileForStatus(task, nextMemberProfile, status, validationIdentity);
     }
@@ -1105,17 +1135,25 @@ async function handleApi(req, res, task, url) {
     let member = await store.updateMember(task.key, existing.id, {
       displayName: body.displayName !== undefined ? sanitizeText(body.displayName, 120) : existing.displayName,
       phone: body.phone !== undefined ? sanitizeText(body.phone, 32) : existing.phone,
-      callSign: task.aliasProfile?.numberSource === "rank"
+      callSign: task.key === "HRB" && status === "8"
+        ? ""
+        : task.aliasProfile?.numberSource === "rank"
         ? status !== "8" ? aliasNumberForTask(task, nextMemberProfile, rankNumberIdentity) : existing.callSign
+        : task.aliasProfile?.numberSource === "auto"
+        ? existing.callSign
         : body.callSign !== undefined ? normalizeAliasNumber(task, body.callSign) : existing.callSign,
       aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
       raw: nextMemberProfile.raw,
       status,
       statusDetail: statusOption(status).label,
-      unitNumber: ((task.key === "DSI" && ["0", "8"].includes(status) && !existing.commandRole) || (task.key === "DNR" && status === "8")) ? "" : existing.unitNumber
+      unitNumber: ((task.key === "DSI" && ["0", "8"].includes(status) && !existing.commandRole) || (["DNR", "HRB"].includes(task.key) && status === "8")) ? "" : existing.unitNumber,
+      commandRole: task.key === "HRB" && status === "8" ? "" : existing.commandRole
     });
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);
+    }
+    if (task.key === "HRB" && ["0", "1"].includes(status)) {
+      member = await store.assignHrbUnit(task.key, member.id, "", status);
     }
     if (task.key === "DNR" && status === "1") {
       const dnrUnitKey = dnrUnitKeyForMember(task, member);

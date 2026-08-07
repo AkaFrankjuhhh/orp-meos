@@ -6,6 +6,7 @@ let appState = {
   statuses: [],
   profileOpen: false,
   dsiContextMenu: null,
+  hrbContextMenu: null,
   dnrContextMenu: null,
   archives: [],
   dnrRoleCheck: null,
@@ -57,6 +58,11 @@ function loginView(message = "") {
 }
 
 function displayMemberName(member, task) {
+  if (task.key === "HRB" && (member.unitNumber || member.callSign)) {
+    const number = aliasNumberForDisplay(member, task);
+    const prefix = ["CM", "PLAVA"].includes(member.commandRole) ? `${member.commandRole} ` : "";
+    if (number) return `${prefix}[${number}] ${member.displayName || member.discordId}`;
+  }
   if (task.key === "DNR" && (member.unitNumber || member.callSign)) {
     const number = aliasNumberForDisplay(member, task);
     const dnrUnit = dnrUnitForMember(member, task);
@@ -93,6 +99,7 @@ function dnrUnitNumberForPrefix(prefix, unitNumber) {
 function aliasNumberForDisplay(member, task) {
   if (task.key === "KLU") return member.callSign || task.aliasProfile?.numberPlaceholder || "Eagle";
   if (task.key === "DNR") return member.unitNumber || member.callSign || "";
+  if (task.key === "HRB") return member.unitNumber || member.callSign || "";
   return (member.commandRole && member.unitNumber) || ((member.status === "1" || member.status === "4") && member.unitNumber)
     ? member.unitNumber
     : member.callSign;
@@ -128,6 +135,7 @@ function aliasProfileFields(member = {}, task = appState.me?.task || {}) {
   if (!task.allowAlias) return "";
   const profile = task.aliasProfile || {};
   const isRankNumber = profile.numberSource === "rank";
+  const isAutoNumber = profile.numberSource === "auto";
   const isUnitNumber = profile.numberSource === "unit" && task.key === "DNR";
   const unitOptions = selectableDnrUnits(task)
     .map((unit) => `<option value="${escapeHtml(unit.key)}" ${unit.key === member.dnrUnitKey ? "selected" : ""}>${escapeHtml(unit.label)} (${escapeHtml(unit.prefix)}-XX)</option>`)
@@ -142,7 +150,7 @@ function aliasProfileFields(member = {}, task = appState.me?.task || {}) {
       </label>
     ` : `
       <label>${escapeHtml(profile.numberLabel || "Roepnummer")}
-        <input name="callSign" value="${escapeHtml(member.callSign || "")}" placeholder="${escapeHtml(profile.numberPlaceholder || "")}" ${isRankNumber ? "readonly" : ""} />
+        <input name="callSign" value="${escapeHtml(member.unitNumber || member.callSign || "")}" placeholder="${escapeHtml(profile.numberPlaceholder || "")}" ${isRankNumber || isAutoNumber ? "readonly" : ""} />
       </label>
     `}
     <label>${escapeHtml(profile.aliasLabel || "Schuilnaam")}
@@ -222,7 +230,7 @@ function statusPanel() {
 }
 
 function isOperationalMember(member) {
-  return member?.status === "1" || member?.status === "4";
+  return member?.status === "1" || member?.status === "4" || (appState.me?.task?.key === "HRB" && member?.status === "0");
 }
 
 function summaryRow() {
@@ -245,8 +253,15 @@ function memberCard(member) {
     ? member.specialties.map((label) => `<span class="specialty-chip">${escapeHtml(label)}</span>`).join("")
     : `<span class="specialty-chip">Geen specialisatie</span>`;
   const dnrUnit = task.key === "DNR" ? dnrUnitForMember(member, task) : null;
+  const contextAttribute = task.key === "DSI"
+    ? ` data-dsi-member="${escapeHtml(member.id)}"`
+    : task.key === "DNR"
+    ? ` data-dnr-member="${escapeHtml(member.id)}"`
+    : task.key === "HRB"
+    ? ` data-hrb-member="${escapeHtml(member.id)}"`
+    : "";
   return `
-    <article class="member-card ${statusClass === "active" ? "" : statusClass}"${task.key === "DSI" ? ` data-dsi-member="${escapeHtml(member.id)}"` : ""}${task.key === "DNR" ? ` data-dnr-member="${escapeHtml(member.id)}"` : ""}>
+    <article class="member-card ${statusClass === "active" ? "" : statusClass}"${contextAttribute}>
       <div class="member-main">
         ${memberAvatar(member)}
         <div>
@@ -371,6 +386,28 @@ function dnrContextMenu() {
         ${permissions.canSignOffDnrMembers && member.status !== "8" ? `<button type="button" data-action="dnr-sign-off-member">Uit dienst melden</button>` : ""}
         <button class="dsi-context-close" type="button" data-action="dnr-close-menu">Sluiten</button>
       `}
+    </div>
+  `;
+}
+
+function hrbContextMenu() {
+  const context = appState.hrbContextMenu;
+  if (!context || appState.me?.task?.key !== "HRB") return "";
+  const member = appState.members.find((entry) => entry.id === context.memberId);
+  if (!member || member.status === "8") return "";
+  const permissions = appState.me.permissions || {};
+  const isOwnProfile = member.discordId === appState.me.user.id;
+  if (!isOwnProfile && !permissions.canManageHrbUnits) return "";
+  if (!permissions.canAssignHrbCommand) return "";
+  const commandUnits = appState.me.task?.hrbUnits?.commandUnits || { CM: "HRB-00", PLAVA: "HRB-01" };
+  const style = `left:${context.x}px;top:${context.y}px;`;
+  return `
+    <div class="dsi-context-menu" data-hrb-context-menu style="${style}">
+      <div class="dsi-context-title">${escapeHtml(displayMemberName(member, appState.me.task))}</div>
+      <button type="button" data-action="hrb-set-command-role" data-command-role="CM">CM opnemen (${escapeHtml(commandUnits.CM || "HRB-00")})</button>
+      <button type="button" data-action="hrb-set-command-role" data-command-role="PLAVA">PLAVA opnemen (${escapeHtml(commandUnits.PLAVA || "HRB-01")})</button>
+      ${member.commandRole ? `<button type="button" data-action="hrb-set-command-role" data-command-role="">${escapeHtml(member.commandRole)} neerleggen</button>` : ""}
+      <button class="dsi-context-close" type="button" data-action="hrb-close-menu">Sluiten</button>
     </div>
   `;
 }
@@ -503,6 +540,7 @@ function memberEditModal() {
   const task = appState.me.task;
   const profile = task.aliasProfile || {};
   const isRankNumber = profile.numberSource === "rank";
+  const isAutoNumber = profile.numberSource === "auto";
   const isUnitNumber = profile.numberSource === "unit" && task.key === "DNR";
   const unitOptions = selectableDnrUnits(task)
     .map((unit) => `<option value="${escapeHtml(unit.key)}" ${unit.key === member.dnrUnitKey ? "selected" : ""}>${escapeHtml(unit.label)} (${escapeHtml(unit.prefix)}-XX)</option>`)
@@ -530,7 +568,7 @@ function memberEditModal() {
             </label>
           ` : `
             <label>${escapeHtml(profile.numberLabel || "Roepnummer")}
-              <input name="callSign" value="${escapeHtml(member.callSign || "")}" maxlength="32" ${isRankNumber ? "readonly" : ""} />
+              <input name="callSign" value="${escapeHtml(member.unitNumber || member.callSign || "")}" maxlength="32" ${isRankNumber || isAutoNumber ? "readonly" : ""} />
             </label>
           `}
           <label>${escapeHtml(profile.aliasLabel || "Schuilnaam")}
@@ -608,6 +646,9 @@ function memberAdminPage() {
 function renderDashboard() {
   const task = appState.me.task;
   const inactive = appState.members.filter((member) => member.status === "4");
+  const presentMembers = task.key === "HRB"
+    ? appState.members.filter((member) => member.status === "0" || member.status === "1")
+    : appState.members.filter((member) => member.status === "1");
   return `
     ${topbar()}
     <div class="grid dashboard-grid">
@@ -615,7 +656,7 @@ function renderDashboard() {
       <section class="panel">
         ${summaryRow()}
         ${task.key === "DSI" ? dsiUnitSection() : ""}
-        ${task.key === "DSI" ? "" : memberSection(`Aanwezige ${task.label} leden`, appState.members.filter((member) => member.status === "1"))}
+        ${task.key === "DSI" ? "" : memberSection(`${task.key === "HRB" ? "In dienst" : "Aanwezige"} ${task.label} leden`, presentMembers)}
         ${memberSection(`Afwezige ${task.label} leden`, inactive)}
       </section>
     </div>
@@ -624,7 +665,7 @@ function renderDashboard() {
 
 function renderApp() {
   const page = location.hash === "#ledenbeheer" ? "ledenbeheer" : "dashboard";
-  app.innerHTML = `${page === "ledenbeheer" ? memberAdminPage() : renderDashboard()}${dsiContextMenu()}${dnrContextMenu()}${memberEditModal()}`;
+  app.innerHTML = `${page === "ledenbeheer" ? memberAdminPage() : renderDashboard()}${dsiContextMenu()}${hrbContextMenu()}${dnrContextMenu()}${memberEditModal()}`;
   window.DefensiePortalUI?.ensureUiModeToggle?.(".user-menu");
 }
 
@@ -653,7 +694,7 @@ async function refresh(options = {}) {
 }
 
 function isEditingOrManaging() {
-  if (appState.profileOpen || appState.dsiContextMenu || appState.dnrContextMenu || appState.memberEditId) return true;
+  if (appState.profileOpen || appState.dsiContextMenu || appState.hrbContextMenu || appState.dnrContextMenu || appState.memberEditId) return true;
   const activeElement = document.activeElement;
   return Boolean(activeElement?.matches?.("input, textarea, select"));
 }
@@ -791,6 +832,11 @@ app.addEventListener("click", async (event) => {
       renderApp();
       return;
     }
+    if (action === "hrb-close-menu") {
+      appState.hrbContextMenu = null;
+      renderApp();
+      return;
+    }
     if (action === "dsi-open-link-menu") {
       appState.dsiContextMenu = { ...appState.dsiContextMenu, mode: "link" };
       renderApp();
@@ -869,6 +915,18 @@ app.addEventListener("click", async (event) => {
       if (result.warning) alert(result.warning);
       return;
     }
+    if (action === "hrb-set-command-role") {
+      const context = appState.hrbContextMenu;
+      if (!context) return;
+      const result = await api(`/api/side-tasks/hrb/members/${encodeURIComponent(context.memberId)}/command-role`, {
+        method: "POST",
+        body: JSON.stringify({ commandRole: button.dataset.commandRole || "" })
+      });
+      appState.hrbContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
     if (action === "delete-member") {
       if (!confirm("Weet je zeker dat je dit lid wil verwijderen?")) return;
       await api(`/api/side-tasks/members/${encodeURIComponent(button.dataset.id)}`, { method: "DELETE" });
@@ -918,10 +976,35 @@ app.addEventListener("contextmenu", (event) => {
   renderApp();
 });
 
+app.addEventListener("contextmenu", (event) => {
+  const target = event.target.closest("[data-hrb-member]");
+  if (!target || appState.me?.task?.key !== "HRB") return;
+  const member = appState.members.find((entry) => entry.id === target.dataset.hrbMember);
+  if (!member || member.status === "8") return;
+  const permissions = appState.me.permissions || {};
+  const isOwnProfile = member.discordId === appState.me.user.id;
+  if (!isOwnProfile && !permissions.canManageHrbUnits) return;
+  if (!permissions.canAssignHrbCommand) return;
+  event.preventDefault();
+  const menuWidth = 320;
+  const menuHeight = 220;
+  appState.hrbContextMenu = {
+    memberId: member.id,
+    mode: "actions",
+    x: Math.min(event.clientX, window.innerWidth - menuWidth - 12),
+    y: Math.min(event.clientY, window.innerHeight - menuHeight - 12)
+  };
+  renderApp();
+});
+
 document.addEventListener("click", (event) => {
   let changed = false;
   if (appState.dsiContextMenu && !event.target.closest("[data-dsi-context-menu]")) {
     appState.dsiContextMenu = null;
+    changed = true;
+  }
+  if (appState.hrbContextMenu && !event.target.closest("[data-hrb-context-menu]")) {
+    appState.hrbContextMenu = null;
     changed = true;
   }
   if (appState.dnrContextMenu && !event.target.closest("[data-dnr-context-menu]")) {
