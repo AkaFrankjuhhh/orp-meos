@@ -723,7 +723,7 @@ function createPortoServices() {
     const canViewOpsLog = canViewPortoOpsLog(person);
     const canManageOps = canOperatePortoOps(person);
     const canUseManagementBypass = canUsePortoManagementBypass(person);
-    const managementBypassLabel = organization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass";
+    const managementBypassLabel = organization.key === "politie" ? "KL Bypass" : "Kader Bypass";
     const opsRequests = canManageOps
       ? state.portoUnits
           .filter((unit) => unit.active !== false && String(unit.status) === "0" && !unit.vehicleNumber && !assignedMemberIds.has(unit.memberId))

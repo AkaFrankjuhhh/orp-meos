@@ -36,7 +36,7 @@ function applyPortoPayload(payload, options = {}) {
   portoCanViewOpsLog = Boolean(payload.canViewOpsLog);
   portoCanUseDevTools = Boolean(payload.canUseDevTools);
   portoCanUseManagementBypass = Boolean(payload.canUseManagementBypass);
-  portoManagementBypassLabel = payload.managementBypassLabel || (portoOrganization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass");
+  portoManagementBypassLabel = payload.managementBypassLabel || (portoOrganization.key === "politie" ? "KL Bypass" : "Kader Bypass");
   portoOpsRequests = payload.opsRequests || [];
   portoAvailableVehicleRanges = payload.availableVehicleRanges || [];
   portoLinkableUnits = payload.linkableUnits || [];
@@ -423,13 +423,14 @@ function memberHasIbt(member) {
 
 function memberDutyRole(member) {
   const role = String(member?.dutyRole || "").trim().toUpperCase();
-  return ["OVD", "OPCO", "K9", "K9_BEGELEIDER"].includes(role) ? role : "";
+  return ["OVD", "OPCO", "BGD", "K9", "K9_BEGELEIDER"].includes(role) ? role : "";
 }
 
 function memberDutyClass(member) {
   const role = memberDutyRole(member);
   if (role === "OVD") return "duty-ovd";
   if (role === "OPCO") return "duty-opco";
+  if (role === "BGD") return "duty-bgd";
   if (role === "K9") return "duty-k9";
   if (role === "K9_BEGELEIDER") return "duty-k9-begeleider";
   return "";

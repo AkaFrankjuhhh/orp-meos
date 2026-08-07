@@ -51,7 +51,7 @@ test("porto reassign keeps the active duty start while moving units", () => {
   assert.match(assignBlock, /const assignedAt = unitHasActiveStatus && unit\.assignedAt \? unit\.assignedAt : new Date\(\)\.toISOString\(\)/);
 });
 
-test("porto duty roles include K9 for police and defensie", () => {
+test("porto duty roles include BGD and K9 for police and defensie", () => {
   const routeCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
   const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
   const dutyUiCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
@@ -61,19 +61,27 @@ test("porto duty roles include K9 for police and defensie", () => {
   const postgresStateCode = fs.readFileSync(path.join(process.cwd(), "modules", "postgres-state.js"), "utf8");
 
   assert.match(routeCode, /\/api\/porto\/duty-role/);
+  assert.match(routeCode, /key: "BGD"[\s\S]*requiresManagementBypass: true[\s\S]*allowMultiple: true/);
+  assert.match(routeCode, /role\.requiresManagementBypass && !canUsePortoManagementBypass\(person\)/);
+  assert.match(routeCode, /Alleen \$\{managementLabel\} mag Burgerdienst gebruiken/);
   assert.match(routeCode, /key: "K9"[\s\S]*requiresK9Name: true/);
   assert.match(routeCode, /key: "K9_BEGELEIDER"[\s\S]*K9 Begeleider/);
   assert.match(routeCode, /Vul eerst je K9-Naam in op je Porto-profiel/);
   assert.match(routeCode, /canPersonUsePortoDutyRole/);
+  assert.match(botCode, /BGD: "BGD"/);
+  assert.match(botCode, /BGD\)\\s\+/);
   assert.match(botCode, /K9: `K9-\$\{dutySuffix\}`/);
   assert.match(botCode, /K9_BEGELEIDER: `K9B-\$\{dutySuffix\}`/);
+  assert.match(mainUiCode, /key: "BGD"[\s\S]*requiresManagementBypass: true/);
   assert.match(mainUiCode, /requiresK9Name: true/);
   assert.match(mainUiCode, /K9_BEGELEIDER/);
   assert.match(mainUiCode, /"OC overzicht"/);
+  assert.match(dutyUiCode, /role\.requiresManagementBypass && !portoCanUseManagementBypass/);
   assert.match(dutyUiCode, /data-duty-role/);
-  assert.match(postgresStoreCode, /"K9", "K9_BEGELEIDER"/);
-  assert.match(postgresStateCode, /"K9", "K9_BEGELEIDER"/);
+  assert.match(postgresStoreCode, /"BGD", "K9", "K9_BEGELEIDER"/);
+  assert.match(postgresStateCode, /"BGD", "K9", "K9_BEGELEIDER"/);
   assert.match(opsUiCode, /memberNameTitle/);
+  assert.match(opsUiCode, /role === "BGD"/);
   assert.match(opsUiCode, /GEEN IBT/);
 });
 

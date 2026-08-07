@@ -440,7 +440,11 @@ function personOperationalValues(person = portoProfile) {
 
 function allowedPortoDutyRoles(person = portoProfile) {
   const values = personOperationalValues(person);
-  return portoDutyRoles.filter((role) => role.requiredAny.some((value) => values.has(value)));
+  return portoDutyRoles.filter((role) => {
+    if (role.requiresManagementBypass && !portoCanUseManagementBypass) return false;
+    const requiredAny = Array.isArray(role.requiredAny) ? role.requiredAny : [];
+    return !requiredAny.length || requiredAny.some((value) => values.has(value));
+  });
 }
 
 function portoDutyRoleLabel(roleKey) {
@@ -621,7 +625,7 @@ function renderDutyPanel() {
   pendingPanel.hidden = !waitingForOps;
   if (managementBypassButton) {
     managementBypassButton.hidden = !(waitingForOps && canUseManagementBypass());
-    managementBypassButton.textContent = portoManagementBypassLabel || (portoOrganization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass");
+    managementBypassButton.textContent = portoManagementBypassLabel || (portoOrganization.key === "politie" ? "KL Bypass" : "Kader Bypass");
   }
   if (devBypassButton) devBypassButton.hidden = !(waitingForOps && isDevBypassProfile());
   schedulePortoAutoAssign(waitingForOps);

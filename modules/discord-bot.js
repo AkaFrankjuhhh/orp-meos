@@ -218,6 +218,7 @@ function buildPortoNicknameDefault(person, unit = {}) {
   const dutyPrefixByRole = {
     OVD: `OVD-${dutySuffix}`,
     OPCO: `OPCO-${dutySuffix}`,
+    BGD: "BGD",
     K9: `K9-${dutySuffix}`,
     K9_BEGELEIDER: `K9B-${dutySuffix}`
   };
@@ -227,7 +228,7 @@ function buildPortoNicknameDefault(person, unit = {}) {
 }
 
 function nicknameHasPortoDutyPrefix(nickname) {
-  return /^(?:OVD|OPCO|K9|K9B)-[KP]\s+/i.test(String(nickname || "").trim());
+  return /^(?:(?:OVD|OPCO|K9|K9B)-[KP]|BGD)\s+/i.test(String(nickname || "").trim());
 }
 
 function auditReasonAllowsNormalNicknameOverDuty(auditReason) {

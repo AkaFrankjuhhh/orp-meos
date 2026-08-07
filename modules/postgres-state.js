@@ -202,7 +202,7 @@ async function readPostgresState() {
         vehicleCode: row.vehicle_code || "",
         vehicleType: row.vehicle_type || "",
         vehicleName: row.vehicle_name || "",
-        dutyRole: ["OVD", "OPCO", "K9", "K9_BEGELEIDER"].includes(String(raw.dutyRole || "").trim()) ? String(raw.dutyRole).trim() : "",
+        dutyRole: ["OVD", "OPCO", "BGD", "K9", "K9_BEGELEIDER"].includes(String(raw.dutyRole || "").trim()) ? String(raw.dutyRole).trim() : "",
         linkedWith: parseJson(row.linked_with, []),
         active: row.active !== false,
         requestedAt: iso(row.requested_at),

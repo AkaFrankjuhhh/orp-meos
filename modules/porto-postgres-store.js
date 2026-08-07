@@ -180,7 +180,7 @@ function portoUnitFromRow(row) {
   const active = row.active !== false;
   const vehicleNumber = row.vehicle_number || "";
   const operatorSlot = active && vehicleNumber ? String(raw.operatorSlot || "").trim() : "";
-  const dutyRole = active && vehicleNumber && ["OVD", "OPCO", "K9", "K9_BEGELEIDER"].includes(String(raw.dutyRole || "").trim())
+  const dutyRole = active && vehicleNumber && ["OVD", "OPCO", "BGD", "K9", "K9_BEGELEIDER"].includes(String(raw.dutyRole || "").trim())
     ? String(raw.dutyRole).trim()
     : "";
   return {

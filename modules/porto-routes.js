@@ -74,7 +74,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   const operatorVehicleName = organization.porto?.operatorVehicleName || operatorLabel;
   const operatorChannelKey = organization.porto?.operatorChannelKey || "ops";
   const managementLabel = organization.permissionAliases?.kader?.[0] || "leiding";
-  const managementBypassLabel = organization.key === "politie" ? "Korpsleiding Bypass" : "Kader Bypass";
+  const managementBypassLabel = organization.key === "politie" ? "KL Bypass" : "Kader Bypass";
   const portoDutyHoursTimeZone = process.env.PORTO_DUTY_HOURS_TIME_ZONE || "Europe/Amsterdam";
   const portoDutyHoursStartWeek = process.env.PORTO_DUTY_HOURS_START_WEEK || DEFAULT_PORTO_DUTY_HOURS_START_WEEK;
   const {
@@ -136,6 +136,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${dutyRoleSuffix}` },
       { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${dutyRoleSuffix}` }
     ]),
+    { key: "BGD", label: "BGD (Burgerdienst)", requiredAny: [], requiresManagementBypass: true, allowMultiple: true, nicknameLabel: "BGD" },
     { key: "K9", label: "K9", requiredAny: ["K9"], nicknameLabel: `K9-${dutyRoleSuffix}`, requiresK9Name: true },
     { key: "K9_BEGELEIDER", label: "K9 Begeleider", requiredAny: ["K9 Begeleider"], nicknameLabel: `K9B-${dutyRoleSuffix}` }
   ];
@@ -197,6 +198,8 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
   function canPersonUsePortoDutyRole(person, roleKey) {
     const role = dutyRoleDefinitions.find((entry) => entry.key === roleKey);
     if (!role) return false;
+    if (role.requiresManagementBypass && !canUsePortoManagementBypass(person)) return false;
+    if (!Array.isArray(role.requiredAny) || !role.requiredAny.length) return true;
     const values = new Set([
       ...(Array.isArray(person?.completedOperational) ? person.completedOperational : []),
       ...(Array.isArray(person?.completedTrainings) ? person.completedTrainings : [])
@@ -1392,7 +1395,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         }
         if (dutyRole && !canPersonUsePortoDutyRole(person, dutyRole)) {
           const role = dutyRoleDefinitions.find((entry) => entry.key === dutyRole);
-          sendJson(res, 403, { error: `Je hebt ${role?.label || dutyRole} niet op je profiel.` });
+          sendJson(res, 403, { error: role?.requiresManagementBypass ? `Alleen ${managementLabel} mag Burgerdienst gebruiken.` : `Je hebt ${role?.label || dutyRole} niet op je profiel.` });
           return true;
         }
         const role = dutyRoleDefinitions.find((entry) => entry.key === dutyRole);
@@ -1407,7 +1410,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         }
         const now = new Date().toISOString();
         const changedUnits = new Map();
-        if (dutyRole) {
+        if (dutyRole && !role?.allowMultiple) {
           for (const entry of state.portoUnits) {
             if (entry.id === unit.id || entry.active === false) continue;
             if (normalizedPortoDutyRole(entry.dutyRole) !== dutyRole) continue;

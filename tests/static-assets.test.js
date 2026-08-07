@@ -148,8 +148,8 @@ test("modern porto status 4 reason menu survives live refresh", () => {
   const dutyCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
 
-  assert.match(html, /porto\/duty\.js\?v=20260805-status8-tombstone/);
-  assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
+  assert.match(html, /porto\/duty\.js\?v=20260808-bgd-duty-role/);
+  assert.match(html, /porto\.js\?v=20260808-bgd-duty-role/);
   assert.match(dutyCode, /let portoModernStatus4Pending = false/);
   assert.match(dutyCode, /const showChoices = portoModernStatus4Pending \|\| String\(portoDuty\?\.status\) === "4"/);
   assert.match(dutyCode, /entry\.code === "4" && portoModernStatus4Pending/);
@@ -650,9 +650,9 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(html, /data-porto-ui-choice="modern"/);
   assert.match(html, /id="portoModernDutyDashboard"/);
   assert.match(html, /id="portoModernOpsDashboard"/);
-  assert.match(html, /porto\/ops\.js\?v=20260731-ops-refresh-state/);
-  assert.match(html, /porto\/duty\.js\?v=20260805-status8-tombstone/);
-  assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
+  assert.match(html, /porto\/ops\.js\?v=20260808-bgd-duty-role/);
+  assert.match(html, /porto\/duty\.js\?v=20260808-bgd-duty-role/);
+  assert.match(html, /porto\.js\?v=20260808-bgd-duty-role/);
   assert.match(portoCode, /PORTO_UI_MODE_KEY/);
   assert.match(portoCode, /let portoDutyTime = null/);
   assert.match(portoCode, /function bindPortoUiToggle/);
@@ -736,7 +736,7 @@ test("porto K9 duty role stores a visible K9 name from the profile", () => {
   assert.match(html, /portoK9NameField/);
   assert.match(html, /portoK9Name/);
   assert.match(html, /porto\/profile\.js\?v=20260719-k9-duty-role/);
-  assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
+  assert.match(html, /porto\.js\?v=20260808-bgd-duty-role/);
   assert.match(profileCode, /completedTrainings\)\s*&& portoProfile\.completedTrainings\.includes\("K9"\)/);
   assert.match(clientCode, /k9Name: k9NameInput/);
   assert.match(routesCode, /personHasK9Training/);
@@ -777,8 +777,8 @@ test("porto browser heartbeat avoids noisy persistence and stale active screens"
   assert.match(routesCode, /manualStatusChange = body\.manualStatusChange === true/);
   assert.match(routesCode, /recentlyEnded && status === "0" && !manualStatusChange/);
   assert.match(routesCode, /if \(isRecentlyEnded\(person\.id\)\) \{[\s\S]*recentlyEndedError\(\)/);
-  assert.match(html, /porto\/duty\.js\?v=20260805-status8-tombstone/);
-  assert.match(html, /porto\.js\?v=20260731-ops-refresh-state/);
+  assert.match(html, /porto\/duty\.js\?v=20260808-bgd-duty-role/);
+  assert.match(html, /porto\.js\?v=20260808-bgd-duty-role/);
   assert.match(envExample, /PORTO_BROWSER_CLOSE_GRACE_MS=3600000/);
   assert.match(envExample, /PORTO_BROWSER_HARD_TIMEOUT_MS=14400000/);
   assert.match(envExample, /PORTO_BROWSER_HEARTBEAT_PERSIST_MS=45000/);

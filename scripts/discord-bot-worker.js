@@ -1418,7 +1418,7 @@ function unitWithPortoNicknameContext(state, unit) {
   const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
   return {
     ...unit,
-    dutyRole: ["OVD", "OPCO", "K9", "K9_BEGELEIDER"].includes(String(unit.dutyRole || "").trim()) ? String(unit.dutyRole).trim() : "",
+    dutyRole: ["OVD", "OPCO", "BGD", "K9", "K9_BEGELEIDER"].includes(String(unit.dutyRole || "").trim()) ? String(unit.dutyRole).trim() : "",
     isPortoOpsLead: Boolean(unit.vehicleNumber === operatorVehicleNumber && currentOpsMemberId && currentOpsMemberId === unit.memberId)
   };
 }

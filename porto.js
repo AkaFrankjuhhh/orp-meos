@@ -23,12 +23,14 @@ const profileOperational = portoRuntimeConfig.profileOperational || ["OPS", "OPC
 const portoDutyRoleSuffix = portoOrganization.key === "politie" ? "P" : "K";
 const portoDutyRoles = portoOrganization.key === "politie"
   ? [
+      { key: "BGD", label: "BGD (Burgerdienst)", requiredAny: [], requiresManagementBypass: true, nicknameLabel: "BGD" },
       { key: "K9", label: "K9", requiredAny: ["K9"], nicknameLabel: `K9-${portoDutyRoleSuffix}`, requiresK9Name: true },
       { key: "K9_BEGELEIDER", label: "K9 Begeleider", requiredAny: ["K9 Begeleider"], nicknameLabel: `K9B-${portoDutyRoleSuffix}` }
     ]
   : [
       { key: "OPCO", label: "OPCO", requiredAny: ["OPCO"], nicknameLabel: `OPCO-${portoDutyRoleSuffix}` },
       { key: "OVD", label: "OVD", requiredAny: ["OVD", "OVD-P", "OVD-K"], nicknameLabel: `OVD-${portoDutyRoleSuffix}` },
+      { key: "BGD", label: "BGD (Burgerdienst)", requiredAny: [], requiresManagementBypass: true, nicknameLabel: "BGD" },
       { key: "K9", label: "K9", requiredAny: ["K9"], nicknameLabel: `K9-${portoDutyRoleSuffix}`, requiresK9Name: true },
       { key: "K9_BEGELEIDER", label: "K9 Begeleider", requiredAny: ["K9 Begeleider"], nicknameLabel: `K9B-${portoDutyRoleSuffix}` }
     ];
