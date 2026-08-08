@@ -1406,10 +1406,24 @@ function activePeopleForDiscord(state) {
     .sort((a, b) => (a.serviceNumber || "").localeCompare(b.serviceNumber || "", "nl", { numeric: true }));
 }
 
+function timestampMs(value) {
+  const time = Date.parse(value || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
+function portoUnitFreshnessMs(unit) {
+  return Math.max(
+    timestampMs(unit?.updatedAt),
+    timestampMs(unit?.assignedAt),
+    timestampMs(unit?.requestedAt),
+    timestampMs(unit?.lastSeenAt)
+  );
+}
+
 function activePortoUnitForPerson(state, person) {
   return (state.portoUnits || [])
     .filter((unit) => unit.active !== false && unit.memberId === person?.id && unit.vehicleNumber)
-    .sort((a, b) => Date.parse(b.updatedAt || b.assignedAt || b.requestedAt || 0) - Date.parse(a.updatedAt || a.assignedAt || a.requestedAt || 0))[0] || null;
+    .sort((a, b) => portoUnitFreshnessMs(b) - portoUnitFreshnessMs(a))[0] || null;
 }
 
 function unitWithPortoNicknameContext(state, unit) {
@@ -1584,14 +1598,32 @@ async function syncByJob(job) {
   });
   if (job.type === "porto_nickname") {
     if (!person) return { skipped: true, reason: "Geen portaalprofiel gevonden" };
-    const unit = (state.portoUnits || []).find((entry) => (
-      entry.id === job.payload?.unitId
+    const requestedUnitId = String(job.payload?.unitId || "").trim();
+    const exactUnit = (state.portoUnits || []).find((entry) => (
+      String(entry.id || "") === requestedUnitId
       && entry.active !== false
       && entry.memberId === person.id
       && entry.vehicleNumber
-    ))
-      || activePortoUnitForPerson(state, person);
+    ));
+    if (requestedUnitId && !exactUnit) {
+      const activeUnit = activePortoUnitForPerson(state, person);
+      if (activeUnit) {
+        return {
+          skipped: true,
+          reason: "Verouderde Porto nickname job overgeslagen: unit is niet meer actief."
+        };
+      }
+      return syncPerson(person, `Discord bot job ${job.id}: Porto dienst beeindigd`);
+    }
+    const unit = exactUnit || activePortoUnitForPerson(state, person);
     if (!unit) return syncPerson(person, `Discord bot job ${job.id}: Porto dienst beeindigd`);
+    const expectedUnitUpdatedAt = timestampMs(job.payload?.unitUpdatedAt);
+    if (expectedUnitUpdatedAt && portoUnitFreshnessMs(unit) > expectedUnitUpdatedAt) {
+      return {
+        skipped: true,
+        reason: "Verouderde Porto nickname job overgeslagen: unit is inmiddels bijgewerkt."
+      };
+    }
     if (Object.prototype.hasOwnProperty.call(job.payload || {}, "dutyRole")) {
       const expectedDutyRole = String(job.payload?.dutyRole || "").trim();
       const currentDutyRole = String(unit.dutyRole || "").trim();
@@ -1619,6 +1651,14 @@ async function syncByJob(job) {
       `Discord bot job ${job.id}: niet-actueel profiel`
     );
     return { ok: true, inactive: true, rankRole, trainingNeededRoles, separatorRoles };
+  }
+  if (job.type === "sync_person" && job.payload?.forceNormalNickname) {
+    const activeUnit = activePortoUnitForPerson(state, person);
+    const endedAt = timestampMs(job.payload?.endedAt);
+    if (activeUnit && (!endedAt || portoUnitFreshnessMs(activeUnit) > endedAt)) {
+      return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
+    }
+    return syncPerson(person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
   }
   return syncPersonForState(state, person, `Discord bot job ${job.id}: ${job.payload?.reason || job.type}`);
 }

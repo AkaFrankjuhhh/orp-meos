@@ -991,6 +991,21 @@ test("Discord worker resolves duplicate Discord IDs to current portal profiles",
   assert.match(workerCode, /findPersonByDiscordId\(state\.people \|\| \[\], userId, \{ currentOnly: true \}\)/);
 });
 
+test("Discord worker skips stale Porto nickname jobs after status 8", () => {
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const jobsCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-sync-jobs.js"), "utf8");
+
+  assert.match(routesCode, /forceNormalNickname: true/);
+  assert.match(routesCode, /endedAt: unit\.endedAt \|\| unit\.updatedAt/);
+  assert.match(jobsCode, /job\.type === "sync_person" && job\.payload\?\.forceNormalNickname/);
+  assert.match(jobsCode, /type = 'porto_nickname'/);
+  assert.match(workerCode, /const requestedUnitId = String\(job\.payload\?\.unitId/);
+  assert.match(workerCode, /Verouderde Porto nickname job overgeslagen: unit is niet meer actief/);
+  assert.match(workerCode, /Verouderde Porto nickname job overgeslagen: unit is inmiddels bijgewerkt/);
+  assert.match(workerCode, /job\.type === "sync_person" && job\.payload\?\.forceNormalNickname/);
+});
+
 test("Discord worker casts Porto JSONB update parameters", () => {
   const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
   assert.match(workerCode, /jsonb_build_object\('discordChannelKey', \$2::text\)/);

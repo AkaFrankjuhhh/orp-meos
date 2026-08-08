@@ -36,6 +36,17 @@ async function collapsePendingDiscordSyncJobs(client, job, options = {}) {
           OR ($3::text <> '' AND discord_id = $3)
         )
     `, [job.type, job.personId || "", job.discordId || ""]);
+    if (job.type === "sync_person" && job.payload?.forceNormalNickname) {
+      await client.query(`
+        DELETE FROM discord_sync_jobs
+        WHERE status = 'pending'
+          AND type = 'porto_nickname'
+          AND (
+            ($1::text <> '' AND person_id = $1)
+            OR ($2::text <> '' AND discord_id = $2)
+          )
+      `, [job.personId || "", job.discordId || ""]);
+    }
     return;
   }
 

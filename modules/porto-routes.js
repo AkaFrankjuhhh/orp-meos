@@ -589,6 +589,9 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       await enqueueDiscordSyncJob("sync_person", {
         personId: person.id,
         discordId: person.discordId,
+        forceNormalNickname: true,
+        endedAt: unit.endedAt || unit.updatedAt || "",
+        endedUnitId: unit.id || "",
         reason
       }, { personId: person.id, discordId: person.discordId, runAfter: delayedDiscordJobRunAfter() }).catch(() => {});
       if (discordBot?.isConfigured?.() && typeof discordBot.syncNicknameForPersonIfNeeded === "function") {
