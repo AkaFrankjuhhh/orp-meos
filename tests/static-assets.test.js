@@ -395,6 +395,8 @@ test("profile notes are private to self and authorized leadership", () => {
   assert.match(appCode, /function canViewProfileNotes\(person\)/);
   assert.match(appCode, /function canManageProfileNotes\(\)/);
   assert.match(appCode, /\/profile-note/);
+  assert.match(appCode, /payload\.person\?\.id/);
+  assert.match(appCode, /renderProfile\(\);\s*renderLogbook\(\);/);
   assert.match(appCode, /function hasActiveProfileNoteInteraction/);
   assert.match(profileCode, /function renderProfileNote/);
   assert.match(profileCode, /person\.profileNote/);
@@ -404,6 +406,8 @@ test("profile notes are private to self and authorized leadership", () => {
   assert.match(domainCode, /profileNote: person\.id === profileId \|\| permissions\?\.canViewAllProfileNotes[\s\S]*profileNoteForView\(person\.profileNote\)/);
   assert.match(routesCode, /profileNoteMatch/);
   assert.match(routesCode, /Alleen Kader, Hoofdofficier of Officiersraad mag profielnotities aanpassen/);
+  assert.match(routesCode, /writePersonProfileNote/);
+  assert.match(routesCode, /singlePersonForProfileResponse/);
   assert.match(styles, /\.profile-notes-panel textarea/);
 });
 

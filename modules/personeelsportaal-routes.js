@@ -1153,6 +1153,20 @@ function createPersoneelsportaalRouteHandler(deps) {
     return normalizeProfileNoteText(note && typeof note === "object" ? note.text : note);
   }
 
+  function singlePersonForProfileResponse(person, permissions, profileId) {
+    const filtered = stateForProfile({
+      people: [person],
+      activity: [],
+      hours: [],
+      portoUnits: [],
+      portoOpsLog: [],
+      i8Forms: [],
+      resignationForms: [],
+      blacklist: []
+    }, permissions, profileId);
+    return filtered.people?.[0] || person;
+  }
+
   function trainingCreditLabel(person) {
     if (!person) return "";
     const number = person.serviceNumber ? `${person.serviceNumber} - ` : "";
@@ -2601,12 +2615,25 @@ function createPersoneelsportaalRouteHandler(deps) {
     }
     state.activity = state.activity || [];
     state.activity.push(activityMessage);
+    if (typeof peopleStorage.writePersonProfileNote === "function") {
+      await Promise.resolve(peopleStorage.writePersonProfileNote(person, activityMessage));
+      const nextPermissions = permissionsForAuth(auth, state);
+      sendJson(res, 200, {
+        ok: true,
+        person: singlePersonForProfileResponse(person, nextPermissions, auth.profile.id),
+        activity: nextPermissions.canViewLogbook ? [activityMessage] : [],
+        canViewLogbook: nextPermissions.canViewLogbook,
+        permissions: nextPermissions
+      });
+      return;
+    }
     if (typeof peopleStorage.writePersonSnapshots === "function") {
       await Promise.resolve(peopleStorage.writePersonSnapshots(person, activityMessage));
       const nextPermissions = permissionsForAuth(auth, state);
       sendJson(res, 200, {
         ok: true,
-        state: stateForProfile(state, nextPermissions, auth.profile.id),
+        person: singlePersonForProfileResponse(person, nextPermissions, auth.profile.id),
+        activity: nextPermissions.canViewLogbook ? [activityMessage] : [],
         canViewLogbook: nextPermissions.canViewLogbook,
         permissions: nextPermissions
       });

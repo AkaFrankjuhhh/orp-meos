@@ -971,11 +971,27 @@ async function loadState() {
 }
 
 function applyServerState(payload) {
-  if (!payload?.state) return;
-  state = { ...structuredClone(defaultState), ...payload.state };
+  if (!payload?.state && !payload?.person) return;
+  if (payload.state) {
+    state = { ...structuredClone(defaultState), ...payload.state };
+    if (typeof resetMentorTestCaches === "function") resetMentorTestCaches();
+  }
+  if (payload.person?.id) {
+    const index = (state.people || []).findIndex((person) => person.id === payload.person.id);
+    if (index >= 0) {
+      state.people[index] = { ...state.people[index], ...payload.person };
+    } else {
+      state.people = [...(state.people || []), payload.person];
+    }
+    if (authProfile?.id === payload.person.id) {
+      authProfile = { ...authProfile, ...payload.person };
+    }
+  }
+  if (Array.isArray(payload.activity) && payload.activity.length) {
+    state.activity = [...(state.activity || []), ...payload.activity];
+  }
   serverBacked = true;
   portalStateLoaded = true;
-  if (typeof resetMentorTestCaches === "function") resetMentorTestCaches();
   if ("canViewLogbook" in payload) {
     canViewLogbook = Boolean(payload.canViewLogbook);
   }
@@ -3101,7 +3117,9 @@ function wireEvents() {
     const noteField = $("#profileNoteText");
     if (!viewed || !noteField || !canManageProfileNotes()) return;
     if (await runAction(`/api/people/${encodeURIComponent(viewed.id)}/profile-note`, { profileNote: noteField.value })) {
-      render();
+      renderProfile();
+      renderLogbook();
+      DefensiePortalUI.bindAutoGrowingTextareas?.();
     }
   });
   $("#mijn-profiel").addEventListener("change", async (event) => {
