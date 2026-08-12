@@ -1162,6 +1162,36 @@ function captureGatewayMemberRoles(member = {}, guildId = "") {
   );
 }
 
+function missingDesiredGatewayRoleIds(person, member = {}) {
+  if (!isCurrentPerson(person) || !Array.isArray(member.roles)) return [];
+  const desiredRoleIds = typeof bot.desiredManagedRoleIdsForPerson === "function"
+    ? bot.desiredManagedRoleIdsForPerson(person)
+    : [];
+  if (!desiredRoleIds.length) return [];
+  const currentRoleIds = new Set(member.roles.map((roleId) => String(roleId || "").trim()).filter(Boolean));
+  return desiredRoleIds.filter((roleId) => !currentRoleIds.has(roleId));
+}
+
+async function scheduleGatewayRoleSelfHeal(member = {}) {
+  if (!Array.isArray(member.roles)) return;
+  const discordId = String(member.user?.id || member.user_id || "").trim();
+  if (!discordId) return;
+  const person = await findPortalPersonByDiscordId(discordId);
+  const missingRoleIds = person ? missingDesiredGatewayRoleIds(person, member) : [];
+  if (!missingRoleIds.length) return;
+  await enqueueDiscordSyncJob("sync_person", {
+    personId: person.id || "",
+    discordId,
+    reason: "guild_member_update_missing_roles",
+    missingRoleIds
+  }, {
+    personId: person.id || null,
+    discordId,
+    collapsePending: true
+  });
+  console.log(`[discord-bot] herstel-sync gepland voor ${person.serviceNumber || "-"} ${person.name || discordId}: ontbrekende rollen ${missingRoleIds.join(", ")}`);
+}
+
 function discordSnowflakeTimestampMs(id) {
   const value = String(id || "").trim();
   if (!/^\d+$/.test(value)) return 0;
@@ -1234,7 +1264,8 @@ async function findPortalPersonByDiscordId(discordId) {
   try {
     return await withClient(async (client) => {
       const result = await client.query(
-        `select id, name, rank, service_number, status, discord_roles
+        `select id, name, discord_id, rank, service_number, status, perm_role,
+                discord_roles, completed_trainings, completed_operational, badges, extra_functions
          from people
          where discord_id = $1
            and ${blockedPortalStatusSql}
@@ -1245,12 +1276,22 @@ async function findPortalPersonByDiscordId(discordId) {
       const row = result.rows[0];
       if (!row) return null;
       return {
-        ...row,
-        discordRoles: parseJsonValue(row.discord_roles, [])
+        id: row.id || "",
+        name: row.name || "",
+        discordId: row.discord_id || "",
+        rank: row.rank || "",
+        serviceNumber: row.service_number || "",
+        status: row.status || "Actief",
+        permRole: row.perm_role || "Geen",
+        discordRoles: parseJsonValue(row.discord_roles, []),
+        completedTrainings: parseJsonValue(row.completed_trainings, []),
+        completedOperational: parseJsonValue(row.completed_operational, []),
+        badges: parseJsonValue(row.badges, []),
+        extraFunctions: parseJsonValue(row.extra_functions, [])
       };
     });
   } catch (error) {
-    console.error(`[discord-bot] leave-log personeelscheck mislukt: ${error.message}`);
+    console.error(`[discord-bot] personeelscheck op Discord ID mislukt: ${error.message}`);
     return null;
   }
 }
@@ -1872,6 +1913,7 @@ function connectGateway() {
     if (packet.t === "GUILD_MEMBER_UPDATE") {
       if (!gatewayGuildMatchesConfiguredGuild(packet.d?.guild_id)) return;
       captureGatewayMemberRoles(packet.d || {});
+      await scheduleGatewayRoleSelfHeal(packet.d || {});
       return;
     }
     if (packet.t === "GUILD_MEMBER_REMOVE") {

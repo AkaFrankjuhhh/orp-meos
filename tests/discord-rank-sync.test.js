@@ -198,3 +198,28 @@ test("Discord profile sync cleans lower-priority police roles for a defensie mem
     assert.equal(calls.some((call) => call.method === "DELETE" && call.url.endsWith("/roles/defensie-main")), false);
   });
 });
+
+test("desired managed roles include shared OTC leadership role for coordinator trainer", async () => {
+  await withTemporaryEnv({
+    ORP_ORGANIZATION: "defensie",
+    DISCORD_BOT_TOKEN: "token",
+    DISCORD_GUILD_ID: "guild-1",
+    DISCORD_DEFENSIE_ROLE_ID: "main-role",
+    DISCORD_RANK_TWEEDE_LUITENANT_ROLE_ID: "rank-luitenant",
+    DISCORD_OTC_LEIDING_ROLE_ID: "otc-leiding-role",
+    DISCORD_MENTOR_LEIDING_ROLE_ID: "otc-leiding-role",
+    DISCORD_TRAINER_LEIDING_ROLE_ID: "otc-leiding-role"
+  }, async () => {
+    const bot = createDiscordBotServices();
+    const desired = bot.desiredManagedRoleIdsForPerson({
+      discordId: "527902310886670337",
+      rank: "Tweede-Luitenant",
+      serviceNumber: "72-05",
+      status: "Actief",
+      badges: ["Co\u00f6rdinator Trainer", "Trainer", "Mentor", "HRB"]
+    });
+
+    assert.equal(desired.includes("otc-leiding-role"), true);
+    assert.equal(desired.filter((roleId) => roleId === "otc-leiding-role").length, 1);
+  });
+});

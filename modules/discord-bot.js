@@ -490,6 +490,37 @@ function createDiscordBotServices(options = {}) {
       .filter((mapping) => separatorRoleMatchesPerson(mapping, person));
   }
 
+  function desiredManagedRoleIdsForPerson(person) {
+    if (!isCurrentPerson(person)) {
+      const missingRequirements = new Set(missingTrainingRequirementsForPerson(person));
+      return compactRoleIds([
+        desiredRankRoleIdForPerson(person),
+        ...configuredTrainingRequirementRoleMappings()
+          .filter((mapping) => missingRequirements.has(mapping.requirement))
+          .map((mapping) => mapping.roleId),
+        ...desiredSeparatorRoleMappingsForPerson(person).map((mapping) => mapping.roleId)
+      ]);
+    }
+
+    const assignedBadges = assignedBadgeSetForPerson(person);
+    const completed = completedQualificationSetForPerson(person);
+    const missingRequirements = new Set(missingTrainingRequirementsForPerson(person));
+    return compactRoleIds([
+      requiredDefensieRoleId(),
+      desiredRankRoleIdForPerson(person),
+      ...configuredQualificationRoleMappings()
+        .filter((mapping) => completed.has(mapping.qualification))
+        .map((mapping) => mapping.roleId),
+      ...configuredTrainingRequirementRoleMappings()
+        .filter((mapping) => missingRequirements.has(mapping.requirement))
+        .map((mapping) => mapping.roleId),
+      ...configuredBadgeRoleMappings()
+        .filter((mapping) => assignedBadges.has(mapping.label))
+        .map((mapping) => mapping.roleId),
+      ...desiredSeparatorRoleMappingsForPerson(person).map((mapping) => mapping.roleId)
+    ]);
+  }
+
   function rankRoleIdForPerson(person) {
     const rank = String(person?.rank || "").trim();
     const mapping = configuredRankRoleMappings().find((entry) => entry.rank === rank);
@@ -1206,6 +1237,7 @@ function createDiscordBotServices(options = {}) {
     missingSeparatorRoleMappings,
     separatorRoleMatchesPerson,
     desiredSeparatorRoleMappingsForPerson,
+    desiredManagedRoleIdsForPerson,
     configuredVoiceChannels,
     resolveVoiceChannelId,
     getGuildMember,

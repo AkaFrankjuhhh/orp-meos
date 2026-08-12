@@ -999,6 +999,16 @@ test("Discord worker resolves duplicate Discord IDs to current portal profiles",
   assert.match(workerCode, /findPersonByDiscordId\(state\.people \|\| \[\], userId, \{ currentOnly: true \}\)/);
 });
 
+test("Discord worker restores missing managed roles from gateway member updates", () => {
+  const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
+
+  assert.match(workerCode, /function missingDesiredGatewayRoleIds/);
+  assert.match(workerCode, /async function scheduleGatewayRoleSelfHeal/);
+  assert.match(workerCode, /bot\.desiredManagedRoleIdsForPerson\(person\)/);
+  assert.match(workerCode, /reason: "guild_member_update_missing_roles"/);
+  assert.match(workerCode, /packet\.t === "GUILD_MEMBER_UPDATE"[\s\S]*scheduleGatewayRoleSelfHeal\(packet\.d \|\| \{\}\)/);
+});
+
 test("Discord worker skips stale Porto nickname jobs after status 8", () => {
   const workerCode = fs.readFileSync(path.join(process.cwd(), "scripts", "discord-bot-worker.js"), "utf8");
   const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
