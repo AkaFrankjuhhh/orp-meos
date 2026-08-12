@@ -69,7 +69,7 @@ test("porto duty roles include BGD and K9 for police and defensie", () => {
   assert.match(routeCode, /Vul eerst je K9-Naam in op je Porto-profiel/);
   assert.match(routeCode, /canPersonUsePortoDutyRole/);
   assert.match(botCode, /BGD: "BGD"/);
-  assert.match(botCode, /BGD\)\\s\+/);
+  assert.match(botCode, /BGD\|HRB\)\\s\+/);
   assert.match(botCode, /K9: `K9-\$\{dutySuffix\}`/);
   assert.match(botCode, /K9_BEGELEIDER: `K9B-\$\{dutySuffix\}`/);
   assert.match(mainUiCode, /key: "BGD"[\s\S]*requiresManagementBypass: true/);
@@ -83,6 +83,33 @@ test("porto duty roles include BGD and K9 for police and defensie", () => {
   assert.match(opsUiCode, /memberNameTitle/);
   assert.match(opsUiCode, /role === "BGD"/);
   assert.match(opsUiCode, /GEEN IBT/);
+});
+
+test("defensie HRB porto is badge gated and uses the HRB callsign", () => {
+  const portoCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto.js"), "utf8");
+  const routeCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+  const botCode = fs.readFileSync(path.join(process.cwd(), "modules", "discord-bot.js"), "utf8");
+  const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
+  const mainUiCode = fs.readFileSync(path.join(process.cwd(), "porto.js"), "utf8");
+  const dutyUiCode = fs.readFileSync(path.join(process.cwd(), "porto", "duty.js"), "utf8");
+  const opsUiCode = fs.readFileSync(path.join(process.cwd(), "porto", "ops.js"), "utf8");
+
+  assert.match(portoCode, /prefix: "HRB"[\s\S]*vehicles: \["Dubsta"\][\s\S]*numbers: \["HRB"\]/);
+  assert.match(portoCode, /function canUseHrbPorto\(person\)/);
+  assert.match(portoCode, /profileBadgeValuesForPerson\(person\)\.has\("HRB"\)/);
+  assert.match(routeCode, /canUseHrbPorto/);
+  assert.match(routeCode, /url\.pathname === "\/api\/porto\/hrb-bypass"/);
+  assert.match(routeCode, /reviewStatus: "hrb-bypass"/);
+  assert.match(routeCode, /vehicleNumber = "HRB"/);
+  assert.match(routeCode, /Alleen HRB leden kunnen HRB dienst gebruiken/);
+  assert.match(routeCode, /assertCanAssignHrbNumber/);
+  assert.match(html, /id="portoHrbBypassBtn"/);
+  assert.match(mainUiCode, /portoCanUseHrbBypass/);
+  assert.match(dutyUiCode, /runPortoHrbBypass/);
+  assert.match(dutyUiCode, /\/api\/porto\/hrb-bypass/);
+  assert.match(opsUiCode, /isHrbUnit \? `\$\{memberCount\} personen` : `\$\{memberCount\}\/3 personen`/);
+  assert.match(botCode, /HRB \$\{name\}/);
+  assert.match(botCode, /\|HRB\)\\s\+/);
 });
 
 test("defensie new recruits have default Discord base roles configured", () => {

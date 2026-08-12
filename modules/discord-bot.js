@@ -209,6 +209,8 @@ function buildPortoNicknameDefault(person, unit = {}) {
   const dutyRole = String(unit?.dutyRole || "").trim().toUpperCase();
   const k9Name = String(person?.k9Name || "").trim();
   const name = formatNameForDiscordNickname(dutyRole === "K9" && k9Name ? k9Name : person?.name || unit?.name || person?.discordUsername || "");
+  const isHrbPortoUnit = String(unit?.vehicleNumber || unit?.vehicleCode || "").trim().toUpperCase() === "HRB";
+  if (isHrbPortoUnit) return truncateDiscordNickname(`HRB ${name}`.trim());
   const prefix = buildNicknamePrefix(serviceNumber, symbols);
   const body = `${prefix} ${name}`.trim();
   const operatorVehicleNumber = organization.porto?.operatorVehicleNumber || "30-00";
@@ -228,7 +230,7 @@ function buildPortoNicknameDefault(person, unit = {}) {
 }
 
 function nicknameHasPortoDutyPrefix(nickname) {
-  return /^(?:(?:OVD|OPCO|K9|K9B)-[KP]|BGD)\s+/i.test(String(nickname || "").trim());
+  return /^(?:(?:OVD|OPCO|K9|K9B)-[KP]|BGD|HRB)\s+/i.test(String(nickname || "").trim());
 }
 
 function auditReasonAllowsNormalNicknameOverDuty(auditReason) {

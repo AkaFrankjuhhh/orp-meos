@@ -11,6 +11,10 @@ function canUseManagementBypass() {
   return Boolean(portoCanUseManagementBypass);
 }
 
+function canUseHrbBypass() {
+  return Boolean(portoCanUseHrbBypass);
+}
+
 function isAssignedDuty() {
   return Boolean(portoDuty && String(portoDuty.status) !== "8" && portoDuty.vehicleNumber);
 }
@@ -600,6 +604,7 @@ function renderDutyPanel() {
   const pendingPanel = $("#portoPendingPanel");
   const opsLogPage = $("#portoOpsLogPage");
   const devBypassButton = $("#portoDevBypassBtn");
+  const hrbBypassButton = $("#portoHrbBypassBtn");
   const managementBypassButton = $("#portoManagementBypassBtn");
   if (!intro || !panel || !pendingPanel) return;
   if (portoViewingOpsLog) {
@@ -627,6 +632,7 @@ function renderDutyPanel() {
     managementBypassButton.hidden = !(waitingForOps && canUseManagementBypass());
     managementBypassButton.textContent = portoManagementBypassLabel || (portoOrganization.key === "politie" ? "KL Bypass" : "Kader Bypass");
   }
+  if (hrbBypassButton) hrbBypassButton.hidden = !(waitingForOps && canUseHrbBypass());
   if (devBypassButton) devBypassButton.hidden = !(waitingForOps && isDevBypassProfile());
   schedulePortoAutoAssign(waitingForOps);
   panel.hidden = !assignedDuty || opsWorkspace;
@@ -782,6 +788,22 @@ async function runPortoManagementBypass() {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     await showPortoNotice(payload.error || `${portoManagementBypassLabel || "Bypass"} kon niet worden uitgevoerd.`, `${portoManagementBypassLabel || "Bypass"} mislukt`);
+    return;
+  }
+  portoDuty = payload.unit || null;
+  portoLastDutyLoadAt = Date.now();
+  if (payload.profile) portoProfile = payload.profile;
+  applyPortoPayload(payload);
+  renderVehicleRanges();
+  renderDutyPanel();
+  renderOpsPanel();
+}
+
+async function runPortoHrbBypass() {
+  const response = await fetch("/api/porto/hrb-bypass", { method: "POST" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    await showPortoNotice(payload.error || "HRB dienst kon niet worden gestart.", "HRB dienst mislukt");
     return;
   }
   portoDuty = payload.unit || null;

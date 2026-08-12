@@ -36,6 +36,7 @@ function applyPortoPayload(payload, options = {}) {
   portoCanViewOpsLog = Boolean(payload.canViewOpsLog);
   portoCanUseDevTools = Boolean(payload.canUseDevTools);
   portoCanUseManagementBypass = Boolean(payload.canUseManagementBypass);
+  portoCanUseHrbBypass = Boolean(payload.canUseHrbBypass);
   portoManagementBypassLabel = payload.managementBypassLabel || (portoOrganization.key === "politie" ? "KL Bypass" : "Kader Bypass");
   portoOpsRequests = payload.opsRequests || [];
   portoAvailableVehicleRanges = payload.availableVehicleRanges || [];
@@ -546,7 +547,9 @@ function renderModernOpsUnitCard(unit, options = {}) {
   const primaryMember = primaryOpsMember(unit);
   const primaryActionId = primaryOpsMemberId(unit);
   const memberCount = (unit.members || []).length;
-  const members = (unit.members || []).slice(0, 3).map((member) => {
+  const isHrbUnit = String(unit.vehicleNumber || "").trim().toUpperCase() === "HRB";
+  const visibleMemberLimit = isHrbUnit ? 8 : 3;
+  const members = (unit.members || []).slice(0, visibleMemberLimit).map((member) => {
     const hasIbt = memberHasIbt(member);
     const specializations = visibleModernSpecializations(member);
     const slotLabel = unit.vehicleNumber === "30-00"
@@ -583,7 +586,7 @@ function renderModernOpsUnitCard(unit, options = {}) {
         <div class="porto-modern-status" data-ops-status-unit="${escapeHtml(primaryActionId)}" title="Rechtermuisknop voor status wijzigen">${statusButton}</div>
       </header>
       <div class="porto-modern-unit-meta">
-        <span>${memberCount}/3 personen</span>
+        <span>${isHrbUnit ? `${memberCount} personen` : `${memberCount}/3 personen`}</span>
       </div>
       <div class="porto-modern-members">${members}</div>
     </article>`;
@@ -747,7 +750,7 @@ function renderModernOpsDashboard({ force = false } = {}) {
             <div><dt>Status</dt><dd>${escapeHtml(memberStatusLabel(primaryOpsMember(selectedUnit)))}</dd></div>
             <div><dt>Kanaal</dt><dd>${escapeHtml(selectedChannel.label)}</dd></div>
             <div><dt>Voertuig</dt><dd>${escapeHtml(opsUnitVehicleLine(selectedUnit))}</dd></div>
-            <div><dt>Leden</dt><dd>${selectedMembers.length}/3 personen</dd></div>
+            <div><dt>Leden</dt><dd>${String(selectedUnit.vehicleNumber || "").trim().toUpperCase() === "HRB" ? `${selectedMembers.length} personen` : `${selectedMembers.length}/3 personen`}</dd></div>
           </dl>
           <section>
             <h3>Personeel</h3>

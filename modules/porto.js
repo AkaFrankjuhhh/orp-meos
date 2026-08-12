@@ -34,6 +34,15 @@ const defensiePortoVehicleRangeDefinitions = [
     numbers: ["30-00"]
   },
   {
+    prefix: "HRB",
+    from: "HRB",
+    to: "HRB",
+    vehicleCode: "HRB",
+    vehicleType: "HRB",
+    vehicles: ["Dubsta"],
+    numbers: ["HRB"]
+  },
+  {
     prefix: "30",
     vehicleCode: "NH",
     vehicleType: "Noodhulp",
@@ -253,16 +262,29 @@ function createPortoServices() {
     );
   }
 
+  function profileBadgeValuesForPerson(person) {
+    return new Set([
+      person?.permRole,
+      ...(Array.isArray(person?.badges) ? person.badges : []),
+      ...(Array.isArray(person?.extraFunctions) ? person.extraFunctions : []),
+      ...functionBadgesForPerson(person)
+    ].filter(Boolean).map(String));
+  }
+
   function canUsePortoManagementBypass(person) {
     if (!person || !isCurrentPerson(person)) return false;
     const managementAliases = organization.permissionAliases?.kader || ["Kader"];
-    const badges = new Set([
-      person.permRole,
-      ...(Array.isArray(person.badges) ? person.badges : []),
-      ...(Array.isArray(person.extraFunctions) ? person.extraFunctions : []),
-      ...functionBadgesForPerson(person)
-    ].filter(Boolean));
+    const badges = profileBadgeValuesForPerson(person);
     return managementAliases.some((badge) => badges.has(badge));
+  }
+
+  function canUseHrbPorto(person) {
+    return Boolean(
+      organization.key === "defensie" &&
+        person &&
+        isCurrentPerson(person) &&
+        profileBadgeValuesForPerson(person).has("HRB")
+    );
   }
 
   function hasCompletedOperational(person, value) {
@@ -753,6 +775,7 @@ function createPortoServices() {
       canManageOps,
       canUseDevTools: canUsePortoDevBypass(person),
       canUseManagementBypass,
+      canUseHrbBypass: canUseHrbPorto(person),
       managementBypassLabel,
       opsRequests,
       availableVehicleRanges: canManageOps ? availablePortoVehicleNumbers(state) : [],
@@ -771,6 +794,7 @@ function createPortoServices() {
     ensurePortoVehicleRanges,
     canUsePortoDevBypass,
     canUsePortoManagementBypass,
+    canUseHrbPorto,
     canServePortoOps,
     canOperatePortoOps,
     activePortoOps,

@@ -81,6 +81,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     ensurePortoVehicleRanges,
     canUsePortoDevBypass,
     canUsePortoManagementBypass,
+    canUseHrbPorto,
     canServePortoOps,
     canOperatePortoOps,
     activePortoOps,
@@ -418,6 +419,24 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
   function peopleById(state) {
     return new Map((state.people || []).map((entry) => [entry.id, entry]));
+  }
+
+  function personForPortoUnit(state, unit) {
+    return peopleById(state).get(unit?.memberId) || null;
+  }
+
+  function isHrbPortoRange(range) {
+    return String(range?.prefix || "").trim().toUpperCase() === "HRB";
+  }
+
+  function assertCanAssignHrbNumber(state, units, range, res) {
+    if (!isHrbPortoRange(range)) return true;
+    const invalid = (units || []).find((unit) => !canUseHrbPorto(personForPortoUnit(state, unit)));
+    if (!invalid) return true;
+    sendJson(res, 403, {
+      error: `${invalid.name || "Deze medewerker"} heeft geen HRB badge en mag niet op HRB worden gezet.`
+    });
+    return false;
   }
 
   function sideTaskStatusView(task, member) {
@@ -1229,6 +1248,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         serviceNumber: person.serviceNumber,
         phone: person.portoPhone || "",
         vehicleNumber,
+        vehicleCode: range?.vehicleCode || "",
         vehicleType: range?.vehicleType || "Noodhulp",
         reviewStatus: "dev-bypass",
         assignedById: person.id,
@@ -1285,6 +1305,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         serviceNumber: person.serviceNumber,
         phone: person.portoPhone || "",
         vehicleNumber,
+        vehicleCode: range?.vehicleCode || "",
         vehicleType: range?.vehicleType || "Dienst",
         reviewStatus: "management-bypass",
         assignedById: person.id,
@@ -1307,6 +1328,68 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       await persistPortoState(state, { units: state.portoUnits });
       await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
       await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "Porto leiding-bypass actief");
+      await sendPortoState(res, state, person, unit);
+      return true;
+    }
+
+    if (url.pathname === "/api/porto/hrb-bypass" && req.method === "POST") {
+      const context = await requireActivePerson(req, res);
+      if (!context) return true;
+      const { state, person } = context;
+      if (!canUseHrbPorto(person)) {
+        sendJson(res, 403, { error: "Alleen HRB leden kunnen HRB dienst gebruiken." });
+        return true;
+      }
+      ensurePortoVehicleRanges(state);
+      state.portoUnits = Array.isArray(state.portoUnits) ? state.portoUnits : [];
+      const now = new Date().toISOString();
+      sweepPortoPresence(state);
+      let unit = state.portoUnits.find((entry) => entry.memberId === person.id && entry.active !== false);
+      if (!unit) {
+        unit = { id: crypto.randomUUID(), memberId: person.id, linkedWith: [], requestedAt: now, active: true };
+        state.portoUnits.push(unit);
+      }
+      const previousVehicleNumber = unit.vehicleNumber || "";
+      const vehicleNumber = "HRB";
+      const range = vehicleRangeForNumber(state, vehicleNumber);
+      if (!range) {
+        sendJson(res, 409, { error: "HRB porto is niet ingesteld." });
+        return true;
+      }
+      const vehicleName = "Dubsta";
+      const vehicleDetails = vehicleDetailsForSelection(range, vehicleName);
+      Object.assign(unit, {
+        name: person.name,
+        rank: person.rank,
+        serviceNumber: person.serviceNumber,
+        phone: person.portoPhone || "",
+        vehicleNumber,
+        vehicleCode: vehicleDetails.vehicleCode || range.vehicleCode || "HRB",
+        vehicleType: vehicleDetails.vehicleType || range.vehicleType || "HRB",
+        vehicleName,
+        operatorSlot: "",
+        dutyRole: "",
+        reviewStatus: "hrb-bypass",
+        assignedById: person.id,
+        assignedByName: "HRB",
+        assignedAt: unit.assignedAt || now,
+        status: "1",
+        statusDetail: "Beschikbaar",
+        lastSeenAt: now,
+        updatedAt: now
+      });
+      markPortoBrowserHeartbeat(unit, now);
+      syncPortoLinkedNames(state, vehicleNumber);
+      if (previousVehicleNumber && previousVehicleNumber !== vehicleNumber) syncPortoLinkedNames(state, previousVehicleNumber);
+      const duplicateUnitsClosed = closeDuplicateActiveUnitsForMember(state, person.id, unit.id, now);
+      for (const duplicateVehicleNumber of vehicleNumbersFromUnits(duplicateUnitsClosed)) {
+        syncPortoLinkedNames(state, duplicateVehicleNumber);
+      }
+      const affectedVehicleNumbers = [vehicleNumber, previousVehicleNumber, ...vehicleNumbersFromUnits(duplicateUnitsClosed)].filter(Boolean);
+      const unitsNeedingPortoSync = affectedActiveVehicleUnits(state, affectedVehicleNumbers, [unit]);
+      await persistPortoState(state, { units: state.portoUnits });
+      await enqueueNormalDiscordNicknames(state, duplicateUnitsClosed, "Dubbele Porto-aanmelding gesloten");
+      await enqueuePortoDiscordNicknames(state, unitsNeedingPortoSync, "HRB porto dienst actief");
       await sendPortoState(res, state, person, unit);
       return true;
     }
@@ -1848,6 +1931,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
       const unitsToMove = linkToVehicleNumber ? [unit] : (currentVehicleGroup.length ? currentVehicleGroup : [unit]);
       const duplicateUnitsClosed = [];
       const operatorLeadUnitId = vehicleNumber === operatorVehicleNumber && !linkToVehicleNumber ? unit.id : "";
+      if (!assertCanAssignHrbNumber(state, unitsToMove, range, res)) return true;
       if (operatorLeadUnitId && !assertCanAssignOpsNumber(state, [unit], res)) return true;
       const vehicleDetails = selectedVehicleName
         ? vehicleDetailsForSelection(range, selectedVehicleName)
@@ -1954,6 +2038,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         sendJson(res, 400, { error: "Kies een geldige voertuigcategorie of koppeling." });
         return true;
       }
+      if (!assertCanAssignHrbNumber(state, [unit], range, res)) return true;
       const operatorLeadUnitId = vehicleNumber === operatorVehicleNumber && !linkToVehicleNumber ? unit.id : "";
       if (operatorLeadUnitId && !assertCanAssignOpsNumber(state, [unit], res)) return true;
       const linkedStatusSource = linkToVehicleNumber

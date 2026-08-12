@@ -4511,6 +4511,7 @@ body.porto-ops-workspace .porto-ops-empty {
 #portoOpenOpsLogBtn[hidden],
 #portoOpsClaimBtn[hidden],
 #portoOpsReleaseBtn[hidden],
+#portoHrbBypassBtn[hidden],
 #portoDevBypassBtn[hidden],
 #portoMapCard[hidden] {
   display: none !important;
