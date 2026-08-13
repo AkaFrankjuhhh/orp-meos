@@ -1223,6 +1223,9 @@ test("Porto login accepts linked current profiles during absence", () => {
   const portoCode = fs.readFileSync(path.join(process.cwd(), "porto-server.js"), "utf8");
   assert.match(portoCode, /isPersonLoginEligible/);
   assert.match(portoCode, /canUsePortalLogin/);
+  assert.match(portoCode, /const \{ normalizeDiscordId, isDevDiscordId \} = require\("\.\/modules\/ovc"\);/);
+  assert.match(portoCode, /return isDevDiscordId\(discordId\);/);
   assert.doesNotMatch(portoCode, /person\.status === "Actief"/);
+  assert.doesNotMatch(portoCode, /function configuredDevDiscordIds/);
   assert.match(portoCode, /normalizeDiscordId\(person\.discordId\) === loginDiscordId && isPersonLoginEligible\(person\)/);
 });

@@ -17,6 +17,7 @@ const { createPostgresEventBridge } = require("./modules/postgres-event-bridge")
 const { closePool, withClient, databaseNameFromConnectionString } = require("./modules/db");
 const { isPersonLoginEligible } = require("./modules/person-status");
 const { canUsePortalLogin } = require("./modules/portal-auth-rules");
+const { normalizeDiscordId, isDevDiscordId } = require("./modules/ovc");
 const {
   currentOrganization,
   organizationMainRoleId,
@@ -102,16 +103,8 @@ function allowDevUnauth() {
     && String(process.env.DEV_ALLOW_UNAUTH || "false").toLowerCase() === "true";
 }
 
-function normalizeDiscordId(value) {
-  return String(value || "").replace(/^discord:/i, "").trim();
-}
-
-function configuredDevDiscordIds() {
-  return new Set(String(process.env.DEV_OVERRIDE_DISCORD_IDS || "").split(/[,\s]+/).map(normalizeDiscordId).filter(Boolean));
-}
-
 function isDevOverrideDiscordId(discordId) {
-  return configuredDevDiscordIds().has(normalizeDiscordId(discordId));
+  return isDevDiscordId(discordId);
 }
 
 function syntheticDevProfile(user) {
