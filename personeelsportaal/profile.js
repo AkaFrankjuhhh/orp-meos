@@ -1006,7 +1006,7 @@ function openProfileBadgeDialog(mode = "main") {
   const selectedProfileFunctions = typeof canonicalProfileFunctions === "function" ? canonicalProfileFunctions(selectedFunctions) : selectedFunctions;
   const allowedFunctionBadges = typeof canManageProfileFunctions === "function" && canManageProfileFunctions()
     ? extraFunctions.filter((item) => (
-        hasKaderAccess()
+        typeof canManageAllProfileFunctions === "function" && canManageAllProfileFunctions()
           ? !(typeof isOvcFunctionBadge === "function" && isOvcFunctionBadge(item)) || (typeof canManageOvcBadge === "function" && canManageOvcBadge())
           : (typeof manageableProfileFunctionBadges === "function" && manageableProfileFunctionBadges().includes(item))
       ))

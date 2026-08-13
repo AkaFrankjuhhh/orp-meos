@@ -2528,15 +2528,15 @@ function createPersoneelsportaalRouteHandler(deps) {
     const badges = Array.isArray(body.badges) ? body.badges : [];
     const previousFunctions = Array.isArray(person.extraFunctions) ? [...person.extraFunctions] : [];
     const previousBadges = Array.isArray(person.badges) ? [...person.badges] : [];
-    // Alleen Kader mag de functie-badges Kader/Hoofdofficier/Officiersraad wijzigen.
-    // Hoofdofficier en Officiersraad mogen wel taakbadges zoals hOvJ, Interne-Zaken en Trainer beheren.
-    const manageableFunctions = permissions.canManagePeople
+    // Alleen volledige profielbeheerders mogen alle functie-badges wijzigen.
+    // Takleiding mag alleen de aan hun tak gekoppelde profielbadge beheren.
+    const manageableFunctions = permissions.canManageAllProfileFunctions
       ? extraFunctions
       : (permissions.manageableProfileFunctionBadges || []).filter((badge) => extraFunctions.includes(badge));
     const manageableTasks = permissions.canManageAllProfileTaskBadges
       ? extraTasks
       : (permissions.manageableProfileTaskBadges || []).filter((badge) => extraTasks.includes(badge));
-    person.extraFunctions = permissions.canManagePeople
+    person.extraFunctions = permissions.canManageAllProfileFunctions
       ? mergeOvcBadgeForActor(normalizeSelectedExtraFunctions(selectedFunctions), previousFunctions, permissions)
       : mergeManageableProfileItems(previousFunctions, normalizeSelectedExtraFunctions(selectedFunctions), extraFunctions, manageableFunctions);
     person.badges = mergeManageableProfileItems(previousBadges, badges, extraTasks, manageableTasks);

@@ -499,7 +499,12 @@ const organizationConfigs = {
       i8ReviewMode: "ovjOnly",
       absenceReviewMode: "kaderAndHoofdofficier",
       officerManagementMode: "viewAndAbsenceOnly",
-      hrManagementAliases: ["Bestuur", "HR", "HR-Leiding", "HR-Assist. Leiding"]
+      hrManagementAliases: ["Bestuur", "HR", "HR-Leiding", "HR-Assist. Leiding"],
+      fullPortalManagementAliases: ["OVC"],
+      profileBadgeManagementAliases: ["Bestuur"],
+      profileBadgeManagementFunctionTargets: ["HR"],
+      trainingManagementAliases: ["Bestuur"],
+      disciplineManagementAliases: ["Bestuur"]
     },
     rankColors: {
       "Eerste hoofdcommissaris": "#e17000",

@@ -391,6 +391,10 @@ function canManageProfileFunctions() {
   return Boolean(permissions.canManageProfileFunctions || hasKaderAccess());
 }
 
+function canManageAllProfileFunctions() {
+  return Boolean(permissions.canManageAllProfileFunctions || hasKaderAccess());
+}
+
 function canManageAllProfileTaskBadges() {
   return Boolean(permissions.canManageAllProfileTaskBadges || hasKaderAccess());
 }

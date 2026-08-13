@@ -396,7 +396,7 @@ test("defensie officer leadership can manage I.O status", () => {
   });
 });
 
-test("OVC can view leadership pages without becoming Kader or Korpsleiding", () => {
+test("OVC access follows the organization permission model", () => {
   for (const key of ["defensie", "politie"]) {
     withOrganization(key, () => {
       const { organizationConfigs } = require("../modules/organizations");
@@ -416,10 +416,21 @@ test("OVC can view leadership pages without becoming Kader or Korpsleiding", () 
         badges: []
       });
 
-      assert.equal(services.isKaderProfile({ permRole: "OVC", status: "Actief" }), false);
       assert.equal(permissions.canViewKaderPages, true);
-      assert.equal(permissions.canManagePeople, false);
-      assert.equal(permissions.canManagePersonnelRanks, false);
+      if (key === "politie") {
+        assert.equal(services.isKaderProfile({ permRole: "OVC", status: "Actief" }), true);
+        assert.equal(permissions.canManagePeople, true);
+        assert.equal(permissions.canManagePersonnelRanks, true);
+        assert.equal(permissions.canManageQualifications, true);
+        assert.equal(permissions.canManageDiscipline, true);
+        assert.equal(permissions.canManageProfileBadges, true);
+        assert.equal(permissions.canManageAllProfileTaskBadges, true);
+        assert.equal(permissions.canManageAllProfileFunctions, true);
+      } else {
+        assert.equal(services.isKaderProfile({ permRole: "OVC", status: "Actief" }), false);
+        assert.equal(permissions.canManagePeople, false);
+        assert.equal(permissions.canManagePersonnelRanks, false);
+      }
     });
   }
 });
@@ -451,11 +462,25 @@ test("police leadership can view I8, mentor and discipline without becoming OvJ 
       assert.equal(permissions.canViewAllDiscipline, true);
       assert.equal(permissions.canViewAllHours, true);
       assert.equal(permissions.canViewPersonnel, true);
+      assert.equal(permissions.canManageQualifications, true);
+      assert.equal(permissions.canManageDiscipline, true);
+      assert.equal(permissions.canManageI8Discipline, true);
+      assert.equal(permissions.canManageProfileBadges, true);
+      assert.equal(permissions.canManageAllProfileTaskBadges, true);
+      assert.equal(permissions.canManageProfileFunctions, true);
+      if (permRole === "Bestuur") {
+        assert.equal(permissions.canManagePeople, false);
+        assert.equal(permissions.canManageAllProfileFunctions, false);
+        assert.deepEqual(permissions.manageableProfileFunctionBadges, ["HR"]);
+      } else {
+        assert.equal(permissions.canManagePeople, true);
+        assert.equal(permissions.canManageAllProfileFunctions, true);
+      }
     }
   });
 });
 
-test("police board and HR can recruit and dismiss without full people management", () => {
+test("police board and HR can recruit and dismiss with their own management scopes", () => {
   withOrganization("politie", () => {
     const { organizationConfigs } = require("../modules/organizations");
     const { createPermissionServices } = require("../modules/permissions");
@@ -484,7 +509,6 @@ test("police board and HR can recruit and dismiss without full people management
     });
 
     const profiles = [
-      { id: "politie-inspecteur", name: "Inspecteur", rank: "Inspecteur", status: "Actief", permRole: "Geen", badges: [] },
       { id: "politie-hr", name: "HR", rank: "Agent", status: "Actief", permRole: "HR", badges: [] },
       { id: "politie-hr-leiding", name: "HR-Leiding", rank: "Agent", status: "Actief", permRole: "Geen", badges: ["HR-Leiding"] },
       { id: "politie-hr-assist", name: "HR-Assist", rank: "Agent", status: "Actief", permRole: "Geen", badges: ["HR-Assist. Leiding"] }
@@ -499,6 +523,26 @@ test("police board and HR can recruit and dismiss without full people management
       assert.equal(permissions.canManagePeople, false);
       assert.equal(permissions.canManagePersonnelRanks, false);
     }
+
+    const boardPermissions = services.permissionsForProfile({
+      id: "politie-inspecteur",
+      name: "Inspecteur",
+      rank: "Inspecteur",
+      status: "Actief",
+      permRole: "Geen",
+      badges: []
+    });
+
+    assert.equal(boardPermissions.canViewPersonnel, true);
+    assert.equal(boardPermissions.canViewRecruitment, true);
+    assert.equal(boardPermissions.canRecruitPeople, true);
+    assert.equal(boardPermissions.canDismissPersonnel, true);
+    assert.equal(boardPermissions.canManagePeople, false);
+    assert.equal(boardPermissions.canManagePersonnelRanks, false);
+    assert.equal(boardPermissions.canManageQualifications, true);
+    assert.equal(boardPermissions.canManageDiscipline, true);
+    assert.equal(boardPermissions.canManageProfileBadges, true);
+    assert.equal(boardPermissions.canManageAllProfileTaskBadges, true);
   });
 });
 

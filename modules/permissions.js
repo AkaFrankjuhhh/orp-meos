@@ -97,9 +97,13 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
   }
 
   function isKaderProfile(profile) {
-    const badges = effectiveFunctionBadges(profile);
+    const functionBadges = effectiveFunctionBadges(profile);
+    const taskBadges = effectiveTaskBadges(profile);
     const leadershipBadges = permissionAliases.kader || ["Kader"];
-    return isDevOverrideProfile(profile) || leadershipBadges.some((badge) => hasFunctionBadge(badges, badge));
+    const fullPortalManagementBadges = organization.permissions?.fullPortalManagementAliases || [];
+    return isDevOverrideProfile(profile)
+      || leadershipBadges.some((badge) => hasFunctionBadge(functionBadges, badge))
+      || fullPortalManagementBadges.some((badge) => hasFunctionBadge(functionBadges, badge) || taskBadges.includes(badge));
   }
 
   function permissionsForProfile(profile) {
@@ -109,6 +113,14 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const canManageOvcBadge = isDevDiscordId(profile?.discordId);
     const isKader = (permissionAliases.kader || ["Kader"]).some((badge) => hasFunctionBadge(functionBadges, badge)) || isDevOverride;
     const canViewAsKader = isKader || (permissionAliases.viewAsKader || ["Kader", "OVC", "Overheidscoordinator"]).some((badge) => hasFunctionBadge(functionBadges, badge));
+    const isFullPortalManagement = isKader || (organization.permissions?.fullPortalManagementAliases || [])
+      .some((badge) => hasFunctionBadge(functionBadges, badge) || taskBadges.includes(badge));
+    const isProfileBadgeManagement = isFullPortalManagement || (organization.permissions?.profileBadgeManagementAliases || [])
+      .some((badge) => hasFunctionBadge(functionBadges, badge) || taskBadges.includes(badge));
+    const isTrainingManagement = isFullPortalManagement || (organization.permissions?.trainingManagementAliases || [])
+      .some((badge) => hasFunctionBadge(functionBadges, badge) || taskBadges.includes(badge));
+    const isDisciplineManagement = isFullPortalManagement || (organization.permissions?.disciplineManagementAliases || [])
+      .some((badge) => hasFunctionBadge(functionBadges, badge) || taskBadges.includes(badge));
     const isHoofdofficier = (permissionAliases.hoofdofficier || ["Hoofdofficier"]).some((badge) => hasFunctionBadge(functionBadges, badge));
     const isOfficiersraad = (permissionAliases.officiersraad || ["Officiersraad"]).some((badge) => hasFunctionBadge(functionBadges, badge));
     const isInterneZaken = taskBadges.includes("Interne-Zaken");
@@ -134,7 +146,13 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
       || taskBadges.includes("Trainer-Assist. Leiding")
       || taskBadges.includes("Co\u00f6rdinator Trainer");
     const manageableProfileTaskBadges = manageableProfileTaskBadgesFor(taskBadges);
-    const manageableProfileFunctionBadges = manageableProfileFunctionBadgesFor(taskBadges);
+    const profileBadgeManagementFunctionTargets = isProfileBadgeManagement
+      ? (organization.permissions?.profileBadgeManagementFunctionTargets || [])
+      : [];
+    const manageableProfileFunctionBadges = [
+      ...manageableProfileFunctionBadgesFor(taskBadges),
+      ...profileBadgeManagementFunctionTargets.filter((badge) => extraFunctions.includes(badge))
+    ].filter((badge, index, list) => list.indexOf(badge) === index);
     const canViewTrainerSection = canViewAsKader || isTrainer || isTrainerLeadership;
     const isHrManagement = (organization.permissions?.hrManagementAliases || []).some((badge) => hasFunctionBadge(functionBadges, badge) || taskBadges.includes(badge));
     const i8ReviewMode = organization.permissions?.i8ReviewMode || "defensie";
@@ -142,59 +160,60 @@ function createPermissionServices({ extraFunctions, extraTasks, readState }) {
     const canHandleI8Forms = i8ReviewMode === "ovjOnly" ? isOvJ : canViewI8Forms;
     const canOverrideI8Forms = i8ReviewMode === "ovjOnly" ? isOvJ : isKader || taskBadges.includes("OvJ") || isInterneZaken || isIzLeadership;
     const canManagePersonnelRanks = organization.permissions?.personnelRankMode === "kaderOnly"
-      ? isKader
-      : isKader || isHoofdofficier || isOfficiersraad;
+      ? isFullPortalManagement
+      : isFullPortalManagement || isHoofdofficier || isOfficiersraad;
     const canReviewAbsences = organization.permissions?.absenceReviewMode === "kaderAndHoofdofficier"
-      ? isKader || isHoofdofficier
-      : isKader || isHoofdofficier || isOfficiersraad;
+      ? isFullPortalManagement || isHoofdofficier
+      : isFullPortalManagement || isHoofdofficier || isOfficiersraad;
     const canOfficerManage = organization.permissions?.officerManagementMode !== "viewAndAbsenceOnly";
-    const canManageAllProfileTaskBadges = isKader || (canOfficerManage && (isHoofdofficier || isOfficiersraad));
+    const canManageAllProfileTaskBadges = isProfileBadgeManagement || (canOfficerManage && (isHoofdofficier || isOfficiersraad));
 
     return {
       canViewLogbook: canViewAsKader,
-      canManagePeople: isKader,
+      canManagePeople: isFullPortalManagement,
       canViewPersonnel: canViewAsKader || isHoofdofficier || isOfficiersraad || isHrManagement,
       canManagePersonnelRanks,
-      canDismissPersonnel: isKader || isHrManagement,
-      canDismissPersonnelToAdjudant: isKader || (canOfficerManage && isHoofdofficier),
+      canDismissPersonnel: isFullPortalManagement || isHrManagement,
+      canDismissPersonnelToAdjudant: isFullPortalManagement || (canOfficerManage && isHoofdofficier),
       canViewAbsenceOverview: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canReviewAbsences,
       canViewResignationOverview: canViewAsKader || (canOfficerManage && isHoofdofficier),
       canViewPersonnelArchive: canViewAsKader || (canOfficerManage && isHoofdofficier),
       canViewKaderPages: canViewAsKader,
-      canManageInvestigationStatus: isKader || isHoofdofficier || isOfficiersraad,
+      canManageInvestigationStatus: isFullPortalManagement || isHoofdofficier || isOfficiersraad,
       canManageProfileBadges: canManageAllProfileTaskBadges || manageableProfileTaskBadges.length > 0 || manageableProfileFunctionBadges.length > 0,
       canManageAllProfileTaskBadges,
-      canManageProfileFunctions: isKader || manageableProfileFunctionBadges.length > 0,
+      canManageAllProfileFunctions: isFullPortalManagement,
+      canManageProfileFunctions: isFullPortalManagement || manageableProfileFunctionBadges.length > 0,
       manageableProfileTaskBadges,
       manageableProfileFunctionBadges,
-      canManageQualifications: isKader || isTrainer || isTrainerLeadership,
-      canRevokeIbt: isKader || isOvJ,
+      canManageQualifications: isTrainingManagement || isTrainer || isTrainerLeadership,
+      canRevokeIbt: isFullPortalManagement || isOvJ,
       canViewTrainerSection,
       canViewTrainerOverview: canViewTrainerSection,
       canViewTrainerLogbook: canViewAsKader || isTrainerLeadership,
       canReviewTrainerIbtForms: isTrainer || isTrainerLeadership,
       canViewAllDiscipline: canViewAsKader || isInterneZaken || isIzLeadership,
       canViewI8Discipline: canViewAsKader || isInterneZaken || isIzLeadership || isOvJ,
-      canManageDiscipline: isKader || isInterneZaken || isIzLeadership,
-      canManageI8Discipline: isKader || isInterneZaken || isIzLeadership || isOvJ,
+      canManageDiscipline: isDisciplineManagement || isInterneZaken || isIzLeadership,
+      canManageI8Discipline: isDisciplineManagement || isInterneZaken || isIzLeadership || isOvJ,
       canViewAllHours: canViewAsKader || isHoofdofficier || isOfficiersraad,
-      canManageHours: isKader || (canOfficerManage && (isHoofdofficier || isOfficiersraad)),
-      canViewAllProfileNotes: isKader || isHoofdofficier || isOfficiersraad,
-      canManageProfileNotes: isKader || isHoofdofficier || isOfficiersraad,
+      canManageHours: isFullPortalManagement || (canOfficerManage && (isHoofdofficier || isOfficiersraad)),
+      canViewAllProfileNotes: isFullPortalManagement || isHoofdofficier || isOfficiersraad,
+      canManageProfileNotes: isFullPortalManagement || isHoofdofficier || isOfficiersraad,
       canManageVehicleSeizures: canViewAsKader || isHoofdofficier || isOfficiersraad,
       canViewOvJChannels: canViewI8Forms,
       canReviewI8Forms: canHandleI8Forms,
       canOverrideI8Forms,
-      canLeadOvJ: isKader || taskBadges.includes("OvJ"),
+      canLeadOvJ: isFullPortalManagement || taskBadges.includes("OvJ"),
       canViewMentorOverview: canViewAsKader || isMentor || isMentorLeadership || isOtcLeadership,
-      canManageMentorOverview: isKader || isMentor || isMentorLeadership || isOtcLeadership,
-      canManageMentorChecklistTemplate: isKader || isMentorLeadership || isOtcLeadership,
+      canManageMentorOverview: isFullPortalManagement || isMentor || isMentorLeadership || isOtcLeadership,
+      canManageMentorChecklistTemplate: isFullPortalManagement || isMentorLeadership || isOtcLeadership,
       canManageMentorTestTemplate: isMentorLeadership || isDevOverride,
       canViewRecruitment: canViewAsKader || isWs || isWsLeadership || isHrManagement,
-      canRecruitPeople: isKader || isWs || isWsLeadership || isHrManagement,
+      canRecruitPeople: isFullPortalManagement || isWs || isWsLeadership || isHrManagement,
       canViewBlacklist: canViewAsKader || isWs || isWsLeadership,
-      canManageBlacklist: isKader,
+      canManageBlacklist: isFullPortalManagement,
       canViewOvJLeadershipLog: canViewAsKader || taskBadges.includes("OvJ"),
       canViewMentorLeadershipLog: canViewAsKader || isMentorLeadership || isOtcLeadership,
       canViewProfileAuditLog: canViewAsKader || isHoofdofficier || canViewTrainerSection,

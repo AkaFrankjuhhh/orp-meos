@@ -381,7 +381,7 @@ test("I.O can be cleared for current non-active profiles", () => {
   assert.match(peopleCode, /person\.status === "Actief"[\s\S]*data-io-mark/);
   assert.doesNotMatch(peopleCode, /canManageInvestigationStatus\(\) && person\.status === "Actief" \? \(person\.ioStatus\?\.active/);
   assert.match(routesCode, /action === "io" && !permissions\.canManageInvestigationStatus/);
-  assert.match(permissionsCode, /canManageInvestigationStatus: isKader \|\| isHoofdofficier \|\| isOfficiersraad/);
+  assert.match(permissionsCode, /canManageInvestigationStatus: isFullPortalManagement \|\| isHoofdofficier \|\| isOfficiersraad/);
 });
 
 test("profile notes are private to self and authorized leadership", () => {
@@ -404,8 +404,8 @@ test("profile notes are private to self and authorized leadership", () => {
   assert.match(appCode, /function hasActiveProfileNoteInteraction/);
   assert.match(profileCode, /function renderProfileNote/);
   assert.match(profileCode, /person\.profileNote/);
-  assert.match(permissionsCode, /canViewAllProfileNotes: isKader \|\| isHoofdofficier \|\| isOfficiersraad/);
-  assert.match(permissionsCode, /canManageProfileNotes: isKader \|\| isHoofdofficier \|\| isOfficiersraad/);
+  assert.match(permissionsCode, /canViewAllProfileNotes: isFullPortalManagement \|\| isHoofdofficier \|\| isOfficiersraad/);
+  assert.match(permissionsCode, /canManageProfileNotes: isFullPortalManagement \|\| isHoofdofficier \|\| isOfficiersraad/);
   assert.match(domainCode, /function profileNoteForView/);
   assert.match(domainCode, /profileNote: person\.id === profileId \|\| permissions\?\.canViewAllProfileNotes[\s\S]*profileNoteForView\(person\.profileNote\)/);
   assert.match(routesCode, /profileNoteMatch/);
