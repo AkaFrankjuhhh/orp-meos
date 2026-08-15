@@ -70,21 +70,29 @@ function hourEntryIntervalMs(entry) {
   return Number.isFinite(start) && Number.isFinite(end) && end > start ? { start, end } : null;
 }
 
-function mergedClockHours(entries) {
+function entryFallbackSeconds(entry) {
+  if (Number.isFinite(Number(entry?.durationSeconds))) return Math.max(0, Number(entry.durationSeconds));
+  const minutes = Number(entry?.minutes ?? entry?.durationMinutes);
+  if (Number.isFinite(minutes) && minutes > 0) return Math.round(minutes * 60);
+  const hours = hourValueForEntry(entry);
+  return hours > 0 ? Math.round(hours * 3600) : 0;
+}
+
+function mergedTimedEntrySeconds(entries, rangeStartMs = null, rangeEndMs = null) {
   const intervals = [];
-  let fallbackHours = 0;
+  let fallbackSeconds = 0;
   for (const entry of entries) {
-    if (isPortoDutyHourEntry(entry)) {
-      const interval = hourEntryIntervalMs(entry);
-      if (interval) {
-        intervals.push(interval);
-        continue;
-      }
+    const interval = hourEntryIntervalMs(entry);
+    if (interval) {
+      const start = Number.isFinite(rangeStartMs) ? Math.max(interval.start, rangeStartMs) : interval.start;
+      const end = Number.isFinite(rangeEndMs) ? Math.min(interval.end, rangeEndMs) : interval.end;
+      if (end > start) intervals.push({ start, end });
+      continue;
     }
-    fallbackHours += hourValueForEntry(entry);
+    fallbackSeconds += entryFallbackSeconds(entry);
   }
   intervals.sort((a, b) => a.start - b.start || a.end - b.end);
-  let mergedMs = 0;
+  let mergedSeconds = 0;
   let active = null;
   for (const interval of intervals) {
     if (!active) {
@@ -95,11 +103,15 @@ function mergedClockHours(entries) {
       active.end = Math.max(active.end, interval.end);
       continue;
     }
-    mergedMs += active.end - active.start;
+    mergedSeconds += Math.round((active.end - active.start) / 1000);
     active = { ...interval };
   }
-  if (active) mergedMs += active.end - active.start;
-  return fallbackHours + mergedMs / 3600000;
+  if (active) mergedSeconds += Math.round((active.end - active.start) / 1000);
+  return fallbackSeconds + mergedSeconds;
+}
+
+function mergedClockHours(entries) {
+  return mergedTimedEntrySeconds(entries) / 3600;
 }
 
 function manualHourEntryFor(personId, weekYear, weekNumber) {
@@ -177,35 +189,68 @@ function hoursOperatorTraining() {
   return typeof portalOperatorTraining !== "undefined" && portalOperatorTraining ? portalOperatorTraining : hoursOperatorLabel();
 }
 
+function hoursOperatorVehicleNumber() {
+  if (typeof portalOperatorVehicleNumber !== "undefined" && portalOperatorVehicleNumber) return portalOperatorVehicleNumber;
+  return typeof organizationKey !== "undefined" && organizationKey === "politie" ? "20-00" : "30-00";
+}
+
 function personHasOpsTraining(person) {
   return Array.isArray(person?.completedOperational) && person.completedOperational.includes(hoursOperatorTraining());
 }
 
-function opsEntriesForPerson(person) {
-  if (!personHasOpsTraining(person)) return [];
+function operatorHourEntryForPerson(person) {
+  const operatorVehicleNumber = hoursOperatorVehicleNumber();
+  return (state.hours || []).filter((entry) => (
+    entry.personId === person.id &&
+    isPortoDutyHourEntry(entry) &&
+    String(entry.sourceVehicleNumber || "").trim() === operatorVehicleNumber
+  ));
+}
+
+function opsLogEntryForPerson(person) {
   return (state.portoOpsLog || []).filter((entry) => entry.memberId === person.id);
 }
 
-function opsHoursForMonth(person) {
-  const now = new Date();
-  return opsEntriesForPerson(person)
-    .filter((entry) => {
-      const ended = new Date(entry.endedAt || entry.startedAt || 0);
-      return ended.getFullYear() === now.getFullYear() && ended.getMonth() === now.getMonth();
-    })
-    .reduce((sum, entry) => sum + opsEntrySeconds(entry) / 3600, 0);
+function opsEntriesForPerson(person) {
+  if (!personHasOpsTraining(person)) return [];
+  const byInterval = new Map();
+  const addEntry = (entry, source) => {
+    const startedAt = entry?.startedAt || "";
+    const endedAt = entry?.endedAt || "";
+    const key = startedAt || endedAt
+      ? `${person.id}::${startedAt}::${endedAt}`
+      : `${person.id}::${source}::${entry?.id || byInterval.size}`;
+    const normalized = {
+      ...entry,
+      memberId: entry.memberId || person.id,
+      name: entry.name || person.name || "Onbekend",
+      serviceNumber: entry.serviceNumber || person.serviceNumber || "",
+      durationSeconds: entryFallbackSeconds(entry),
+      source: entry.source || source
+    };
+    const previous = byInterval.get(key);
+    if (!previous || (!previous.endedByName && normalized.endedByName)) byInterval.set(key, normalized);
+  };
+  operatorHourEntryForPerson(person).forEach((entry) => addEntry(entry, "porto-duty-clock"));
+  opsLogEntryForPerson(person).forEach((entry) => addEntry(entry, "porto-ops-log"));
+  return [...byInterval.values()];
+}
+
+function opsHoursInRange(person, rangeStart, rangeEnd) {
+  return mergedTimedEntrySeconds(opsEntriesForPerson(person), rangeStart.getTime(), rangeEnd.getTime()) / 3600;
+}
+
+function opsHoursForMonth(person, now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return opsHoursInRange(person, start, end);
 }
 
 function opsHoursForWeek(person, week) {
   const start = isoWeekStart(week.weekYear, week.weekNumber);
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 7);
-  return opsEntriesForPerson(person)
-    .filter((entry) => {
-      const ended = new Date(entry.endedAt || entry.startedAt || 0);
-      return ended >= start && ended < end;
-    })
-    .reduce((sum, entry) => sum + opsEntrySeconds(entry) / 3600, 0);
+  return opsHoursInRange(person, start, end);
 }
 
 function renderProfileHours(person) {

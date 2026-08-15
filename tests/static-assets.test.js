@@ -86,7 +86,7 @@ test("portal live refresh ignores the immediate echo after local actions", () =>
   const html = fs.readFileSync(path.join(process.cwd(), "index.html"), "utf8");
   const appCode = fs.readFileSync(path.join(process.cwd(), "app.js"), "utf8");
 
-  assert.match(html, /app\.js\?v=20260809-profile-note-fast-save/);
+  assert.match(html, /app\.js\?v=20260815-operator-duty-hours/);
   assert.match(appCode, /LIVE_REFRESH_LOCAL_ACTION_SUPPRESS_MS/);
   assert.match(appCode, /suppressImmediateLiveRefresh\(\);/);
   assert.match(appCode, /function isLiveRefreshSuppressed\(/);
@@ -325,7 +325,7 @@ test("profile badge context dialog groups controls with a summary", () => {
 
   assert.match(html, /personeelsportaal\.css\?v=20260804-vehicle-seizure-tabs/);
   assert.match(html, /personeelsportaal\/profile\.js\?v=20260802-defensie-department-badges/);
-  assert.match(html, /personeelsportaal-data\.js\?v=20260802-defensie-department-badges/);
+  assert.match(html, /personeelsportaal-data\.js\?v=20260815-operator-duty-hours/);
   assert.match(html, /id="profileBadgeSummary"/);
   assert.match(html, /id="profileBadgeGroupedOptions"/);
   assert.match(profileCode, /function profileBadgeDialogGroups/);

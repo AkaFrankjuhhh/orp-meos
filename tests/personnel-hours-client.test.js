@@ -4,10 +4,11 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-function loadHoursModuleWithState(state) {
+function loadHoursModuleWithState(state, globals = {}) {
   const code = fs.readFileSync(path.join(process.cwd(), "personeelsportaal", "hours.js"), "utf8");
   const context = {
     state,
+    ...globals,
     window: {
       DefensiePortalModules: {
         registerFeature() {}
@@ -90,4 +91,79 @@ test("month total ignores future weeks that are already saved in the same month"
   });
 
   assert.equal(context.manualHoursForMonth({ id: "p1" }, new Date("2026-06-28T12:00:00Z")), 78.3);
+});
+
+test("operator hours are counted from porto duty clock entries", () => {
+  const person = { id: "p1", name: "OPS Tester", serviceNumber: "70-01", completedOperational: ["OPS"] };
+  const context = loadHoursModuleWithState({
+    hours: [
+      {
+        id: "porto-duty-ops",
+        personId: "p1",
+        weekYear: 2026,
+        weekNumber: 32,
+        startedAt: "2026-08-03T10:00:00.000Z",
+        endedAt: "2026-08-03T14:30:00.000Z",
+        source: "porto-duty-clock",
+        sourceVehicleNumber: "30-00"
+      },
+      {
+        id: "porto-duty-normal",
+        personId: "p1",
+        weekYear: 2026,
+        weekNumber: 32,
+        startedAt: "2026-08-03T15:00:00.000Z",
+        endedAt: "2026-08-03T20:00:00.000Z",
+        source: "porto-duty-clock",
+        sourceVehicleNumber: "30-01"
+      }
+    ],
+    portoOpsLog: []
+  }, {
+    portalOperatorTraining: "OPS",
+    portalOperatorVehicleNumber: "30-00"
+  });
+
+  assert.equal(context.opsHoursForWeek(person, { weekYear: 2026, weekNumber: 32 }), 4.5);
+});
+
+test("operator hours merge old ops log entries with duty clock entries", () => {
+  const person = { id: "p1", name: "OPS Tester", serviceNumber: "70-01", completedOperational: ["OPS"] };
+  const context = loadHoursModuleWithState({
+    hours: [
+      {
+        id: "porto-duty-ops",
+        personId: "p1",
+        weekYear: 2026,
+        weekNumber: 32,
+        startedAt: "2026-08-03T10:00:00.000Z",
+        endedAt: "2026-08-03T12:00:00.000Z",
+        source: "porto-duty-clock",
+        sourceVehicleNumber: "30-00"
+      }
+    ],
+    portoOpsLog: [
+      {
+        id: "ops-log-same-session",
+        memberId: "p1",
+        startedAt: "2026-08-03T10:00:00.000Z",
+        endedAt: "2026-08-03T12:00:00.000Z",
+        durationSeconds: 7200,
+        endedByName: "Frank"
+      },
+      {
+        id: "ops-log-extra-session",
+        memberId: "p1",
+        startedAt: "2026-08-04T10:00:00.000Z",
+        endedAt: "2026-08-04T11:30:00.000Z",
+        durationSeconds: 5400,
+        endedByName: "Frank"
+      }
+    ]
+  }, {
+    portalOperatorTraining: "OPS",
+    portalOperatorVehicleNumber: "30-00"
+  });
+
+  assert.equal(context.opsHoursForWeek(person, { weekYear: 2026, weekNumber: 32 }), 3.5);
 });

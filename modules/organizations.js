@@ -750,7 +750,8 @@ function publicClientData(config = currentOrganization()) {
     profileOperational: config.profileOperational,
     porto: {
       operatorLabel,
-      operatorTraining: config.porto?.operatorTraining || operatorLabel
+      operatorTraining: config.porto?.operatorTraining || operatorLabel,
+      operatorVehicleNumber: config.porto?.operatorVehicleNumber || "30-00"
     },
     mentorRanks: config.mentorRanks,
     mentorChecklistGroups: config.mentorChecklistGroups,
@@ -784,6 +785,7 @@ function portoClientData(config = currentOrganization()) {
     },
     operatorLabel,
     operatorTraining: config.porto?.operatorTraining || operatorLabel,
+    operatorVehicleNumber: config.porto?.operatorVehicleNumber || "30-00",
     profileTrainings: config.profileTrainings || [],
     profileOperational: config.profileOperational || [],
     lockTitle: config.porto?.lockTitle || `${config.label} Porto-Systeem`,

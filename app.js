@@ -32,6 +32,7 @@ const organizationKey = organizationConfig.key || "defensie";
 const portalPortoConfig = porto || {};
 const portalOperatorLabel = portalPortoConfig.operatorLabel || "OPS";
 const portalOperatorTraining = portalPortoConfig.operatorTraining || portalOperatorLabel;
+const portalOperatorVehicleNumber = portalPortoConfig.operatorVehicleNumber || (organizationKey === "politie" ? "20-00" : "30-00");
 let state = structuredClone(defaultState);
 let authProfile = null;
 let serverBacked = false;
@@ -829,6 +830,18 @@ function opsLogEntrySeconds(entry) {
 
 function opsTimesRowsSince(startDate) {
   const startMs = startDate.getTime();
+  if (typeof opsEntriesForPerson === "function") {
+    return (state.people || [])
+      .filter(hasOpsTraining)
+      .flatMap((person) => opsEntriesForPerson(person))
+      .filter((entry) => {
+        const started = Date.parse(entry.startedAt || "");
+        const ended = Date.parse(entry.endedAt || entry.startedAt || "");
+        return Number.isFinite(ended) && ended >= startMs && (!Number.isFinite(started) || ended > startMs);
+      })
+      .map((entry) => ({ ...entry, durationSeconds: opsLogEntrySeconds(entry) }))
+      .sort((a, b) => new Date(b.endedAt || b.startedAt || 0) - new Date(a.endedAt || a.startedAt || 0));
+  }
   return (state.portoOpsLog || [])
     .filter((entry) => {
       const ended = Date.parse(entry.endedAt || entry.startedAt || "");
@@ -870,6 +883,7 @@ function renderOpsTimes() {
   }
   const weekStart = startOfWeek();
   const weekRows = opsTimesRowsSince(weekStart);
+  const currentWeek = typeof currentHourWeek === "function" ? currentHourWeek() : null;
   const totals = new Map();
   state.people
     .filter((person) => person.status === "Actief" && hasOpsTraining(person))
@@ -882,12 +896,21 @@ function renderOpsTimes() {
         count: 0
       });
     });
-  for (const row of weekRows) {
-    const key = row.memberId || row.name || "onbekend";
-    const current = totals.get(key);
-    if (!current) continue;
-    current.seconds += row.durationSeconds;
-    current.count += 1;
+  if (currentWeek && typeof opsHoursForWeek === "function") {
+    for (const person of state.people.filter((entry) => entry.status === "Actief" && hasOpsTraining(entry))) {
+      const current = totals.get(opsTimesPersonKey(person));
+      if (!current) continue;
+      current.seconds = Math.round(opsHoursForWeek(person, currentWeek) * 3600);
+      current.count = weekRows.filter((row) => (row.memberId || row.name || "onbekend") === opsTimesPersonKey(person)).length;
+    }
+  } else {
+    for (const row of weekRows) {
+      const key = row.memberId || row.name || "onbekend";
+      const current = totals.get(key);
+      if (!current) continue;
+      current.seconds += row.durationSeconds;
+      current.count += 1;
+    }
   }
   const people = [...totals.values()].sort((a, b) => (
     compareServiceNumber(a.serviceNumber, b.serviceNumber) || a.name.localeCompare(b.name, "nl")

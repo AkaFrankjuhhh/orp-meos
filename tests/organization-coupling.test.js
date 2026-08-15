@@ -32,6 +32,13 @@ test("discord worker uses organization porto operator number for lead nickname c
   assert.doesNotMatch(code, /unit\.vehicleNumber === "30-00"/);
 });
 
+test("portal client data exposes organization porto operator numbers", () => {
+  const { organizationConfigs, publicClientData } = require("../modules/organizations");
+
+  assert.equal(publicClientData(organizationConfigs.defensie).porto.operatorVehicleNumber, "30-00");
+  assert.equal(publicClientData(organizationConfigs.politie).porto.operatorVehicleNumber, "20-00");
+});
+
 test("porto unlink assigns the next regular unit instead of reusing the operator range", () => {
   const code = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
   const unlinkBlock = code.slice(code.indexOf("if (unlink) {"), code.indexOf("if (offDuty) {"));
