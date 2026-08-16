@@ -207,10 +207,15 @@ test("LR unit assignment is handled server-side", () => {
   assert.match(clientCode, /\[\$\{number\} - ※\]/);
 });
 
-test("KLu supports Eagle rank numbers", () => {
+test("KLu stores manual Eagle numbers", () => {
   const kluTask = sideTaskForKey("KLU");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "side-tasks-server.js"), "utf8");
+
   assert.equal(kluTask.allowAlias, true);
-  assert.equal(kluTask.aliasProfile.numberSource, "rank");
+  assert.equal(kluTask.aliasProfile.numberSource, "manual");
+  assert.equal(kluTask.aliasProfile.numberPattern, "^Eagle\\s+\\d{1,2}$");
   assert.equal(kluTask.aliasProfile.rankNumbers.Generaal.number, "1");
   assert.equal(kluTask.aliasProfile.rankNumbers["Soldaat der 2de klasse"].number, "9");
+  assert.match(serverCode, /if \(task\.key === "KLU"\) \{\s+const savedNumber = normalizeAliasNumber\(task, member\.callSign\);\s+if \(savedNumber\) return savedNumber;/);
+  assert.match(serverCode, /if \(task\.key === "KLU"\) \{\s+const match = \/\^eagle\\s\*\(\\d\{1,2\}\)\$\/i\.exec\(text\);/);
 });

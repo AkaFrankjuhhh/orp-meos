@@ -81,7 +81,9 @@ const SIDE_TASK_DEFINITIONS = {
       aliasLabel: "Schuilnaam",
       aliasPlaceholder: "Naam",
       aliasRequiredForActive: true,
-      numberSource: "rank",
+      numberSource: "manual",
+      numberPattern: "^Eagle\\s+\\d{1,2}$",
+      numberPatternHint: "Gebruik een geldig KLu roepnummer, bijvoorbeeld Eagle 8.",
       nicknameTemplate: "[{number}] {name}",
       rankNumbers: {
         "Generaal": { number: "1", roleId: "1516830107711307867" },

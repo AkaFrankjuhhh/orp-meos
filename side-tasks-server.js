@@ -454,6 +454,10 @@ function shouldSyncAliasNicknameForStatus(task, status) {
 
 function normalizeAliasNumber(task, value) {
   const text = sanitizeText(value, 32);
+  if (task.key === "KLU") {
+    const match = /^eagle\s*(\d{1,2})$/i.exec(text);
+    return match ? `Eagle ${Number(match[1])}` : text;
+  }
   if (task.key === "DNR") {
     const match = /^(1[123])-(\d{1,2})$/i.exec(text);
     return match ? `${match[1]}-${match[2].padStart(2, "0")}` : text.toUpperCase();
@@ -502,6 +506,9 @@ function rankNumberFromRoles(task, member) {
 
 function aliasNumberForTask(task, member, portalIdentity = null) {
   if (task.key === "KLU") {
+    const savedNumber = normalizeAliasNumber(task, member.callSign);
+    if (savedNumber) return savedNumber;
+    if (task.aliasProfile?.numberSource !== "rank") return "";
     const rank = String(portalIdentity?.person?.rank || "").trim();
     const rankConfig = task.aliasProfile?.rankNumbers?.[rank] || null;
     const resolved = rankConfig ? { rank, number: String(rankConfig.number || "") } : rankNumberFromRoles(task, member);
