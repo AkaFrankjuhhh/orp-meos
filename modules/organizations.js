@@ -64,21 +64,24 @@ const politieMentorChecklistGroups = [
   {
     title: "Basis Politiewerk",
     items: [
-      "Kennis van rangen en hi\u00ebrarchie binnen het korps",
-      "Correct aanspreken van collega's en burgers",
+      "Kennis van de rangen binnen het korps",
+      "Correct aanspreken van burgers",
       "Basisuitrusting kennen en gebruiken",
       "Dienst starten en eindigen volgens procedure",
-      "Gebruik van dienstvoertuigen begrijpen"
+      "Gebruik van dienstvoertuigen begrijpen",
+      "Weten waar je de juiste voertuigen kunt vinden"
     ]
   },
   {
     title: "Communicatie & Porto",
     items: [
+      "De statussen MOETEN weten van 0 tot 10",
       "Porto correct gebruiken (call signs, meldingen)",
       "Korte en duidelijke communicatie via de radio",
-      "Prioriteiten (prio 1, 2, 3) correct toepassen",
-      "Back-up aanvragen op de juiste manier",
-      "OPCO/OVD-P communicatie begrijpen"
+      "Assistentie aanvragen op de juiste manier",
+      "OPCO/OVD-P communicatie begrijpen / Waar staat OPCO / OVD-P voor en wat doen zij",
+      "Weten hoe je snel en gemakkelijk de andere hulpdiensten kan bereiken.",
+      "Hoe werkt onze telefoon met o.a. aanvragen van een advocaat of waar je de telefoon meldingen kunt zien"
     ]
   },
   {
@@ -88,7 +91,10 @@ const politieMentorChecklistGroups = [
       "Staandehouding correct uitvoeren",
       "Fouilleren volgens procedure",
       "Aanhouding correct uitvoeren",
-      "Rechten van een verdachte benoemen"
+      "Rechten van een verdachte benoemen",
+      "Gebruik van geweld wanneer mag dat",
+      "IC bewijs opmaken",
+      "Proces verbaal opmaken"
     ]
   },
   {
@@ -96,7 +102,9 @@ const politieMentorChecklistGroups = [
     items: [
       "Verkeerscontroles uitvoeren",
       "Boetes uitschrijven (juiste reden & bedrag)",
+      "Veiligheidsrisico's inschatten (let op gedragingen van de verdachte)",
       "Voertuigen controleren (papieren, kenteken)",
+      "Communicatie met de verdachte",
       "Gebruik van handboeien en transport",
       "Verdachte veilig vervoeren naar bureau"
     ]
@@ -108,7 +116,9 @@ const politieMentorChecklistGroups = [
       "Wegblokkades correct neerzetten",
       "Tactisch rijden tijdens achtervolgingen",
       "Handelen bij gewapende situaties",
-      "Samenwerken bij grote incidenten"
+      "Samenwerken bij grote incidenten",
+      "Gebruik van sirenes en zwaailichten",
+      "Evaluatie na achtervolging wat ging er goed en wat niet."
     ]
   }
 ];
@@ -477,7 +487,7 @@ const organizationConfigs = {
     mentorRanks: ["Aspirant"],
     mentorTrainingName: "Mentor-Traject",
     mentorChecklistGroups: politieMentorChecklistGroups,
-    mentorChecklistCount: 25,
+    mentorChecklistCount: 35,
     rankTrainingRequirements: {
       Surveillant: ["Basis"],
       Agent: ["Basis", "NH", "IBT"],

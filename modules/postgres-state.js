@@ -25,19 +25,35 @@ function stripEmpty(object) {
   return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined));
 }
 
+function mentorTemplateLabels(groups) {
+  return Array.isArray(groups)
+    ? groups.flatMap((group) => Array.isArray(group?.items) ? group.items : []).map((item) => String(typeof item === "string" ? item : item?.label || ""))
+    : [];
+}
+
 function isLegacyDefensieMentorTemplate(groups) {
   if (!Array.isArray(groups) || groups.length !== 2) return false;
   const titles = groups.map((group) => String(group?.title || "").trim());
-  const labels = groups.flatMap((group) => Array.isArray(group?.items) ? group.items : []).map((item) => String(typeof item === "string" ? item : item?.label || ""));
+  const labels = mentorTemplateLabels(groups);
   return titles.includes("Praktijk")
     && titles.includes("Theorie")
     && labels.includes("Leerling weet hoe MEOS werkt")
     && labels.includes("Leerling kent de douane gebieden");
 }
 
+function isLegacyPolitieMentorTemplate(groups) {
+  if (!Array.isArray(groups) || groups.length !== 5) return false;
+  const labels = mentorTemplateLabels(groups);
+  return labels.length === 25
+    && labels.includes("Kennis van rangen en hi\u00ebrarchie binnen het korps")
+    && labels.includes("Prioriteiten (prio 1, 2, 3) correct toepassen")
+    && labels.includes("Back-up aanvragen op de juiste manier")
+    && labels.includes("OPCO/OVD-P communicatie begrijpen");
+}
+
 function mentorChecklistGroupsFromSettings(settings) {
   const configured = settings.mentorChecklistGroups;
-  if (organization.key === "politie" && isLegacyDefensieMentorTemplate(configured)) {
+  if (organization.key === "politie" && (isLegacyDefensieMentorTemplate(configured) || isLegacyPolitieMentorTemplate(configured))) {
     return organization.mentorChecklistGroups || [];
   }
   return configured || [];

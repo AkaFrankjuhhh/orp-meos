@@ -39,6 +39,32 @@ test("portal client data exposes organization porto operator numbers", () => {
   assert.equal(publicClientData(organizationConfigs.politie).porto.operatorVehicleNumber, "20-00");
 });
 
+test("police mentor checklist uses the updated training list", () => {
+  const { organizationConfigs } = require("../modules/organizations");
+  const postgresStateCode = fs.readFileSync(path.join(process.cwd(), "modules", "postgres-state.js"), "utf8");
+  const groups = organizationConfigs.politie.mentorChecklistGroups;
+  const labels = groups.flatMap((group) => group.items);
+
+  assert.deepEqual(groups.map((group) => group.title), [
+    "Basis Politiewerk",
+    "Communicatie & Porto",
+    "Wetten & Procedures",
+    "Praktische Handelingen",
+    "Achtervolging & Nood"
+  ]);
+  assert.equal(labels.length, 35);
+  assert.equal(organizationConfigs.politie.mentorChecklistCount, 35);
+  assert.ok(labels.includes("Kennis van de rangen binnen het korps"));
+  assert.ok(labels.includes("De statussen MOETEN weten van 0 tot 10"));
+  assert.ok(labels.includes("OPCO/OVD-P communicatie begrijpen / Waar staat OPCO / OVD-P voor en wat doen zij"));
+  assert.ok(labels.includes("Hoe werkt onze telefoon met o.a. aanvragen van een advocaat of waar je de telefoon meldingen kunt zien"));
+  assert.ok(labels.includes("Evaluatie na achtervolging wat ging er goed en wat niet."));
+  assert.ok(!labels.includes("Prioriteiten (prio 1, 2, 3) correct toepassen"));
+  assert.ok(!labels.includes("Back-up aanvragen op de juiste manier"));
+  assert.match(postgresStateCode, /function isLegacyPolitieMentorTemplate/);
+  assert.match(postgresStateCode, /isLegacyDefensieMentorTemplate\(configured\) \|\| isLegacyPolitieMentorTemplate\(configured\)/);
+});
+
 test("porto unlink assigns the next regular unit instead of reusing the operator range", () => {
   const code = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
   const unlinkBlock = code.slice(code.indexOf("if (unlink) {"), code.indexOf("if (offDuty) {"));
