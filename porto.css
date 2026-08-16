@@ -1110,8 +1110,61 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 .porto-modern-request-row {
-  grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.05fr) minmax(260px, 1.12fr) minmax(282px, auto);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "person actions"
+    "controls actions";
   padding: 14px;
+  align-items: stretch;
+}
+
+.porto-modern-request-person {
+  grid-area: person;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.porto-modern-request-person > span {
+  color: #84b4e8;
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.porto-modern-request-person strong {
+  color: #f8fafc;
+  font-size: clamp(15px, 1vw, 18px);
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.porto-modern-request-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-width: 0;
+  color: #c7d2fe;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.porto-modern-request-person p {
+  margin: 2px 0 0;
+  color: #dbeafe;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+.porto-modern-request-controls {
+  grid-area: controls;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  min-width: 0;
 }
 
 .porto-modern-request-row > div:first-child,
@@ -1119,13 +1172,6 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
   display: grid;
   gap: 6px;
   min-width: 0;
-}
-
-.porto-modern-request-row > div:first-child strong,
-.porto-modern-request-row > div:first-child span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .porto-modern-request-row label span {
@@ -1148,15 +1194,18 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 }
 
 .porto-modern-request-actions {
+  grid-area: actions;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   justify-content: flex-end;
+  align-self: stretch;
   gap: 10px;
   min-width: 0;
 }
 
 .porto-modern-request-actions .porto-ops-assign {
-  min-width: 94px;
+  width: 104px;
+  min-width: 104px;
 }
 
 .porto-modern-unit-rows {
@@ -5055,13 +5104,29 @@ body[data-porto-ui="modern"] .porto-modern-filter-row {
 }
 
 body[data-porto-ui="modern"] .porto-modern-request-row {
-  grid-template-columns: minmax(180px, 0.8fr) minmax(230px, 1fr) minmax(230px, 1fr) auto;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "person actions"
+    "controls actions";
+  align-items: stretch;
   gap: 12px;
 }
 
+body[data-porto-ui="modern"] .porto-modern-request-person,
+body[data-porto-ui="modern"] .porto-modern-request-controls,
 body[data-porto-ui="modern"] .porto-modern-request-row label {
   min-width: 0;
+}
+
+body[data-porto-ui="modern"] .porto-modern-request-person strong,
+body[data-porto-ui="modern"] .porto-modern-request-person p,
+body[data-porto-ui="modern"] .porto-modern-request-meta {
+  overflow: visible;
+  white-space: normal;
+}
+
+body[data-porto-ui="modern"] .porto-modern-request-controls {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
 }
 
 body[data-porto-ui="modern"] .porto-modern-request-row select,
@@ -5073,8 +5138,9 @@ body[data-porto-ui="modern"] .porto-modern-vehicle-select select {
 
 body[data-porto-ui="modern"] .porto-modern-request-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   justify-content: flex-end;
+  align-self: stretch;
   gap: 8px;
 }
 
@@ -5362,12 +5428,24 @@ body[data-porto-ui="modern"] .porto-choice-context-menu button {
   }
 
   body[data-porto-ui="modern"] .porto-modern-request-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "person"
+      "controls"
+      "actions";
   }
 
   body[data-porto-ui="modern"] .porto-modern-request-actions {
-    grid-column: 1 / -1;
+    grid-column: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
     justify-content: flex-start;
+    align-self: auto;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-request-actions .porto-ops-assign {
+    width: auto;
+    min-width: 104px;
   }
 
   body[data-porto-ui="modern"] .porto-modern-ops-row {
@@ -5389,6 +5467,10 @@ body[data-porto-ui="modern"] .porto-choice-context-menu button {
   body[data-porto-ui="modern"] .porto-modern-ops-header,
   body[data-porto-ui="modern"] .porto-modern-request-row,
   body[data-porto-ui="modern"].porto-duty-workspace .porto-modern-duty-head {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-request-controls {
     grid-template-columns: 1fr;
   }
 

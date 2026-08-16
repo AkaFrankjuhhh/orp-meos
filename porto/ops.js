@@ -147,7 +147,10 @@ function updateOpsDurationDisplay() {
 function vehicleCategoryOptionsHtml() {
   const options = portoAvailableVehicleRanges
     .filter((range) => (range.numbers || []).length)
-    .map((range) => `<option value="${escapeHtml(range.prefix)}">${escapeHtml(range.vehicleCode ? `${range.vehicleCode} - ` : "")}${escapeHtml(range.vehicleType)} (${escapeHtml(range.from)} t/m ${escapeHtml(range.to)})</option>`)
+    .map((range) => {
+      const label = `${range.vehicleCode ? `${range.vehicleCode} - ` : ""}${range.vehicleType} (${range.from} t/m ${range.to})`;
+      return `<option value="${escapeHtml(range.prefix)}" title="${escapeHtml(label)}">${escapeHtml(label)}</option>`;
+    })
     .join("");
   return options || '<option value="">Geen vrije categorieen</option>';
 }
@@ -155,7 +158,7 @@ function vehicleCategoryOptionsHtml() {
 function linkOptionsHtml(currentVehicleNumber = "") {
   const options = portoLinkableUnits
     .filter((unit) => unit.vehicleNumber !== currentVehicleNumber)
-    .map((unit) => `<option value="${escapeHtml(unit.vehicleNumber)}">${escapeHtml(unit.label)}</option>`)
+    .map((unit) => `<option value="${escapeHtml(unit.vehicleNumber)}" title="${escapeHtml(unit.label)}">${escapeHtml(unit.label)}</option>`)
     .join("");
   return options || '<option value="">Geen koppelbare eenheden</option>';
 }
@@ -682,20 +685,33 @@ function renderModernOpsDashboard({ force = false } = {}) {
         <button class="porto-modern-row-arrow" type="button" data-ops-open-menu="${escapeHtml(actionId)}" aria-label="Acties">&rsaquo;</button>
       </article>`;
   }).join("") : '<div class="porto-ops-empty">Geen actieve eenheden.</div>';
-  const requestRows = portoOpsRequests.length ? portoOpsRequests.map((request) => `
+  const requestRows = portoOpsRequests.length ? portoOpsRequests.map((request) => {
+    const requestTitle = `${request.serviceNumber || "-"} - ${request.name || "Onbekend"}`;
+    const requestRank = request.rank || "-";
+    const requestNote = request.requestNote || "";
+    const requestPhone = request.phone || "Geen telefoonnummer";
+    return `
     <article class="porto-modern-request-row" data-ops-request="${escapeHtml(request.id)}">
-      <div>
-        <strong>${escapeHtml(request.serviceNumber || "-")} - ${escapeHtml(request.name || "Onbekend")}</strong>
-        <span>${escapeHtml(request.rank || "-")} ${request.requestNote ? `- ${request.requestNote}` : ""}</span>
+      <div class="porto-modern-request-person">
+        <span>Status 0-aanmelding</span>
+        <strong title="${escapeHtml(requestTitle)}">${escapeHtml(requestTitle)}</strong>
+        <div class="porto-modern-request-meta">
+          <span title="${escapeHtml(requestRank)}">${escapeHtml(requestRank)}</span>
+          <span title="${escapeHtml(requestPhone)}">${escapeHtml(requestPhone)}</span>
+        </div>
+        ${requestNote ? `<p title="${escapeHtml(requestNote)}">${escapeHtml(requestNote)}</p>` : ""}
       </div>
-      <label><span>Koppel aan</span><select data-link-select="${escapeHtml(request.id)}">${linkOptionsHtml()}</select></label>
-      <label><span>Kies voertuig</span><select data-category-select="${escapeHtml(request.id)}">${vehicleCategoryOptionsHtml()}</select></label>
+      <div class="porto-modern-request-controls">
+        <label><span>Koppel aan</span><select data-link-select="${escapeHtml(request.id)}">${linkOptionsHtml()}</select></label>
+        <label><span>Kies voertuig</span><select data-category-select="${escapeHtml(request.id)}">${vehicleCategoryOptionsHtml()}</select></label>
+      </div>
       <div class="porto-modern-request-actions">
         <button class="porto-ops-assign secondary" type="button" data-link-unit="${escapeHtml(request.id)}">Koppelen</button>
         <button class="porto-ops-assign" type="button" data-assign-unit="${escapeHtml(request.id)}">Indelen</button>
         <button class="porto-ops-assign danger" type="button" data-reject-unit="${escapeHtml(request.id)}">Weigeren</button>
       </div>
-    </article>`).join("") : '<div class="porto-ops-empty">Geen open Status 0-aanmeldingen.</div>';
+    </article>`;
+  }).join("") : '<div class="porto-ops-empty">Geen open Status 0-aanmeldingen.</div>';
   const selectedMembers = selectedUnit ? (selectedUnit.members || []) : [];
   const selectedStatus = selectedUnit ? modernOpsUnitStatus(selectedUnit) : null;
   const selectedChannel = selectedUnit ? modernOpsChannelDisplay(selectedUnit) : null;
