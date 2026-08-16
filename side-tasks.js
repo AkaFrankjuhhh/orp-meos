@@ -452,6 +452,7 @@ function hrbContextMenu() {
         <button type="button" data-action="hrb-set-command-role" data-command-role="CM">CM opnemen (${escapeHtml(commandUnits.CM || "HRB-00")})</button>
         <button type="button" data-action="hrb-set-command-role" data-command-role="PLAVA">PLAVA opnemen (${escapeHtml(commandUnits.PLAVA || "HRB-01")})</button>
         ${member.commandRole ? `<button type="button" data-action="hrb-set-command-role" data-command-role="">${escapeHtml(member.commandRole)} neerleggen</button>` : ""}
+        <button type="button" data-action="hrb-sign-off-member">Uit dienst melden</button>
         <button class="dsi-context-close" type="button" data-action="hrb-close-menu">Sluiten</button>
       `}
     </div>
@@ -931,6 +932,21 @@ app.addEventListener("click", async (event) => {
       const result = await api(`/api/side-tasks/hrb/members/${encodeURIComponent(context.memberId)}/unit`, {
         method: "POST",
         body: JSON.stringify({ unitNumber: select.value })
+      });
+      appState.hrbContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
+    if (action === "hrb-sign-off-member") {
+      const context = appState.hrbContextMenu;
+      if (!context) return;
+      const member = appState.members.find((entry) => entry.id === context.memberId);
+      const label = member ? displayMemberName(member, appState.me.task) : "dit HRB-lid";
+      if (!confirm(`${label} uit dienst melden?`)) return;
+      const result = await api(`/api/side-tasks/hrb/members/${encodeURIComponent(context.memberId)}/sign-off`, {
+        method: "POST",
+        body: JSON.stringify({})
       });
       appState.hrbContextMenu = null;
       await refresh();

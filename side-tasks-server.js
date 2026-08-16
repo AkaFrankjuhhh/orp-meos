@@ -1113,6 +1113,26 @@ async function handleApi(req, res, task, url) {
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
 
+  const hrbSignOffMatch = url.pathname.match(/^\/api\/side-tasks\/hrb\/members\/([^/]+)\/sign-off$/);
+  if (hrbSignOffMatch && req.method === "POST") {
+    if (task.key !== "HRB") return jsonError(res, 404, "Niet gevonden.");
+    const member = await store.findMemberById(task.key, decodeURIComponent(hrbSignOffMatch[1]));
+    if (!member) return jsonError(res, 404, "HRB-lid niet gevonden.");
+    const isOwnProfile = member.discordId === session.user.id;
+    if (!isOwnProfile && !session.permissions.canManageHrbUnits) return jsonError(res, 403, "Alleen HRB-leiding kan andere leden afmelden.");
+    const updated = await store.updateMember(task.key, member.id, {
+      status: "8",
+      statusDetail: statusOption("8").label,
+      callSign: "",
+      unitNumber: "",
+      commandRole: "",
+      specialties: member.specialties || []
+    });
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, "8");
+    publishSideTaskUpdate(task, "hrb-member-signed-off", { memberId: nicknameResult.member.id, status: "8" });
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
+  }
+
   const dsiCommandMatch = url.pathname.match(/^\/api\/side-tasks\/dsi\/members\/([^/]+)\/command-role$/);
   if (dsiCommandMatch && req.method === "POST") {
     if (task.key !== "DSI") return jsonError(res, 404, "Niet gevonden.");

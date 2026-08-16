@@ -85,6 +85,8 @@ test("HRB unit assignment is handled server-side with protected nicknames", () =
   assert.match(serverCode, /const hrbUnitMatch/);
   assert.match(serverCode, /store\.linkHrbUnit\(task\.key, member\.id, unitNumber\)/);
   assert.match(serverCode, /side-tasks\\\/hrb\\\/members\\\/\(\[\^\/\]\+\)\\\/unit/);
+  assert.match(serverCode, /const hrbSignOffMatch/);
+  assert.match(serverCode, /hrb-member-signed-off/);
   assert.match(serverCode, /const hrbCommandMatch/);
   assert.match(serverCode, /function buildHrbNickname/);
   assert.match(serverCode, /\["CM", "PLAVA"\]\.includes\(commandRole\)/);
@@ -98,6 +100,7 @@ test("HRB unit assignment is handled server-side with protected nicknames", () =
   assert.match(clientCode, /data-action="hrb-open-link-menu"/);
   assert.match(clientCode, /data-action="hrb-confirm-link"/);
   assert.match(clientCode, /data-hrb-unit-select/);
+  assert.match(clientCode, /data-action="hrb-sign-off-member"/);
   assert.match(clientCode, /data-action="hrb-set-command-role"/);
   assert.match(clientCode, /CM opnemen/);
   assert.match(clientCode, /PLAVA opnemen/);
