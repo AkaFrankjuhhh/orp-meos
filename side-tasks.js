@@ -312,6 +312,33 @@ function dnrUnitLinkOptions(member, task) {
   return options;
 }
 
+function hrbUnitLinkOptions(member, task) {
+  const units = task.hrbUnits || {};
+  const prefix = String(units.prefix || "HRB");
+  const first = Math.max(0, Number(units.min || 2));
+  const last = Math.max(first, Number(units.max || 99));
+  const capacity = Math.max(1, Number(units.capacity || 1));
+  const reserved = new Set(Object.values(units.commandUnits || { CM: "HRB-00", PLAVA: "HRB-01" }));
+  const counts = new Map();
+  appState.members
+    .filter((entry) => entry.status !== "8" && entry.unitNumber)
+    .forEach((entry) => counts.set(entry.unitNumber, (counts.get(entry.unitNumber) || 0) + 1));
+
+  const options = [];
+  for (let index = first; index <= last; index += 1) {
+    const unitNumber = `${prefix}-${String(index).padStart(2, "0")}`;
+    if (reserved.has(unitNumber) || unitNumber === member.unitNumber) continue;
+    const ownCurrent = member.id && member.unitNumber === unitNumber && member.status !== "8" ? 1 : 0;
+    const count = counts.get(unitNumber) || 0;
+    if (count - ownCurrent >= capacity) continue;
+    options.push({
+      unitNumber,
+      label: count ? `${unitNumber} (${Math.min(count, capacity)}/${capacity})` : `${unitNumber} (vrij)`
+    });
+  }
+  return options;
+}
+
 function dsiUnitSection() {
   const units = new Map();
   const pendingMembers = appState.members.filter((member) => member.status === "0");
@@ -400,14 +427,30 @@ function hrbContextMenu() {
   if (!isOwnProfile && !permissions.canManageHrbUnits) return "";
   if (!permissions.canAssignHrbCommand) return "";
   const commandUnits = appState.me.task?.hrbUnits?.commandUnits || { CM: "HRB-00", PLAVA: "HRB-01" };
+  const unitOptions = hrbUnitLinkOptions(member, appState.me.task);
   const style = `left:${context.x}px;top:${context.y}px;`;
   return `
     <div class="dsi-context-menu" data-hrb-context-menu style="${style}">
       <div class="dsi-context-title">${escapeHtml(displayMemberName(member, appState.me.task))}</div>
-      <button type="button" data-action="hrb-set-command-role" data-command-role="CM">CM opnemen (${escapeHtml(commandUnits.CM || "HRB-00")})</button>
-      <button type="button" data-action="hrb-set-command-role" data-command-role="PLAVA">PLAVA opnemen (${escapeHtml(commandUnits.PLAVA || "HRB-01")})</button>
-      ${member.commandRole ? `<button type="button" data-action="hrb-set-command-role" data-command-role="">${escapeHtml(member.commandRole)} neerleggen</button>` : ""}
-      <button class="dsi-context-close" type="button" data-action="hrb-close-menu">Sluiten</button>
+      ${context.mode === "link" ? `
+        <label>Koppel aan HRB-nummer
+          <select data-hrb-unit-select ${unitOptions.length ? "" : "disabled"}>
+            ${unitOptions.length
+              ? unitOptions.map((option) => `<option value="${escapeHtml(option.unitNumber)}">${escapeHtml(option.label)}</option>`).join("")
+              : `<option>Geen vrije HRB-nummers</option>`}
+          </select>
+        </label>
+        <div class="dsi-context-actions">
+          <button class="secondary-button" type="button" data-action="hrb-close-menu">Annuleren</button>
+          <button class="primary-button" type="button" data-action="hrb-confirm-link" ${unitOptions.length ? "" : "disabled"}>Koppelen</button>
+        </div>
+      ` : `
+        <button type="button" data-action="hrb-open-link-menu">Koppelen aan HRB-nummer</button>
+        <button type="button" data-action="hrb-set-command-role" data-command-role="CM">CM opnemen (${escapeHtml(commandUnits.CM || "HRB-00")})</button>
+        <button type="button" data-action="hrb-set-command-role" data-command-role="PLAVA">PLAVA opnemen (${escapeHtml(commandUnits.PLAVA || "HRB-01")})</button>
+        ${member.commandRole ? `<button type="button" data-action="hrb-set-command-role" data-command-role="">${escapeHtml(member.commandRole)} neerleggen</button>` : ""}
+        <button class="dsi-context-close" type="button" data-action="hrb-close-menu">Sluiten</button>
+      `}
     </div>
   `;
 }
@@ -847,6 +890,11 @@ app.addEventListener("click", async (event) => {
       renderApp();
       return;
     }
+    if (action === "hrb-open-link-menu") {
+      appState.hrbContextMenu = { ...appState.hrbContextMenu, mode: "link" };
+      renderApp();
+      return;
+    }
     if (action === "dsi-confirm-link") {
       const context = appState.dsiContextMenu;
       const select = app.querySelector("[data-dsi-unit-select]");
@@ -869,6 +917,19 @@ app.addEventListener("click", async (event) => {
         body: JSON.stringify({ unitNumber: select.value })
       });
       appState.dnrContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
+    if (action === "hrb-confirm-link") {
+      const context = appState.hrbContextMenu;
+      const select = app.querySelector("[data-hrb-unit-select]");
+      if (!context || !select?.value) return;
+      const result = await api(`/api/side-tasks/hrb/members/${encodeURIComponent(context.memberId)}/unit`, {
+        method: "POST",
+        body: JSON.stringify({ unitNumber: select.value })
+      });
+      appState.hrbContextMenu = null;
       await refresh();
       if (result.warning) alert(result.warning);
       return;

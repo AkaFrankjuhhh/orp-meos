@@ -990,17 +990,19 @@ function createSideTasksStore() {
           throw error;
         }
         const commandUnit = HRB_COMMAND_UNITS[member.commandRole] || "";
-        let unitNumber = commandUnit || hrbUnitNumber(requestedUnitNumber);
+        const requestedUnit = requestedUnitNumber ? hrbUnitNumber(requestedUnitNumber) : "";
+        let unitNumber = requestedUnit || commandUnit;
         if (requestedUnitNumber && !unitNumber) {
           const error = new Error(`Kies een geldig ${HRB_UNIT_PREFIX}-nummer.`);
           error.status = 400;
           throw error;
         }
-        if (requestedUnitNumber && isReservedHrbUnit(unitNumber) && !commandUnit) {
+        if (requestedUnitNumber && isReservedHrbUnit(unitNumber)) {
           const error = new Error(`${HRB_COMMAND_UNITS.CM} en ${HRB_COMMAND_UNITS.PLAVA} zijn gereserveerd voor CM/PLAVA. Reguliere HRB-nummers beginnen bij ${formatHrbUnit(HRB_FIRST_REGULAR_UNIT)}.`);
           error.status = 403;
           throw error;
         }
+        const nextCommandRole = requestedUnit ? "" : member.commandRole;
         const activeUnits = await client.query(
           "select unit_number, count(*)::int as count from side_task_members where task_key = $1 and status <> '8' and unit_number <> '' group by unit_number",
           [taskKey]
@@ -1032,8 +1034,8 @@ function createSideTasksStore() {
           }
         }
         const result = await client.query(
-          "update side_task_members set unit_number = $3, call_sign = $3, status = $4, status_detail = $5, updated_at = now() where task_key = $1 and id = $2 returning *",
-          [taskKey, String(memberId), unitNumber, nextStatus, statusOption(nextStatus).label]
+          "update side_task_members set unit_number = $3, call_sign = $3, status = $4, status_detail = $5, command_role = $6, updated_at = now() where task_key = $1 and id = $2 returning *",
+          [taskKey, String(memberId), unitNumber, nextStatus, statusOption(nextStatus).label, nextCommandRole]
         );
         await client.query("commit");
         return memberFromRow(result.rows[0]);

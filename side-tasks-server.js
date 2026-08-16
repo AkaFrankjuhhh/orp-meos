@@ -1095,6 +1095,24 @@ async function handleApi(req, res, task, url) {
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
 
+  const hrbUnitMatch = url.pathname.match(/^\/api\/side-tasks\/hrb\/members\/([^/]+)\/unit$/);
+  if (hrbUnitMatch && req.method === "POST") {
+    if (task.key !== "HRB") return jsonError(res, 404, "Niet gevonden.");
+    const member = await store.findMemberById(task.key, decodeURIComponent(hrbUnitMatch[1]));
+    if (!member) return jsonError(res, 404, "HRB-lid niet gevonden.");
+    if (member.status === "8") return jsonError(res, 400, "Meld dit HRB-lid eerst aan voordat je een nummer koppelt.");
+    const isOwnProfile = member.discordId === session.user.id;
+    if (!isOwnProfile && !session.permissions.canManageHrbUnits) return jsonError(res, 403, "Alleen HRB-leiding kan andere leden indelen.");
+    if (!session.permissions.canAssignHrbCommand) return jsonError(res, 403, "Alleen HRB-leden kunnen een HRB-nummer koppelen.");
+    const body = await readBody(req);
+    const unitNumber = sanitizeText(body.unitNumber, 16);
+    if (!unitNumber) return jsonError(res, 400, "Kies een HRB-nummer.");
+    const updated = await store.assignHrbUnit(task.key, member.id, unitNumber, member.status);
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, updated.status);
+    publishSideTaskUpdate(task, "hrb-unit-updated", { memberId: nicknameResult.member.id, unitNumber });
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
+  }
+
   const dsiCommandMatch = url.pathname.match(/^\/api\/side-tasks\/dsi\/members\/([^/]+)\/command-role$/);
   if (dsiCommandMatch && req.method === "POST") {
     if (task.key !== "DSI") return jsonError(res, 404, "Niet gevonden.");
