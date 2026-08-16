@@ -102,7 +102,7 @@ test("porto duty roles include BGD and K9 for police and defensie", () => {
   assert.match(routeCode, /Vul eerst je K9-Naam in op je Porto-profiel/);
   assert.match(routeCode, /canPersonUsePortoDutyRole/);
   assert.match(botCode, /BGD: "BGD"/);
-  assert.match(botCode, /BGD\|HRB\)\\s\+/);
+  assert.match(botCode, /BGD\|HRB\|\\\[HRB\\\]\)\\s\+/);
   assert.match(botCode, /K9: `K9-\$\{dutySuffix\}`/);
   assert.match(botCode, /K9_BEGELEIDER: `K9B-\$\{dutySuffix\}`/);
   assert.match(mainUiCode, /key: "BGD"[\s\S]*requiresManagementBypass: true/);
@@ -141,8 +141,19 @@ test("defensie HRB porto is badge gated and uses the HRB callsign", () => {
   assert.match(dutyUiCode, /runPortoHrbBypass/);
   assert.match(dutyUiCode, /\/api\/porto\/hrb-bypass/);
   assert.match(opsUiCode, /isHrbUnit \? `\$\{memberCount\} personen` : `\$\{memberCount\}\/3 personen`/);
-  assert.match(botCode, /HRB \$\{name\}/);
-  assert.match(botCode, /\|HRB\)\\s\+/);
+  assert.match(botCode, /\[HRB\] \$\{name\}/);
+  assert.match(botCode, /\|HRB\|\\\[HRB\\\]\)\\s\+/);
+
+  const { createDiscordBotServices } = require("../modules/discord-bot");
+  const nickname = withOrganization("defensie", () => createDiscordBotServices().buildPortoNicknameDefault({
+    name: "Mats Bommel",
+    rank: "Marechaussee 2de Klasser",
+    serviceNumber: "73-08"
+  }, {
+    vehicleNumber: "HRB",
+    vehicleCode: "HRB"
+  }));
+  assert.equal(nickname, "[HRB] Mats B.");
 });
 
 test("defensie new recruits have default Discord base roles configured", () => {
