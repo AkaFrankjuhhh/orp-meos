@@ -522,12 +522,23 @@ function aliasNumberForTask(task, member, portalIdentity = null) {
   return normalizeAliasNumber(task, member.callSign);
 }
 
+function hrbDutyModeForMember(member) {
+  return String(member?.raw?.hrbDutyMode || "").trim().toUpperCase() === "BOT" ? "BOT" : "HRB";
+}
+
+function memberHasHrbBotSpecialty(member) {
+  return (member?.specialties || []).some((label) => String(label || "").trim().toUpperCase() === "BOT");
+}
+
 function normalAliasName(member, portalIdentity = null) {
   const portalName = String(portalIdentity?.person?.name || "").trim();
   return portalName || member.displayName || member.discordUsername || "";
 }
 
 function hrbNicknameName(member, portalIdentity = null) {
+  if (hrbDutyModeForMember(member) === "BOT") {
+    return String(member.aliasName || "").trim() || normalAliasName(member, portalIdentity);
+  }
   return formatNameForDiscordNickname(normalAliasName(member, portalIdentity)) || normalAliasName(member, portalIdentity);
 }
 
@@ -569,6 +580,18 @@ function validateAliasProfileForStatus(task, member, nextStatus, portalIdentity 
     const error = new Error(`Vul eerst je ${aliasProfile.numberLabel || "roepnummer"} in en sla je profiel op.`);
     error.status = 400;
     throw error;
+  }
+  if (task.key === "HRB" && hrbDutyModeForMember(member) === "BOT") {
+    if (!memberHasHrbBotSpecialty(member)) {
+      const error = new Error("Alleen HRB-leden met de BOT badge kunnen als BOT aanmelden.");
+      error.status = 403;
+      throw error;
+    }
+    if (!String(member.aliasName || "").trim()) {
+      const error = new Error("Vul eerst je HRB-schuilnaam in voordat je als BOT aanmeldt.");
+      error.status = 400;
+      throw error;
+    }
   }
   if (aliasProfile.numberPattern && !new RegExp(aliasProfile.numberPattern, "i").test(number)) {
     const error = new Error(aliasProfile.numberPatternHint || `Gebruik een geldig ${aliasProfile.numberLabel || "roepnummer"}.`);
@@ -663,6 +686,7 @@ function publicMember(member) {
     aliasName: member.aliasName,
     undercover: Boolean(member.raw?.undercover),
     dnrUnitKey: String(member.raw?.dnrUnitKey || ""),
+    hrbDutyMode: hrbDutyModeForMember(member),
     unitNumber: member.unitNumber,
     commandRole: member.commandRole,
     status: member.status,
@@ -996,7 +1020,8 @@ async function handleApi(req, res, task, url) {
         callSign: task.key === "HRB" && status === "8" ? "" : task.aliasProfile?.numberSource === "rank" && status !== "8" ? aliasNumberForTask(task, member, rankNumberIdentity) : member.callSign,
         unitNumber: ((task.key === "DSI" && ["0", "8"].includes(status) && !member.commandRole) || (["DNR", "HRB"].includes(task.key) && status === "8")) ? "" : member.unitNumber,
         commandRole: task.key === "HRB" && status === "8" ? "" : member.commandRole,
-        specialties: specialtiesForRoles(task, session.roles || [])
+        specialties: specialtiesForRoles(task, session.roles || []),
+        raw: task.key === "HRB" && status === "8" ? { ...(member.raw || {}), hrbDutyMode: "HRB" } : member.raw
       });
     }
     if (task.key === "DSI") {
@@ -1107,9 +1132,30 @@ async function handleApi(req, res, task, url) {
     const body = await readBody(req);
     const unitNumber = sanitizeText(body.unitNumber, 16);
     if (!unitNumber) return jsonError(res, 400, "Kies een HRB-nummer.");
+    if (/^BOT-\d{1,2}$/i.test(unitNumber)) {
+      if (!memberHasHrbBotSpecialty(member)) return jsonError(res, 403, "Alleen HRB-leden met de BOT badge kunnen aan een BOT-nummer worden gekoppeld.");
+      if (!String(member.aliasName || "").trim()) return jsonError(res, 400, "Vul eerst de HRB-schuilnaam in voordat je aan een BOT-nummer koppelt.");
+    }
     const updated = await store.linkHrbUnit(task.key, member.id, unitNumber);
     const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, updated.status);
     publishSideTaskUpdate(task, "hrb-unit-updated", { memberId: nicknameResult.member.id, unitNumber });
+    return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
+  }
+
+  const hrbBotUnitMatch = url.pathname.match(/^\/api\/side-tasks\/hrb\/members\/([^/]+)\/bot-unit$/);
+  if (hrbBotUnitMatch && req.method === "POST") {
+    if (task.key !== "HRB") return jsonError(res, 404, "Niet gevonden.");
+    const member = await store.findMemberById(task.key, decodeURIComponent(hrbBotUnitMatch[1]));
+    if (!member) return jsonError(res, 404, "HRB-lid niet gevonden.");
+    const isOwnProfile = member.discordId === session.user.id;
+    if (!isOwnProfile && !session.permissions.canManageHrbUnits) return jsonError(res, 403, "Alleen HRB-leiding kan andere leden als BOT indelen.");
+    if (!session.permissions.canAssignHrbCommand) return jsonError(res, 403, "Alleen HRB-leden kunnen BOT opnemen.");
+    if (!memberHasHrbBotSpecialty(member)) return jsonError(res, 403, "Alleen HRB-leden met de BOT badge kunnen als BOT aanmelden.");
+    if (!String(member.aliasName || "").trim()) return jsonError(res, 400, "Vul eerst je HRB-schuilnaam in voordat je als BOT aanmeldt.");
+    const nextStatus = ["0", "1", "4"].includes(String(member.status)) ? String(member.status) : "1";
+    const updated = await store.assignHrbUnit(task.key, member.id, "", nextStatus, { mode: "BOT" });
+    const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, updated.status);
+    publishSideTaskUpdate(task, "hrb-bot-unit-updated", { memberId: nicknameResult.member.id });
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });
   }
 
@@ -1126,7 +1172,8 @@ async function handleApi(req, res, task, url) {
       callSign: "",
       unitNumber: "",
       commandRole: "",
-      specialties: member.specialties || []
+      specialties: member.specialties || [],
+      raw: { ...(member.raw || {}), hrbDutyMode: "HRB" }
     });
     const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, "8");
     publishSideTaskUpdate(task, "hrb-member-signed-off", { memberId: nicknameResult.member.id, status: "8" });
@@ -1208,11 +1255,11 @@ async function handleApi(req, res, task, url) {
         ? existing.callSign
         : body.callSign !== undefined ? normalizeAliasNumber(task, body.callSign) : existing.callSign,
       aliasName: body.aliasName !== undefined ? sanitizeText(body.aliasName, 80) : existing.aliasName,
-      raw: nextMemberProfile.raw,
       status,
       statusDetail: statusOption(status).label,
       unitNumber: ((task.key === "DSI" && ["0", "8"].includes(status) && !existing.commandRole) || (["DNR", "HRB"].includes(task.key) && status === "8")) ? "" : existing.unitNumber,
-      commandRole: task.key === "HRB" && status === "8" ? "" : existing.commandRole
+      commandRole: task.key === "HRB" && status === "8" ? "" : existing.commandRole,
+      raw: task.key === "HRB" && status === "8" ? { ...nextMemberProfile.raw, hrbDutyMode: "HRB" } : nextMemberProfile.raw
     });
     if (task.key === "DSI" && status === "1") {
       member = await store.assignDsiUnit(task.key, member.id);

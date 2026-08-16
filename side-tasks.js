@@ -61,7 +61,10 @@ function displayMemberName(member, task) {
   if (task.key === "HRB" && (member.unitNumber || member.callSign)) {
     const number = aliasNumberForDisplay(member, task);
     const prefix = ["CM", "PLAVA"].includes(member.commandRole) ? `${member.commandRole} ` : "";
-    if (number) return `${prefix}[${number}] ${member.displayName || member.discordId}`;
+    const name = hrbDutyModeForMember(member) === "BOT" && member.aliasName
+      ? member.aliasName
+      : member.displayName || member.discordId;
+    if (number) return `${prefix}[${number}] ${name}`;
   }
   if (task.key === "DNR" && (member.unitNumber || member.callSign)) {
     const number = aliasNumberForDisplay(member, task);
@@ -77,6 +80,15 @@ function displayMemberName(member, task) {
     if (number) return `${prefix}[${number}] ${member.aliasName}`;
   }
   return member.displayName || member.discordId;
+}
+
+function hrbDutyModeForMember(member) {
+  return String(member?.hrbDutyMode || "").trim().toUpperCase() === "BOT" ? "BOT" : "HRB";
+}
+
+function hasSpecialty(member, label) {
+  const normalized = String(label || "").trim().toUpperCase();
+  return (member?.specialties || []).some((specialty) => String(specialty || "").trim().toUpperCase() === normalized);
 }
 
 function dnrUnitForMember(member, task) {
@@ -253,6 +265,7 @@ function memberCard(member) {
     ? member.specialties.map((label) => `<span class="specialty-chip">${escapeHtml(label)}</span>`).join("")
     : `<span class="specialty-chip">Geen specialisatie</span>`;
   const dnrUnit = task.key === "DNR" ? dnrUnitForMember(member, task) : null;
+  const hrbDutyMode = task.key === "HRB" && hrbDutyModeForMember(member) === "BOT" ? "BOT" : "";
   const contextAttribute = task.key === "DSI"
     ? ` data-dsi-member="${escapeHtml(member.id)}"`
     : task.key === "DNR"
@@ -266,7 +279,7 @@ function memberCard(member) {
         ${memberAvatar(member)}
         <div>
           <p class="member-name">${escapeHtml(displayMemberName(member, task))}</p>
-          <p class="muted">${escapeHtml(member.displayName)}${member.commandRole ? ` / ${escapeHtml(member.commandRole)}` : ""}${dnrUnit ? ` / ${escapeHtml(dnrUnit.label)}` : ""}</p>
+          <p class="muted">${escapeHtml(member.displayName)}${member.commandRole ? ` / ${escapeHtml(member.commandRole)}` : ""}${hrbDutyMode ? ` / ${escapeHtml(hrbDutyMode)}` : ""}${dnrUnit ? ` / ${escapeHtml(dnrUnit.label)}` : ""}</p>
           ${member.phone ? `<p class="muted">${escapeHtml(member.phone)}</p>` : ""}
         </div>
         <span class="status-pill ${statusClass}">${escapeHtml(member.statusLabel)}</span>
@@ -315,12 +328,16 @@ function dnrUnitLinkOptions(member, task) {
 function hrbUnitLinkOptions(member, task) {
   const units = task.hrbUnits || {};
   const prefix = String(units.prefix || "HRB");
+  const botPrefix = String(units.botPrefix || "BOT");
+  const allowedPrefixes = new Set([prefix.toUpperCase()]);
+  if (hasSpecialty(member, "BOT")) allowedPrefixes.add(botPrefix.toUpperCase());
   const activeUnits = new Map();
   appState.members
     .filter((entry) => entry.status !== "8" && entry.unitNumber)
     .forEach((entry) => {
       const unitNumber = String(entry.unitNumber || "").trim().toUpperCase();
-      if (!unitNumber.startsWith(`${prefix.toUpperCase()}-`)) return;
+      const unitPrefix = unitNumber.split("-")[0];
+      if (!allowedPrefixes.has(unitPrefix)) return;
       const members = activeUnits.get(unitNumber) || [];
       members.push(entry);
       activeUnits.set(unitNumber, members);
@@ -424,23 +441,28 @@ function hrbContextMenu() {
   const context = appState.hrbContextMenu;
   if (!context || appState.me?.task?.key !== "HRB") return "";
   const member = appState.members.find((entry) => entry.id === context.memberId);
-  if (!member || member.status === "8") return "";
+  if (!member) return "";
   const permissions = appState.me.permissions || {};
   const isOwnProfile = member.discordId === appState.me.user.id;
   if (!isOwnProfile && !permissions.canManageHrbUnits) return "";
   if (!permissions.canAssignHrbCommand) return "";
   const commandUnits = appState.me.task?.hrbUnits?.commandUnits || { CM: "HRB-00", PLAVA: "HRB-01" };
   const unitOptions = hrbUnitLinkOptions(member, appState.me.task);
+  const canUseBot = hasSpecialty(member, "BOT");
+  const isBotActive = hrbDutyModeForMember(member) === "BOT";
+  const isActive = member.status !== "8";
+  if (!isActive && !canUseBot) return "";
+  const botActionLabel = isBotActive ? "BOT opnieuw indelen" : isActive ? "BOT opnemen" : "BOT aanmelden";
   const style = `left:${context.x}px;top:${context.y}px;`;
   return `
     <div class="dsi-context-menu" data-hrb-context-menu style="${style}">
       <div class="dsi-context-title">${escapeHtml(displayMemberName(member, appState.me.task))}</div>
       ${context.mode === "link" ? `
-        <label>Koppel aan HRB-nummer
+        <label>Koppel aan HRB/BOT-nummer
           <select data-hrb-unit-select ${unitOptions.length ? "" : "disabled"}>
             ${unitOptions.length
               ? unitOptions.map((option) => `<option value="${escapeHtml(option.unitNumber)}">${escapeHtml(option.label)}</option>`).join("")
-              : `<option>Geen vrije HRB-nummers</option>`}
+              : `<option>Geen actieve HRB/BOT-nummers</option>`}
           </select>
         </label>
         <div class="dsi-context-actions">
@@ -448,11 +470,14 @@ function hrbContextMenu() {
           <button class="primary-button" type="button" data-action="hrb-confirm-link" ${unitOptions.length ? "" : "disabled"}>Koppelen</button>
         </div>
       ` : `
-        <button type="button" data-action="hrb-open-link-menu">Koppelen aan HRB-nummer</button>
-        <button type="button" data-action="hrb-set-command-role" data-command-role="CM">CM opnemen (${escapeHtml(commandUnits.CM || "HRB-00")})</button>
-        <button type="button" data-action="hrb-set-command-role" data-command-role="PLAVA">PLAVA opnemen (${escapeHtml(commandUnits.PLAVA || "HRB-01")})</button>
-        ${member.commandRole ? `<button type="button" data-action="hrb-set-command-role" data-command-role="">${escapeHtml(member.commandRole)} neerleggen</button>` : ""}
-        <button type="button" data-action="hrb-sign-off-member">Uit dienst melden</button>
+        ${isActive ? `<button type="button" data-action="hrb-open-link-menu">Koppelen aan HRB/BOT-nummer</button>` : ""}
+        ${canUseBot ? `<button type="button" data-action="hrb-set-bot-unit">${escapeHtml(botActionLabel)}</button>` : ""}
+        ${isActive ? `
+          <button type="button" data-action="hrb-set-command-role" data-command-role="CM">CM opnemen (${escapeHtml(commandUnits.CM || "HRB-00")})</button>
+          <button type="button" data-action="hrb-set-command-role" data-command-role="PLAVA">PLAVA opnemen (${escapeHtml(commandUnits.PLAVA || "HRB-01")})</button>
+          ${member.commandRole ? `<button type="button" data-action="hrb-set-command-role" data-command-role="">${escapeHtml(member.commandRole)} neerleggen</button>` : ""}
+          <button type="button" data-action="hrb-sign-off-member">Uit dienst melden</button>
+        ` : ""}
         <button class="dsi-context-close" type="button" data-action="hrb-close-menu">Sluiten</button>
       `}
     </div>
@@ -938,6 +963,18 @@ app.addEventListener("click", async (event) => {
       if (result.warning) alert(result.warning);
       return;
     }
+    if (action === "hrb-set-bot-unit") {
+      const context = appState.hrbContextMenu;
+      if (!context) return;
+      const result = await api(`/api/side-tasks/hrb/members/${encodeURIComponent(context.memberId)}/bot-unit`, {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      appState.hrbContextMenu = null;
+      await refresh();
+      if (result.warning) alert(result.warning);
+      return;
+    }
     if (action === "hrb-sign-off-member") {
       const context = appState.hrbContextMenu;
       if (!context) return;
@@ -1060,7 +1097,9 @@ app.addEventListener("contextmenu", (event) => {
   const target = event.target.closest("[data-hrb-member]");
   if (!target || appState.me?.task?.key !== "HRB") return;
   const member = appState.members.find((entry) => entry.id === target.dataset.hrbMember);
-  if (!member || member.status === "8") return;
+  if (!member) return;
+  const canUseBot = hasSpecialty(member, "BOT");
+  if (member.status === "8" && !canUseBot) return;
   const permissions = appState.me.permissions || {};
   const isOwnProfile = member.discordId === appState.me.user.id;
   if (!isOwnProfile && !permissions.canManageHrbUnits) return;

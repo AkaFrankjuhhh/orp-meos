@@ -17,6 +17,10 @@ const HRB_COMMAND_UNITS = Object.freeze(HRB_UNITS.commandUnits || { CM: `${HRB_U
 const HRB_FIRST_REGULAR_UNIT = Number(HRB_UNITS.min || 2);
 const HRB_LAST_REGULAR_UNIT = Number(HRB_UNITS.max || 99);
 const HRB_UNIT_CAPACITY = Number(HRB_UNITS.capacity || 1);
+const HRB_BOT_UNIT_PREFIX = String(HRB_UNITS.botPrefix || "BOT");
+const HRB_FIRST_BOT_UNIT = Number(HRB_UNITS.botMin ?? 0);
+const HRB_LAST_BOT_UNIT = Number(HRB_UNITS.botMax || 99);
+const HRB_BOT_UNIT_CAPACITY = Number(HRB_UNITS.botCapacity || HRB_UNIT_CAPACITY);
 const SIDE_TASK_COMMAND_ROLES = new Set([...Object.keys(DSI_COMMAND_UNITS), ...Object.keys(HRB_COMMAND_UNITS)]);
 const DNR_UNITS = sideTaskForKey("DNR")?.dnrUnits || [];
 
@@ -26,6 +30,10 @@ function formatDsiUnit(index) {
 
 function formatHrbUnit(index) {
   return `${HRB_UNIT_PREFIX}-${String(index).padStart(2, "0")}`;
+}
+
+function formatHrbBotUnit(index) {
+  return `${HRB_BOT_UNIT_PREFIX}-${String(index).padStart(2, "0")}`;
 }
 
 function dnrUnitForKey(unitKey) {
@@ -493,7 +501,8 @@ function createSideTasksStore() {
                || jsonb_build_object(
                  'clientHeartbeatActive', false,
                  'autoSignedOffAt', now(),
-                 'autoSignedOffReason', 'browser_heartbeat_timeout'
+                 'autoSignedOffReason', 'browser_heartbeat_timeout',
+                 'hrbDutyMode', case when task_key = 'HRB' then 'HRB' else coalesce(raw->>'hrbDutyMode', '') end
                ),
              updated_at = now()
          where status <> '8'
@@ -707,6 +716,25 @@ function createSideTasksStore() {
     if (!match) return "";
     const suffix = Number(match[1]);
     return suffix >= 0 && suffix <= HRB_LAST_REGULAR_UNIT ? formatHrbUnit(suffix) : "";
+  }
+
+  function hrbBotUnitNumber(number) {
+    const match = new RegExp(`^${HRB_BOT_UNIT_PREFIX}-(\\d{1,2})$`, "i").exec(String(number || "").trim());
+    if (!match) return "";
+    const suffix = Number(match[1]);
+    return suffix >= HRB_FIRST_BOT_UNIT && suffix <= HRB_LAST_BOT_UNIT ? formatHrbBotUnit(suffix) : "";
+  }
+
+  function hrbAnyUnitNumber(number) {
+    return hrbUnitNumber(number) || hrbBotUnitNumber(number);
+  }
+
+  function isHrbBotDutyMode(member) {
+    return String(member?.raw?.hrbDutyMode || "").trim().toUpperCase() === "BOT";
+  }
+
+  function hrbDutyModeForUnitNumber(unitNumber) {
+    return hrbBotUnitNumber(unitNumber) ? "BOT" : "HRB";
   }
 
   function isReservedHrbUnit(unitNumber) {
@@ -975,8 +1003,9 @@ function createSideTasksStore() {
     });
   }
 
-  async function assignHrbUnit(taskKey, memberId, requestedUnitNumber = "", status = "1") {
+  async function assignHrbUnit(taskKey, memberId, requestedUnitNumber = "", status = "1", options = {}) {
     const nextStatus = ["0", "1", "4"].includes(String(status)) ? String(status) : "1";
+    const requestedMode = String(options.mode || "").trim().toUpperCase() === "BOT" ? "BOT" : "";
     await ensureSideTaskSchema();
     return withSideTaskClient(async (client) => {
       await client.query("begin");
@@ -989,14 +1018,16 @@ function createSideTasksStore() {
           error.status = 404;
           throw error;
         }
-        const commandUnit = HRB_COMMAND_UNITS[member.commandRole] || "";
-        let unitNumber = commandUnit || hrbUnitNumber(requestedUnitNumber);
+        const dutyMode = requestedMode || (member.status !== "8" && isHrbBotDutyMode(member) ? "BOT" : "HRB");
+        const isBotMode = dutyMode === "BOT";
+        const commandUnit = isBotMode ? "" : HRB_COMMAND_UNITS[member.commandRole] || "";
+        let unitNumber = commandUnit || (isBotMode ? hrbBotUnitNumber(requestedUnitNumber) : hrbUnitNumber(requestedUnitNumber));
         if (requestedUnitNumber && !unitNumber) {
-          const error = new Error(`Kies een geldig ${HRB_UNIT_PREFIX}-nummer.`);
+          const error = new Error(`Kies een geldig ${isBotMode ? HRB_BOT_UNIT_PREFIX : HRB_UNIT_PREFIX}-nummer.`);
           error.status = 400;
           throw error;
         }
-        if (requestedUnitNumber && isReservedHrbUnit(unitNumber) && !commandUnit) {
+        if (!isBotMode && requestedUnitNumber && isReservedHrbUnit(unitNumber) && !commandUnit) {
           const error = new Error(`${HRB_COMMAND_UNITS.CM} en ${HRB_COMMAND_UNITS.PLAVA} zijn gereserveerd voor CM/PLAVA. Reguliere HRB-nummers beginnen bij ${formatHrbUnit(HRB_FIRST_REGULAR_UNIT)}.`);
           error.status = 403;
           throw error;
@@ -1006,34 +1037,47 @@ function createSideTasksStore() {
           [taskKey]
         );
         const counts = new Map(activeUnits.rows.map((row) => [row.unit_number, Number(row.count || 0)]));
-        if (!unitNumber && !requestedUnitNumber && member.status !== "8" && member.unitNumber && !isReservedHrbUnit(member.unitNumber)) {
-          unitNumber = member.unitNumber;
+        if (!unitNumber && !requestedUnitNumber && member.status !== "8" && member.unitNumber) {
+          const currentUnit = isBotMode ? hrbBotUnitNumber(member.unitNumber) : hrbUnitNumber(member.unitNumber);
+          if (currentUnit && (isBotMode || !isReservedHrbUnit(currentUnit))) unitNumber = currentUnit;
         }
         if (unitNumber) {
           const ownUnit = member.status !== "8" ? member.unitNumber : "";
           const existingCount = counts.get(unitNumber) || 0;
-          if (unitNumber !== ownUnit && existingCount >= HRB_UNIT_CAPACITY) {
-            const error = new Error(`Deze ${HRB_UNIT_PREFIX}-eenheid is al bezet.`);
+          const capacity = isBotMode ? HRB_BOT_UNIT_CAPACITY : HRB_UNIT_CAPACITY;
+          if (unitNumber !== ownUnit && existingCount >= capacity) {
+            const error = new Error(`Deze ${isBotMode ? HRB_BOT_UNIT_PREFIX : HRB_UNIT_PREFIX}-eenheid is al bezet.`);
             error.status = 409;
             throw error;
           }
         } else {
-          for (let index = HRB_FIRST_REGULAR_UNIT; index <= HRB_LAST_REGULAR_UNIT; index += 1) {
-            const candidate = formatHrbUnit(index);
+          const firstUnit = isBotMode ? HRB_FIRST_BOT_UNIT : HRB_FIRST_REGULAR_UNIT;
+          const lastUnit = isBotMode ? HRB_LAST_BOT_UNIT : HRB_LAST_REGULAR_UNIT;
+          for (let index = firstUnit; index <= lastUnit; index += 1) {
+            const candidate = isBotMode ? formatHrbBotUnit(index) : formatHrbUnit(index);
             if (!counts.has(candidate)) {
               unitNumber = candidate;
               break;
             }
           }
           if (!unitNumber) {
-            const error = new Error(`Geen vrij ${HRB_UNIT_PREFIX}-nummer beschikbaar.`);
+            const error = new Error(`Geen vrij ${isBotMode ? HRB_BOT_UNIT_PREFIX : HRB_UNIT_PREFIX}-nummer beschikbaar.`);
             error.status = 409;
             throw error;
           }
         }
         const result = await client.query(
-          "update side_task_members set unit_number = $3, call_sign = $3, status = $4, status_detail = $5, updated_at = now() where task_key = $1 and id = $2 returning *",
-          [taskKey, String(memberId), unitNumber, nextStatus, statusOption(nextStatus).label]
+          `update side_task_members
+           set unit_number = $3,
+               call_sign = $3,
+               command_role = $6,
+               status = $4,
+               status_detail = $5,
+               raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('hrbDutyMode', $7::text),
+               updated_at = now()
+           where task_key = $1 and id = $2
+           returning *`,
+          [taskKey, String(memberId), unitNumber, nextStatus, statusOption(nextStatus).label, isBotMode ? "" : member.commandRole, dutyMode]
         );
         await client.query("commit");
         return memberFromRow(result.rows[0]);
@@ -1045,9 +1089,9 @@ function createSideTasksStore() {
   }
 
   async function linkHrbUnit(taskKey, memberId, requestedUnitNumber) {
-    const unitNumber = hrbUnitNumber(requestedUnitNumber);
+    const unitNumber = hrbAnyUnitNumber(requestedUnitNumber);
     if (!unitNumber) {
-      const error = new Error(`Kies een geldig ${HRB_UNIT_PREFIX}-nummer.`);
+      const error = new Error(`Kies een geldig ${HRB_UNIT_PREFIX}- of ${HRB_BOT_UNIT_PREFIX}-nummer.`);
       error.status = 400;
       throw error;
     }
@@ -1081,12 +1125,13 @@ function createSideTasksStore() {
         );
         const ownCurrentUnit = member.status !== "8" && member.unitNumber === unitNumber;
         if (!activeUnit.rows.length && !ownCurrentUnit) {
-          const error = new Error(`Koppel aan een actief ${HRB_UNIT_PREFIX}-nummer.`);
+          const error = new Error(`Koppel aan een actief ${HRB_UNIT_PREFIX}- of ${HRB_BOT_UNIT_PREFIX}-nummer.`);
           error.status = 404;
           throw error;
         }
         const nextStatus = ["0", "1", "4"].includes(String(member.status)) ? String(member.status) : "1";
-        const nextCommandRole = HRB_COMMAND_UNITS[member.commandRole] === unitNumber ? member.commandRole : "";
+        const nextDutyMode = hrbDutyModeForUnitNumber(unitNumber);
+        const nextCommandRole = nextDutyMode === "HRB" && HRB_COMMAND_UNITS[member.commandRole] === unitNumber ? member.commandRole : "";
         const result = await client.query(
           `update side_task_members
            set command_role = $3,
@@ -1094,10 +1139,11 @@ function createSideTasksStore() {
                call_sign = $4,
                status = $5,
                status_detail = $6,
+               raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('hrbDutyMode', $7::text),
                updated_at = now()
            where task_key = $1 and id = $2
            returning *`,
-          [taskKey, String(memberId), nextCommandRole, unitNumber, nextStatus, statusOption(nextStatus).label]
+          [taskKey, String(memberId), nextCommandRole, unitNumber, nextStatus, statusOption(nextStatus).label, nextDutyMode]
         );
         await client.query("commit");
         return memberFromRow(result.rows[0]);
@@ -1156,6 +1202,7 @@ function createSideTasksStore() {
           const result = await client.query(
             `update side_task_members
              set command_role = '', unit_number = $3, call_sign = $3,
+                 raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('hrbDutyMode', 'HRB'),
                  updated_at = now()
              where task_key = $1 and id = $2
              returning *`,
@@ -1176,7 +1223,14 @@ function createSideTasksStore() {
         }
 
         const result = await client.query(
-          "update side_task_members set command_role = $3, unit_number = $4, call_sign = $4, updated_at = now() where task_key = $1 and id = $2 returning *",
+          `update side_task_members
+           set command_role = $3,
+               unit_number = $4,
+               call_sign = $4,
+               raw = coalesce(raw, '{}'::jsonb) || jsonb_build_object('hrbDutyMode', 'HRB'),
+               updated_at = now()
+           where task_key = $1 and id = $2
+           returning *`,
           [taskKey, String(memberId), normalizedRole, HRB_COMMAND_UNITS[normalizedRole]]
         );
         await client.query("commit");

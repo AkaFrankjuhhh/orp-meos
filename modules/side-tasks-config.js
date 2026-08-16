@@ -56,7 +56,11 @@ const SIDE_TASK_DEFINITIONS = {
       min: 2,
       max: 99,
       capacity: 1,
-      commandUnits: { CM: "HRB-00", PLAVA: "HRB-01" }
+      commandUnits: { CM: "HRB-00", PLAVA: "HRB-01" },
+      botPrefix: "BOT",
+      botMin: 0,
+      botMax: 99,
+      botCapacity: 1
     },
     specialties: [
       { label: "Konvooi", roleId: "1504458999439954090" },
