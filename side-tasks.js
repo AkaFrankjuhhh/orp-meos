@@ -289,6 +289,86 @@ function memberCard(member) {
   `;
 }
 
+function displayHrbGroupMemberName(member) {
+  const prefix = ["CM", "PLAVA"].includes(member.commandRole) ? `${member.commandRole} ` : "";
+  const name = hrbDutyModeForMember(member) === "BOT" && member.aliasName
+    ? member.aliasName
+    : member.displayName || member.discordId;
+  return `${prefix}${name}`;
+}
+
+function hrbGroupStatusClass(members) {
+  if (members.every((member) => member.status === "4")) return "inactive";
+  if (members.every((member) => member.status === "0")) return "pending";
+  return "";
+}
+
+function hrbGroupedMembers(members) {
+  const groups = new Map();
+  const fallbackGroups = [];
+  for (const member of members) {
+    const unitNumber = String(member.unitNumber || member.callSign || "").trim().toUpperCase();
+    if (!unitNumber) {
+      fallbackGroups.push({ unitNumber: "", members: [member] });
+      continue;
+    }
+    const group = groups.get(unitNumber) || { unitNumber, members: [] };
+    group.members.push(member);
+    groups.set(unitNumber, group);
+  }
+  return [
+    ...[...groups.values()].sort((left, right) => left.unitNumber.localeCompare(right.unitNumber, "nl", { numeric: true })),
+    ...fallbackGroups
+  ];
+}
+
+function hrbUnitGroupCard(group) {
+  if (!group.unitNumber) return group.members.map(memberCard).join("");
+  const statusClass = hrbGroupStatusClass(group.members);
+  return `
+    <article class="hrb-unit-card ${statusClass}" data-hrb-unit-group="${escapeHtml(group.unitNumber)}">
+      <div class="hrb-unit-head">
+        <strong>${escapeHtml(group.unitNumber)}</strong>
+        <span>${group.members.length} ${group.members.length === 1 ? "lid" : "leden"}</span>
+      </div>
+      <div class="hrb-unit-members">
+        ${group.members.map((member) => {
+          const memberStatusClass = member.status === "1" ? "active" : member.status === "0" ? "pending" : "inactive";
+          const hrbDutyMode = hrbDutyModeForMember(member) === "BOT" ? "BOT" : "";
+          const specialties = member.specialties?.length
+            ? member.specialties.map((label) => `<span class="specialty-chip">${escapeHtml(label)}</span>`).join("")
+            : `<span class="specialty-chip">Geen specialisatie</span>`;
+          return `
+            <div class="hrb-unit-member" data-hrb-member="${escapeHtml(member.id)}">
+              <div class="member-main">
+                ${memberAvatar(member)}
+                <div>
+                  <p class="member-name">${escapeHtml(displayHrbGroupMemberName(member))}</p>
+                  <p class="muted">${escapeHtml(member.displayName)}${member.commandRole ? ` / ${escapeHtml(member.commandRole)}` : ""}${hrbDutyMode ? ` / ${escapeHtml(hrbDutyMode)}` : ""}</p>
+                </div>
+                <span class="status-pill ${memberStatusClass}">${escapeHtml(member.statusLabel)}</span>
+              </div>
+              <div class="chips">${specialties}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function hrbGroupedMemberSection(title, members) {
+  const groups = hrbGroupedMembers(members);
+  return `
+    <section class="member-section">
+      <h2>${escapeHtml(title)}</h2>
+      <div class="member-list hrb-unit-list">
+        ${groups.length ? groups.map(hrbUnitGroupCard).join("") : `<p class="muted">Geen leden gevonden.</p>`}
+      </div>
+    </section>
+  `;
+}
+
 function dnrUnitLinkOptions(member, task) {
   const options = [];
   const counts = new Map();
@@ -728,8 +808,8 @@ function renderDashboard() {
       <section class="panel">
         ${summaryRow()}
         ${task.key === "DSI" ? dsiUnitSection() : ""}
-        ${task.key === "DSI" ? "" : memberSection(`${task.key === "HRB" ? "In dienst" : "Aanwezige"} ${task.label} leden`, presentMembers)}
-        ${memberSection(`Afwezige ${task.label} leden`, inactive)}
+        ${task.key === "DSI" ? "" : task.key === "HRB" ? hrbGroupedMemberSection(`In dienst ${task.label} leden`, presentMembers) : memberSection(`Aanwezige ${task.label} leden`, presentMembers)}
+        ${task.key === "HRB" ? hrbGroupedMemberSection(`Afwezige ${task.label} leden`, inactive) : memberSection(`Afwezige ${task.label} leden`, inactive)}
       </section>
     </div>
   `;

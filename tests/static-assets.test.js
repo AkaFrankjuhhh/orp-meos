@@ -900,8 +900,8 @@ test("mentor test Discord embed formats submitted date and time", () => {
 
 test("side task shell serves LR and KLu alias assets with a fresh version", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "side-tasks.html"), "utf8");
-  assert.match(html, /side-tasks\.css\?v=20260721-lr-context-actions/);
-  assert.match(html, /side-tasks\.js\?v=20260816-hrb-bot-units/);
+  assert.match(html, /side-tasks\.css\?v=20260816-hrb-unit-groups/);
+  assert.match(html, /side-tasks\.js\?v=20260816-hrb-unit-groups/);
 });
 
 test("LR member admin is compact and reconciles stale Discord roles", () => {

@@ -116,6 +116,10 @@ test("HRB unit assignment is handled server-side with protected nicknames", () =
   assert.match(clientCode, /BOT opnemen/);
   assert.match(clientCode, /BOT aanmelden/);
   assert.match(clientCode, /Koppelen aan HRB\/BOT-nummer/);
+  assert.match(clientCode, /function hrbGroupedMemberSection/);
+  assert.match(clientCode, /function hrbUnitGroupCard/);
+  assert.match(clientCode, /data-hrb-unit-group/);
+  assert.match(clientCode, /hrb-unit-member/);
   assert.match(clientCode, /CM opnemen/);
   assert.match(clientCode, /PLAVA opnemen/);
   assert.match(botCode, /findActiveSideTaskNicknameMember/);
