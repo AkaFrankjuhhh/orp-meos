@@ -218,4 +218,5 @@ test("KLu stores manual Eagle numbers", () => {
   assert.equal(kluTask.aliasProfile.rankNumbers["Soldaat der 2de klasse"].number, "9");
   assert.match(serverCode, /if \(task\.key === "KLU"\) \{\s+const savedNumber = normalizeAliasNumber\(task, member\.callSign\);\s+if \(savedNumber\) return savedNumber;/);
   assert.match(serverCode, /if \(task\.key === "KLU"\) \{\s+const match = \/\^eagle\\s\*\(\\d\{1,2\}\)\$\/i\.exec\(text\);/);
+  assert.match(serverCode, /task\.key === "KLU" && shouldSyncAliasNicknameForStatus\(task, member\.status\)/);
 });

@@ -956,21 +956,31 @@ async function handleApi(req, res, task, url) {
     if (task.key === "DNR" && body.dnrUnitKey !== undefined) {
       requireAllowedDnrUnit(task, sanitizeText(body.dnrUnitKey, 40), session);
     }
-    let member = await store.updateMemberProfile(task.key, existing.id, {
+    const profilePatch = {
       callSign: ["rank", "unit", "auto"].includes(task.aliasProfile?.numberSource) ? existing.callSign : normalizeAliasNumber(task, body.callSign),
       aliasName: sanitizeText(body.aliasName, 80),
       raw: {
         ...(task.key === "DNR" && body.dnrUnitKey !== undefined ? { dnrUnitKey: sanitizeText(body.dnrUnitKey, 40) } : {}),
         ...(task.aliasProfile?.supportsUndercover ? { undercover: Boolean(body.undercover) } : {})
       }
-    });
+    };
+    if (task.key === "KLU" && shouldSyncAliasNicknameForStatus(task, existing.status) && String(existing.status) !== "8") {
+      validateAliasProfileForStatus(task, { ...existing, ...profilePatch }, existing.status);
+    }
+    let member = await store.updateMemberProfile(task.key, existing.id, profilePatch);
     if (task.allowAlias) {
       console.log(`[side-tasks] ${task.key}-profiel opgeslagen voor ${member.discordId}: roepnummer=${member.callSign ? "ingesteld" : "leeg"}, schuilnaam=${member.aliasName ? "ingesteld" : "leeg"}.`);
     }
-    // Een profielbewerking slaat uitsluitend profielgegevens op. De Discord-naam
-    // verandert alleen tijdens de expliciete statusovergangen hieronder.
+    let warning = null;
+    if (task.key === "KLU" && shouldSyncAliasNicknameForStatus(task, member.status) && String(member.status) !== "8") {
+      const nicknameResult = await applyAliasNicknameIfNeeded(task, member, member.status);
+      member = nicknameResult.member;
+      warning = nicknameResult.warning || null;
+    }
+    // Een profielbewerking slaat uitsluitend profielgegevens op. Behalve KLu:
+    // daar is het roepnummer handmatig en moet een actieve naam direct meekomen.
     publishSideTaskUpdate(task, "profile-updated", { memberId: member.id });
-    return sendJson(res, 200, { member: publicMember(member) });
+    return sendJson(res, 200, { member: publicMember(member), warning });
   }
 
   if (url.pathname === "/api/side-tasks/me/status" && req.method === "POST") {
