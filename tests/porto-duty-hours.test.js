@@ -74,6 +74,34 @@ test("porto diensturen gebruiken endedAt en slaan units zonder starttijd over", 
   assert.equal(entries[0].job, "Porto dienst");
 });
 
+test("afgesloten OPS diensturen bewaren het vorige roepnummer", () => {
+  const state = {
+    people: [{ id: "p1", name: "Tim Boef", serviceNumber: "72-01", discordId: "1" }],
+    portoUnits: [
+      {
+        id: "unit-ops",
+        memberId: "p1",
+        status: "8",
+        active: false,
+        vehicleNumber: "",
+        previousVehicleNumber: "30-00",
+        assignedAt: "2026-08-16T14:30:00.000Z",
+        endedAt: "2026-08-16T15:30:00.000Z"
+      }
+    ]
+  };
+
+  const entries = buildPortoDutyHourEntries(state, {
+    now: "2026-08-16T15:30:00.000Z",
+    timeZone: "Europe/Amsterdam",
+    startWeek: "2026-W26"
+  });
+
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].sourceVehicleNumber, "30-00");
+  assert.equal(entries[0].minutes, 60);
+});
+
 test("porto diensturen tellen gekoppelde leden niet dubbel wanneer iedereen een eigen unit heeft", () => {
   const state = {
     people: [

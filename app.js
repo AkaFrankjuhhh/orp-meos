@@ -832,7 +832,6 @@ function opsTimesRowsSince(startDate) {
   const startMs = startDate.getTime();
   if (typeof opsEntriesForPerson === "function") {
     return (state.people || [])
-      .filter(hasOpsTraining)
       .flatMap((person) => opsEntriesForPerson(person))
       .filter((entry) => {
         const started = Date.parse(entry.startedAt || "");
@@ -857,6 +856,12 @@ function opsTimesPersonKey(person) {
 
 function hasOpsTraining(person) {
   return Array.isArray(person?.completedOperational) && person.completedOperational.includes(portalOperatorTraining);
+}
+
+function hasOpsHistory(person) {
+  if (hasOpsTraining(person)) return true;
+  if (typeof opsEntriesForPerson === "function") return opsEntriesForPerson(person).length > 0;
+  return (state.portoOpsLog || []).some((entry) => entry.memberId === person?.id);
 }
 
 function compareServiceNumber(a = "", b = "") {
@@ -885,19 +890,18 @@ function renderOpsTimes() {
   const weekRows = opsTimesRowsSince(weekStart);
   const currentWeek = typeof currentHourWeek === "function" ? currentHourWeek() : null;
   const totals = new Map();
-  state.people
-    .filter((person) => person.status === "Actief" && hasOpsTraining(person))
-    .forEach((person) => {
-      totals.set(opsTimesPersonKey(person), {
-        memberId: person.id || "",
-        name: person.name || "Onbekend",
-        serviceNumber: person.serviceNumber || "",
-        seconds: 0,
-        count: 0
-      });
+  const opsPeople = state.people.filter((person) => person.status === "Actief" && hasOpsHistory(person));
+  opsPeople.forEach((person) => {
+    totals.set(opsTimesPersonKey(person), {
+      memberId: person.id || "",
+      name: person.name || "Onbekend",
+      serviceNumber: person.serviceNumber || "",
+      seconds: 0,
+      count: 0
     });
+  });
   if (currentWeek && typeof opsHoursForWeek === "function") {
-    for (const person of state.people.filter((entry) => entry.status === "Actief" && hasOpsTraining(entry))) {
+    for (const person of opsPeople) {
       const current = totals.get(opsTimesPersonKey(person));
       if (!current) continue;
       current.seconds = Math.round(opsHoursForWeek(person, currentWeek) * 3600);
@@ -944,7 +948,8 @@ function openOpsTimesDialog(selected) {
   const rows = opsTimesRowsSince(fourWeeksStart).filter((entry) => (entry.memberId || entry.name || "onbekend") === selected);
   const totalSeconds = rows.reduce((sum, row) => sum + row.durationSeconds, 0);
   const person = state.people.find((entry) => opsTimesPersonKey(entry) === selected);
-  if (!person || !hasOpsTraining(person)) return;
+  if (!person && !rows.length) return;
+  if (person && !hasOpsHistory(person) && !rows.length) return;
   const name = rows[0]?.name || person?.name || selected;
   if (title) title.textContent = name;
   if (subtitle) subtitle.textContent = `Laatste 4 weken totaal: ${formatMinutes(totalSeconds / 60)}`;

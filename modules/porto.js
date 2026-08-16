@@ -23,6 +23,11 @@ function clearPortoAutoOffline(unit) {
   delete unit.autoRemoveAt;
 }
 
+function rememberPortoDutyVehicle(unit) {
+  if (!unit?.vehicleNumber) return;
+  unit.previousVehicleNumber = unit.previousVehicleNumber || unit.vehicleNumber;
+}
+
 const defensiePortoVehicleRangeDefinitions = [
   {
     prefix: "OPS",
@@ -487,6 +492,7 @@ function createPortoServices() {
         }
         continue;
       }
+      rememberPortoDutyVehicle(unit);
       Object.assign(unit, {
         status: "8",
         statusDetail: `${operatorTraining} training ontbreekt`,

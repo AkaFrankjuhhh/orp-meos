@@ -59,6 +59,7 @@ function portoUnitWriteTimestamp(unit, fallback = null) {
 }
 
 function closeStalePortoUnit(unit, nowIso, reason = "Dubbele Porto-aanmelding gesloten") {
+  if (unit.vehicleNumber) unit.previousVehicleNumber = unit.previousVehicleNumber || unit.vehicleNumber;
   unit.active = false;
   unit.status = "8";
   unit.statusDetail = unit.statusDetail || reason;

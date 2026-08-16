@@ -105,7 +105,7 @@ function findPerson(reference, indexes) {
 function groupedParticipantIdsByVehicle(units, indexes) {
   const byVehicle = new Map();
   for (const unit of Array.isArray(units) ? units : []) {
-    const vehicleNumber = String(unit?.vehicleNumber || "").trim();
+    const vehicleNumber = dutyVehicleNumberForUnit(unit);
     if (!vehicleNumber) continue;
     const person = findPerson(unit, indexes);
     if (!person?.id) continue;
@@ -126,7 +126,7 @@ function unitParticipants(unit, indexes, groupedIdsByVehicle = new Map()) {
   };
   const owner = findPerson(unit, indexes);
   add(owner);
-  const vehicleNumber = String(unit?.vehicleNumber || "").trim();
+  const vehicleNumber = dutyVehicleNumberForUnit(unit);
   const groupedIds = vehicleNumber ? groupedIdsByVehicle.get(vehicleNumber) : null;
   const linked = [
     ...(Array.isArray(unit.linkedWith) ? unit.linkedWith : []),
@@ -146,6 +146,10 @@ function unitEndDate(unit, now) {
   const active = unit.active !== false && status !== "8";
   if (active) return now;
   return asDate(unit.endedAt) || asDate(unit.lastSeenAt) || asDate(unit.updatedAt) || now;
+}
+
+function dutyVehicleNumberForUnit(unit) {
+  return String(unit?.vehicleNumber || unit?.previousVehicleNumber || unit?.endedVehicleNumber || "").trim();
 }
 
 function buildPortoDutyHourEntries(state, options = {}) {
@@ -194,7 +198,7 @@ function buildPortoDutyHourEntries(state, options = {}) {
           enteredAt: now.toISOString(),
           source: PORTO_DUTY_HOURS_SOURCE,
           sourceUnitId: unit.id || "",
-          sourceVehicleNumber: unit.vehicleNumber || ""
+          sourceVehicleNumber: dutyVehicleNumberForUnit(unit)
         });
       }
     }

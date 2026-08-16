@@ -217,6 +217,11 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     unit.dutyRole = "";
   }
 
+  function rememberPortoDutyVehicle(unit) {
+    if (!unit?.vehicleNumber) return;
+    unit.previousVehicleNumber = unit.previousVehicleNumber || unit.vehicleNumber;
+  }
+
   function markPortoBrowserHeartbeat(unit, nowIso = new Date().toISOString()) {
     if (!unit || unit.active === false) return false;
     const nowMs = timestampMs(nowIso) || Date.now();
@@ -704,6 +709,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         entry.vehicleNumber === operatorVehicleNumber
       ) {
         const previousVehicleNumber = entry.vehicleNumber;
+        rememberPortoDutyVehicle(entry);
         entry.active = false;
         entry.status = "8";
         entry.statusDetail = `Dubbele ${operatorLabel}-aanmelding gesloten`;
@@ -733,6 +739,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     for (const entry of activeUnits) {
       if (entry.id === keepUnit.id) continue;
       const previousVehicleNumber = entry.vehicleNumber;
+      rememberPortoDutyVehicle(entry);
       entry.active = false;
       entry.status = "8";
       entry.statusDetail = "Dubbele Porto-aanmelding gesloten";
@@ -804,6 +811,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
     state.portoCurrentOps = { ...currentOps, active: false, endedAt };
     const opsUnit = (state.portoUnits || []).find((entry) => entry.memberId === currentOps.memberId && entry.active !== false && entry.vehicleNumber === operatorVehicleNumber);
     if (opsUnit) {
+      rememberPortoDutyVehicle(opsUnit);
       Object.assign(opsUnit, {
         status: "8",
         statusDetail,
@@ -864,6 +872,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
 
       for (const unit of timedOutUnits) {
         clearRecentlyEnded(unit.memberId);
+        rememberPortoDutyVehicle(unit);
         Object.assign(unit, {
           status: "8",
           statusDetail: "Uit dienst (browser gesloten)",
@@ -1185,6 +1194,7 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         const opsReleased = releaseOpsIfEnded(state, endedUnits, person, now, "Uit dienst");
         settingsChanged = settingsChanged || opsReleased;
         for (const endedUnit of endedUnits) {
+          rememberPortoDutyVehicle(endedUnit);
           Object.assign(endedUnit, {
             status: "8",
             statusDetail: "Uit dienst",
@@ -1754,22 +1764,25 @@ function createPortoRouteHandler({ requireAuth, readState, writeState, writePort
         const unitsToEnd = collectPortoOffDutyUnits(state, { unit, oldVehicleNumber, offDutyScope, operatorVehicleNumber });
         markRecentlyEndedUnits(unitsToEnd);
         const settingsChanged = releaseOpsIfEnded(state, unitsToEnd, person, endedAt, "Uit dienst");
-        unitsToEnd.forEach((entry) => Object.assign(entry, {
-          status: "8",
-          statusDetail: "Uit dienst",
-          active: false,
-          vehicleNumber: "",
-          vehicleCode: "",
-          vehicleType: "",
-          vehicleName: "",
-          operatorSlot: "",
-          dutyRole: "",
-          linkedWith: [],
-          endedById: person.id,
-          endedByName: person.name,
-          endedAt,
-          updatedAt: endedAt
-        }));
+        unitsToEnd.forEach((entry) => {
+          rememberPortoDutyVehicle(entry);
+          Object.assign(entry, {
+            status: "8",
+            statusDetail: "Uit dienst",
+            active: false,
+            vehicleNumber: "",
+            vehicleCode: "",
+            vehicleType: "",
+            vehicleName: "",
+            operatorSlot: "",
+            dutyRole: "",
+            linkedWith: [],
+            endedById: person.id,
+            endedByName: person.name,
+            endedAt,
+            updatedAt: endedAt
+          });
+        });
         unitsToEnd.forEach(clearPortoBrowserHeartbeat);
         syncPortoLinkedNames(state, oldVehicleNumber);
         const remainingVehicleUnits = affectedActiveVehicleUnits(state, [oldVehicleNumber]);

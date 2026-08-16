@@ -194,10 +194,6 @@ function hoursOperatorVehicleNumber() {
   return typeof organizationKey !== "undefined" && organizationKey === "politie" ? "20-00" : "30-00";
 }
 
-function personHasOpsTraining(person) {
-  return Array.isArray(person?.completedOperational) && person.completedOperational.includes(hoursOperatorTraining());
-}
-
 function operatorHourEntryForPerson(person) {
   const operatorVehicleNumber = hoursOperatorVehicleNumber();
   return (state.hours || []).filter((entry) => (
@@ -212,7 +208,6 @@ function opsLogEntryForPerson(person) {
 }
 
 function opsEntriesForPerson(person) {
-  if (!personHasOpsTraining(person)) return [];
   const byInterval = new Map();
   const addEntry = (entry, source) => {
     const startedAt = entry?.startedAt || "";

@@ -127,6 +127,39 @@ test("operator hours are counted from porto duty clock entries", () => {
   assert.equal(context.opsHoursForWeek(person, { weekYear: 2026, weekNumber: 32 }), 4.5);
 });
 
+test("operator hours remain visible after current training state changes", () => {
+  const person = { id: "p1", name: "OPS Tester", serviceNumber: "70-01", completedOperational: [] };
+  const context = loadHoursModuleWithState({
+    hours: [
+      {
+        id: "porto-duty-ops",
+        personId: "p1",
+        weekYear: 2026,
+        weekNumber: 33,
+        startedAt: "2026-08-16T14:30:00.000Z",
+        endedAt: "2026-08-16T15:30:00.000Z",
+        source: "porto-duty-clock",
+        sourceVehicleNumber: "30-00"
+      }
+    ],
+    portoOpsLog: [
+      {
+        id: "ops-log-extra-session",
+        memberId: "p1",
+        startedAt: "2026-08-16T16:00:00.000Z",
+        endedAt: "2026-08-16T16:30:00.000Z",
+        durationSeconds: 1800,
+        endedByName: "Frank"
+      }
+    ]
+  }, {
+    portalOperatorTraining: "OPS",
+    portalOperatorVehicleNumber: "30-00"
+  });
+
+  assert.equal(context.opsHoursForWeek(person, { weekYear: 2026, weekNumber: 33 }), 1.5);
+});
+
 test("operator hours merge old ops log entries with duty clock entries", () => {
   const person = { id: "p1", name: "OPS Tester", serviceNumber: "70-01", completedOperational: ["OPS"] };
   const context = loadHoursModuleWithState({
