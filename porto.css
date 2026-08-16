@@ -1029,6 +1029,59 @@ body[data-porto-ui="modern"]:not(.porto-duty-workspace):not(.porto-ops-workspace
 .porto-modern-stat-grid article.urgent::before { content: "\26A0"; background: rgba(239, 68, 68, 0.82); color: #fff7ed; box-shadow: 0 0 38px rgba(239, 68, 68, 0.58); }
 .porto-modern-stat-grid article.urgent::after { background-image: url("data:image/svg+xml,%3Csvg width='122' height='42' viewBox='0 0 122 42' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 29C12 29 15 20 24 23C31 25 34 33 43 30C52 27 53 13 62 14C70 15 73 25 82 22C91 19 94 8 103 11C111 14 113 21 120 16' stroke='%23F87171' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M2 29C12 29 15 20 24 23C31 25 34 33 43 30C52 27 53 13 62 14C70 15 73 25 82 22C91 19 94 8 103 11C111 14 113 21 120 16' stroke='%23F87171' stroke-opacity='.22' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 
+.porto-modern-side-task-overview {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.18fr) minmax(0, 1fr);
+  gap: clamp(12px, 1vw, 18px);
+  align-items: stretch;
+  margin-bottom: clamp(16px, 1.4vw, 24px);
+  padding: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 0 50%, rgba(59, 130, 246, 0.14), transparent 28%),
+    rgba(6, 18, 35, 0.54);
+}
+
+.porto-modern-side-task-overview > header {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding-right: 12px;
+  border-right: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.porto-modern-side-task-overview > header span {
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.porto-modern-side-task-overview > header strong {
+  color: #f8fafc;
+  font-size: clamp(16px, 1.05vw, 20px);
+  font-weight: 1000;
+}
+
+.porto-modern-side-task-overview > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.porto-modern-side-task-overview .porto-side-task-overview-item {
+  min-height: 54px;
+  background: rgba(5, 13, 26, 0.46);
+}
+
+.porto-modern-side-task-overview .porto-side-task-overview-item small {
+  display: none;
+}
+
 .porto-modern-ops-layout {
   display: grid;
   grid-template-columns: minmax(620px, 1fr) minmax(340px, 0.42fr);
@@ -5425,6 +5478,17 @@ body[data-porto-ui="modern"] .porto-choice-context-menu button {
 @media (max-width: 1100px) {
   body[data-porto-ui="modern"] .porto-modern-stat-grid {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-side-task-overview {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-porto-ui="modern"] .porto-modern-side-task-overview > header {
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    padding-right: 0;
+    padding-bottom: 10px;
   }
 
   body[data-porto-ui="modern"] .porto-modern-request-row {

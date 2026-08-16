@@ -658,7 +658,7 @@ test("porto exposes the modern dispatcher test UI beside the classic UI", () => 
   assert.match(html, /data-porto-ui-choice="modern"/);
   assert.match(html, /id="portoModernDutyDashboard"/);
   assert.match(html, /id="portoModernOpsDashboard"/);
-  assert.match(html, /porto\/ops\.js\?v=20260816-status0-request-card/);
+  assert.match(html, /porto\/ops\.js\?v=20260816-modern-sidetasks/);
   assert.match(html, /porto\/duty\.js\?v=20260808-bgd-duty-role/);
   assert.match(html, /porto\.js\?v=20260808-bgd-duty-role/);
   assert.match(portoCode, /PORTO_UI_MODE_KEY/);
@@ -700,8 +700,8 @@ test("modern OPS status 0 requests keep important details visible", () => {
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
   const opsCode = fs.readFileSync(path.join(process.cwd(), "porto", "ops.js"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260816-status0-request-card/);
-  assert.match(html, /porto\/ops\.js\?v=20260816-status0-request-card/);
+  assert.match(html, /porto\.css\?v=20260816-modern-sidetasks/);
+  assert.match(html, /porto\/ops\.js\?v=20260816-modern-sidetasks/);
   assert.match(opsCode, /porto-modern-request-person/);
   assert.match(opsCode, /porto-modern-request-controls/);
   assert.match(opsCode, /porto-modern-request-meta/);
@@ -711,11 +711,28 @@ test("modern OPS status 0 requests keep important details visible", () => {
   assert.match(styles, /body\[data-porto-ui="modern"\] \.porto-modern-request-person strong,[\s\S]*white-space: normal;/);
 });
 
+test("modern OPS dashboard shows side task availability", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
+  const opsCode = fs.readFileSync(path.join(process.cwd(), "porto", "ops.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "porto-routes.js"), "utf8");
+
+  assert.match(html, /porto\.css\?v=20260816-modern-sidetasks/);
+  assert.match(html, /porto\/ops\.js\?v=20260816-modern-sidetasks/);
+  assert.match(routesCode, /payload\.sideTaskOverview = sideTaskOverview\(membersByDiscordId\)/);
+  assert.match(opsCode, /function modernSideTaskOverviewHtml\(\)/);
+  assert.match(opsCode, /porto-modern-side-task-overview/);
+  assert.match(opsCode, /\$\{modernSideTaskOverviewHtml\(\)\}/);
+  assert.match(opsCode, /sideTaskOverviewItemsHtml\(\)/);
+  assert.match(styles, /\.porto-modern-side-task-overview \{/);
+  assert.match(styles, /\.porto-modern-side-task-overview \.porto-side-task-overview-item/);
+});
+
 test("modern duty status layout stays aligned on desktop widths", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260816-status0-request-card/);
+  assert.match(html, /porto\.css\?v=20260816-modern-sidetasks/);
   assert.match(styles, /body\[data-porto-ui="modern"\]\.porto-duty-workspace \.porto-modern-duty-meta-grid \{[\s\S]*margin-top: 0;/);
   assert.match(styles, /\.porto-modern-duty-meta-grid article > \.porto-modern-vehicle-select \{[\s\S]*grid-column: 1 \/ -1;/);
   const desktopBreakpointStart = styles.indexOf("@media (max-width: 1280px)");
@@ -743,7 +760,7 @@ test("porto profile dialog scroll avoids expensive backdrop repainting", () => {
   const html = fs.readFileSync(path.join(process.cwd(), "porto.html"), "utf8");
   const styles = fs.readFileSync(path.join(process.cwd(), "porto.css"), "utf8");
 
-  assert.match(html, /porto\.css\?v=20260816-status0-request-card/);
+  assert.match(html, /porto\.css\?v=20260816-modern-sidetasks/);
   assert.match(styles, /\.porto-profile-dialog \{[\s\S]*contain: layout paint;/);
   assert.match(styles, /\.porto-profile-dialog::backdrop \{[\s\S]*backdrop-filter: none;/);
   assert.match(styles, /\.porto-profile-form \{[\s\S]*overscroll-behavior: contain;/);

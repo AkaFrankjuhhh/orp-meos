@@ -534,15 +534,34 @@ function renderOpsUnitsSummary(units) {
 function renderSideTaskOverview() {
   const overview = $("#portoSideTaskOverview");
   if (!overview) return;
+  const html = sideTaskOverviewItemsHtml();
+  overview.hidden = !html;
+  overview.innerHTML = html;
+}
+
+function sideTaskOverviewItemsHtml() {
   const statuses = portoSideTaskOverview || [];
-  overview.hidden = !statuses.length;
-  overview.innerHTML = statuses.map((status) => `
+  if (!statuses.length) return "";
+  return statuses.map((status) => `
     <article class="porto-side-task-overview-item ${escapeHtml(status.state || "absent")}" title="${escapeHtml(status.label)}: ${escapeHtml(status.text)}">
       <span>${escapeHtml(status.label)}</span>
       <strong>${escapeHtml(status.text)}</strong>
       <small>Neventaken porto</small>
     </article>
   `).join("");
+}
+
+function modernSideTaskOverviewHtml() {
+  const items = sideTaskOverviewItemsHtml();
+  if (!items) return "";
+  return `
+    <section class="porto-modern-side-task-overview" aria-label="Neventaken beschikbaarheid">
+      <header>
+        <span>Neventaken</span>
+        <strong>Beschikbaarheid</strong>
+      </header>
+      <div>${items}</div>
+    </section>`;
 }
 
 function renderModernOpsUnitCard(unit, options = {}) {
@@ -745,6 +764,7 @@ function renderModernOpsDashboard({ force = false } = {}) {
       <article class="onscene"><span>Ter plaatse</span><strong>${stats.onscene}</strong></article>
       <article class="urgent"><span>Actie nodig</span><strong>${stats.action + requestCount}</strong></article>
     </section>
+    ${modernSideTaskOverviewHtml()}
     <section class="porto-modern-ops-layout">
       <article class="porto-modern-ops-list">
         <header>
