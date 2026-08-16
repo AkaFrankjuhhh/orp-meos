@@ -315,28 +315,31 @@ function dnrUnitLinkOptions(member, task) {
 function hrbUnitLinkOptions(member, task) {
   const units = task.hrbUnits || {};
   const prefix = String(units.prefix || "HRB");
-  const first = Math.max(0, Number(units.min || 2));
-  const last = Math.max(first, Number(units.max || 99));
-  const capacity = Math.max(1, Number(units.capacity || 1));
-  const reserved = new Set(Object.values(units.commandUnits || { CM: "HRB-00", PLAVA: "HRB-01" }));
-  const counts = new Map();
+  const activeUnits = new Map();
   appState.members
     .filter((entry) => entry.status !== "8" && entry.unitNumber)
-    .forEach((entry) => counts.set(entry.unitNumber, (counts.get(entry.unitNumber) || 0) + 1));
-
-  const options = [];
-  for (let index = first; index <= last; index += 1) {
-    const unitNumber = `${prefix}-${String(index).padStart(2, "0")}`;
-    if (reserved.has(unitNumber) || unitNumber === member.unitNumber) continue;
-    const ownCurrent = member.id && member.unitNumber === unitNumber && member.status !== "8" ? 1 : 0;
-    const count = counts.get(unitNumber) || 0;
-    if (count - ownCurrent >= capacity) continue;
-    options.push({
-      unitNumber,
-      label: count ? `${unitNumber} (${Math.min(count, capacity)}/${capacity})` : `${unitNumber} (vrij)`
+    .forEach((entry) => {
+      const unitNumber = String(entry.unitNumber || "").trim().toUpperCase();
+      if (!unitNumber.startsWith(`${prefix.toUpperCase()}-`)) return;
+      const members = activeUnits.get(unitNumber) || [];
+      members.push(entry);
+      activeUnits.set(unitNumber, members);
     });
-  }
-  return options;
+
+  return [...activeUnits.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, "nl", { numeric: true }))
+    .map(([unitNumber, members]) => {
+      const names = members
+        .map((entry) => entry.commandRole || entry.displayName || entry.discordId)
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(", ");
+      const extra = members.length > 2 ? ` +${members.length - 2}` : "";
+      return {
+        unitNumber,
+        label: names ? `${unitNumber} (${names}${extra})` : `${unitNumber} (actief)`
+      };
+    });
 }
 
 function dsiUnitSection() {

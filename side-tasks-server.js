@@ -1107,7 +1107,7 @@ async function handleApi(req, res, task, url) {
     const body = await readBody(req);
     const unitNumber = sanitizeText(body.unitNumber, 16);
     if (!unitNumber) return jsonError(res, 400, "Kies een HRB-nummer.");
-    const updated = await store.assignHrbUnit(task.key, member.id, unitNumber, member.status);
+    const updated = await store.linkHrbUnit(task.key, member.id, unitNumber);
     const nicknameResult = await applyAliasNicknameIfNeeded(task, updated, updated.status);
     publishSideTaskUpdate(task, "hrb-unit-updated", { memberId: nicknameResult.member.id, unitNumber });
     return sendJson(res, 200, { member: publicMember(nicknameResult.member), warning: nicknameResult.warning });

@@ -76,12 +76,14 @@ test("HRB unit assignment is handled server-side with protected nicknames", () =
   assert.match(storeCode, /CM: `\$\{HRB_UNIT_PREFIX\}-00`, PLAVA: `\$\{HRB_UNIT_PREFIX\}-01`/);
   assert.match(storeCode, /const HRB_FIRST_REGULAR_UNIT = Number\(HRB_UNITS\.min \|\| 2\)/);
   assert.match(storeCode, /async function assignHrbUnit/);
+  assert.match(storeCode, /async function linkHrbUnit/);
   assert.match(storeCode, /async function assignHrbCommandRole/);
-  assert.match(storeCode, /const requestedUnit = requestedUnitNumber \? hrbUnitNumber\(requestedUnitNumber\) : ""/);
-  assert.match(storeCode, /command_role = \$6/);
+  assert.match(storeCode, /Koppel aan een actief \$\{HRB_UNIT_PREFIX\}-nummer/);
+  assert.match(storeCode, /const nextCommandRole = HRB_COMMAND_UNITS\[member\.commandRole\] === unitNumber \? member\.commandRole : ""/);
   assert.match(storeCode, /findActiveSideTaskNicknameMember/);
   assert.match(serverCode, /store\.assignHrbUnit\(task\.key, member\.id, "", status\)/);
   assert.match(serverCode, /const hrbUnitMatch/);
+  assert.match(serverCode, /store\.linkHrbUnit\(task\.key, member\.id, unitNumber\)/);
   assert.match(serverCode, /side-tasks\\\/hrb\\\/members\\\/\(\[\^\/\]\+\)\\\/unit/);
   assert.match(serverCode, /const hrbCommandMatch/);
   assert.match(serverCode, /function buildHrbNickname/);
@@ -89,6 +91,8 @@ test("HRB unit assignment is handled server-side with protected nicknames", () =
   assert.match(serverCode, /formatNameForDiscordNickname\(normalAliasName\(member, portalIdentity\)\)/);
   assert.match(serverCode, /side-tasks\\\/hrb\\\/members/);
   assert.match(clientCode, /function hrbUnitLinkOptions/);
+  assert.match(clientCode, /const activeUnits = new Map/);
+  assert.doesNotMatch(clientCode, /HRB-03 \(vrij\)/);
   assert.match(clientCode, /function hrbContextMenu/);
   assert.match(clientCode, /data-hrb-member/);
   assert.match(clientCode, /data-action="hrb-open-link-menu"/);

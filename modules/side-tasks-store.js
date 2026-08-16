@@ -990,19 +990,17 @@ function createSideTasksStore() {
           throw error;
         }
         const commandUnit = HRB_COMMAND_UNITS[member.commandRole] || "";
-        const requestedUnit = requestedUnitNumber ? hrbUnitNumber(requestedUnitNumber) : "";
-        let unitNumber = requestedUnit || commandUnit;
+        let unitNumber = commandUnit || hrbUnitNumber(requestedUnitNumber);
         if (requestedUnitNumber && !unitNumber) {
           const error = new Error(`Kies een geldig ${HRB_UNIT_PREFIX}-nummer.`);
           error.status = 400;
           throw error;
         }
-        if (requestedUnitNumber && isReservedHrbUnit(unitNumber)) {
+        if (requestedUnitNumber && isReservedHrbUnit(unitNumber) && !commandUnit) {
           const error = new Error(`${HRB_COMMAND_UNITS.CM} en ${HRB_COMMAND_UNITS.PLAVA} zijn gereserveerd voor CM/PLAVA. Reguliere HRB-nummers beginnen bij ${formatHrbUnit(HRB_FIRST_REGULAR_UNIT)}.`);
           error.status = 403;
           throw error;
         }
-        const nextCommandRole = requestedUnit ? "" : member.commandRole;
         const activeUnits = await client.query(
           "select unit_number, count(*)::int as count from side_task_members where task_key = $1 and status <> '8' and unit_number <> '' group by unit_number",
           [taskKey]
@@ -1034,8 +1032,72 @@ function createSideTasksStore() {
           }
         }
         const result = await client.query(
-          "update side_task_members set unit_number = $3, call_sign = $3, status = $4, status_detail = $5, command_role = $6, updated_at = now() where task_key = $1 and id = $2 returning *",
-          [taskKey, String(memberId), unitNumber, nextStatus, statusOption(nextStatus).label, nextCommandRole]
+          "update side_task_members set unit_number = $3, call_sign = $3, status = $4, status_detail = $5, updated_at = now() where task_key = $1 and id = $2 returning *",
+          [taskKey, String(memberId), unitNumber, nextStatus, statusOption(nextStatus).label]
+        );
+        await client.query("commit");
+        return memberFromRow(result.rows[0]);
+      } catch (error) {
+        await client.query("rollback").catch(() => {});
+        throw error;
+      }
+    });
+  }
+
+  async function linkHrbUnit(taskKey, memberId, requestedUnitNumber) {
+    const unitNumber = hrbUnitNumber(requestedUnitNumber);
+    if (!unitNumber) {
+      const error = new Error(`Kies een geldig ${HRB_UNIT_PREFIX}-nummer.`);
+      error.status = 400;
+      throw error;
+    }
+    await ensureSideTaskSchema();
+    return withSideTaskClient(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query("select pg_advisory_xact_lock(hashtext($1))", [`side-task-hrb-units:${taskKey}`]);
+        const memberResult = await client.query("select * from side_task_members where task_key = $1 and id = $2 for update", [taskKey, String(memberId)]);
+        const member = memberFromRow(memberResult.rows[0]);
+        if (!member) {
+          const error = new Error("HRB-lid niet gevonden.");
+          error.status = 404;
+          throw error;
+        }
+        if (member.status === "8") {
+          const error = new Error("Meld dit HRB-lid eerst aan voordat je een nummer koppelt.");
+          error.status = 400;
+          throw error;
+        }
+        const activeUnit = await client.query(
+          `select id
+           from side_task_members
+           where task_key = $1
+             and id <> $2
+             and status <> '8'
+             and unit_number = $3
+           limit 1
+           for update`,
+          [taskKey, String(memberId), unitNumber]
+        );
+        const ownCurrentUnit = member.status !== "8" && member.unitNumber === unitNumber;
+        if (!activeUnit.rows.length && !ownCurrentUnit) {
+          const error = new Error(`Koppel aan een actief ${HRB_UNIT_PREFIX}-nummer.`);
+          error.status = 404;
+          throw error;
+        }
+        const nextStatus = ["0", "1", "4"].includes(String(member.status)) ? String(member.status) : "1";
+        const nextCommandRole = HRB_COMMAND_UNITS[member.commandRole] === unitNumber ? member.commandRole : "";
+        const result = await client.query(
+          `update side_task_members
+           set command_role = $3,
+               unit_number = $4,
+               call_sign = $4,
+               status = $5,
+               status_detail = $6,
+               updated_at = now()
+           where task_key = $1 and id = $2
+           returning *`,
+          [taskKey, String(memberId), nextCommandRole, unitNumber, nextStatus, statusOption(nextStatus).label]
         );
         await client.query("commit");
         return memberFromRow(result.rows[0]);
@@ -1141,6 +1203,7 @@ function createSideTasksStore() {
     updateMemberProfile,
     assignDsiUnit,
     assignHrbUnit,
+    linkHrbUnit,
     assignDnrUnit,
     assignDsiCommandRole,
     assignHrbCommandRole,
