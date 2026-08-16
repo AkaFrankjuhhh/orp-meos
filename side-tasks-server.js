@@ -18,7 +18,7 @@ const {
   statusOptionsForTask
 } = require("./modules/side-tasks-config");
 const { createSideTasksStore } = require("./modules/side-tasks-store");
-const { portalIdentityForDiscordId, hasPortalIdentityDatabase } = require("./modules/side-tasks-portal-identity");
+const { portalIdentityForDiscordId, hasPortalIdentityDatabase, formatNameForDiscordNickname } = require("./modules/side-tasks-portal-identity");
 const { createEventBus } = require("./modules/event-bus");
 const { shouldSyncDsiNicknameForStatus, requireDsiIdentityForStatus } = require("./modules/side-tasks-dsi");
 const {
@@ -527,6 +527,19 @@ function normalAliasName(member, portalIdentity = null) {
   return portalName || member.displayName || member.discordUsername || "";
 }
 
+function hrbNicknameName(member, portalIdentity = null) {
+  return formatNameForDiscordNickname(normalAliasName(member, portalIdentity)) || normalAliasName(member, portalIdentity);
+}
+
+function hrbCommandPrefix(member) {
+  const commandRole = String(member.commandRole || "").trim().toUpperCase();
+  return ["CM", "PLAVA"].includes(commandRole) ? `${commandRole} ` : "";
+}
+
+function buildHrbNickname(member, portalIdentity, number) {
+  return `${hrbCommandPrefix(member)}[${number}] ${hrbNicknameName(member, portalIdentity)}`.trim();
+}
+
 function validateAliasProfileForStatus(task, member, nextStatus, portalIdentity = null) {
   if (!task.allowAlias || String(nextStatus) === "8") return;
   if (task.key === "DSI") return requireDsiIdentityForStatus(member, nextStatus);
@@ -597,6 +610,20 @@ async function applyAliasNicknameIfNeeded(task, member, nextStatus) {
   const portalIdentity = await portalIdentityForDiscordId(member.discordId);
   validateAliasProfileForStatus(task, member, nextStatus, portalIdentity);
   const number = aliasNumberForTask(task, member, portalIdentity);
+  if (task.key === "HRB") {
+    try {
+      let originalNickname = member.originalNickname || "";
+      if (!originalNickname) {
+        const mainMember = await fetchMainGuildMember(member.discordId);
+        originalNickname = mainMember?.nick || mainMember?.user?.global_name || mainMember?.user?.username || "";
+        member = await store.updateMember(task.key, member.id, { originalNickname });
+      }
+      await patchMainGuildNickname(member.discordId, buildHrbNickname(member, portalIdentity, number));
+      return { member };
+    } catch (error) {
+      return { member, warning: nicknameSyncWarning(error) };
+    }
+  }
   const dnrUnit = task.key === "DNR" ? dnrUnitForKey(task, dnrUnitKeyForMember(task, member)) || dnrUnitForNumber(task, number) : null;
   const undercover = Boolean(member.raw?.undercover);
   const displayName = dnrUnit

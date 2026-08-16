@@ -836,7 +836,7 @@ function createDiscordBotServices(options = {}) {
   }
 
   function looksLikeActiveSideTaskNickname(nickname) {
-    return /^(?:(?:ACO|TCO)\s+)?\[(?:24-\d{2}|[A-Za-z]{1,10}-\d{1,3})\]\s+\S/.test(String(nickname || "").trim());
+    return /^(?:(?:ACO|TCO|CM|PLAVA)\s+)?\[(?:24-\d{2}|[A-Za-z]{1,10}-\d{1,3})\]\s+\S/.test(String(nickname || "").trim());
   }
 
   async function activeSideTaskNicknameProtection(discordId, currentNickname) {

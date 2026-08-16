@@ -105,4 +105,4 @@ async function portalIdentityForDiscordId(discordId) {
   return null;
 }
 
-module.exports = { portalIdentityForDiscordId, nicknameForPortalPerson, hasPortalIdentityDatabase };
+module.exports = { portalIdentityForDiscordId, nicknameForPortalPerson, hasPortalIdentityDatabase, formatNameForDiscordNickname };

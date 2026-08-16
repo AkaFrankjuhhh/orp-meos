@@ -80,6 +80,9 @@ test("HRB unit assignment is handled server-side with protected nicknames", () =
   assert.match(storeCode, /findActiveSideTaskNicknameMember/);
   assert.match(serverCode, /store\.assignHrbUnit\(task\.key, member\.id, "", status\)/);
   assert.match(serverCode, /const hrbCommandMatch/);
+  assert.match(serverCode, /function buildHrbNickname/);
+  assert.match(serverCode, /\["CM", "PLAVA"\]\.includes\(commandRole\)/);
+  assert.match(serverCode, /formatNameForDiscordNickname\(normalAliasName\(member, portalIdentity\)\)/);
   assert.match(serverCode, /side-tasks\\\/hrb\\\/members/);
   assert.match(clientCode, /function hrbContextMenu/);
   assert.match(clientCode, /data-hrb-member/);
@@ -88,6 +91,7 @@ test("HRB unit assignment is handled server-side with protected nicknames", () =
   assert.match(clientCode, /PLAVA opnemen/);
   assert.match(botCode, /findActiveSideTaskNicknameMember/);
   assert.match(botCode, /Neventaken nickname blijft behouden/);
+  assert.match(botCode, /\?:ACO\|TCO\|CM\|PLAVA/);
 });
 
 test("LR supports automatic recherche unit ranges", () => {
