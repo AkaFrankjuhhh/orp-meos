@@ -83,6 +83,7 @@
   let activePage = "dashboard";
   let activePersonId = people[0].id;
   let activeVehiclePlate = people[0].vehicles[0].plate;
+  const themeStorageKey = "orp-meos-theme";
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -98,6 +99,34 @@
 
   function normalize(value) {
     return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
+
+  function preferredTheme() {
+    let stored = "";
+    try {
+      stored = String(localStorage.getItem(themeStorageKey) || "").trim();
+    } catch {
+      stored = "";
+    }
+    if (stored === "dark" || stored === "light") return stored;
+    return "light";
+  }
+
+  function applyTheme(theme) {
+    const nextTheme = theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.meosTheme = nextTheme;
+    const toggle = $("#meosThemeToggle");
+    if (toggle) toggle.checked = nextTheme === "dark";
+  }
+
+  function setTheme(theme) {
+    const nextTheme = theme === "dark" ? "dark" : "light";
+    try {
+      localStorage.setItem(themeStorageKey, nextTheme);
+    } catch {
+      // Dark mode is a preference; the interface should still work if storage is blocked.
+    }
+    applyTheme(nextTheme);
   }
 
   function allVehicles() {
@@ -427,9 +456,13 @@
     $("#personSearchField")?.addEventListener("change", renderPeople);
     $("#vehicleSearch")?.addEventListener("input", renderVehicles);
     $("#dashboardQuickSearch")?.addEventListener("input", renderQuickSearch);
+    $("#meosThemeToggle")?.addEventListener("change", (event) => {
+      setTheme(event.target.checked ? "dark" : "light");
+    });
   }
 
   function init() {
+    applyTheme(preferredTheme());
     bindEvents();
     renderPeople();
     renderVehicles();

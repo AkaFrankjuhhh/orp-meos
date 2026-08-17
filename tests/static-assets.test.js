@@ -120,8 +120,15 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /data-section="at"/);
   assert.match(html, /id="personSearch"/);
   assert.match(html, /id="vehicleSearch"/);
+  assert.match(html, /id="meosThemeToggle"/);
   assert.match(styles, /--meos-blue: #005493/);
+  assert.match(styles, /html\[data-meos-theme="dark"\]/);
+  assert.match(styles, /--meos-page-bg: #0f1218/);
+  assert.match(styles, /\.meos-theme-toggle/);
   assert.match(styles, /\.meos-profile-grid/);
+  assert.match(script, /const themeStorageKey = "orp-meos-theme"/);
+  assert.match(script, /function applyTheme\(theme\)/);
+  assert.match(script, /dataset\.meosTheme = nextTheme/);
   assert.match(script, /fingerprint: "VN-8842-ER"/);
   assert.match(script, /function filteredPeople\(/);
   assert.match(script, /function renderProfile\(/);

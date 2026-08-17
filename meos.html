@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
-  <link rel="stylesheet" href="/meos.css?v=20260817-overheid-opzet" />
+  <link rel="stylesheet" href="/meos.css?v=20260817-dark-mode" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -48,9 +48,18 @@
       <header class="meos-topbar">
         <button class="meos-menu-button" type="button" data-toggle-sidebar aria-label="Navigatie openen">Menu</button>
         <h1>MEOS</h1>
-        <div class="meos-user">
-          <span>Frank Bright</span>
-          <strong>Frank B.</strong>
+        <div class="meos-topbar-actions">
+          <label class="meos-theme-toggle" title="Dark mode">
+            <input id="meosThemeToggle" type="checkbox" aria-label="Dark mode inschakelen" />
+            <span class="meos-theme-track" aria-hidden="true">
+              <span class="meos-theme-thumb"></span>
+            </span>
+            <span class="meos-theme-label">Dark</span>
+          </label>
+          <div class="meos-user">
+            <span>Frank Bright</span>
+            <strong>Frank B.</strong>
+          </div>
         </div>
       </header>
 
@@ -185,6 +194,6 @@
     </main>
   </div>
 
-  <script src="/meos.js?v=20260817-overheid-opzet" defer></script>
+  <script src="/meos.js?v=20260817-dark-mode" defer></script>
 </body>
 </html>

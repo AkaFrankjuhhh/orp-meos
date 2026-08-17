@@ -2,16 +2,70 @@
   --meos-blue: #005493;
   --meos-blue-dark: #00457c;
   --meos-blue-deep: #003a68;
+  --meos-blue-soft: #1b98d3;
   --meos-line: #d9e0e8;
   --meos-muted: #777f89;
   --meos-text: #101721;
   --meos-soft: #f3f6f9;
   --meos-white: #ffffff;
+  --meos-page-bg: #edf2f7;
+  --meos-panel-bg: #ffffff;
+  --meos-elevated-bg: #ffffff;
+  --meos-subtle-bg: #e8edf2;
+  --meos-subtle-border: #dfe5eb;
+  --meos-input-bg: #ffffff;
+  --meos-input-border: #ccd5df;
+  --meos-secondary-text: #333b45;
+  --meos-small-text: #1f2933;
+  --meos-feed-border: #edf1f5;
+  --meos-card-border: #e0e6ed;
+  --meos-chip-bg: #f8fafc;
+  --meos-chip-text: #2c3440;
+  --meos-tab-text: #555;
+  --meos-table-border: #e3e8ef;
+  --meos-label-text: #999;
+  --meos-license-border: #d3d9e0;
+  --meos-empty-border: #cbd5df;
+  --meos-shadow: 0 1px 3px rgba(12, 27, 54, 0.12);
+  --meos-license-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
   --meos-green: #12a36d;
   --meos-red: #c93636;
   --meos-yellow: #c69214;
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+html[data-meos-theme="dark"] {
+  --meos-blue: #0269b4;
+  --meos-blue-dark: #035c9e;
+  --meos-blue-deep: #014071;
+  --meos-blue-soft: #4eb7e9;
+  --meos-line: #303946;
+  --meos-muted: #9ba7b6;
+  --meos-text: #edf3fb;
+  --meos-soft: #1a2029;
+  --meos-white: #171c24;
+  --meos-page-bg: #0f1218;
+  --meos-panel-bg: #171c24;
+  --meos-elevated-bg: #1d2430;
+  --meos-subtle-bg: #151a22;
+  --meos-subtle-border: #2a3340;
+  --meos-input-bg: #11161e;
+  --meos-input-border: #364353;
+  --meos-secondary-text: #c6d0dd;
+  --meos-small-text: #aeb8c6;
+  --meos-feed-border: #29313d;
+  --meos-card-border: #303946;
+  --meos-chip-bg: #202733;
+  --meos-chip-text: #d7e2ef;
+  --meos-tab-text: #bdc8d6;
+  --meos-table-border: #2a3340;
+  --meos-label-text: #94a0af;
+  --meos-license-border: #364353;
+  --meos-empty-border: #394454;
+  --meos-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --meos-license-shadow: 0 1px 3px rgba(0, 0, 0, 0.34);
+  color-scheme: dark;
 }
 
 * {
@@ -26,7 +80,7 @@ body {
 body {
   margin: 0;
   color: var(--meos-text);
-  background: #edf2f7;
+  background: var(--meos-page-bg);
   font-size: 14px;
 }
 
@@ -195,6 +249,67 @@ button {
   background: transparent;
 }
 
+.meos-topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  min-width: 0;
+}
+
+.meos-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.meos-theme-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.meos-theme-track {
+  width: 42px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.meos-theme-thumb {
+  width: 16px;
+  height: 16px;
+  display: block;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.26);
+  transition: transform 160ms ease;
+}
+
+.meos-theme-toggle input:checked + .meos-theme-track {
+  border-color: rgba(255, 255, 255, 0.72);
+  background: rgba(0, 0, 0, 0.26);
+}
+
+.meos-theme-toggle input:checked + .meos-theme-track .meos-theme-thumb {
+  transform: translateX(20px);
+}
+
+.meos-theme-toggle input:focus-visible + .meos-theme-track {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .meos-user {
   display: grid;
   gap: 1px;
@@ -223,9 +338,9 @@ button {
 .meos-breadcrumb {
   margin-bottom: 12px;
   padding: 12px;
-  color: var(--meos-blue);
-  background: #e8edf2;
-  border: 1px solid #dfe5eb;
+  color: var(--meos-blue-soft);
+  background: var(--meos-subtle-bg);
+  border: 1px solid var(--meos-subtle-border);
   font-size: 12px;
 }
 
@@ -349,10 +464,10 @@ button {
 
 .meos-panel {
   padding: 18px;
-  background: var(--meos-white);
+  background: var(--meos-panel-bg);
   border: 1px solid var(--meos-line);
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(12, 27, 54, 0.12);
+  box-shadow: var(--meos-shadow);
 }
 
 .meos-panel h2 {
@@ -364,13 +479,13 @@ button {
 
 .meos-panel p {
   margin: 6px 0 0;
-  color: #333b45;
+  color: var(--meos-secondary-text);
 }
 
 .meos-panel small {
   display: block;
   margin-top: 8px;
-  color: #1f2933;
+  color: var(--meos-small-text);
   font-size: 11px;
   text-decoration: underline;
 }
@@ -401,10 +516,10 @@ button {
 .meos-search-row select,
 .meos-inline-search input {
   width: 100%;
-  border: 1px solid #ccd5df;
+  border: 1px solid var(--meos-input-border);
   border-radius: 2px;
   padding: 10px 11px;
-  background: #fff;
+  background: var(--meos-input-bg);
   color: var(--meos-text);
 }
 
@@ -429,14 +544,14 @@ button {
 
 .meos-feed {
   margin-top: 20px;
-  border-top: 1px solid #e8edf2;
+  border-top: 1px solid var(--meos-feed-border);
 }
 
 .meos-feed p {
   margin: 0;
   padding: 12px 0;
-  border-bottom: 1px solid #edf1f5;
-  color: #3e4651;
+  border-bottom: 1px solid var(--meos-feed-border);
+  color: var(--meos-secondary-text);
 }
 
 .meos-inline-search {
@@ -505,10 +620,11 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
-  border: 1px solid #e0e6ed;
+  border: 1px solid var(--meos-card-border);
   border-radius: 4px;
   padding: 14px;
-  background: #fff;
+  background: var(--meos-elevated-bg);
+  color: var(--meos-text);
 }
 
 .meos-result-card strong {
@@ -529,10 +645,10 @@ button {
   align-items: center;
   min-height: 24px;
   padding: 3px 8px;
-  border: 1px solid #d7dde5;
+  border: 1px solid var(--meos-card-border);
   border-radius: 4px;
-  color: #2c3440;
-  background: #f8fafc;
+  color: var(--meos-chip-text);
+  background: var(--meos-chip-bg);
   font-size: 12px;
 }
 
@@ -552,6 +668,24 @@ button {
   border-color: #bfe7d5;
   color: #0c6844;
   background: #effcf6;
+}
+
+html[data-meos-theme="dark"] .meos-chip.warning {
+  border-color: #8b6b22;
+  color: #f2d38a;
+  background: #332813;
+}
+
+html[data-meos-theme="dark"] .meos-chip.danger {
+  border-color: #8d3636;
+  color: #ffb8b8;
+  background: #351919;
+}
+
+html[data-meos-theme="dark"] .meos-chip.ok {
+  border-color: #247553;
+  color: #91e7c2;
+  background: #123124;
 }
 
 .meos-profile-toolbar {
@@ -604,7 +738,7 @@ button {
 .meos-info-field span,
 .meos-table-label {
   display: block;
-  color: #999;
+  color: var(--meos-label-text);
   font-size: 12px;
 }
 
@@ -627,17 +761,17 @@ button {
   display: inline-flex;
   align-items: center;
   padding: 8px 16px;
-  border: 1px solid #d3d9e0;
+  border: 1px solid var(--meos-license-border);
   border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  background: var(--meos-elevated-bg);
+  box-shadow: var(--meos-license-shadow);
 }
 
 .meos-vehicle-tabs,
 .meos-date-tabs {
   display: flex;
   overflow-x: auto;
-  border-bottom: 1px solid #d7dde5;
+  border-bottom: 1px solid var(--meos-card-border);
 }
 
 .meos-vehicle-tabs button,
@@ -646,15 +780,15 @@ button {
   min-width: 128px;
   border: 0;
   padding: 12px;
-  color: #555;
-  background: #fff;
+  color: var(--meos-tab-text);
+  background: var(--meos-panel-bg);
   border-bottom: 3px solid transparent;
 }
 
 .meos-vehicle-tabs button.active,
 .meos-date-tabs button.active {
-  color: var(--meos-blue);
-  border-bottom-color: #1b98d3;
+  color: var(--meos-blue-soft);
+  border-bottom-color: var(--meos-blue-soft);
 }
 
 .meos-table {
@@ -665,13 +799,13 @@ button {
 .meos-table th,
 .meos-table td {
   padding: 12px 10px;
-  border-bottom: 1px solid #e3e8ef;
+  border-bottom: 1px solid var(--meos-table-border);
   text-align: left;
   vertical-align: top;
 }
 
 .meos-table th {
-  color: #666;
+  color: var(--meos-muted);
   font-size: 12px;
   font-weight: 500;
 }
@@ -685,10 +819,10 @@ button {
 
 .meos-empty {
   padding: 18px;
-  border: 1px dashed #cbd5df;
+  border: 1px dashed var(--meos-empty-border);
   border-radius: 4px;
   color: var(--meos-muted);
-  background: #f8fafc;
+  background: var(--meos-subtle-bg);
 }
 
 .meos-at-grid {
@@ -700,10 +834,10 @@ button {
 .meos-at-card {
   display: grid;
   gap: 12px;
-  border: 1px solid #dbe2ea;
+  border: 1px solid var(--meos-card-border);
   border-radius: 6px;
   padding: 14px;
-  background: #fff;
+  background: var(--meos-elevated-bg);
 }
 
 .meos-at-card header {
@@ -799,6 +933,14 @@ button {
   }
 
   .meos-user {
+    display: none;
+  }
+
+  .meos-topbar-actions {
+    gap: 8px;
+  }
+
+  .meos-theme-label {
     display: none;
   }
 
