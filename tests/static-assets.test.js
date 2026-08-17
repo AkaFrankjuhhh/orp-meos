@@ -126,6 +126,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosThemeToggle"/);
   assert.match(html, /id="meosProfileAvatar"/);
   assert.match(html, /id="meosProfileLogout"/);
+  assert.match(html, /\/assets\/meos-logo\.png\?v=20260817-orange-logo/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
   assert.match(styles, /html\[data-meos-theme="dark"\]/);
@@ -137,6 +138,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /transform: scale\(1\.01\)/);
   assert.match(styles, /\.meos-profile-grid/);
   assert.match(script, /const themeStorageKey = "orp-meos-theme"/);
+  assert.match(script, /\/assets\/meos-logo\.png\?v=20260817-orange-logo/);
   assert.match(script, /\/api\/meos\/session/);
   assert.match(script, /\/api\/meos\/logout/);
   assert.match(script, /function applyTheme\(theme\)/);
@@ -174,6 +176,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(overheidServerCode, /function isMeosPageRoute/);
   assert.match(overheidServerCode, /arrestatiebevelen/);
   assert.match(overheidServerCode, /portalIdentityForDiscordId/);
+  assert.match(overheidServerCode, /\/assets\/meos-logo\.png\?v=20260817-orange-logo/);
   assert.match(overheidServerCode, /DISCORD_POLITIE_MEOS_ROLE_ID/);
   assert.match(overheidServerCode, /\/api\/meos\/session/);
   assert.match(overheidServerCode, /\/api\/meos\/login\?returnTo=/);

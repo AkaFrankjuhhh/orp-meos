@@ -314,7 +314,7 @@ function matchingRoutesForRoles(routes, roles, userId) {
 }
 
 function discordAvatarUrl(user) {
-  if (!user?.id || !user?.avatar) return "/assets/politie-logo.png?v=20260613-form-branding";
+  if (!user?.id || !user?.avatar) return "/assets/meos-logo.png?v=20260817-orange-logo";
   const extension = String(user.avatar).startsWith("a_") ? "gif" : "png";
   return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${extension}?size=128`;
 }

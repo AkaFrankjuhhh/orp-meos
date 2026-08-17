@@ -124,7 +124,7 @@ button {
 .meos-brand {
   min-height: 42px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 44px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 0 4px 8px;
@@ -132,8 +132,8 @@ button {
 }
 
 .meos-brand img {
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 30px;
   object-fit: contain;
 }
 
