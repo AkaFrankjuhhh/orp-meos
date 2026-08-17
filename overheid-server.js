@@ -4,6 +4,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
 const { createHttpResponder, serveWhitelistedStatic } = require("./modules/http-security");
+const { portalIdentityForDiscordId } = require("./modules/side-tasks-portal-identity");
 
 loadEnv();
 
@@ -25,10 +26,25 @@ const roleRoutes = [
     targetUrl: process.env.OVERHEID_POLITIE_URL || process.env.POLITIE_APP_BASE_URL || "https://orppolitie.nl"
   }
 ];
+const meosRoleRoutes = [
+  {
+    key: "defensie",
+    label: "Defensie MEOS",
+    roleId: process.env.DISCORD_MEOS_ROLE_ID || process.env.DISCORD_DEFENSIE_MEOS_ROLE_ID || ""
+  },
+  {
+    key: "politie",
+    label: "Politie MEOS",
+    roleId: process.env.DISCORD_POLITIE_MEOS_ROLE_ID || process.env.DISCORD_POLITIE_ROLE_ID || "1423471185391255705"
+  }
+];
 const INTERNAL_COMPLAINT_RETURN_TO = "/forms/interne-klacht";
 const internalComplaintHosts = new Set(["interne-klacht.orpoverheid.nl", "interne-klachten.orpoverheid.nl"]);
 const oauthStateTtlMs = 10 * 60 * 1000;
 const pendingOAuthStates = new Map();
+const meosSessionCookieName = "orp_meos_session";
+const meosSessionTtlMs = Number(process.env.MEOS_SESSION_MAX_AGE_SECONDS || 7 * 24 * 60 * 60) * 1000;
+const meosSessions = new Map();
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -87,6 +103,44 @@ function takeOAuthState(state) {
   return value || null;
 }
 
+function cleanupMeosSessions() {
+  const now = Date.now();
+  for (const [sessionId, session] of meosSessions) {
+    if (!session?.expiresAt || session.expiresAt <= now) meosSessions.delete(sessionId);
+  }
+}
+
+function rememberMeosSession(profile) {
+  cleanupMeosSessions();
+  const sessionId = crypto.randomBytes(32).toString("hex");
+  meosSessions.set(sessionId, {
+    id: sessionId,
+    profile,
+    createdAt: new Date().toISOString(),
+    expiresAt: Date.now() + meosSessionTtlMs
+  });
+  return sessionId;
+}
+
+function getMeosSession(req) {
+  cleanupMeosSessions();
+  const cookies = parseCookies(req);
+  const sessionId = String(cookies[meosSessionCookieName] || "").trim();
+  if (!sessionId) return null;
+  const session = meosSessions.get(sessionId);
+  if (!session || session.expiresAt <= Date.now()) {
+    meosSessions.delete(sessionId);
+    return null;
+  }
+  return session;
+}
+
+function deleteMeosSession(req) {
+  const cookies = parseCookies(req);
+  const sessionId = String(cookies[meosSessionCookieName] || "").trim();
+  if (sessionId) meosSessions.delete(sessionId);
+}
+
 function forwardedHost(req) {
   return String(req?.headers?.["x-forwarded-host"] || req?.headers?.host || "")
     .split(",")[0]
@@ -101,7 +155,13 @@ function isMeosHost(req) {
 }
 
 function serveMeosStatic(req, res, url) {
-  if (!isMeosHost(req) && !["/meos", "/meos.html", "/meos.css", "/meos.js"].includes(url.pathname)) return false;
+  const meosStaticPaths = new Set(["/", "/meos", "/meos.html", "/meos.css", "/meos.js"]);
+  const isMeosAsset = url.pathname.startsWith("/assets/");
+  if (isMeosHost(req)) {
+    if (!meosStaticPaths.has(url.pathname) && !isMeosAsset) return false;
+  } else if (!["/meos", "/meos.html", "/meos.css", "/meos.js"].includes(url.pathname)) {
+    return false;
+  }
   const requested = url.pathname === "/" || url.pathname === "/meos" ? "/meos.html" : url.pathname;
   const publicRootFiles = new Set(["meos.html", "meos.css", "meos.js"]);
   serveWhitelistedStatic({
@@ -139,6 +199,14 @@ function clearHostCookie(name, req = null) {
 
 function clearOverheidCookies(names, req = null) {
   return names.flatMap((name) => [clearHostCookie(name, req), clearCookie(name, req)]);
+}
+
+function meosSessionCookie(sessionId, req = null) {
+  return authCookie(meosSessionCookieName, sessionId, Math.floor(meosSessionTtlMs / 1000), req);
+}
+
+function clearMeosSessionCookie(req = null) {
+  return clearCookie(meosSessionCookieName, req);
 }
 
 function choiceCookie(routes, req = null) {
@@ -185,12 +253,23 @@ function callbackUrl(req) {
   return `${requestBaseUrl(req)}/auth/discord/callback`;
 }
 
+function meosAppBaseUrl(req) {
+  if (process.env.MEOS_APP_BASE_URL) return process.env.MEOS_APP_BASE_URL.replace(/\/+$/, "");
+  const proto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || `localhost:${port}`).split(",")[0].trim();
+  return `${proto}://${host}`.replace(/\/+$/, "");
+}
+
+function meosHomeUrl(req) {
+  return `${meosAppBaseUrl(req)}/`;
+}
+
 function discordConfigured() {
   return Boolean(
     process.env.DISCORD_CLIENT_ID &&
       process.env.DISCORD_CLIENT_SECRET &&
       process.env.DISCORD_GUILD_ID &&
-      roleRoutes.some((route) => route.roleId)
+      (roleRoutes.some((route) => route.roleId) || meosRoleRoutes.some((route) => route.roleId))
   );
 }
 
@@ -204,6 +283,55 @@ function devOverrideIds() {
 
 function isDevOverride(userId) {
   return devOverrideIds().has(normalizeDiscordId(userId));
+}
+
+function matchingRoutesForRoles(routes, roles, userId) {
+  return routes.filter((route) => route.roleId && (roles.has(route.roleId) || isDevOverride(userId)));
+}
+
+function uniqueRoutesByKey(routes) {
+  const seen = new Set();
+  return routes.filter((route) => {
+    if (seen.has(route.key)) return false;
+    seen.add(route.key);
+    return true;
+  });
+}
+
+function discordAvatarUrl(user) {
+  if (!user?.id || !user?.avatar) return "/assets/politie-logo.png?v=20260613-form-branding";
+  const extension = String(user.avatar).startsWith("a_") ? "gif" : "png";
+  return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${extension}?size=128`;
+}
+
+function serviceNumberFromNickname(nickname) {
+  const match = String(nickname || "").match(/^\[([^\]\s]+)(?:\s+[^\]]+)?\]/);
+  return match ? match[1] : "";
+}
+
+function meosFallbackProfile(user = null) {
+  return {
+    name: user?.global_name || user?.username || "Frank Bright",
+    serviceNumber: "70-04",
+    avatarUrl: discordAvatarUrl(user || {}),
+    discordId: normalizeDiscordId(user?.id || ""),
+    discordUsername: user?.username || "",
+    organizationKey: "overheid"
+  };
+}
+
+async function meosProfileForDiscordUser(user, matches = []) {
+  const identity = await portalIdentityForDiscordId(user?.id);
+  const person = identity?.person || {};
+  const fallback = meosFallbackProfile(user);
+  return {
+    name: String(person.name || fallback.name).trim(),
+    serviceNumber: String(person.service_number || person.previous_service_number || serviceNumberFromNickname(identity?.nickname) || fallback.serviceNumber).trim(),
+    avatarUrl: discordAvatarUrl(user),
+    discordId: normalizeDiscordId(user?.id || ""),
+    discordUsername: user?.username || "",
+    organizationKey: identity?.organizationKey || matches[0]?.key || "overheid"
+  };
 }
 
 async function discordFetch(url, options = {}) {
@@ -357,6 +485,58 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (url.pathname === "/api/meos/session" && req.method === "GET") {
+    const session = getMeosSession(req);
+    sendJson(res, 200, {
+      authenticated: Boolean(session),
+      profile: session?.profile || meosFallbackProfile()
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/logout" && req.method === "POST") {
+    deleteMeosSession(req);
+    writeHeadSecure(res, 204, {
+      "Set-Cookie": clearMeosSessionCookie(req)
+    });
+    res.end();
+    return;
+  }
+
+  if (url.pathname === "/api/meos/login" && req.method === "GET") {
+    if (!discordConfigured()) {
+      sendHtml(res, 500, loginPage("Discord of organisatie rollen ontbreken in .env."));
+      return;
+    }
+    const state = crypto.randomBytes(24).toString("hex");
+    const redirectUri = callbackUrl(req);
+    const returnTo = "/meos";
+    rememberOAuthState(state, {
+      redirectUri,
+      returnTo,
+      surface: "meos",
+      meosHomeUrl: meosHomeUrl(req)
+    });
+    const params = new URLSearchParams({
+      client_id: process.env.DISCORD_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: "identify guilds.members.read",
+      state
+    });
+    writeHeadSecure(res, 302, {
+      Location: `https://discord.com/api/oauth2/authorize?${params}`,
+      "Set-Cookie": [
+        ...clearOverheidCookies(["orp_overheid_state", "orp_overheid_redirect", "orp_overheid_return_to", "orp_overheid_choices"], req),
+        authCookie("orp_overheid_state", state, 600, req),
+        authCookie("orp_overheid_redirect", redirectUri, 600, req),
+        returnToCookie(returnTo, req)
+      ]
+    });
+    res.end();
+    return;
+  }
+
   if (url.pathname === "/" && req.method === "GET") {
     const choices = choicesFromCookie(req);
     if (choices.length) {
@@ -421,10 +601,33 @@ async function handleRequest(req, res) {
       const user = await getDiscordUser(token.access_token);
       const member = await getGuildMember(token.access_token);
       const roles = new Set(member.roles || []);
-      const matches = roleRoutes.filter((route) => route.roleId && (roles.has(route.roleId) || isDevOverride(user.id)));
+      const matches = matchingRoutesForRoles(roleRoutes, roles, user.id);
+      const isMeosLogin = rememberedState?.surface === "meos" || returnTo === "/meos";
+      const meosMatches = isMeosLogin
+        ? uniqueRoutesByKey([...matches, ...matchingRoutesForRoles(meosRoleRoutes, roles, user.id)])
+        : [];
 
-      if (!matches.length) {
+      if (isMeosLogin && !meosMatches.length) {
+        sendHtml(res, 403, loginPage("Geen MEOS-, Defensie- of Politie-rol gevonden op Discord."));
+        return;
+      }
+
+      if (!isMeosLogin && !matches.length) {
         sendHtml(res, 403, loginPage("Geen Defensie- of Politie-rol gevonden op Discord."));
+        return;
+      }
+
+      if (isMeosLogin) {
+        const profile = await meosProfileForDiscordUser(user, meosMatches);
+        const sessionId = rememberMeosSession(profile);
+        writeHeadSecure(res, 302, {
+          Location: rememberedState?.meosHomeUrl || meosHomeUrl(req),
+          "Set-Cookie": [
+            ...clearOverheidCookies(["orp_overheid_state", "orp_overheid_redirect", "orp_overheid_return_to", "orp_overheid_choices"], req),
+            meosSessionCookie(sessionId, req)
+          ]
+        });
+        res.end();
         return;
       }
 

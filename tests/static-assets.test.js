@@ -11,12 +11,12 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForServer(process, timeoutMs = 8000) {
+async function waitForServer(process, timeoutMs = 8000, healthUrl = `${baseUrl}/api/health`) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     assert.equal(process.exitCode, null, "server exited before it became ready");
     try {
-      const response = await fetch(`${baseUrl}/api/health`);
+      const response = await fetch(healthUrl);
       if (response.ok) return;
     } catch {
       // Server is still starting.
@@ -121,13 +121,19 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="personSearch"/);
   assert.match(html, /id="vehicleSearch"/);
   assert.match(html, /id="meosThemeToggle"/);
+  assert.match(html, /id="meosProfileAvatar"/);
+  assert.match(html, /id="meosProfileLogout"/);
   assert.match(styles, /--meos-blue: #005493/);
   assert.match(styles, /html\[data-meos-theme="dark"\]/);
   assert.match(styles, /--meos-page-bg: #0f1218/);
   assert.match(styles, /\.meos-theme-toggle/);
+  assert.match(styles, /\.meos-discord-profile/);
   assert.match(styles, /\.meos-profile-grid/);
   assert.match(script, /const themeStorageKey = "orp-meos-theme"/);
+  assert.match(script, /\/api\/meos\/session/);
+  assert.match(script, /\/api\/meos\/logout/);
   assert.match(script, /function applyTheme\(theme\)/);
+  assert.match(script, /function renderMeosProfile\(/);
   assert.match(script, /dataset\.meosTheme = nextTheme/);
   assert.match(script, /fingerprint: "VN-8842-ER"/);
   assert.match(script, /function filteredPeople\(/);
@@ -136,9 +142,49 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(serverCode, /meos\.orpoverheid\.nl/);
   assert.match(serverCode, /"meos\.html", "meos\.css", "meos\.js"/);
   assert.match(overheidServerCode, /function serveMeosStatic/);
+  assert.match(overheidServerCode, /portalIdentityForDiscordId/);
+  assert.match(overheidServerCode, /DISCORD_POLITIE_MEOS_ROLE_ID/);
+  assert.match(overheidServerCode, /\/api\/meos\/session/);
+  assert.match(overheidServerCode, /orp_meos_session/);
   assert.match(caddy, /meos\.orpoverheid\.nl/);
   assert.match(caddy, /meos\.orpdefensie\.nl, meos\.orppolitie\.nl/);
   assert.match(caddy, /redir https:\/\/meos\.orpoverheid\.nl\{uri\} permanent/);
+});
+
+test("MEOS overheid host serves API routes before static fallback", async () => {
+  const overheidPort = 4138;
+  const overheidBaseUrl = `http://127.0.0.1:${overheidPort}`;
+  const server = spawn(process.execPath, ["overheid-server.js"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      OVERHEID_PORT: String(overheidPort),
+      OVERHEID_APP_BASE_URL: overheidBaseUrl,
+      NODE_ENV: "test"
+    },
+    stdio: "ignore"
+  });
+
+  try {
+    await waitForServer(server, 8000, `${overheidBaseUrl}/api/health`);
+
+    const session = await fetch(`${overheidBaseUrl}/api/meos/session`, {
+      headers: { "x-forwarded-host": "meos.orpoverheid.nl" }
+    });
+    assert.equal(session.status, 200);
+    assert.match(session.headers.get("content-type") || "", /application\/json/);
+    const payload = await session.json();
+    assert.equal(payload.authenticated, false);
+    assert.equal(payload.profile.name, "Frank Bright");
+
+    const page = await fetch(`${overheidBaseUrl}/`, {
+      headers: { "x-forwarded-host": "meos.orpoverheid.nl" }
+    });
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /meosProfileAvatar/);
+  } finally {
+    server.kill();
+  }
 });
 
 test("portal boot waits for the app before revealing the shell", () => {

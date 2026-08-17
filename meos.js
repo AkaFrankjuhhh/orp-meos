@@ -84,6 +84,11 @@
   let activePersonId = people[0].id;
   let activeVehiclePlate = people[0].vehicles[0].plate;
   const themeStorageKey = "orp-meos-theme";
+  const defaultMeosProfile = {
+    name: "Frank Bright",
+    serviceNumber: "70-04",
+    avatarUrl: "/assets/politie-logo.png?v=20260613-form-branding"
+  };
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -127,6 +132,48 @@
       // Dark mode is a preference; the interface should still work if storage is blocked.
     }
     applyTheme(nextTheme);
+  }
+
+  function renderMeosProfile(profile = defaultMeosProfile, authenticated = false) {
+    const nextProfile = { ...defaultMeosProfile, ...(profile || {}) };
+    const avatar = $("#meosProfileAvatar");
+    const name = $("#meosProfileName");
+    const serviceNumber = $("#meosProfileNumber");
+    const login = $("#meosProfileLogin");
+    const logout = $("#meosProfileLogout");
+    if (avatar) avatar.src = nextProfile.avatarUrl || defaultMeosProfile.avatarUrl;
+    if (name) name.textContent = nextProfile.name || defaultMeosProfile.name;
+    if (serviceNumber) serviceNumber.textContent = nextProfile.serviceNumber || defaultMeosProfile.serviceNumber;
+    if (login) login.hidden = authenticated;
+    if (logout) logout.hidden = !authenticated;
+  }
+
+  async function loadMeosSession() {
+    try {
+      const response = await fetch("/api/meos/session", {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin"
+      });
+      if (!response.ok) throw new Error(`MEOS sessie ophalen mislukt (${response.status})`);
+      const payload = await response.json();
+      renderMeosProfile(payload.profile, Boolean(payload.authenticated));
+    } catch {
+      renderMeosProfile(defaultMeosProfile, false);
+    }
+  }
+
+  async function logoutMeosProfile() {
+    const logout = $("#meosProfileLogout");
+    if (logout) logout.disabled = true;
+    try {
+      await fetch("/api/meos/logout", {
+        method: "POST",
+        credentials: "same-origin"
+      });
+      renderMeosProfile(defaultMeosProfile, false);
+    } finally {
+      if (logout) logout.disabled = false;
+    }
   }
 
   function allVehicles() {
@@ -459,11 +506,17 @@
     $("#meosThemeToggle")?.addEventListener("change", (event) => {
       setTheme(event.target.checked ? "dark" : "light");
     });
+    $("#meosProfileLogout")?.addEventListener("click", logoutMeosProfile);
+    $("#meosProfileAvatar")?.addEventListener("error", (event) => {
+      event.currentTarget.src = defaultMeosProfile.avatarUrl;
+    }, { once: true });
   }
 
   function init() {
     applyTheme(preferredTheme());
+    renderMeosProfile(defaultMeosProfile, true);
     bindEvents();
+    loadMeosSession();
     renderPeople();
     renderVehicles();
     renderAtOverview();

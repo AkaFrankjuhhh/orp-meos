@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
-  <link rel="stylesheet" href="/meos.css?v=20260817-dark-mode" />
+  <link rel="stylesheet" href="/meos.css?v=20260817-discord-profile" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -56,10 +56,15 @@
             </span>
             <span class="meos-theme-label">Dark</span>
           </label>
-          <div class="meos-user">
-            <span>Frank Bright</span>
-            <strong>Frank B.</strong>
-          </div>
+          <section class="meos-discord-profile" aria-label="Discord profiel">
+            <img id="meosProfileAvatar" src="/assets/politie-logo.png?v=20260613-form-branding" alt="" />
+            <div class="meos-discord-profile-copy">
+              <strong id="meosProfileName">Frank Bright</strong>
+              <span id="meosProfileNumber">70-04</span>
+            </div>
+            <a id="meosProfileLogin" class="meos-profile-action" href="/api/meos/login" hidden>Koppelen</a>
+            <button id="meosProfileLogout" class="meos-profile-action" type="button">Uitloggen</button>
+          </section>
         </div>
       </header>
 
@@ -194,6 +199,6 @@
     </main>
   </div>
 
-  <script src="/meos.js?v=20260817-dark-mode" defer></script>
+  <script src="/meos.js?v=20260817-discord-profile" defer></script>
 </body>
 </html>
