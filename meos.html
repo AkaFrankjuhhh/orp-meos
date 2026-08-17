@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
-  <link rel="stylesheet" href="/meos.css?v=20260817-sidebar-nav" />
+  <link rel="stylesheet" href="/meos.css?v=20260817-profile-compact" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -58,16 +58,13 @@
         <div class="meos-topbar-actions">
           <label class="meos-theme-toggle" title="Dark mode">
             <input id="meosThemeToggle" type="checkbox" aria-label="Dark mode inschakelen" />
-            <span class="meos-theme-track" aria-hidden="true">
-              <span class="meos-theme-thumb"></span>
-            </span>
-            <span class="meos-theme-label">Dark</span>
+            <span class="meos-theme-icon" aria-hidden="true"></span>
           </label>
           <section class="meos-discord-profile" aria-label="Discord profiel">
             <img id="meosProfileAvatar" src="/assets/politie-logo.png?v=20260613-form-branding" alt="" />
             <div class="meos-discord-profile-copy">
-              <strong id="meosProfileName">Frank Bright</strong>
-              <span id="meosProfileNumber">70-04</span>
+              <strong id="meosProfileName">Frank B</strong>
+              <span id="meosProfileMeta">Brigadegeneraal &middot; 70-04</span>
             </div>
             <a id="meosProfileLogin" class="meos-profile-action" href="/api/meos/login" hidden>Koppelen</a>
             <button id="meosProfileLogout" class="meos-profile-action" type="button">Uitloggen</button>
@@ -206,6 +203,6 @@
     </main>
   </div>
 
-  <script src="/meos.js?v=20260817-profile-licenses" defer></script>
+  <script src="/meos.js?v=20260817-profile-compact" defer></script>
 </body>
 </html>

@@ -327,6 +327,7 @@ function serviceNumberFromNickname(nickname) {
 function meosFallbackProfile(user = null) {
   return {
     name: user?.global_name || user?.username || "Frank Bright",
+    rank: "Brigadegeneraal",
     serviceNumber: "70-04",
     avatarUrl: discordAvatarUrl(user || {}),
     discordId: normalizeDiscordId(user?.id || ""),
@@ -341,6 +342,7 @@ async function meosProfileForDiscordUser(user, matches = []) {
   const fallback = meosFallbackProfile(user);
   return {
     name: String(person.name || fallback.name).trim(),
+    rank: String(person.rank || fallback.rank || "").trim(),
     serviceNumber: String(person.service_number || person.previous_service_number || serviceNumberFromNickname(identity?.nickname) || fallback.serviceNumber).trim(),
     avatarUrl: discordAvatarUrl(user),
     discordId: normalizeDiscordId(user?.id || ""),

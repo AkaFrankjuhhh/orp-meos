@@ -93,6 +93,8 @@
   const themeStorageKey = "orp-meos-theme";
   const defaultMeosProfile = {
     name: "Frank Bright",
+    displayName: "Frank B",
+    rank: "Brigadegeneraal",
     serviceNumber: "70-04",
     avatarUrl: "/assets/politie-logo.png?v=20260613-form-branding"
   };
@@ -155,16 +157,27 @@
     applyTheme(nextTheme);
   }
 
+  function compactProfileName(name) {
+    const parts = String(name || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
+    if (!parts.length) return defaultMeosProfile.displayName;
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}`;
+  }
+
+  function profileMetaLine(profile) {
+    return [profile.rank, profile.serviceNumber].map((value) => String(value || "").trim()).filter(Boolean).join(" \u00b7 ");
+  }
+
   function renderMeosProfile(profile = defaultMeosProfile, authenticated = false) {
     const nextProfile = { ...defaultMeosProfile, ...(profile || {}) };
     const avatar = $("#meosProfileAvatar");
     const name = $("#meosProfileName");
-    const serviceNumber = $("#meosProfileNumber");
+    const meta = $("#meosProfileMeta");
     const login = $("#meosProfileLogin");
     const logout = $("#meosProfileLogout");
     if (avatar) avatar.src = nextProfile.avatarUrl || defaultMeosProfile.avatarUrl;
-    if (name) name.textContent = nextProfile.name || defaultMeosProfile.name;
-    if (serviceNumber) serviceNumber.textContent = nextProfile.serviceNumber || defaultMeosProfile.serviceNumber;
+    if (name) name.textContent = nextProfile.displayName || compactProfileName(nextProfile.name);
+    if (meta) meta.textContent = profileMetaLine(nextProfile);
     if (login) login.hidden = authenticated;
     if (logout) logout.hidden = !authenticated;
   }
