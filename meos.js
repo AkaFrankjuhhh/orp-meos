@@ -106,6 +106,20 @@
     return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
   }
 
+  function personSlug(person) {
+    const raw = String(person?.name || person?.id || "persoon").trim();
+    const slug = raw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "");
+    return slug || "persoon";
+  }
+
+  function personIsWanted(person) {
+    return normalize(person?.status).includes("gezocht");
+  }
+
   function preferredTheme() {
     let stored = "";
     try {
@@ -184,6 +198,11 @@
     return people.find((person) => person.id === id) || people[0];
   }
 
+  function findPersonBySlug(slug) {
+    const normalizedSlug = String(slug || "").trim().toLowerCase();
+    return people.find((person) => personSlug(person).toLowerCase() === normalizedSlug || person.id.toLowerCase() === normalizedSlug) || null;
+  }
+
   function personSearchFields(person, field) {
     const fields = {
       name: [person.name],
@@ -209,18 +228,29 @@
     return vehicles.filter((vehicle) => [vehicle.plate, vehicle.model, vehicle.owner, vehicle.primaryColor, vehicle.secondaryColor, vehicle.stolen, vehicle.impounded, vehicle.vin].some((value) => normalize(value).includes(query)));
   }
 
+  function pagePath(page, options = {}) {
+    if (page === "profile") return `/personen/${personSlug(options.person || findPerson(activePersonId))}`;
+    if (page === "personen") return "/personen";
+    if (page === "voertuigen") return "/voertuigen";
+    if (page === "at") return "/at";
+    return "/dashboard";
+  }
+
+  function updatePageUrl(page, options = {}) {
+    if (options.updateUrl === false || !window.history?.pushState) return;
+    const nextPath = pagePath(page, options);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({ meos: true, page }, "", nextPath);
+    }
+  }
+
   function setPage(page, options = {}) {
     activePage = page;
     $$(".meos-page").forEach((element) => element.classList.toggle("active", element.dataset.page === page));
     const navPage = options.nav || (page === "profile" ? "personen" : page);
     $$(".meos-nav-item").forEach((button) => button.classList.toggle("active", button.dataset.section === navPage));
     document.body.classList.remove("sidebar-open");
-  }
-
-  function statusChip(status) {
-    const normalized = normalize(status);
-    const tone = normalized.includes("gezocht") ? "danger" : normalized.includes("aandacht") ? "warning" : "ok";
-    return `<span class="meos-chip ${tone}">${escapeHtml(status)}</span>`;
+    updatePageUrl(page, options);
   }
 
   function renderPeople() {
@@ -233,20 +263,21 @@
       target.innerHTML = '<div class="meos-empty">Geen personen gevonden.</div>';
       return;
     }
-    target.innerHTML = rows.map((person) => `
-      <article class="meos-result-card">
+    target.innerHTML = rows.map((person) => {
+      const wanted = personIsWanted(person);
+      return `
+      <article class="meos-result-card meos-person-row${wanted ? " wanted" : ""}" role="button" tabindex="0" data-open-profile="${escapeHtml(person.id)}" aria-label="Profiel openen van ${escapeHtml(person.name)}">
         <div>
           <strong>${escapeHtml(person.name)}</strong>
           <div class="meos-result-meta">
             <span class="meos-chip">BSN ${escapeHtml(person.bsn)}</span>
             <span class="meos-chip">Vingerafdruk ${escapeHtml(person.fingerprint)}</span>
             <span class="meos-chip">Geboren ${escapeHtml(person.birthDate)}</span>
-            ${statusChip(person.status)}
           </div>
         </div>
-        <button class="meos-secondary" type="button" data-open-profile="${escapeHtml(person.id)}">Profiel openen</button>
       </article>
-    `).join("");
+    `;
+    }).join("");
   }
 
   function renderVehicleFields(vehicle) {
@@ -268,7 +299,7 @@
     `).join("")}</div>`;
   }
 
-  function renderProfile(personId = activePersonId) {
+  function renderProfile(personId = activePersonId, options = {}) {
     activePersonId = personId;
     const person = findPerson(personId);
     const selectedVehicle = person.vehicles.find((vehicle) => vehicle.plate === activeVehiclePlate) || person.vehicles[0];
@@ -353,7 +384,7 @@
       </div>
     `;
     $("#profileBreadcrumb").textContent = `Personen / ${person.name}`;
-    setPage("profile", { nav: "personen" });
+    setPage("profile", { nav: "personen", person, updateUrl: options.updateUrl });
   }
 
   function renderRecord(record) {
@@ -440,6 +471,97 @@
     target.innerHTML = items.length ? items.join("") : '<div class="meos-empty">Geen matches gevonden.</div>';
   }
 
+  function routeFromLocation() {
+    const path = window.location.pathname.replace(/\/+$/, "") || "/";
+    const segments = path.split("/").filter(Boolean);
+    const first = (segments[0] || "").toLowerCase();
+    if (path === "/" || first === "meos" || first === "dashboard") return { page: "dashboard", replace: path === "/" || first === "meos" };
+    if (first === "personen" && segments[1]) {
+      const slug = decodeURIComponent(segments.slice(1).join("-"));
+      const person = findPersonBySlug(slug);
+      return person ? { page: "profile", personId: person.id } : { page: "personen", replace: true };
+    }
+    if (first === "personen") return { page: "personen" };
+    if (first === "voertuigen") return { page: "voertuigen" };
+    if (first === "at") return { page: "at" };
+    return { page: "dashboard", replace: true };
+  }
+
+  function applyRouteFromLocation() {
+    const route = routeFromLocation();
+    if (route.page === "profile") {
+      renderProfile(route.personId, { updateUrl: false });
+    } else {
+      setPage(route.page, { updateUrl: false });
+    }
+    if (route.replace && window.history?.replaceState) {
+      const person = route.personId ? findPerson(route.personId) : null;
+      window.history.replaceState({ meos: true, page: route.page }, "", pagePath(route.page, { person }));
+    }
+  }
+
+  async function normalizeUploadedImageToPng(file) {
+    if (!file?.type?.startsWith("image/")) return file;
+    if (file.type === "image/png" && /\.png$/i.test(file.name || "")) return file;
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    context.drawImage(bitmap, 0, 0);
+    bitmap.close?.();
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((pngBlob) => pngBlob ? resolve(pngBlob) : reject(new Error("PNG conversie mislukt.")), "image/png");
+    });
+    const name = String(file.name || "upload").replace(/\.[^.]+$/, "") || "upload";
+    return new File([blob], `${name}.png`, { type: "image/png", lastModified: Date.now() });
+  }
+
+  function shouldNormalizeImageInput(input) {
+    if (!input?.matches?.('input[type="file"]')) return false;
+    const accept = String(input.getAttribute("accept") || "").toLowerCase();
+    return input.dataset.meosPngUpload === "true" || accept.includes("image");
+  }
+
+  async function normalizeImageInputFiles(input) {
+    const files = [...(input.files || [])];
+    if (!files.length || typeof DataTransfer === "undefined") return;
+    try {
+      const transfer = new DataTransfer();
+      for (const file of files) transfer.items.add(await normalizeUploadedImageToPng(file));
+      input.files = transfer.files;
+      input.dispatchEvent(new CustomEvent("meos:png-ready", { bubbles: true }));
+    } catch {
+      input.value = "";
+      window.alert("Upload alleen afbeeldingen die naar PNG kunnen worden omgezet.");
+    }
+  }
+
+  function bindInterfaceGuards() {
+    document.addEventListener("contextmenu", (event) => event.preventDefault());
+    document.addEventListener("keydown", (event) => {
+      const key = String(event.key || "").toLowerCase();
+      const blockedDevToolsShortcut = event.key === "F12"
+        || (event.ctrlKey && event.shiftKey && ["i", "j", "c"].includes(key))
+        || (event.ctrlKey && ["u", "s"].includes(key));
+      if (blockedDevToolsShortcut) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      const clickableRow = event.target.closest?.(".meos-result-card[data-open-profile], .meos-result-card[data-owner-profile]");
+      if (clickableRow && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        clickableRow.click();
+      }
+    });
+    document.addEventListener("change", (event) => {
+      const input = event.target;
+      if (shouldNormalizeImageInput(input)) normalizeImageInputFiles(input);
+    });
+  }
+
   function bindEvents() {
     document.addEventListener("click", (event) => {
       const navButton = event.target.closest("[data-section]");
@@ -510,18 +632,20 @@
     $("#meosProfileAvatar")?.addEventListener("error", (event) => {
       event.currentTarget.src = defaultMeosProfile.avatarUrl;
     }, { once: true });
+    window.addEventListener("popstate", applyRouteFromLocation);
   }
 
   function init() {
     applyTheme(preferredTheme());
     renderMeosProfile(defaultMeosProfile, true);
+    bindInterfaceGuards();
     bindEvents();
     loadMeosSession();
     renderPeople();
     renderVehicles();
     renderAtOverview();
     renderQuickSearch();
-    setPage(activePage);
+    applyRouteFromLocation();
   }
 
   if (document.readyState === "loading") {

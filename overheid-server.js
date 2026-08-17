@@ -154,15 +154,28 @@ function isMeosHost(req) {
   return host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
 }
 
+function isMeosPageRoute(pathname) {
+  const firstSegment = String(pathname || "").split("/").filter(Boolean)[0]?.toLowerCase() || "";
+  return ["dashboard", "personen", "voertuigen", "at"].includes(firstSegment);
+}
+
 function serveMeosStatic(req, res, url) {
   const meosStaticPaths = new Set(["/", "/meos", "/meos.html", "/meos.css", "/meos.js"]);
   const isMeosAsset = url.pathname.startsWith("/assets/");
+  const isMeosPage = isMeosPageRoute(url.pathname);
   if (isMeosHost(req)) {
-    if (!meosStaticPaths.has(url.pathname) && !isMeosAsset) return false;
+    if (!meosStaticPaths.has(url.pathname) && !isMeosAsset && !isMeosPage) return false;
+    if (isMeosPage && !getMeosSession(req)) {
+      writeHeadSecure(res, 302, {
+        Location: `/api/meos/login?returnTo=${encodeURIComponent(url.pathname)}`
+      });
+      res.end();
+      return true;
+    }
   } else if (!["/meos", "/meos.html", "/meos.css", "/meos.js"].includes(url.pathname)) {
     return false;
   }
-  const requested = url.pathname === "/" || url.pathname === "/meos" ? "/meos.html" : url.pathname;
+  const requested = url.pathname === "/" || url.pathname === "/meos" || isMeosPage ? "/meos.html" : url.pathname;
   const publicRootFiles = new Set(["meos.html", "meos.css", "meos.js"]);
   serveWhitelistedStatic({
     root: __dirname,
@@ -260,8 +273,14 @@ function meosAppBaseUrl(req) {
   return `${proto}://${host}`.replace(/\/+$/, "");
 }
 
-function meosHomeUrl(req) {
-  return `${meosAppBaseUrl(req)}/`;
+function safeMeosReturnTo(value) {
+  const returnTo = safeReturnTo(value || "/dashboard");
+  if (returnTo === "/" || returnTo === "/meos" || returnTo === "/meos.html") return "/dashboard";
+  return isMeosPageRoute(returnTo) ? returnTo : "/dashboard";
+}
+
+function meosHomeUrl(req, returnTo = "/dashboard") {
+  return `${meosAppBaseUrl(req)}${safeMeosReturnTo(returnTo)}`;
 }
 
 function discordConfigured() {
@@ -510,12 +529,12 @@ async function handleRequest(req, res) {
     }
     const state = crypto.randomBytes(24).toString("hex");
     const redirectUri = callbackUrl(req);
-    const returnTo = "/meos";
+    const returnTo = safeMeosReturnTo(url.searchParams.get("returnTo") || "/dashboard");
     rememberOAuthState(state, {
       redirectUri,
       returnTo,
       surface: "meos",
-      meosHomeUrl: meosHomeUrl(req)
+      meosHomeUrl: meosHomeUrl(req, returnTo)
     });
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID,

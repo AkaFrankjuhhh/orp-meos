@@ -2101,11 +2101,13 @@ function serveStatic(req, res, url) {
   }
   const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].split(":")[0].trim().toLowerCase();
   const isMeosHost = host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
+  const meosRouteRoots = new Set(["dashboard", "personen", "voertuigen", "at"]);
+  const isMeosPageRoute = isMeosHost && meosRouteRoots.has(firstSegment.toLowerCase());
   const isMeosRoute = isMeosHost || ["meos", "meos.html"].includes(firstSegment.toLowerCase());
   const publicFormConfig = publicFormForRequest(req, url);
   const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek", "systeemstatus"]);
   const publicFormAssets = new Set(["/public-forms.css", "/public-forms.js", "/client-guard.js"]);
-  const requested = isMeosRoute && (url.pathname === "/" || ["/meos", "/meos.html"].includes(url.pathname))
+  const requested = isMeosRoute && (url.pathname === "/" || ["/meos", "/meos.html"].includes(url.pathname) || isMeosPageRoute)
     ? "/meos.html"
     : publicFormConfig
       ? (publicFormAssets.has(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html")
