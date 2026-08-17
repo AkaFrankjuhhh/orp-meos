@@ -11,11 +11,11 @@
       status: "Geen signalering",
       licenses: ["Theorie", "Auto", "Motor", "Vrachtwagen", "Vaarbewijs", "Vliegbrevet"],
       vehicles: [
-        { plate: "WFX 403", model: "BMX (velo)", impounded: "Nee", wok: "Nee", primaryColor: "Racing Blue", secondaryColor: "Black", pearlColor: "Light Blue", stolen: "Nee", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-BMX-403" },
-        { plate: "OP-218-L", model: "Obey Oracle", impounded: "Nee", wok: "Nee", primaryColor: "Zwart", secondaryColor: "Wit", pearlColor: "Ice White", stolen: "Nee", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-ORA-218" },
-        { plate: "AT-744", model: "Vapid Scout", impounded: "Ja", wok: "Nee", primaryColor: "Donkerblauw", secondaryColor: "Wit", pearlColor: "Chrome", stolen: "Nee", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-SCT-744" },
-        { plate: "NUGZ-91", model: "Dinka Blista", impounded: "Nee", wok: "Ja", primaryColor: "Rood", secondaryColor: "Zwart", pearlColor: "Geen", stolen: "Nee", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-BLI-091" },
-        { plate: "FST 017", model: "Shitzu Hakuchou", impounded: "Nee", wok: "Nee", primaryColor: "Wit", secondaryColor: "Blauw", pearlColor: "Silver", stolen: "Ja", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-HAK-017" }
+        { plate: "WFX 403", model: "BMX (velo)", impounded: "Nee", wok: "Nee", apkStatus: "Goedgekeurd", primaryColor: "Racing Blue", secondaryColor: "Black", pearlColor: "Light Blue", stolen: "Nee", stolenReason: "", stolenDate: "", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-BMX-403" },
+        { plate: "OP-218-L", model: "Obey Oracle", impounded: "Nee", wok: "Nee", apkStatus: "Goedgekeurd", primaryColor: "Zwart", secondaryColor: "Wit", pearlColor: "Ice White", stolen: "Nee", stolenReason: "", stolenDate: "", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-ORA-218" },
+        { plate: "AT-744", model: "Vapid Scout", impounded: "Ja", wok: "Nee", apkStatus: "Herkeuring nodig", primaryColor: "Donkerblauw", secondaryColor: "Wit", pearlColor: "Chrome", stolen: "Nee", stolenReason: "", stolenDate: "", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-SCT-744" },
+        { plate: "NUGZ-91", model: "Dinka Blista", impounded: "Nee", wok: "Ja", apkStatus: "Afgekeurd", primaryColor: "Rood", secondaryColor: "Zwart", pearlColor: "Geen", stolen: "Nee", stolenReason: "", stolenDate: "", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-BLI-091" },
+        { plate: "FST 017", model: "Shitzu Hakuchou", impounded: "Nee", wok: "Nee", apkStatus: "Goedgekeurd", primaryColor: "Wit", secondaryColor: "Blauw", pearlColor: "Silver", stolen: "Ja", stolenReason: "Aangifte diefstal bij Vespucci", stolenDate: "12 aug. 2026", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-HAK-017" }
       ],
       houses: [
         { location: "Mirror Park Boulevard 12", building: "Woning", status: "Actief" },
@@ -47,7 +47,7 @@
       status: "Aandacht",
       licenses: ["Theorie", "Auto", "Motor"],
       vehicles: [
-        { plate: "MV-884", model: "Karin Sultan", impounded: "Nee", wok: "Nee", primaryColor: "Pearl White", secondaryColor: "Black", pearlColor: "Blue", stolen: "Nee", serviceVehicle: "Nee", owner: "Mila Voss", vin: "ORP-SUL-884" }
+        { plate: "MV-884", model: "Karin Sultan", impounded: "Nee", wok: "Nee", apkStatus: "Goedgekeurd", primaryColor: "Pearl White", secondaryColor: "Black", pearlColor: "Blue", stolen: "Nee", stolenReason: "", stolenDate: "", serviceVehicle: "Nee", owner: "Mila Voss", vin: "ORP-SUL-884" }
       ],
       houses: [{ location: "Vespucci Canals 8", building: "Appartement", status: "Actief" }],
       records: [{ date: "12 mei 2026", sanction: "Waarschuwing", verbalist: "OC Politie", note: "Onrustig gedrag tijdens voertuigcontrole." }],
@@ -66,8 +66,8 @@
       status: "Gezocht voor verhoor",
       licenses: ["Theorie", "Auto", "Vrachtwagen"],
       vehicles: [
-        { plate: "DK-319", model: "Benefactor Schafter", impounded: "Nee", wok: "Nee", primaryColor: "Grijs", secondaryColor: "Zwart", pearlColor: "Geen", stolen: "Nee", serviceVehicle: "Nee", owner: "Damian Kroes", vin: "ORP-SCH-319" },
-        { plate: "TRK 550", model: "MTL Pounder", impounded: "Nee", wok: "Nee", primaryColor: "Wit", secondaryColor: "Blauw", pearlColor: "Geen", stolen: "Nee", serviceVehicle: "Nee", owner: "Damian Kroes", vin: "ORP-PND-550" }
+        { plate: "DK-319", model: "Benefactor Schafter", impounded: "Nee", wok: "Nee", apkStatus: "Goedgekeurd", primaryColor: "Grijs", secondaryColor: "Zwart", pearlColor: "Geen", stolen: "Nee", stolenReason: "", stolenDate: "", serviceVehicle: "Nee", owner: "Damian Kroes", vin: "ORP-SCH-319" },
+        { plate: "TRK 550", model: "MTL Pounder", impounded: "Nee", wok: "Nee", apkStatus: "Goedgekeurd", primaryColor: "Wit", secondaryColor: "Blauw", pearlColor: "Geen", stolen: "Nee", stolenReason: "", stolenDate: "", serviceVehicle: "Nee", owner: "Damian Kroes", vin: "ORP-PND-550" }
       ],
       houses: [],
       records: [{ date: "2 aug. 2026", sanction: "Signalering", verbalist: "Recherche", note: "Graag staandehouden voor verhoor in onderzoek Havengebied." }],
@@ -123,6 +123,16 @@
       .replace(/[^a-z0-9]+/gi, "-")
       .replace(/^-+|-+$/g, "");
     return slug || "persoon";
+  }
+
+  function vehicleSlug(vehicle) {
+    const raw = String(vehicle?.plate || "voertuig").trim();
+    const slug = raw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "");
+    return slug || "voertuig";
   }
 
   function personIsWanted(person) {
@@ -229,6 +239,29 @@
     return people.find((person) => personSlug(person).toLowerCase() === normalizedSlug || person.id.toLowerCase() === normalizedSlug) || null;
   }
 
+  function findVehicle(value) {
+    const normalizedValue = normalize(value);
+    return allVehicles().find((vehicle) => normalize(vehicle.plate) === normalizedValue || normalize(vehicleSlug(vehicle)) === normalizedValue) || null;
+  }
+
+  function findVehicleBySlug(slug) {
+    const normalizedSlug = String(slug || "").trim().toLowerCase();
+    return allVehicles().find((vehicle) => vehicleSlug(vehicle).toLowerCase() === normalizedSlug || normalize(vehicle.plate) === normalize(normalizedSlug)) || null;
+  }
+
+  function vehicleColor(vehicle) {
+    return [
+      vehicle.primaryColor,
+      vehicle.secondaryColor && `Secundair ${vehicle.secondaryColor}`,
+      vehicle.pearlColor && normalize(vehicle.pearlColor) !== "geen" && `Parelmoer ${vehicle.pearlColor}`
+    ].filter(Boolean).join(" / ");
+  }
+
+  function vehicleStolenDetail(vehicle) {
+    if (normalize(vehicle.stolen) !== "ja") return "Nee";
+    return ["Ja", vehicle.stolenReason, vehicle.stolenDate].filter(Boolean).join(" - ");
+  }
+
   function personSearchFields(person, field) {
     const fields = {
       name: [person.name],
@@ -251,11 +284,25 @@
     const query = normalize($("#vehicleSearch")?.value || "");
     const vehicles = allVehicles();
     if (!query) return vehicles;
-    return vehicles.filter((vehicle) => [vehicle.plate, vehicle.model, vehicle.owner, vehicle.primaryColor, vehicle.secondaryColor, vehicle.stolen, vehicle.impounded, vehicle.vin].some((value) => normalize(value).includes(query)));
+    return vehicles.filter((vehicle) => [
+      vehicle.plate,
+      vehicle.model,
+      vehicle.owner,
+      vehicle.primaryColor,
+      vehicle.secondaryColor,
+      vehicle.stolen,
+      vehicle.stolenReason,
+      vehicle.stolenDate,
+      vehicle.impounded,
+      vehicle.wok,
+      vehicle.apkStatus,
+      vehicle.vin
+    ].some((value) => normalize(value).includes(query)));
   }
 
   function pagePath(page, options = {}) {
     if (page === "profile") return `/personen/${personSlug(options.person || findPerson(activePersonId))}`;
+    if (page === "vehicle") return `/voertuigen/${vehicleSlug(options.vehicle || findVehicle(activeVehiclePlate))}`;
     if (page === "personen") return "/personen";
     if (page === "voertuigen") return "/voertuigen";
     if (page === "arrestatiebevelen") return "/arrestatiebevelen";
@@ -273,7 +320,7 @@
   function setPage(page, options = {}) {
     activePage = page;
     $$(".meos-page").forEach((element) => element.classList.toggle("active", element.dataset.page === page));
-    const navPage = options.nav || (page === "profile" ? "personen" : page);
+    const navPage = options.nav || (page === "profile" ? "personen" : page === "vehicle" ? "voertuigen" : page);
     $$(".meos-nav-item").forEach((button) => button.classList.toggle("active", button.dataset.section === navPage));
     document.body.classList.remove("sidebar-open");
     updatePageUrl(page, options);
@@ -311,9 +358,10 @@
       ["Model", vehicle.model],
       ["Inbeslaggenomen", vehicle.impounded],
       ["WOK", vehicle.wok],
+      ["APK", vehicle.apkStatus],
       ["Primaire Kleur", vehicle.primaryColor],
       ["Secondaire Kleur", vehicle.secondaryColor],
-      ["Parelmor Kleur", vehicle.pearlColor],
+      ["Parelmoer Kleur", vehicle.pearlColor],
       ["Gestolen", vehicle.stolen],
       ["Dienst Auto", vehicle.serviceVehicle]
     ];
@@ -323,6 +371,48 @@
         <strong>${escapeHtml(value || "-")}</strong>
       </div>
     `).join("")}</div>`;
+  }
+
+  function renderVehicleDetail(vehicleKey = activeVehiclePlate, options = {}) {
+    const vehicle = findVehicle(vehicleKey) || allVehicles()[0];
+    if (!vehicle) return;
+    activeVehiclePlate = vehicle.plate;
+    activePersonId = vehicle.ownerId || activePersonId;
+    const target = $("#vehicleDetailView");
+    if (!target) return;
+    target.innerHTML = `
+      <div class="meos-profile-col">
+        <article class="meos-panel">
+          <div class="meos-card-title">
+            <h2 id="vehicleDetailTitle">Voertuig ${escapeHtml(vehicle.plate)}</h2>
+          </div>
+          <div class="meos-info-grid">
+            <div class="meos-info-field"><span>Kenteken</span><strong>${escapeHtml(vehicle.plate)}</strong></div>
+            <div class="meos-info-field"><span>Eigenaar</span><strong>${escapeHtml(vehicle.owner)}</strong></div>
+            <div class="meos-info-field"><span>Kleur van voertuig</span><strong>${escapeHtml(vehicleColor(vehicle))}</strong></div>
+            <div class="meos-info-field"><span>WOK status</span><strong>${escapeHtml(vehicle.wok || "-")}</strong></div>
+            <div class="meos-info-field"><span>APK Status</span><strong>${escapeHtml(vehicle.apkStatus || "-")}</strong></div>
+            <div class="meos-info-field"><span>Gestolen</span><strong>${escapeHtml(vehicleStolenDetail(vehicle))}</strong></div>
+          </div>
+        </article>
+      </div>
+
+      <div class="meos-profile-col">
+        <article class="meos-panel">
+          <div class="meos-card-title">
+            <h2>Voertuig informatie</h2>
+          </div>
+          <div class="meos-info-grid">
+            <div class="meos-info-field"><span>Model</span><strong>${escapeHtml(vehicle.model)}</strong></div>
+            <div class="meos-info-field"><span>VIN</span><strong>${escapeHtml(vehicle.vin)}</strong></div>
+            <div class="meos-info-field"><span>Inbeslaggenomen</span><strong>${escapeHtml(vehicle.impounded)}</strong></div>
+            <div class="meos-info-field"><span>Dienst Auto</span><strong>${escapeHtml(vehicle.serviceVehicle)}</strong></div>
+          </div>
+        </article>
+      </div>
+    `;
+    $("#vehicleBreadcrumb").textContent = `Voertuigen / ${vehicle.plate}`;
+    setPage("vehicle", { nav: "voertuigen", vehicle, updateUrl: options.updateUrl });
   }
 
   function renderProfile(personId = activePersonId, options = {}) {
@@ -443,18 +533,19 @@
       const stolen = normalize(vehicle.stolen) === "ja";
       const impounded = normalize(vehicle.impounded) === "ja";
       return `
-        <article class="meos-result-card">
+        <article class="meos-result-card meos-vehicle-row" role="button" tabindex="0" data-open-vehicle="${escapeHtml(vehicle.plate)}" aria-label="Voertuig openen ${escapeHtml(vehicle.plate)}">
           <div>
             <strong>${escapeHtml(vehicle.plate)} - ${escapeHtml(vehicle.model)}</strong>
             <div class="meos-result-meta">
               <span class="meos-chip">Eigenaar ${escapeHtml(vehicle.owner)}</span>
               <span class="meos-chip">VIN ${escapeHtml(vehicle.vin)}</span>
-              <span class="meos-chip">Kleur ${escapeHtml(vehicle.primaryColor)}</span>
+              <span class="meos-chip">Kleur ${escapeHtml(vehicleColor(vehicle))}</span>
+              <span class="meos-chip">APK ${escapeHtml(vehicle.apkStatus)}</span>
+              <span class="meos-chip ${normalize(vehicle.wok) === "ja" ? "warning" : "ok"}">WOK ${escapeHtml(vehicle.wok)}</span>
               <span class="meos-chip ${stolen ? "danger" : "ok"}">Gestolen ${escapeHtml(vehicle.stolen)}</span>
               <span class="meos-chip ${impounded ? "warning" : "ok"}">Inbeslag ${escapeHtml(vehicle.impounded)}</span>
             </div>
           </div>
-          <button class="meos-secondary" type="button" data-owner-profile="${escapeHtml(vehicle.ownerId)}" data-owner-plate="${escapeHtml(vehicle.plate)}">Eigenaar openen</button>
         </article>
       `;
     }).join("");
@@ -503,7 +594,7 @@
     const vehicleMatches = allVehicles().filter((vehicle) => [vehicle.plate, vehicle.model, vehicle.owner].some((value) => normalize(value).includes(query))).slice(0, 3);
     const items = [
       ...personMatches.map((person) => `<button class="meos-result-card" type="button" data-open-profile="${escapeHtml(person.id)}"><span><strong>${escapeHtml(person.name)}</strong><span class="meos-result-meta"><span class="meos-chip">Persoon</span><span class="meos-chip">BSN ${escapeHtml(person.bsn)}</span></span></span></button>`),
-      ...vehicleMatches.map((vehicle) => `<button class="meos-result-card" type="button" data-owner-profile="${escapeHtml(vehicle.ownerId)}" data-owner-plate="${escapeHtml(vehicle.plate)}"><span><strong>${escapeHtml(vehicle.plate)} - ${escapeHtml(vehicle.model)}</strong><span class="meos-result-meta"><span class="meos-chip">Voertuig</span><span class="meos-chip">${escapeHtml(vehicle.owner)}</span></span></span></button>`)
+      ...vehicleMatches.map((vehicle) => `<button class="meos-result-card" type="button" data-open-vehicle="${escapeHtml(vehicle.plate)}"><span><strong>${escapeHtml(vehicle.plate)} - ${escapeHtml(vehicle.model)}</strong><span class="meos-result-meta"><span class="meos-chip">Voertuig</span><span class="meos-chip">${escapeHtml(vehicle.owner)}</span></span></span></button>`)
     ];
     target.innerHTML = items.length ? items.join("") : '<div class="meos-empty">Geen matches gevonden.</div>';
   }
@@ -519,6 +610,11 @@
       return person ? { page: "profile", personId: person.id } : { page: "personen", replace: true };
     }
     if (first === "personen") return { page: "personen" };
+    if (first === "voertuigen" && segments[1]) {
+      const slug = decodeURIComponent(segments.slice(1).join("-"));
+      const vehicle = findVehicleBySlug(slug);
+      return vehicle ? { page: "vehicle", vehiclePlate: vehicle.plate } : { page: "voertuigen", replace: true };
+    }
     if (first === "voertuigen") return { page: "voertuigen" };
     if (first === "arrestatiebevelen") return { page: "arrestatiebevelen" };
     if (first === "at") return { page: "arrestatiebevelen", replace: true };
@@ -529,12 +625,15 @@
     const route = routeFromLocation();
     if (route.page === "profile") {
       renderProfile(route.personId, { updateUrl: false });
+    } else if (route.page === "vehicle") {
+      renderVehicleDetail(route.vehiclePlate, { updateUrl: false });
     } else {
       setPage(route.page, { updateUrl: false });
     }
     if (route.replace && window.history?.replaceState) {
       const person = route.personId ? findPerson(route.personId) : null;
-      window.history.replaceState({ meos: true, page: route.page }, "", pagePath(route.page, { person }));
+      const vehicle = route.vehiclePlate ? findVehicle(route.vehiclePlate) : null;
+      window.history.replaceState({ meos: true, page: route.page }, "", pagePath(route.page, { person, vehicle }));
     }
   }
 
@@ -588,7 +687,7 @@
         return;
       }
 
-      const clickableRow = event.target.closest?.(".meos-result-card[data-open-profile], .meos-result-card[data-owner-profile]");
+      const clickableRow = event.target.closest?.(".meos-result-card[data-open-profile], .meos-result-card[data-open-vehicle]");
       if (clickableRow && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         clickableRow.click();
@@ -621,10 +720,9 @@
         return;
       }
 
-      const ownerProfile = event.target.closest("[data-owner-profile]");
-      if (ownerProfile) {
-        activeVehiclePlate = ownerProfile.dataset.ownerPlate || "";
-        renderProfile(ownerProfile.dataset.ownerProfile);
+      const openVehicle = event.target.closest("[data-open-vehicle]");
+      if (openVehicle) {
+        renderVehicleDetail(openVehicle.dataset.openVehicle);
         return;
       }
 
@@ -646,6 +744,11 @@
 
       if (event.target.closest("[data-profile-back]")) {
         setPage("personen");
+        return;
+      }
+
+      if (event.target.closest("[data-vehicle-back]")) {
+        setPage("voertuigen");
         return;
       }
 

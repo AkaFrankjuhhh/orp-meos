@@ -761,14 +761,14 @@ button.meos-result-card {
 }
 
 .meos-result-card[data-open-profile],
-.meos-result-card[data-owner-profile] {
+.meos-result-card[data-open-vehicle] {
   cursor: pointer;
 }
 
 .meos-result-card[data-open-profile]:hover,
-.meos-result-card[data-owner-profile]:hover,
+.meos-result-card[data-open-vehicle]:hover,
 .meos-result-card[data-open-profile]:focus-visible,
-.meos-result-card[data-owner-profile]:focus-visible {
+.meos-result-card[data-open-vehicle]:focus-visible {
   z-index: 1;
   border-color: var(--meos-blue-soft);
   box-shadow: 0 10px 24px var(--meos-interactive-shadow);
@@ -777,6 +777,10 @@ button.meos-result-card {
 }
 
 .meos-person-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.meos-vehicle-row {
   grid-template-columns: minmax(0, 1fr);
 }
 

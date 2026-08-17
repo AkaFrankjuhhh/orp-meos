@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" href="/assets/meos-logo.png?v=20260818-site-logo" />
-  <link rel="stylesheet" href="/meos.css?v=20260818-theme-colors" />
+  <link rel="stylesheet" href="/meos.css?v=20260818-vehicle-detail" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -189,6 +189,14 @@
         </section>
       </section>
 
+      <section class="meos-page" data-page="vehicle" aria-labelledby="vehicleDetailTitle">
+        <div class="meos-profile-toolbar">
+          <button class="meos-secondary" type="button" data-vehicle-back>Terug naar voertuigen</button>
+          <span id="vehicleBreadcrumb">Voertuigen / Detail</span>
+        </div>
+        <div id="vehicleDetailView" class="meos-profile-grid"></div>
+      </section>
+
       <section class="meos-page" data-page="arrestatiebevelen" aria-labelledby="warrantTitle">
         <div class="meos-breadcrumb">ArrestatieBevel Overzicht</div>
         <section class="meos-panel">
@@ -205,6 +213,6 @@
     </main>
   </div>
 
-  <script src="/meos.js?v=20260817-orange-logo" defer></script>
+  <script src="/meos.js?v=20260818-vehicle-detail" defer></script>
 </body>
 </html>
