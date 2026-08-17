@@ -9,7 +9,7 @@
       birthDate: "17-03-1945",
       height: "171",
       status: "Geen signalering",
-      licenses: ["Theorie", "Vrachtwagen Rijbewijs", "Auto Rijbewijs", "Motor Rijbewijs", "Zorgpas", "Vaarbewijs", "Heli Vliegbrevet", "Tol pas", "Eerste Hulp Pas"],
+      licenses: ["Theorie", "Auto", "Motor", "Vrachtwagen", "Vaarbewijs", "Vliegbrevet"],
       vehicles: [
         { plate: "WFX 403", model: "BMX (velo)", impounded: "Nee", wok: "Nee", primaryColor: "Racing Blue", secondaryColor: "Black", pearlColor: "Light Blue", stolen: "Nee", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-BMX-403" },
         { plate: "OP-218-L", model: "Obey Oracle", impounded: "Nee", wok: "Nee", primaryColor: "Zwart", secondaryColor: "Wit", pearlColor: "Ice White", stolen: "Nee", serviceVehicle: "Nee", owner: "Ernie Nugz", vin: "ORP-ORA-218" },
@@ -45,7 +45,7 @@
       birthDate: "04-08-1998",
       height: "168",
       status: "Aandacht",
-      licenses: ["Theorie", "Auto Rijbewijs", "Motor Rijbewijs"],
+      licenses: ["Theorie", "Auto", "Motor"],
       vehicles: [
         { plate: "MV-884", model: "Karin Sultan", impounded: "Nee", wok: "Nee", primaryColor: "Pearl White", secondaryColor: "Black", pearlColor: "Blue", stolen: "Nee", serviceVehicle: "Nee", owner: "Mila Voss", vin: "ORP-SUL-884" }
       ],
@@ -64,7 +64,7 @@
       birthDate: "23-11-1987",
       height: "182",
       status: "Gezocht voor verhoor",
-      licenses: ["Theorie", "Auto Rijbewijs", "Vrachtwagen Rijbewijs"],
+      licenses: ["Theorie", "Auto", "Vrachtwagen"],
       vehicles: [
         { plate: "DK-319", model: "Benefactor Schafter", impounded: "Nee", wok: "Nee", primaryColor: "Grijs", secondaryColor: "Zwart", pearlColor: "Geen", stolen: "Nee", serviceVehicle: "Nee", owner: "Damian Kroes", vin: "ORP-SCH-319" },
         { plate: "TRK 550", model: "MTL Pounder", impounded: "Nee", wok: "Nee", primaryColor: "Wit", secondaryColor: "Blauw", pearlColor: "Geen", stolen: "Nee", serviceVehicle: "Nee", owner: "Damian Kroes", vin: "ORP-PND-550" }

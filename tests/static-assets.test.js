@@ -159,8 +159,10 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /ORP-V-38445989/);
   assert.match(script, /bsn: "ORP-BSN-44499819"/);
   assert.match(script, /fingerprint: "ORP-V-38445989"/);
+  assert.match(script, /licenses: \["Theorie", "Auto", "Motor", "Vrachtwagen", "Vaarbewijs", "Vliegbrevet"\]/);
   assert.doesNotMatch(script, /fingerprint: "VN-/);
   assert.doesNotMatch(script, /bsn: "\d+"/);
+  assert.doesNotMatch(script, /Zorgpas|Tol pas|Eerste Hulp Pas|Heli Vliegbrevet|Auto Rijbewijs|Motor Rijbewijs|Vrachtwagen Rijbewijs/);
   assert.match(script, /function filteredPeople\(/);
   assert.match(script, /function renderProfile\(/);
   assert.match(script, /function filteredVehicles\(/);
