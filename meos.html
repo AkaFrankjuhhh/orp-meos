@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
-  <link rel="stylesheet" href="/meos.css?v=20260817-profile-licenses" />
+  <link rel="stylesheet" href="/meos.css?v=20260817-sidebar-nav" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -19,22 +19,29 @@
       </div>
 
       <nav class="meos-nav">
-        <button class="meos-nav-item active" type="button" data-section="dashboard">
-          <span class="meos-nav-icon">D</span>
-          <span>Dashboard</span>
-        </button>
-        <button class="meos-nav-item" type="button" data-section="personen">
-          <span class="meos-nav-icon">P</span>
-          <span>Personen</span>
-        </button>
-        <button class="meos-nav-item" type="button" data-section="voertuigen">
-          <span class="meos-nav-icon">V</span>
-          <span>Voertuigen</span>
-        </button>
-        <button class="meos-nav-item" type="button" data-section="arrestatiebevelen">
-          <span class="meos-nav-icon">AB</span>
-          <span>ArrestatieBevel</span>
-        </button>
+        <section class="meos-nav-section" aria-labelledby="meosGeneralNavLabel">
+          <h2 id="meosGeneralNavLabel" class="meos-nav-label">Algemene opties</h2>
+          <button class="meos-nav-item active" type="button" data-section="dashboard">
+            <span class="meos-nav-icon dashboard" aria-hidden="true"></span>
+            <span>Dashboard</span>
+          </button>
+        </section>
+
+        <section class="meos-nav-section" aria-labelledby="meosOptionsNavLabel">
+          <h2 id="meosOptionsNavLabel" class="meos-nav-label">MEOS-opties</h2>
+          <button class="meos-nav-item" type="button" data-section="personen">
+            <span class="meos-nav-icon people" aria-hidden="true"></span>
+            <span>Personen</span>
+          </button>
+          <button class="meos-nav-item" type="button" data-section="voertuigen">
+            <span class="meos-nav-icon vehicle" aria-hidden="true"></span>
+            <span>Voertuig</span>
+          </button>
+          <button class="meos-nav-item" type="button" data-section="arrestatiebevelen">
+            <span class="meos-nav-icon warrant" aria-hidden="true"></span>
+            <span>ArrestatieBevel</span>
+          </button>
+        </section>
       </nav>
 
       <div class="meos-sidebar-status">

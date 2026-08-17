@@ -31,6 +31,13 @@
   --meos-green: #12a36d;
   --meos-red: #c93636;
   --meos-yellow: #c69214;
+  --meos-sidebar-bg: #242b2d;
+  --meos-sidebar-deep: #1d2426;
+  --meos-sidebar-line: #394244;
+  --meos-sidebar-muted: #aeb8bd;
+  --meos-sidebar-text: #f8fbfc;
+  --meos-sidebar-accent: #ff6b1a;
+  --meos-sidebar-hover: #30383a;
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -98,7 +105,7 @@ button {
 .meos-app {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 218px minmax(0, 1fr);
+  grid-template-columns: 264px minmax(0, 1fr);
 }
 
 .meos-sidebar {
@@ -107,11 +114,11 @@ button {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 12px 10px;
-  color: #fff;
-  background: var(--meos-blue);
-  border-right: 1px solid #00335a;
+  gap: 22px;
+  padding: 14px 10px;
+  color: var(--meos-sidebar-text);
+  background: var(--meos-sidebar-bg);
+  border-right: 1px solid #172022;
 }
 
 .meos-brand {
@@ -121,7 +128,7 @@ button {
   align-items: center;
   gap: 8px;
   padding: 0 4px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid var(--meos-sidebar-line);
 }
 
 .meos-brand img {
@@ -144,51 +151,144 @@ button {
 .meos-brand span {
   margin-top: 2px;
   font-size: 11px;
-  opacity: 0.78;
+  color: var(--meos-sidebar-muted);
 }
 
 .meos-nav {
   display: grid;
-  gap: 4px;
+  align-content: start;
+  gap: 20px;
+}
+
+.meos-nav-section {
+  display: grid;
+  gap: 6px;
+}
+
+.meos-nav-label {
+  margin: 0 0 4px;
+  padding: 0 12px;
+  color: var(--meos-sidebar-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .meos-nav-item {
-  min-height: 34px;
+  min-height: 36px;
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  border: 0;
-  padding: 8px;
-  color: #eaf6ff;
+  gap: 10px;
+  border: 1px solid transparent;
+  padding: 7px 10px;
+  color: var(--meos-sidebar-text);
   text-align: left;
   background: transparent;
-  border-radius: 4px;
+  border-radius: 8px;
+  font-weight: 800;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 
-.meos-nav-item:hover,
-.meos-nav-item.active {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+.meos-nav-item:hover {
+  background: var(--meos-sidebar-hover);
+  transform: translateX(1px);
+}
+
+.meos-nav-item.active,
+.meos-nav-item.active:hover {
+  color: var(--meos-sidebar-accent);
+  background: rgba(255, 107, 26, 0.07);
+  border-color: var(--meos-sidebar-accent);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 26, 0.16);
 }
 
 .meos-nav-icon {
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  color: var(--meos-blue);
-  background: #fff;
-  font-size: 10px;
-  font-weight: 800;
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: block;
+  color: currentColor;
+}
+
+.meos-nav-icon::before,
+.meos-nav-icon::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.meos-nav-icon.dashboard::before {
+  left: 3px;
+  top: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: currentColor;
+  box-shadow: 8px 0 0 currentColor, 0 8px 0 currentColor, 8px 8px 0 currentColor;
+}
+
+.meos-nav-icon.people::before {
+  left: 6px;
+  top: 2px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.meos-nav-icon.people::after {
+  left: 2px;
+  top: 11px;
+  width: 15px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+}
+
+.meos-nav-icon.vehicle::before {
+  left: 2px;
+  top: 7px;
+  width: 14px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-radius: 5px 5px 3px 3px;
+}
+
+.meos-nav-icon.vehicle::after {
+  left: 4px;
+  top: 13px;
+  width: 10px;
+  height: 3px;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.meos-nav-icon.warrant::before {
+  left: 4px;
+  top: 2px;
+  width: 11px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+}
+
+.meos-nav-icon.warrant::after {
+  left: 7px;
+  top: 7px;
+  width: 6px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 4px 0 currentColor;
 }
 
 .meos-sidebar-status {
   margin-top: auto;
   padding: 10px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: var(--meos-sidebar-deep);
 }
 
 .meos-sidebar-status span {
