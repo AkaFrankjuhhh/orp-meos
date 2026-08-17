@@ -207,16 +207,20 @@ test("LR unit assignment is handled server-side", () => {
   assert.match(clientCode, /\[\$\{number\} - ※\]/);
 });
 
-test("KLu stores manual Eagle numbers", () => {
+test("KLu stores manual call signs and supports status 0", () => {
   const kluTask = sideTaskForKey("KLU");
   const serverCode = fs.readFileSync(path.join(process.cwd(), "side-tasks-server.js"), "utf8");
+  const statuses = statusOptionsForTask(kluTask).map((status) => status.value);
 
   assert.equal(kluTask.allowAlias, true);
   assert.equal(kluTask.aliasProfile.numberSource, "manual");
-  assert.equal(kluTask.aliasProfile.numberPattern, "^Eagle\\s+\\d{1,2}$");
+  assert.equal(kluTask.aliasProfile.numberPattern, "^[A-Za-z][A-Za-z0-9-]*(?:\\s+[A-Za-z][A-Za-z0-9-]*)*\\s+\\d{1,2}$");
+  assert.deepEqual(statuses, ["0", "1", "4", "8"]);
   assert.equal(kluTask.aliasProfile.rankNumbers.Generaal.number, "1");
   assert.equal(kluTask.aliasProfile.rankNumbers["Soldaat der 2de klasse"].number, "9");
   assert.match(serverCode, /if \(task\.key === "KLU"\) \{\s+const savedNumber = normalizeAliasNumber\(task, member\.callSign\);\s+if \(savedNumber\) return savedNumber;/);
-  assert.match(serverCode, /if \(task\.key === "KLU"\) \{\s+const match = \/\^eagle\\s\*\(\\d\{1,2\}\)\$\/i\.exec\(text\);/);
+  assert.match(serverCode, /if \(task\.key === "KLU"\) return \["0", "1", "4", "8"\]\.includes\(String\(status\)\);/);
+  assert.match(serverCode, /match\[1\]\s+\.split\(\/\\s\+\/\)/);
+  assert.match(serverCode, /Number\(match\[2\]\)/);
   assert.match(serverCode, /task\.key === "KLU" && shouldSyncAliasNicknameForStatus\(task, member\.status\)/);
 });

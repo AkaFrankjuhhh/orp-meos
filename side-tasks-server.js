@@ -449,14 +449,20 @@ function shouldSyncAliasNicknameForStatus(task, status) {
   if (!task.allowAlias) return false;
   if (task.key === "DSI") return shouldSyncDsiNicknameForStatus(status);
   if (task.key === "HRB") return ["0", "1", "4", "8"].includes(String(status));
+  if (task.key === "KLU") return ["0", "1", "4", "8"].includes(String(status));
   return ["1", "4", "8"].includes(String(status));
 }
 
 function normalizeAliasNumber(task, value) {
   const text = sanitizeText(value, 32);
   if (task.key === "KLU") {
-    const match = /^eagle\s*(\d{1,2})$/i.exec(text);
-    return match ? `Eagle ${Number(match[1])}` : text;
+    const match = /^([a-z][a-z0-9-]*(?:\s+[a-z][a-z0-9-]*)*)\s*(\d{1,2})$/i.exec(text);
+    if (!match) return text;
+    const callSign = match[1]
+      .split(/\s+/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+    return `${callSign} ${Number(match[2])}`;
   }
   if (task.key === "DNR") {
     const match = /^(1[123])-(\d{1,2})$/i.exec(text);

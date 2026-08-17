@@ -82,8 +82,8 @@ const SIDE_TASK_DEFINITIONS = {
       aliasPlaceholder: "Naam",
       aliasRequiredForActive: true,
       numberSource: "manual",
-      numberPattern: "^Eagle\\s+\\d{1,2}$",
-      numberPatternHint: "Gebruik een geldig KLu roepnummer, bijvoorbeeld Eagle 8.",
+      numberPattern: "^[A-Za-z][A-Za-z0-9-]*(?:\\s+[A-Za-z][A-Za-z0-9-]*)*\\s+\\d{1,2}$",
+      numberPatternHint: "Gebruik een geldig KLu roepnummer, bijvoorbeeld Eagle 8 of Warthog 7.",
       nicknameTemplate: "[{number}] {name}",
       rankNumbers: {
         "Generaal": { number: "1", roleId: "1516830107711307867" },
@@ -346,7 +346,7 @@ function statusOption(value) {
 }
 
 function statusOptionsForTask(task) {
-  return ["DSI", "HRB"].includes(task?.key)
+  return ["DSI", "HRB", "KLU"].includes(task?.key)
     ? SIDE_TASK_STATUS_OPTIONS
     : SIDE_TASK_STATUS_OPTIONS.filter((option) => option.value !== "0");
 }
