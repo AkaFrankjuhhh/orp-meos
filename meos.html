@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
-  <link rel="stylesheet" href="/meos.css?v=20260817-clickable-routes" />
+  <link rel="stylesheet" href="/meos.css?v=20260817-arrestatiebevelen" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -31,9 +31,9 @@
           <span class="meos-nav-icon">V</span>
           <span>Voertuigen</span>
         </button>
-        <button class="meos-nav-item" type="button" data-section="at">
-          <span class="meos-nav-icon">AT</span>
-          <span>AT Overzicht</span>
+        <button class="meos-nav-item" type="button" data-section="arrestatiebevelen">
+          <span class="meos-nav-icon">AB</span>
+          <span>ArrestatieBevel</span>
         </button>
       </nav>
 
@@ -84,9 +84,9 @@
             <span class="meos-tile-icon report"></span>
             <span>Aangifte</span>
           </button>
-          <button class="meos-tile" type="button" data-section-shortcut="at">
+          <button class="meos-tile" type="button" data-section-shortcut="arrestatiebevelen">
             <span class="meos-tile-icon lock"></span>
-            <span>Beveiligingscentrum</span>
+            <span>ArrestatieBevel</span>
           </button>
         </div>
 
@@ -104,7 +104,7 @@
 
             <div class="meos-feed">
               <p>Hallo Frank B., welkom in MEOS vandaag.</p>
-              <p>Je hebt toegang tot personen, voertuigen en AT-overzicht.</p>
+              <p>Je hebt toegang tot personen, voertuigen en arrestatiebevelen.</p>
               <p>Momenteel staan er 4 actieve signaleringen open.</p>
               <p>Laatste synchronisatie: conceptdata voor ORP Overheid.</p>
             </div>
@@ -183,22 +183,22 @@
         </section>
       </section>
 
-      <section class="meos-page" data-page="at" aria-labelledby="atTitle">
-        <div class="meos-breadcrumb">AT Overzicht</div>
+      <section class="meos-page" data-page="arrestatiebevelen" aria-labelledby="warrantTitle">
+        <div class="meos-breadcrumb">ArrestatieBevel Overzicht</div>
         <section class="meos-panel">
           <div class="meos-section-head">
             <div>
-              <h2 id="atTitle">AT Overzicht</h2>
-              <p>Actieve interventieteams, status en inzetlocaties.</p>
+              <h2 id="warrantTitle">ArrestatieBevel Overzicht</h2>
+              <p>Personen met een actief arrestatiebevel op naam.</p>
             </div>
-            <span class="meos-count">3 teams actief</span>
+            <span class="meos-count" id="warrantCount">0 bevelen actief</span>
           </div>
-          <div id="atOverview" class="meos-at-grid"></div>
+          <div id="warrantOverview" class="meos-warrant-grid" aria-live="polite"></div>
         </section>
       </section>
     </main>
   </div>
 
-  <script src="/meos.js?v=20260817-clickable-routes" defer></script>
+  <script src="/meos.js?v=20260817-arrestatiebevelen" defer></script>
 </body>
 </html>

@@ -933,30 +933,41 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
   background: var(--meos-subtle-bg);
 }
 
-.meos-at-grid {
+.meos-warrant-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.meos-at-card {
-  display: grid;
+.meos-warrant-card {
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  border: 1px solid var(--meos-card-border);
-  border-radius: 6px;
-  padding: 14px;
-  background: var(--meos-elevated-bg);
+  border-color: #d84545;
+  background: linear-gradient(90deg, rgba(216, 69, 69, 0.12), var(--meos-elevated-bg) 42%);
+  box-shadow: inset 4px 0 0 #d84545;
 }
 
-.meos-at-card header {
+.meos-warrant-card header {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 10px;
 }
 
-.meos-at-card h3 {
+.meos-warrant-card h3,
+.meos-warrant-card p {
   margin: 0;
+}
+
+.meos-warrant-card h3 {
   font-size: 19px;
+}
+
+.meos-warrant-card p {
+  margin-top: 4px;
+  color: var(--meos-muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .meos-status {
@@ -1004,7 +1015,7 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
 
 @media (max-width: 1100px) {
   .meos-tile-grid,
-  .meos-at-grid {
+  .meos-warrant-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1064,7 +1075,7 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
   .meos-info-grid,
   .meos-record-body,
   .meos-result-card,
-  .meos-at-grid {
+  .meos-warrant-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -33,7 +33,8 @@
       ],
       fines: [
         { fine: "Snelheidsovertreding", amount: "EUR 1.250", writtenAt: "27 jan. 2022", writtenBy: "Matheo Van antwerpen" }
-      ]
+      ],
+      arrestWarrants: []
     },
     {
       id: "mila-voss",
@@ -51,7 +52,8 @@
       houses: [{ location: "Vespucci Canals 8", building: "Appartement", status: "Actief" }],
       records: [{ date: "12 mei 2026", sanction: "Waarschuwing", verbalist: "OC Politie", note: "Onrustig gedrag tijdens voertuigcontrole." }],
       notes: [{ date: "12 mei 2026", author: "OC Politie", note: "Geen verdere actie nodig, wel noteren voor opvolging." }],
-      fines: []
+      fines: [],
+      arrestWarrants: []
     },
     {
       id: "damian-kroes",
@@ -70,14 +72,19 @@
       houses: [],
       records: [{ date: "2 aug. 2026", sanction: "Signalering", verbalist: "Recherche", note: "Graag staandehouden voor verhoor in onderzoek Havengebied." }],
       notes: [{ date: "2 aug. 2026", author: "Recherche", note: "Niet aanhouden zonder OvJ-contact, tenzij heterdaad." }],
-      fines: [{ fine: "Openstaande boete", amount: "EUR 600", writtenAt: "18 jul. 2026", writtenBy: "Verkeersteam" }]
+      fines: [{ fine: "Openstaande boete", amount: "EUR 600", writtenAt: "18 jul. 2026", writtenBy: "Verkeersteam" }],
+      arrestWarrants: [
+        {
+          id: "AB-2026-0142",
+          reason: "Verhoor in onderzoek Havengebied",
+          issuedAt: "2 aug. 2026",
+          issuedBy: "Recherche",
+          priority: "Hoog",
+          status: "Actief",
+          instruction: "Staandehouden en overbrengen naar bureau voor verhoor."
+        }
+      ]
     }
-  ];
-
-  const atTeams = [
-    { name: "AT-01", status: "Actief", tone: "active", commander: "Frank B.", members: "4 leden", location: "Mission Row", assignment: "Stand-by voor hoog risico melding", vehicle: "BearCat AT-01" },
-    { name: "AT-02", status: "Stand-by", tone: "standby", commander: "S. de Vries", members: "3 leden", location: "Vespucci Bureau", assignment: "Ondersteuning DSI controle", vehicle: "Scout AT-02" },
-    { name: "AT-03", status: "Hoog risico", tone: "high", commander: "Matheo V.", members: "5 leden", location: "Havengebied", assignment: "Doorzoeking voorbereiding", vehicle: "Unmarked Granger" }
   ];
 
   let activePage = "dashboard";
@@ -194,6 +201,12 @@
     return people.flatMap((person) => person.vehicles.map((vehicle) => ({ ...vehicle, owner: vehicle.owner || person.name, ownerId: person.id })));
   }
 
+  function activeArrestWarrants() {
+    return people.flatMap((person) => (person.arrestWarrants || [])
+      .filter((warrant) => normalize(warrant.status || "actief") !== "gesloten")
+      .map((warrant) => ({ ...warrant, person })));
+  }
+
   function findPerson(id) {
     return people.find((person) => person.id === id) || people[0];
   }
@@ -232,7 +245,7 @@
     if (page === "profile") return `/personen/${personSlug(options.person || findPerson(activePersonId))}`;
     if (page === "personen") return "/personen";
     if (page === "voertuigen") return "/voertuigen";
-    if (page === "at") return "/at";
+    if (page === "arrestatiebevelen") return "/arrestatiebevelen";
     return "/dashboard";
   }
 
@@ -434,21 +447,32 @@
     }).join("");
   }
 
-  function renderAtOverview() {
-    const target = $("#atOverview");
+  function renderWarrantOverview() {
+    const warrants = activeArrestWarrants();
+    const count = $("#warrantCount");
+    if (count) count.textContent = `${warrants.length} ${warrants.length === 1 ? "bevel" : "bevelen"} actief`;
+    const target = $("#warrantOverview");
     if (!target) return;
-    target.innerHTML = atTeams.map((team) => `
-      <article class="meos-at-card">
+    if (!warrants.length) {
+      target.innerHTML = '<div class="meos-empty">Geen actieve arrestatiebevelen gevonden.</div>';
+      return;
+    }
+    target.innerHTML = warrants.map((warrant) => `
+      <article class="meos-warrant-card meos-result-card wanted" role="button" tabindex="0" data-open-profile="${escapeHtml(warrant.person.id)}" aria-label="Profiel openen van ${escapeHtml(warrant.person.name)}">
         <header>
-          <h3>${escapeHtml(team.name)}</h3>
-          <span class="meos-status ${escapeHtml(team.tone)}">${escapeHtml(team.status)}</span>
+          <div>
+            <h3>${escapeHtml(warrant.person.name)}</h3>
+            <p>${escapeHtml(warrant.id || "ArrestatieBevel")}</p>
+          </div>
+          <span class="meos-status high">${escapeHtml(warrant.priority || "Actief")}</span>
         </header>
         <dl class="meos-detail-list">
-          <div><dt>Commandant</dt><dd>${escapeHtml(team.commander)}</dd></div>
-          <div><dt>Leden</dt><dd>${escapeHtml(team.members)}</dd></div>
-          <div><dt>Locatie</dt><dd>${escapeHtml(team.location)}</dd></div>
-          <div><dt>Voertuig</dt><dd>${escapeHtml(team.vehicle)}</dd></div>
-          <div><dt>Inzet</dt><dd>${escapeHtml(team.assignment)}</dd></div>
+          <div><dt>BSN</dt><dd>${escapeHtml(warrant.person.bsn)}</dd></div>
+          <div><dt>Geboortedatum</dt><dd>${escapeHtml(warrant.person.birthDate)}</dd></div>
+          <div><dt>Reden</dt><dd>${escapeHtml(warrant.reason)}</dd></div>
+          <div><dt>Uitgegeven op</dt><dd>${escapeHtml(warrant.issuedAt)}</dd></div>
+          <div><dt>Uitgegeven door</dt><dd>${escapeHtml(warrant.issuedBy)}</dd></div>
+          <div><dt>Instructie</dt><dd>${escapeHtml(warrant.instruction)}</dd></div>
         </dl>
       </article>
     `).join("");
@@ -483,7 +507,8 @@
     }
     if (first === "personen") return { page: "personen" };
     if (first === "voertuigen") return { page: "voertuigen" };
-    if (first === "at") return { page: "at" };
+    if (first === "arrestatiebevelen") return { page: "arrestatiebevelen" };
+    if (first === "at") return { page: "arrestatiebevelen", replace: true };
     return { page: "dashboard", replace: true };
   }
 
@@ -643,7 +668,7 @@
     loadMeosSession();
     renderPeople();
     renderVehicles();
-    renderAtOverview();
+    renderWarrantOverview();
     renderQuickSearch();
     applyRouteFromLocation();
   }

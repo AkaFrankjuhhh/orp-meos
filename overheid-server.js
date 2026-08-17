@@ -156,7 +156,7 @@ function isMeosHost(req) {
 
 function isMeosPageRoute(pathname) {
   const firstSegment = String(pathname || "").split("/").filter(Boolean)[0]?.toLowerCase() || "";
-  return ["dashboard", "personen", "voertuigen", "at"].includes(firstSegment);
+  return ["dashboard", "personen", "voertuigen", "arrestatiebevelen", "at"].includes(firstSegment);
 }
 
 function serveMeosStatic(req, res, url) {

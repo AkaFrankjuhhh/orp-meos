@@ -117,9 +117,12 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /data-section="dashboard"/);
   assert.match(html, /data-section="personen"/);
   assert.match(html, /data-section="voertuigen"/);
-  assert.match(html, /data-section="at"/);
+  assert.match(html, /data-section="arrestatiebevelen"/);
+  assert.match(html, /ArrestatieBevel Overzicht/);
+  assert.doesNotMatch(html, /AT Overzicht/);
   assert.match(html, /id="personSearch"/);
   assert.match(html, /id="vehicleSearch"/);
+  assert.match(html, /id="warrantOverview"/);
   assert.match(html, /id="meosThemeToggle"/);
   assert.match(html, /id="meosProfileAvatar"/);
   assert.match(html, /id="meosProfileLogout"/);
@@ -130,6 +133,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-theme-toggle/);
   assert.match(styles, /\.meos-discord-profile/);
   assert.match(styles, /\.meos-person-row\.wanted/);
+  assert.match(styles, /\.meos-warrant-grid/);
   assert.match(styles, /transform: scale\(1\.01\)/);
   assert.match(styles, /\.meos-profile-grid/);
   assert.match(script, /const themeStorageKey = "orp-meos-theme"/);
@@ -139,11 +143,17 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(script, /function renderMeosProfile\(/);
   assert.match(script, /function personSlug\(/);
   assert.match(script, /function routeFromLocation\(/);
+  assert.match(script, /function activeArrestWarrants\(/);
+  assert.match(script, /function renderWarrantOverview\(/);
+  assert.match(script, /arrestWarrants/);
+  assert.match(script, /\/arrestatiebevelen/);
   assert.match(script, /history\.pushState/);
   assert.match(script, /function normalizeUploadedImageToPng\(/);
   assert.match(script, /event\.key === "F12"/);
   assert.match(script, /class="meos-result-card meos-person-row/);
   assert.doesNotMatch(script, /statusChip/);
+  assert.doesNotMatch(script, /atTeams/);
+  assert.doesNotMatch(script, /renderAtOverview/);
   assert.match(script, /dataset\.meosTheme = nextTheme/);
   assert.match(script, /fingerprint: "VN-8842-ER"/);
   assert.match(script, /function filteredPeople\(/);
@@ -152,8 +162,10 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(serverCode, /meos\.orpoverheid\.nl/);
   assert.match(serverCode, /"meos\.html", "meos\.css", "meos\.js"/);
   assert.match(serverCode, /meosRouteRoots/);
+  assert.match(serverCode, /arrestatiebevelen/);
   assert.match(overheidServerCode, /function serveMeosStatic/);
   assert.match(overheidServerCode, /function isMeosPageRoute/);
+  assert.match(overheidServerCode, /arrestatiebevelen/);
   assert.match(overheidServerCode, /portalIdentityForDiscordId/);
   assert.match(overheidServerCode, /DISCORD_POLITIE_MEOS_ROLE_ID/);
   assert.match(overheidServerCode, /\/api\/meos\/session/);
@@ -202,6 +214,13 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
     });
     assert.equal(dashboard.status, 302);
     assert.match(dashboard.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Fdashboard/);
+
+    const warrants = await fetch(`${overheidBaseUrl}/arrestatiebevelen`, {
+      headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
+      redirect: "manual"
+    });
+    assert.equal(warrants.status, 302);
+    assert.match(warrants.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Farrestatiebevelen/);
   } finally {
     server.kill();
   }
