@@ -96,7 +96,7 @@
     displayName: "Frank B",
     rank: "Brigadegeneraal",
     serviceNumber: "70-04",
-    avatarUrl: "/assets/meos-logo.png?v=20260817-orange-logo"
+    avatarUrl: "/assets/meos-logo.png?v=20260818-site-logo"
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);

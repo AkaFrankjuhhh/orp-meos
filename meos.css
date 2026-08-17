@@ -122,18 +122,18 @@ button {
 }
 
 .meos-brand {
-  min-height: 42px;
+  min-height: 48px;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 92px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  padding: 0 4px 8px;
+  gap: 10px;
+  padding: 0 4px 12px;
   border-bottom: 1px solid var(--meos-sidebar-line);
 }
 
 .meos-brand img {
-  width: 40px;
-  height: 30px;
+  width: 92px;
+  height: 40px;
   object-fit: contain;
 }
 
@@ -144,7 +144,7 @@ button {
 }
 
 .meos-brand strong {
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.04em;
 }
 
