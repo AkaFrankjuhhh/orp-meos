@@ -30,6 +30,18 @@ function splitList(value, fallback = []) {
   return items.length ? items : fallback;
 }
 
+function normalizeOrganizationPriority(value, fallback = []) {
+  const source = Array.isArray(value) ? value : splitList(value, fallback);
+  const seen = new Set();
+  return source
+    .map(normalizeOrganizationKey)
+    .filter((key) => {
+      if (!["defensie", "politie"].includes(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function databaseUrlForOrganization(key) {
   const normalized = normalizeOrganizationKey(key);
   const envKey = normalized === "politie"
@@ -73,11 +85,13 @@ function nicknameForPortalPerson(person, organizationKey) {
   return `${prefix} ${name}`.trim().slice(0, 32).trim();
 }
 
-async function portalIdentityForDiscordId(discordId) {
+async function portalIdentityForDiscordId(discordId, options = {}) {
   const normalizedDiscordId = String(discordId || "").trim();
   if (!normalizedDiscordId) return null;
-  const priorities = splitList(process.env.SIDE_TASK_PORTAL_NICKNAME_PRIORITY, ["defensie", "politie"])
-    .map(normalizeOrganizationKey);
+  const priorities = normalizeOrganizationPriority(
+    options.organizationPriority,
+    normalizeOrganizationPriority(process.env.SIDE_TASK_PORTAL_NICKNAME_PRIORITY, ["defensie", "politie"])
+  );
   for (const organizationKey of priorities) {
     const pool = poolForOrganization(organizationKey);
     if (!pool) continue;

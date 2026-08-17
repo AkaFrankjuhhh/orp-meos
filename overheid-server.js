@@ -164,11 +164,12 @@ function serveMeosStatic(req, res, url) {
   const meosStaticPaths = new Set(["/", "/meos", "/meos.html", "/meos.css", "/meos.js"]);
   const isMeosAsset = url.pathname.startsWith("/assets/");
   const isMeosPage = isMeosPageRoute(url.pathname);
+  const isMeosShell = ["/", "/meos", "/meos.html"].includes(url.pathname) || isMeosPage;
   if (isMeosHost(req)) {
     if (!meosStaticPaths.has(url.pathname) && !isMeosAsset && !isMeosPage) return false;
-    if (isMeosPage && !getMeosSession(req)) {
+    if (isMeosShell && !getMeosSession(req)) {
       writeHeadSecure(res, 302, {
-        Location: `/api/meos/login?returnTo=${encodeURIComponent(url.pathname)}`
+        Location: `/api/meos/login?returnTo=${encodeURIComponent(safeMeosReturnTo(url.pathname))}`
       });
       res.end();
       return true;
@@ -313,6 +314,17 @@ function matchingRoutesForRoles(routes, roles, userId) {
   return routes.filter((route) => routeRoleIds(route).some((roleId) => roles.has(roleId) || isDevOverride(userId)));
 }
 
+function meosOrganizationPriority(matches = []) {
+  const seen = new Set();
+  return matches
+    .map((route) => String(route?.key || "").trim().toLowerCase())
+    .filter((key) => {
+      if (!["defensie", "politie"].includes(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function discordAvatarUrl(user) {
   if (!user?.id || !user?.avatar) return "/assets/meos-logo.png?v=20260817-orange-logo";
   const extension = String(user.avatar).startsWith("a_") ? "gif" : "png";
@@ -337,7 +349,8 @@ function meosFallbackProfile(user = null) {
 }
 
 async function meosProfileForDiscordUser(user, matches = []) {
-  const identity = await portalIdentityForDiscordId(user?.id);
+  const organizationPriority = meosOrganizationPriority(matches);
+  const identity = await portalIdentityForDiscordId(user?.id, { organizationPriority });
   const person = identity?.person || {};
   const fallback = meosFallbackProfile(user);
   return {
@@ -347,7 +360,8 @@ async function meosProfileForDiscordUser(user, matches = []) {
     avatarUrl: discordAvatarUrl(user),
     discordId: normalizeDiscordId(user?.id || ""),
     discordUsername: user?.username || "",
-    organizationKey: identity?.organizationKey || matches[0]?.key || "overheid"
+    organizationKey: identity?.organizationKey || organizationPriority[0] || "overheid",
+    matchedOrganizations: organizationPriority
   };
 }
 
@@ -619,7 +633,7 @@ async function handleRequest(req, res) {
       const member = await getGuildMember(token.access_token);
       const roles = new Set(member.roles || []);
       const matches = matchingRoutesForRoles(roleRoutes, roles, user.id);
-      const isMeosLogin = rememberedState?.surface === "meos" || returnTo === "/meos";
+      const isMeosLogin = rememberedState?.surface === "meos" || isMeosHost(req) || returnTo === "/meos";
       const meosMatches = isMeosLogin
         ? matchingRoutesForRoles(meosRoleRoutes, roles, user.id)
         : [];

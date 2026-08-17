@@ -12,6 +12,9 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(meosRoutesBlock, /roleIds: \["1423471185391255705", "1425715749862772818"\]/);
   assert.doesNotMatch(meosRoutesBlock, /DISCORD_POLITIE_ROLE_ID|DISCORD_DEFENSIE_ROLE_ID|DISCORD_POLITIE_MEOS_ROLE_ID|DISCORD_MEOS_ROLE_ID/);
   assert.match(code, /function routeRoleIds\(route\)/);
+  assert.match(code, /function meosOrganizationPriority\(matches = \[\]\)/);
+  assert.match(code, /portalIdentityForDiscordId\(user\?\.id, \{ organizationPriority \}\)/);
   assert.match(callbackBlock, /matchingRoutesForRoles\(meosRoleRoutes, roles, user\.id\)/);
+  assert.match(callbackBlock, /rememberedState\?\.surface === "meos" \|\| isMeosHost\(req\) \|\| returnTo === "\/meos"/);
   assert.doesNotMatch(callbackBlock, /uniqueRoutesByKey\(\[\.\.\.matches, \.\.\.matchingRoutesForRoles\(meosRoleRoutes/);
 });

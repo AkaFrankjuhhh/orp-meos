@@ -215,10 +215,24 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
     assert.equal(payload.profile.name, "Frank Bright");
 
     const page = await fetch(`${overheidBaseUrl}/`, {
+      headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
+      redirect: "manual"
+    });
+    assert.equal(page.status, 302);
+    assert.match(page.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Fdashboard/);
+
+    const shell = await fetch(`${overheidBaseUrl}/meos.html`, {
+      headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
+      redirect: "manual"
+    });
+    assert.equal(shell.status, 302);
+    assert.match(shell.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Fdashboard/);
+
+    const logo = await fetch(`${overheidBaseUrl}/assets/meos-logo.png`, {
       headers: { "x-forwarded-host": "meos.orpoverheid.nl" }
     });
-    assert.equal(page.status, 200);
-    assert.match(await page.text(), /meosProfileAvatar/);
+    assert.equal(logo.status, 200);
+    assert.match(logo.headers.get("content-type") || "", /image\/png/);
 
     const dashboard = await fetch(`${overheidBaseUrl}/dashboard`, {
       headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
