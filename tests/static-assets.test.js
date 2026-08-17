@@ -3,9 +3,29 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const vm = require("node:vm");
 
 const port = 4137;
 const baseUrl = `http://127.0.0.1:${port}`;
+
+function loadMeosPeopleForTest() {
+  const meosCode = fs.readFileSync(path.join(process.cwd(), "meos.js"), "utf8")
+    .replace(
+      "const people = [...basePeople, ...generateDemoPeople(50)];",
+      "const people = [...basePeople, ...generateDemoPeople(50)]; globalThis.__meosPeople = people;"
+    );
+  const sandbox = {
+    document: {
+      readyState: "loading",
+      addEventListener() {},
+      querySelector() { return null; },
+      querySelectorAll() { return []; }
+    },
+    window: {}
+  };
+  vm.runInNewContext(meosCode, sandbox, { filename: "meos.js" });
+  return sandbox.__meosPeople;
+}
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -131,7 +151,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosProfileLogout"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
   assert.match(html, /meos\.css\?v=20260818-vehicle-detail/);
-  assert.match(html, /meos\.js\?v=20260818-vehicle-detail/);
+  assert.match(html, /meos\.js\?v=20260818-demo-accounts/);
   assert.match(html, /meos-menu-icon/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
@@ -182,6 +202,14 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(script, /function vehicleSlug\(/);
   assert.match(script, /function renderVehicleDetail\(/);
   assert.match(script, /function vehicleStolenDetail\(/);
+  assert.match(script, /const basePeople = \[/);
+  assert.match(script, /generateDemoPeople\(50\)/);
+  assert.match(script, /function demoVehiclesForPerson\(/);
+  assert.match(script, /function demoRecordsForPerson\(/);
+  assert.match(script, /function demoNotesForPerson\(/);
+  assert.match(script, /function demoArrestWarrantsForPerson\(/);
+  assert.match(script, /ORP-BSN-\$\{demoNumber/);
+  assert.match(script, /ORP-V-\$\{demoNumber/);
   assert.match(script, /function routeFromLocation\(/);
   assert.match(script, /function activeArrestWarrants\(/);
   assert.match(script, /function renderWarrantOverview\(/);
@@ -250,6 +278,23 @@ test("MEOS concept is wired as primary overheid surface", () => {
     const stat = fs.statSync(path.join(process.cwd(), "assets", asset));
     assert.ok(stat.size > 100, `${asset} should be a generated PNG asset`);
   }
+});
+
+test("MEOS demo dataset adds fifty varied fake accounts", () => {
+  const people = loadMeosPeopleForTest();
+  const demoPeople = people.slice(3);
+
+  assert.equal(people.length, 53);
+  assert.equal(demoPeople.length, 50);
+  assert.equal(new Set(demoPeople.map((person) => person.name)).size, 50);
+  assert.ok(demoPeople.every((person) => /^ORP-BSN-\d+$/.test(person.bsn)));
+  assert.ok(demoPeople.every((person) => /^ORP-V-\d+$/.test(person.fingerprint)));
+  assert.ok(demoPeople.some((person) => person.vehicles.length === 0));
+  assert.ok(demoPeople.reduce((total, person) => total + person.vehicles.length, 0) >= 70);
+  assert.ok(demoPeople.reduce((total, person) => total + person.records.length, 0) >= 70);
+  assert.ok(demoPeople.reduce((total, person) => total + person.notes.length, 0) >= 70);
+  assert.ok(demoPeople.reduce((total, person) => total + person.arrestWarrants.length, 0) >= 10);
+  assert.ok(demoPeople.some((person) => person.vehicles.some((vehicle) => vehicle.stolen === "Ja" && vehicle.stolenReason && vehicle.stolenDate)));
 });
 
 test("MEOS overheid host serves API routes before static fallback", async () => {
