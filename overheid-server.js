@@ -275,6 +275,12 @@ function meosAppBaseUrl(req) {
   return `${proto}://${host}`.replace(/\/+$/, "");
 }
 
+function meosCallbackUrl(req) {
+  const configured = String(process.env.MEOS_DISCORD_REDIRECT_URI || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return `${meosAppBaseUrl(req)}/auth/discord/callback`;
+}
+
 function safeMeosReturnTo(value) {
   const returnTo = safeReturnTo(value || "/dashboard");
   if (returnTo === "/" || returnTo === "/meos" || returnTo === "/meos.html") return "/dashboard";
@@ -540,7 +546,7 @@ async function handleRequest(req, res) {
       return;
     }
     const state = crypto.randomBytes(24).toString("hex");
-    const redirectUri = callbackUrl(req);
+    const redirectUri = meosCallbackUrl(req);
     const returnTo = safeMeosReturnTo(url.searchParams.get("returnTo") || "/dashboard");
     rememberOAuthState(state, {
       redirectUri,

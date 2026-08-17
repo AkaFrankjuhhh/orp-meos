@@ -131,6 +131,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   const script = fs.readFileSync(path.join(process.cwd(), "meos.js"), "utf8");
   const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const overheidServerCode = fs.readFileSync(path.join(process.cwd(), "overheid-server.js"), "utf8");
+  const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
   const caddy = fs.readFileSync(path.join(process.cwd(), "deploy", "Caddyfile.example"), "utf8");
 
   assert.match(html, /ORP Overheid MEOS/);
@@ -253,9 +254,13 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(overheidServerCode, /portalIdentityForDiscordId/);
   assert.match(overheidServerCode, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
   assert.match(overheidServerCode, /DISCORD_POLITIE_MEOS_ROLE_ID/);
+  assert.match(overheidServerCode, /function meosCallbackUrl\(req\)/);
+  assert.match(overheidServerCode, /MEOS_DISCORD_REDIRECT_URI/);
+  assert.match(overheidServerCode, /const redirectUri = meosCallbackUrl\(req\);/);
   assert.match(overheidServerCode, /\/api\/meos\/session/);
   assert.match(overheidServerCode, /\/api\/meos\/login\?returnTo=/);
   assert.match(overheidServerCode, /orp_meos_session/);
+  assert.match(envExample, /MEOS_DISCORD_REDIRECT_URI=https:\/\/meos\.orpoverheid\.nl\/auth\/discord\/callback/);
   assert.match(caddy, /meos\.orpoverheid\.nl/);
   assert.match(caddy, /meos\.orpdefensie\.nl, meos\.orppolitie\.nl/);
   assert.match(caddy, /redir https:\/\/meos\.orpoverheid\.nl\{uri\} permanent/);
@@ -369,6 +374,46 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
     });
     assert.equal(warrants.status, 302);
     assert.match(warrants.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Farrestatiebevelen/);
+  } finally {
+    server.kill();
+  }
+});
+
+test("MEOS Discord login uses the public callback redirect URI", async () => {
+  const overheidPort = 4139;
+  const overheidBaseUrl = `http://127.0.0.1:${overheidPort}`;
+  const publicCallback = "https://meos.orpoverheid.nl/auth/discord/callback";
+  const server = spawn(process.execPath, ["overheid-server.js"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      OVERHEID_PORT: String(overheidPort),
+      OVERHEID_APP_BASE_URL: overheidBaseUrl,
+      MEOS_APP_BASE_URL: "https://meos.orpoverheid.nl",
+      MEOS_DISCORD_REDIRECT_URI: publicCallback,
+      DISCORD_CLIENT_ID: "test-client-id",
+      DISCORD_CLIENT_SECRET: "test-client-secret",
+      DISCORD_GUILD_ID: "test-guild-id",
+      NODE_ENV: "test"
+    },
+    stdio: "ignore"
+  });
+
+  try {
+    await waitForServer(server, 8000, `${overheidBaseUrl}/api/health`);
+
+    const login = await fetch(`${overheidBaseUrl}/api/meos/login?returnTo=/dashboard`, {
+      headers: {
+        "x-forwarded-host": "meos.orpoverheid.nl",
+        "x-forwarded-proto": "https"
+      },
+      redirect: "manual"
+    });
+    assert.equal(login.status, 302);
+    const location = new URL(login.headers.get("location"));
+    assert.equal(location.hostname, "discord.com");
+    assert.equal(location.searchParams.get("redirect_uri"), publicCallback);
+    assert.notEqual(location.searchParams.get("redirect_uri"), `${overheidBaseUrl}/auth/discord/callback`);
   } finally {
     server.kill();
   }
