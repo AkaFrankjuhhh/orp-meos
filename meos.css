@@ -204,83 +204,51 @@ button {
 }
 
 .meos-nav-icon {
-  position: relative;
+  flex: 0 0 18px;
   width: 18px;
   height: 18px;
   display: block;
-  color: currentColor;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.16));
+  transition: opacity 140ms ease, transform 140ms ease;
 }
 
-.meos-nav-icon::before,
-.meos-nav-icon::after {
-  content: "";
-  position: absolute;
-  box-sizing: border-box;
+.meos-nav-item:hover .meos-nav-icon {
+  transform: scale(1.06);
 }
 
-.meos-nav-icon.dashboard::before {
-  left: 3px;
-  top: 3px;
-  width: 4px;
-  height: 4px;
-  border-radius: 1px;
-  background: currentColor;
-  box-shadow: 8px 0 0 currentColor, 0 8px 0 currentColor, 8px 8px 0 currentColor;
+.meos-nav-icon.dashboard {
+  background-image: url("/assets/meos-icon-dashboard.png?v=20260817-png-icons");
 }
 
-.meos-nav-icon.people::before {
-  left: 6px;
-  top: 2px;
-  width: 7px;
-  height: 7px;
-  border: 2px solid currentColor;
-  border-radius: 50%;
+.meos-nav-item.active .meos-nav-icon.dashboard {
+  background-image: url("/assets/meos-icon-dashboard-active.png?v=20260817-png-icons");
 }
 
-.meos-nav-icon.people::after {
-  left: 2px;
-  top: 11px;
-  width: 15px;
-  height: 7px;
-  border: 2px solid currentColor;
-  border-bottom: 0;
-  border-radius: 9px 9px 0 0;
+.meos-nav-icon.people {
+  background-image: url("/assets/meos-icon-person.png?v=20260817-png-icons");
 }
 
-.meos-nav-icon.vehicle::before {
-  left: 2px;
-  top: 7px;
-  width: 14px;
-  height: 7px;
-  border: 2px solid currentColor;
-  border-radius: 5px 5px 3px 3px;
+.meos-nav-item.active .meos-nav-icon.people {
+  background-image: url("/assets/meos-icon-person-active.png?v=20260817-png-icons");
 }
 
-.meos-nav-icon.vehicle::after {
-  left: 4px;
-  top: 13px;
-  width: 10px;
-  height: 3px;
-  border-left: 3px solid currentColor;
-  border-right: 3px solid currentColor;
+.meos-nav-icon.vehicle {
+  background-image: url("/assets/meos-icon-vehicle.png?v=20260817-png-icons");
 }
 
-.meos-nav-icon.warrant::before {
-  left: 4px;
-  top: 2px;
-  width: 11px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-radius: 2px;
+.meos-nav-item.active .meos-nav-icon.vehicle {
+  background-image: url("/assets/meos-icon-vehicle-active.png?v=20260817-png-icons");
 }
 
-.meos-nav-icon.warrant::after {
-  left: 7px;
-  top: 7px;
-  width: 6px;
-  height: 2px;
-  background: currentColor;
-  box-shadow: 0 4px 0 currentColor;
+.meos-nav-icon.warrant {
+  background-image: url("/assets/meos-icon-warrant.png?v=20260817-png-icons");
+}
+
+.meos-nav-item.active .meos-nav-icon.warrant {
+  background-image: url("/assets/meos-icon-warrant-active.png?v=20260817-png-icons");
 }
 
 .meos-sidebar-status {
@@ -292,12 +260,10 @@ button {
 }
 
 .meos-sidebar-status span {
-  width: 8px;
-  height: 8px;
+  width: 13px;
+  height: 13px;
   display: inline-block;
-  border-radius: 50%;
-  background: #48d597;
-  box-shadow: 0 0 0 4px rgba(72, 213, 151, 0.14);
+  background: center / contain no-repeat url("/assets/meos-icon-status-online.png?v=20260817-png-icons");
 }
 
 .meos-sidebar-status p,
@@ -342,11 +308,22 @@ button {
 
 .meos-menu-button {
   display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 0;
   color: #fff;
   background: transparent;
+}
+
+.meos-menu-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  background: center / contain no-repeat url("/assets/meos-icon-menu.png?v=20260817-png-icons");
 }
 
 .meos-topbar-actions {
@@ -376,35 +353,25 @@ button {
 }
 
 .meos-theme-icon {
-  position: relative;
   width: 30px;
   height: 30px;
   display: inline-block;
   border-radius: 50%;
-  color: #f7fbff;
-  transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
-}
-
-.meos-theme-icon::before {
-  content: "";
-  position: absolute;
-  left: 9px;
-  top: 7px;
-  width: 12px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-radius: 50%;
-  border-right-color: transparent;
-  transform: rotate(-22deg);
+  background-color: transparent;
+  background-image: url("/assets/meos-icon-theme-moon.png?v=20260817-png-icons");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 18px 18px;
+  transition: background 140ms ease, box-shadow 140ms ease;
 }
 
 .meos-theme-toggle:hover .meos-theme-icon,
 .meos-theme-toggle input:checked + .meos-theme-icon {
-  background: rgba(255, 255, 255, 0.09);
+  background-color: rgba(255, 255, 255, 0.09);
 }
 
 .meos-theme-toggle input:checked + .meos-theme-icon {
-  color: #ffb15c;
+  background-image: url("/assets/meos-icon-theme-moon-active.png?v=20260817-png-icons");
 }
 
 .meos-theme-toggle input:focus-visible + .meos-theme-icon {
@@ -548,98 +515,29 @@ button {
 }
 
 .meos-tile-icon {
-  position: relative;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
 }
 
-.meos-tile-icon.person::before {
-  content: "";
-  position: absolute;
-  left: 10px;
-  top: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
+.meos-tile-icon.person {
+  background-image: url("/assets/meos-icon-person.png?v=20260817-png-icons");
 }
 
-.meos-tile-icon.person::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  bottom: 1px;
-  width: 24px;
-  height: 18px;
-  border-radius: 16px 16px 4px 4px;
-  background: #fff;
-}
-
-.meos-tile-icon.vehicle::before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  top: 12px;
-  width: 28px;
-  height: 12px;
-  border-radius: 5px 5px 3px 3px;
-  background: #fff;
-}
-
-.meos-tile-icon.vehicle::after {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 23px;
-  width: 20px;
-  height: 7px;
-  border-left: 6px solid #fff;
-  border-right: 6px solid #fff;
+.meos-tile-icon.vehicle {
+  background-image: url("/assets/meos-icon-vehicle.png?v=20260817-png-icons");
 }
 
 .meos-tile-icon.report {
-  border: 2px solid #fff;
+  background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
 }
 
-.meos-tile-icon.report::before,
-.meos-tile-icon.report::after {
-  content: "";
-  position: absolute;
-  left: 7px;
-  right: 7px;
-  height: 2px;
-  background: #fff;
-}
-
-.meos-tile-icon.report::before {
-  top: 10px;
-}
-
-.meos-tile-icon.report::after {
-  top: 18px;
-}
-
-.meos-tile-icon.lock::before {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 13px;
-  width: 20px;
-  height: 17px;
-  background: #fff;
-}
-
-.meos-tile-icon.lock::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  top: 1px;
-  width: 14px;
-  height: 16px;
-  border: 4px solid #fff;
-  border-bottom: 0;
-  border-radius: 12px 12px 0 0;
+.meos-tile-icon.lock {
+  background-image: url("/assets/meos-icon-warrant.png?v=20260817-png-icons");
 }
 
 .meos-panel {

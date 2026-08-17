@@ -127,10 +127,22 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosProfileAvatar"/);
   assert.match(html, /id="meosProfileLogout"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260817-orange-logo/);
+  assert.match(html, /meos\.css\?v=20260817-png-icons/);
+  assert.match(html, /meos-menu-icon/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
   assert.match(styles, /--meos-sidebar-bg: #005493/);
   assert.doesNotMatch(styles, /#242b2d|#30383a|#1d2426/);
+  assert.match(styles, /meos-icon-dashboard\.png\?v=20260817-png-icons/);
+  assert.match(styles, /meos-icon-dashboard-active\.png\?v=20260817-png-icons/);
+  assert.match(styles, /meos-icon-person-active\.png\?v=20260817-png-icons/);
+  assert.match(styles, /meos-icon-vehicle-active\.png\?v=20260817-png-icons/);
+  assert.match(styles, /meos-icon-warrant-active\.png\?v=20260817-png-icons/);
+  assert.match(styles, /meos-icon-report\.png\?v=20260817-png-icons/);
+  assert.match(styles, /meos-icon-theme-moon\.png\?v=20260817-png-icons/);
+  assert.match(styles, /meos-icon-menu\.png\?v=20260817-png-icons/);
+  assert.match(styles, /meos-icon-status-online\.png\?v=20260817-png-icons/);
+  assert.doesNotMatch(styles, /\.meos-nav-icon::before|\.meos-nav-icon::after|\.meos-theme-icon::before|\.meos-tile-icon\.[^{]+::/);
   assert.match(styles, /html\[data-meos-theme="dark"\]/);
   assert.match(styles, /--meos-page-bg: #0f1218/);
   assert.match(styles, /\.meos-theme-toggle/);
@@ -186,6 +198,25 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(caddy, /meos\.orpoverheid\.nl/);
   assert.match(caddy, /meos\.orpdefensie\.nl, meos\.orppolitie\.nl/);
   assert.match(caddy, /redir https:\/\/meos\.orpoverheid\.nl\{uri\} permanent/);
+
+  for (const asset of [
+    "meos-icon-dashboard.png",
+    "meos-icon-dashboard-active.png",
+    "meos-icon-person.png",
+    "meos-icon-person-active.png",
+    "meos-icon-vehicle.png",
+    "meos-icon-vehicle-active.png",
+    "meos-icon-warrant.png",
+    "meos-icon-warrant-active.png",
+    "meos-icon-report.png",
+    "meos-icon-theme-moon.png",
+    "meos-icon-theme-moon-active.png",
+    "meos-icon-menu.png",
+    "meos-icon-status-online.png"
+  ]) {
+    const stat = fs.statSync(path.join(process.cwd(), "assets", asset));
+    assert.ok(stat.size > 100, `${asset} should be a generated PNG asset`);
+  }
 });
 
 test("MEOS overheid host serves API routes before static fallback", async () => {
@@ -233,6 +264,12 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
     });
     assert.equal(logo.status, 200);
     assert.match(logo.headers.get("content-type") || "", /image\/png/);
+
+    const icon = await fetch(`${overheidBaseUrl}/assets/meos-icon-dashboard.png`, {
+      headers: { "x-forwarded-host": "meos.orpoverheid.nl" }
+    });
+    assert.equal(icon.status, 200);
+    assert.match(icon.headers.get("content-type") || "", /image\/png/);
 
     const dashboard = await fetch(`${overheidBaseUrl}/dashboard`, {
       headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
