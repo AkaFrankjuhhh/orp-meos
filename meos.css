@@ -3,75 +3,106 @@
   --meos-blue-dark: #00457c;
   --meos-blue-deep: #003a68;
   --meos-blue-soft: #1b98d3;
-  --meos-line: #d9e0e8;
-  --meos-muted: #777f89;
-  --meos-text: #101721;
-  --meos-soft: #f3f6f9;
+  --meos-line: #cfe3f5;
+  --meos-muted: #4e77a0;
+  --meos-text: #073b63;
+  --meos-soft: #f3f9ff;
   --meos-white: #ffffff;
-  --meos-page-bg: #edf2f7;
+  --meos-page-bg: #ffffff;
   --meos-panel-bg: #ffffff;
   --meos-elevated-bg: #ffffff;
-  --meos-subtle-bg: #e8edf2;
-  --meos-subtle-border: #dfe5eb;
+  --meos-subtle-bg: #eef7ff;
+  --meos-subtle-border: #cfe3f5;
   --meos-input-bg: #ffffff;
-  --meos-input-border: #ccd5df;
-  --meos-secondary-text: #333b45;
-  --meos-small-text: #1f2933;
-  --meos-feed-border: #edf1f5;
-  --meos-card-border: #e0e6ed;
-  --meos-chip-bg: #f8fafc;
-  --meos-chip-text: #2c3440;
-  --meos-tab-text: #555;
-  --meos-table-border: #e3e8ef;
-  --meos-label-text: #999;
-  --meos-license-border: #d3d9e0;
-  --meos-empty-border: #cbd5df;
-  --meos-shadow: 0 1px 3px rgba(12, 27, 54, 0.12);
-  --meos-license-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  --meos-input-border: #b9d8f0;
+  --meos-secondary-text: #174a73;
+  --meos-small-text: #23577f;
+  --meos-feed-border: #e4f1fb;
+  --meos-card-border: #d6e8f7;
+  --meos-chip-bg: #f6fbff;
+  --meos-chip-text: #16466d;
+  --meos-tab-text: #356c99;
+  --meos-table-border: #dcecf8;
+  --meos-label-text: #5a82a9;
+  --meos-license-border: #c6ddf0;
+  --meos-empty-border: #bdd8ee;
+  --meos-shadow: 0 1px 3px rgba(0, 84, 147, 0.12);
+  --meos-license-shadow: 0 1px 3px rgba(0, 84, 147, 0.16);
+  --meos-icon-shadow: rgba(0, 84, 147, 0.16);
+  --meos-tile-icon-shadow: rgba(0, 84, 147, 0.18);
+  --meos-interactive-shadow: rgba(0, 84, 147, 0.16);
+  --meos-profile-action-shadow: rgba(0, 58, 104, 0.24);
   --meos-green: #12a36d;
   --meos-red: #c93636;
   --meos-yellow: #c69214;
+  --meos-topbar-bg: #005493;
+  --meos-topbar-border: #003a68;
+  --meos-topbar-profile-bg: #00457c;
+  --meos-profile-meta: #c9e4f6;
+  --meos-profile-action-bg: #003a68;
+  --meos-profile-action-hover: #075c96;
   --meos-sidebar-bg: #005493;
   --meos-sidebar-deep: #00457c;
   --meos-sidebar-line: #1b6fa7;
   --meos-sidebar-muted: #c6def0;
   --meos-sidebar-text: #f8fbfc;
-  --meos-sidebar-accent: #ff6b1a;
+  --meos-sidebar-accent: #ffffff;
   --meos-sidebar-hover: #0b629d;
+  --meos-sidebar-active-bg: #0b629d;
+  --meos-sidebar-active-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
 }
 
 html[data-meos-theme="dark"] {
-  --meos-blue: #0269b4;
-  --meos-blue-dark: #035c9e;
-  --meos-blue-deep: #014071;
-  --meos-blue-soft: #4eb7e9;
-  --meos-line: #303946;
-  --meos-muted: #9ba7b6;
-  --meos-text: #edf3fb;
-  --meos-soft: #1a2029;
-  --meos-white: #171c24;
-  --meos-page-bg: #0f1218;
-  --meos-panel-bg: #171c24;
-  --meos-elevated-bg: #1d2430;
-  --meos-subtle-bg: #151a22;
-  --meos-subtle-border: #2a3340;
-  --meos-input-bg: #11161e;
-  --meos-input-border: #364353;
-  --meos-secondary-text: #c6d0dd;
-  --meos-small-text: #aeb8c6;
-  --meos-feed-border: #29313d;
-  --meos-card-border: #303946;
-  --meos-chip-bg: #202733;
-  --meos-chip-text: #d7e2ef;
-  --meos-tab-text: #bdc8d6;
-  --meos-table-border: #2a3340;
-  --meos-label-text: #94a0af;
-  --meos-license-border: #364353;
-  --meos-empty-border: #394454;
-  --meos-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  --meos-license-shadow: 0 1px 3px rgba(0, 0, 0, 0.34);
+  --meos-blue: #ff6b1a;
+  --meos-blue-dark: #db5a14;
+  --meos-blue-deep: #8f330e;
+  --meos-blue-soft: #ff9a57;
+  --meos-line: #333333;
+  --meos-muted: #b4b4b4;
+  --meos-text: #f4f4f4;
+  --meos-soft: #1c1c1c;
+  --meos-white: #171717;
+  --meos-page-bg: #101010;
+  --meos-panel-bg: #181818;
+  --meos-elevated-bg: #202020;
+  --meos-subtle-bg: #151515;
+  --meos-subtle-border: #303030;
+  --meos-input-bg: #111111;
+  --meos-input-border: #3a3a3a;
+  --meos-secondary-text: #dddddd;
+  --meos-small-text: #c6c6c6;
+  --meos-feed-border: #2a2a2a;
+  --meos-card-border: #343434;
+  --meos-chip-bg: #242424;
+  --meos-chip-text: #f1f1f1;
+  --meos-tab-text: #c8c8c8;
+  --meos-table-border: #2f2f2f;
+  --meos-label-text: #a8a8a8;
+  --meos-license-border: #3d3d3d;
+  --meos-empty-border: #444444;
+  --meos-shadow: 0 1px 3px rgba(0, 0, 0, 0.36);
+  --meos-license-shadow: 0 1px 3px rgba(0, 0, 0, 0.38);
+  --meos-icon-shadow: rgba(0, 0, 0, 0.4);
+  --meos-tile-icon-shadow: rgba(0, 0, 0, 0.42);
+  --meos-interactive-shadow: rgba(255, 107, 26, 0.22);
+  --meos-profile-action-shadow: rgba(0, 0, 0, 0.38);
+  --meos-topbar-bg: #171717;
+  --meos-topbar-border: #2e2e2e;
+  --meos-topbar-profile-bg: #202020;
+  --meos-profile-meta: #ffb98a;
+  --meos-profile-action-bg: #2a2a2a;
+  --meos-profile-action-hover: #ff6b1a;
+  --meos-sidebar-bg: #151515;
+  --meos-sidebar-deep: #101010;
+  --meos-sidebar-line: #303030;
+  --meos-sidebar-muted: #ababab;
+  --meos-sidebar-text: #f4f4f4;
+  --meos-sidebar-accent: #ff6b1a;
+  --meos-sidebar-hover: rgba(255, 107, 26, 0.1);
+  --meos-sidebar-active-bg: rgba(255, 107, 26, 0.13);
+  --meos-sidebar-active-shadow: inset 0 0 0 1px rgba(255, 107, 26, 0.22);
   color-scheme: dark;
 }
 
@@ -118,7 +149,7 @@ button {
   padding: 14px 10px;
   color: var(--meos-sidebar-text);
   background: var(--meos-sidebar-bg);
-  border-right: 1px solid #00335a;
+  border-right: 1px solid var(--meos-topbar-border);
 }
 
 .meos-brand {
@@ -198,9 +229,9 @@ button {
 .meos-nav-item.active,
 .meos-nav-item.active:hover {
   color: var(--meos-sidebar-accent);
-  background: rgba(255, 107, 26, 0.12);
+  background: var(--meos-sidebar-active-bg);
   border-color: var(--meos-sidebar-accent);
-  box-shadow: inset 0 0 0 1px rgba(255, 107, 26, 0.2);
+  box-shadow: var(--meos-sidebar-active-shadow);
 }
 
 .meos-nav-icon {
@@ -211,7 +242,7 @@ button {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.16));
+  filter: drop-shadow(0 1px 1px var(--meos-icon-shadow));
   transition: opacity 140ms ease, transform 140ms ease;
 }
 
@@ -224,7 +255,7 @@ button {
 }
 
 .meos-nav-item.active .meos-nav-icon.dashboard {
-  background-image: url("/assets/meos-icon-dashboard-active.png?v=20260817-png-icons");
+  background-image: url("/assets/meos-icon-dashboard.png?v=20260817-png-icons");
 }
 
 .meos-nav-icon.people {
@@ -232,7 +263,7 @@ button {
 }
 
 .meos-nav-item.active .meos-nav-icon.people {
-  background-image: url("/assets/meos-icon-person-active.png?v=20260817-png-icons");
+  background-image: url("/assets/meos-icon-person.png?v=20260817-png-icons");
 }
 
 .meos-nav-icon.vehicle {
@@ -240,7 +271,7 @@ button {
 }
 
 .meos-nav-item.active .meos-nav-icon.vehicle {
-  background-image: url("/assets/meos-icon-vehicle-active.png?v=20260817-png-icons");
+  background-image: url("/assets/meos-icon-vehicle.png?v=20260817-png-icons");
 }
 
 .meos-nav-icon.warrant {
@@ -248,6 +279,22 @@ button {
 }
 
 .meos-nav-item.active .meos-nav-icon.warrant {
+  background-image: url("/assets/meos-icon-warrant.png?v=20260817-png-icons");
+}
+
+html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.dashboard {
+  background-image: url("/assets/meos-icon-dashboard-active.png?v=20260817-png-icons");
+}
+
+html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.people {
+  background-image: url("/assets/meos-icon-person-active.png?v=20260817-png-icons");
+}
+
+html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.vehicle {
+  background-image: url("/assets/meos-icon-vehicle-active.png?v=20260817-png-icons");
+}
+
+html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.warrant {
   background-image: url("/assets/meos-icon-warrant-active.png?v=20260817-png-icons");
 }
 
@@ -295,8 +342,8 @@ button {
   min-height: 70px;
   padding: 6px 16px;
   color: #fff;
-  background: var(--meos-blue);
-  border-bottom: 1px solid #00335a;
+  background: var(--meos-topbar-bg);
+  border-bottom: 1px solid var(--meos-topbar-border);
 }
 
 .meos-topbar h1 {
@@ -391,7 +438,7 @@ button {
   border-left: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 0;
   color: #f7fbff;
-  background: var(--meos-blue-dark);
+  background: var(--meos-topbar-profile-bg);
   box-shadow: none;
 }
 
@@ -424,7 +471,7 @@ button {
 }
 
 .meos-discord-profile-copy span {
-  color: #c9e4f6;
+  color: var(--meos-profile-meta);
   font-size: 12px;
   font-weight: 700;
 }
@@ -442,14 +489,14 @@ button {
   border-radius: 999px;
   padding: 5px 10px;
   color: #f7fbff;
-  background: var(--meos-blue-deep);
+  background: var(--meos-profile-action-bg);
   font-size: 12px;
   font-weight: 800;
   text-decoration: none;
   opacity: 0;
   pointer-events: none;
   transform: translateY(-50%);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 8px 20px var(--meos-profile-action-shadow);
   transition: opacity 140ms ease, background 140ms ease;
 }
 
@@ -460,7 +507,7 @@ button {
 }
 
 .meos-profile-action:hover {
-  background: #075c96;
+  background: var(--meos-profile-action-hover);
 }
 
 .meos-profile-action:disabled {
@@ -521,7 +568,7 @@ button {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
+  filter: drop-shadow(0 2px 2px var(--meos-tile-icon-shadow));
 }
 
 .meos-tile-icon.person {
@@ -724,7 +771,7 @@ button.meos-result-card {
 .meos-result-card[data-owner-profile]:focus-visible {
   z-index: 1;
   border-color: var(--meos-blue-soft);
-  box-shadow: 0 10px 24px rgba(0, 68, 128, 0.16);
+  box-shadow: 0 10px 24px var(--meos-interactive-shadow);
   transform: scale(1.01);
   outline: none;
 }
