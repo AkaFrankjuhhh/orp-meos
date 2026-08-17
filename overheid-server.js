@@ -26,16 +26,17 @@ const roleRoutes = [
     targetUrl: process.env.OVERHEID_POLITIE_URL || process.env.POLITIE_APP_BASE_URL || "https://orppolitie.nl"
   }
 ];
+// MEOS negeert brede portal/env-rollen zoals DISCORD_POLITIE_MEOS_ROLE_ID en gebruikt alleen deze expliciete allowlist.
 const meosRoleRoutes = [
   {
     key: "defensie",
     label: "Defensie MEOS",
-    roleId: process.env.DISCORD_MEOS_ROLE_ID || process.env.DISCORD_DEFENSIE_MEOS_ROLE_ID || ""
+    roleIds: ["1423468016099918024", "1425931664877551708"]
   },
   {
     key: "politie",
     label: "Politie MEOS",
-    roleId: process.env.DISCORD_POLITIE_MEOS_ROLE_ID || process.env.DISCORD_POLITIE_ROLE_ID || "1423471185391255705"
+    roleIds: ["1423471185391255705", "1425715749862772818"]
   }
 ];
 const INTERNAL_COMPLAINT_RETURN_TO = "/forms/interne-klacht";
@@ -288,7 +289,7 @@ function discordConfigured() {
     process.env.DISCORD_CLIENT_ID &&
       process.env.DISCORD_CLIENT_SECRET &&
       process.env.DISCORD_GUILD_ID &&
-      (roleRoutes.some((route) => route.roleId) || meosRoleRoutes.some((route) => route.roleId))
+      (roleRoutes.some((route) => route.roleId) || meosRoleRoutes.some((route) => route.roleIds?.length))
   );
 }
 
@@ -304,17 +305,12 @@ function isDevOverride(userId) {
   return devOverrideIds().has(normalizeDiscordId(userId));
 }
 
-function matchingRoutesForRoles(routes, roles, userId) {
-  return routes.filter((route) => route.roleId && (roles.has(route.roleId) || isDevOverride(userId)));
+function routeRoleIds(route) {
+  return Array.isArray(route.roleIds) ? route.roleIds : [route.roleId].filter(Boolean);
 }
 
-function uniqueRoutesByKey(routes) {
-  const seen = new Set();
-  return routes.filter((route) => {
-    if (seen.has(route.key)) return false;
-    seen.add(route.key);
-    return true;
-  });
+function matchingRoutesForRoles(routes, roles, userId) {
+  return routes.filter((route) => routeRoleIds(route).some((roleId) => roles.has(roleId) || isDevOverride(userId)));
 }
 
 function discordAvatarUrl(user) {
@@ -623,7 +619,7 @@ async function handleRequest(req, res) {
       const matches = matchingRoutesForRoles(roleRoutes, roles, user.id);
       const isMeosLogin = rememberedState?.surface === "meos" || returnTo === "/meos";
       const meosMatches = isMeosLogin
-        ? uniqueRoutesByKey([...matches, ...matchingRoutesForRoles(meosRoleRoutes, roles, user.id)])
+        ? matchingRoutesForRoles(meosRoleRoutes, roles, user.id)
         : [];
 
       if (isMeosLogin && !meosMatches.length) {
