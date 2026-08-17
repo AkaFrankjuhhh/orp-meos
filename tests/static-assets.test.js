@@ -155,7 +155,12 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.doesNotMatch(script, /atTeams/);
   assert.doesNotMatch(script, /renderAtOverview/);
   assert.match(script, /dataset\.meosTheme = nextTheme/);
-  assert.match(script, /fingerprint: "VN-8842-ER"/);
+  assert.match(html, /ORP-BSN-44499819/);
+  assert.match(html, /ORP-V-38445989/);
+  assert.match(script, /bsn: "ORP-BSN-44499819"/);
+  assert.match(script, /fingerprint: "ORP-V-38445989"/);
+  assert.doesNotMatch(script, /fingerprint: "VN-/);
+  assert.doesNotMatch(script, /bsn: "\d+"/);
   assert.match(script, /function filteredPeople\(/);
   assert.match(script, /function renderProfile\(/);
   assert.match(script, /function filteredVehicles\(/);
