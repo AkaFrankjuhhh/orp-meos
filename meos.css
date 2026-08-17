@@ -31,13 +31,13 @@
   --meos-green: #12a36d;
   --meos-red: #c93636;
   --meos-yellow: #c69214;
-  --meos-sidebar-bg: #242b2d;
-  --meos-sidebar-deep: #1d2426;
-  --meos-sidebar-line: #394244;
-  --meos-sidebar-muted: #aeb8bd;
+  --meos-sidebar-bg: #005493;
+  --meos-sidebar-deep: #00457c;
+  --meos-sidebar-line: #1b6fa7;
+  --meos-sidebar-muted: #c6def0;
   --meos-sidebar-text: #f8fbfc;
   --meos-sidebar-accent: #ff6b1a;
-  --meos-sidebar-hover: #30383a;
+  --meos-sidebar-hover: #0b629d;
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -118,7 +118,7 @@ button {
   padding: 14px 10px;
   color: var(--meos-sidebar-text);
   background: var(--meos-sidebar-bg);
-  border-right: 1px solid #172022;
+  border-right: 1px solid #00335a;
 }
 
 .meos-brand {
@@ -198,9 +198,9 @@ button {
 .meos-nav-item.active,
 .meos-nav-item.active:hover {
   color: var(--meos-sidebar-accent);
-  background: rgba(255, 107, 26, 0.07);
+  background: rgba(255, 107, 26, 0.12);
   border-color: var(--meos-sidebar-accent);
-  box-shadow: inset 0 0 0 1px rgba(255, 107, 26, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 26, 0.2);
 }
 
 .meos-nav-icon {
@@ -424,7 +424,7 @@ button {
   border-left: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 0;
   color: #f7fbff;
-  background: #242b2d;
+  background: var(--meos-blue-dark);
   box-shadow: none;
 }
 
@@ -434,7 +434,7 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 50%;
   object-fit: cover;
-  background: #171f22;
+  background: var(--meos-blue-deep);
 }
 
 .meos-discord-profile-copy {
@@ -457,7 +457,7 @@ button {
 }
 
 .meos-discord-profile-copy span {
-  color: #b6c0c5;
+  color: #c9e4f6;
   font-size: 12px;
   font-weight: 700;
 }
@@ -475,7 +475,7 @@ button {
   border-radius: 999px;
   padding: 5px 10px;
   color: #f7fbff;
-  background: #1a2225;
+  background: var(--meos-blue-deep);
   font-size: 12px;
   font-weight: 800;
   text-decoration: none;
@@ -493,7 +493,7 @@ button {
 }
 
 .meos-profile-action:hover {
-  background: #2a3437;
+  background: #075c96;
 }
 
 .meos-profile-action:disabled {

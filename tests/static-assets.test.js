@@ -129,6 +129,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260817-orange-logo/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
+  assert.match(styles, /--meos-sidebar-bg: #005493/);
+  assert.doesNotMatch(styles, /#242b2d|#30383a|#1d2426/);
   assert.match(styles, /html\[data-meos-theme="dark"\]/);
   assert.match(styles, /--meos-page-bg: #0f1218/);
   assert.match(styles, /\.meos-theme-toggle/);
