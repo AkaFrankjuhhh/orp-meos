@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png?v=20260526" />
+  <link rel="stylesheet" href="/meos.css?v=20260817-overheid-opzet" />
+  <title>ORP Overheid MEOS</title>
+</head>
+<body>
+  <div class="meos-app">
+    <aside class="meos-sidebar" aria-label="MEOS navigatie">
+      <div class="meos-brand">
+        <img src="/assets/politie-logo.png?v=20260613-form-branding" alt="" />
+        <div>
+          <strong>ORP MEOS</strong>
+          <span>Overheid</span>
+        </div>
+      </div>
+
+      <nav class="meos-nav">
+        <button class="meos-nav-item active" type="button" data-section="dashboard">
+          <span class="meos-nav-icon">D</span>
+          <span>Dashboard</span>
+        </button>
+        <button class="meos-nav-item" type="button" data-section="personen">
+          <span class="meos-nav-icon">P</span>
+          <span>Personen</span>
+        </button>
+        <button class="meos-nav-item" type="button" data-section="voertuigen">
+          <span class="meos-nav-icon">V</span>
+          <span>Voertuigen</span>
+        </button>
+        <button class="meos-nav-item" type="button" data-section="at">
+          <span class="meos-nav-icon">AT</span>
+          <span>AT Overzicht</span>
+        </button>
+      </nav>
+
+      <div class="meos-sidebar-status">
+        <span></span>
+        <p>Primaire ingang</p>
+        <strong>meos.orpoverheid.nl</strong>
+      </div>
+    </aside>
+
+    <main class="meos-shell">
+      <header class="meos-topbar">
+        <button class="meos-menu-button" type="button" data-toggle-sidebar aria-label="Navigatie openen">Menu</button>
+        <h1>MEOS</h1>
+        <div class="meos-user">
+          <span>Frank Bright</span>
+          <strong>Frank B.</strong>
+        </div>
+      </header>
+
+      <section class="meos-page active" data-page="dashboard" aria-labelledby="dashboardTitle">
+        <div class="meos-breadcrumb">Dashboard</div>
+
+        <div class="meos-tile-grid" aria-label="Snelle acties">
+          <button class="meos-tile" type="button" data-section-shortcut="personen">
+            <span class="meos-tile-icon person"></span>
+            <span>Persoon</span>
+          </button>
+          <button class="meos-tile" type="button" data-section-shortcut="voertuigen">
+            <span class="meos-tile-icon vehicle"></span>
+            <span>Vervoermiddel</span>
+          </button>
+          <button class="meos-tile" type="button">
+            <span class="meos-tile-icon report"></span>
+            <span>Aangifte</span>
+          </button>
+          <button class="meos-tile" type="button" data-section-shortcut="at">
+            <span class="meos-tile-icon lock"></span>
+            <span>Beveiligingscentrum</span>
+          </button>
+        </div>
+
+        <section class="meos-dashboard-grid">
+          <article class="meos-panel meos-welcome-panel">
+            <h2 id="dashboardTitle">Welkom Frank B.</h2>
+            <p>In het MEOS systeem van ORP Overheid.</p>
+            <small>Dit systeem is uitsluitend voor geautoriseerd gebruik binnen FiveM roleplay.</small>
+
+            <div class="meos-note-form">
+              <label for="generalNote">Algemene Notities</label>
+              <textarea id="generalNote" placeholder="Notitie"></textarea>
+              <button class="meos-primary" type="button">Opslaan</button>
+            </div>
+
+            <div class="meos-feed">
+              <p>Hallo Frank B., welkom in MEOS vandaag.</p>
+              <p>Je hebt toegang tot personen, voertuigen en AT-overzicht.</p>
+              <p>Momenteel staan er 4 actieve signaleringen open.</p>
+              <p>Laatste synchronisatie: conceptdata voor ORP Overheid.</p>
+            </div>
+          </article>
+
+          <aside class="meos-panel meos-search-panel">
+            <h2>Snel zoeken</h2>
+            <div class="meos-inline-search">
+              <input id="dashboardQuickSearch" type="search" placeholder="Naam, BSN, vingerafdruk of kenteken" />
+              <button class="meos-primary" type="button" data-dashboard-search>Zoeken</button>
+            </div>
+            <div id="dashboardSearchPreview" class="meos-search-preview" aria-live="polite"></div>
+          </aside>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="personen" aria-labelledby="peopleTitle">
+        <div class="meos-breadcrumb">Personen</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="peopleTitle">Personen zoeken</h2>
+              <p>Zoek op naam, BSN, vingerafdruk of geboortedatum.</p>
+            </div>
+            <span class="meos-count" id="peopleCount">0 resultaten</span>
+          </div>
+
+          <div class="meos-search-row">
+            <label>
+              <span>Zoeken</span>
+              <input id="personSearch" type="search" placeholder="Bijv. Ernie Nugz, 16751, VN-8842-ER of 17-03-1945" />
+            </label>
+            <label>
+              <span>Veld</span>
+              <select id="personSearchField">
+                <option value="all">Alles</option>
+                <option value="name">Naam</option>
+                <option value="bsn">BSN</option>
+                <option value="fingerprint">Vingerafdruk</option>
+                <option value="birthDate">Geboortedatum</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="personResults" class="meos-results" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="profile" aria-labelledby="profileTitle">
+        <div class="meos-profile-toolbar">
+          <button class="meos-secondary" type="button" data-profile-back>Terug naar personen</button>
+          <span id="profileBreadcrumb">Personen / Profiel</span>
+        </div>
+        <div id="profileView" class="meos-profile-grid"></div>
+      </section>
+
+      <section class="meos-page" data-page="voertuigen" aria-labelledby="vehicleTitle">
+        <div class="meos-breadcrumb">Voertuigen</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="vehicleTitle">Voertuigen zoeken</h2>
+              <p>Zoek op kenteken, eigenaar, model, kleur of status.</p>
+            </div>
+            <span class="meos-count" id="vehicleCount">0 resultaten</span>
+          </div>
+
+          <div class="meos-search-row one">
+            <label>
+              <span>Zoeken</span>
+              <input id="vehicleSearch" type="search" placeholder="Bijv. WFX 403, Oracle, Racing Blue of gestolen" />
+            </label>
+          </div>
+
+          <div id="vehicleResults" class="meos-results vehicle-results" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="at" aria-labelledby="atTitle">
+        <div class="meos-breadcrumb">AT Overzicht</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="atTitle">AT Overzicht</h2>
+              <p>Actieve interventieteams, status en inzetlocaties.</p>
+            </div>
+            <span class="meos-count">3 teams actief</span>
+          </div>
+          <div id="atOverview" class="meos-at-grid"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="/meos.js?v=20260817-overheid-opzet" defer></script>
+</body>
+</html>

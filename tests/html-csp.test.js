@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const htmlFiles = ["index.html", "porto.html", "public-forms.html", "side-tasks.html"];
+const htmlFiles = ["index.html", "porto.html", "public-forms.html", "side-tasks.html", "meos.html"];
 
 test("html files do not use inline scripts or inline event handlers", () => {
   for (const file of htmlFiles) {

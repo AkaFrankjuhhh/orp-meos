@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
-const { createHttpResponder } = require("./modules/http-security");
+const { createHttpResponder, serveWhitelistedStatic } = require("./modules/http-security");
 
 loadEnv();
 
@@ -93,6 +93,25 @@ function forwardedHost(req) {
     .split(":")[0]
     .trim()
     .toLowerCase();
+}
+
+function isMeosHost(req) {
+  const host = forwardedHost(req);
+  return host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
+}
+
+function serveMeosStatic(req, res, url) {
+  if (!isMeosHost(req) && !["/meos", "/meos.html", "/meos.css", "/meos.js"].includes(url.pathname)) return false;
+  const requested = url.pathname === "/" || url.pathname === "/meos" ? "/meos.html" : url.pathname;
+  const publicRootFiles = new Set(["meos.html", "meos.css", "meos.js"]);
+  serveWhitelistedStatic({
+    root: __dirname,
+    requested,
+    res,
+    writeHeadSecure,
+    publicRootFiles
+  });
+  return true;
 }
 
 function cookieDomainSuffix(req) {
@@ -307,6 +326,8 @@ function choicePage(routes, returnTo = "/") {
 
 async function handleRequest(req, res) {
   const url = new URL(req.url, requestBaseUrl(req));
+  if (req.method === "GET" && serveMeosStatic(req, res, url)) return;
+
   if (url.pathname === "/assets/orp-overheid-background.png" && req.method === "GET") {
     const assetPath = path.join(__dirname, "assets", "orp-overheid-background.png");
     fs.readFile(assetPath, (error, data) => {

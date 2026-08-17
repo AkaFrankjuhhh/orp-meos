@@ -98,11 +98,40 @@ test("portal sidebar links MEOS below Porto before the dashboard spacer", () => 
   const sharedStyles = fs.readFileSync(path.join(process.cwd(), "shared.css"), "utf8");
 
   assert.match(html, /shared\.css\?v=20260804-meos-sidebar/);
-  assert.match(html, /href="https:\/\/meos\.oranjestadrp\.nl\/"[^>]*>MEOS<\/a>/);
-  assert.ok(html.indexOf("data-open-porto") < html.indexOf("https://meos.oranjestadrp.nl/"));
-  assert.ok(html.indexOf("https://meos.oranjestadrp.nl/") < html.indexOf('<div class="nav-spacer"'));
+  assert.match(html, /href="https:\/\/meos\.orpoverheid\.nl\/"[^>]*>MEOS<\/a>/);
+  assert.ok(html.indexOf("data-open-porto") < html.indexOf("https://meos.orpoverheid.nl/"));
+  assert.ok(html.indexOf("https://meos.orpoverheid.nl/") < html.indexOf('<div class="nav-spacer"'));
   assert.match(appCode, /MEOS: "meos"/);
   assert.match(sharedStyles, /\.nav-item \{[\s\S]*text-decoration: none;/);
+});
+
+test("MEOS concept is wired as primary overheid surface", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "meos.html"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "meos.css"), "utf8");
+  const script = fs.readFileSync(path.join(process.cwd(), "meos.js"), "utf8");
+  const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const overheidServerCode = fs.readFileSync(path.join(process.cwd(), "overheid-server.js"), "utf8");
+  const caddy = fs.readFileSync(path.join(process.cwd(), "deploy", "Caddyfile.example"), "utf8");
+
+  assert.match(html, /ORP Overheid MEOS/);
+  assert.match(html, /data-section="dashboard"/);
+  assert.match(html, /data-section="personen"/);
+  assert.match(html, /data-section="voertuigen"/);
+  assert.match(html, /data-section="at"/);
+  assert.match(html, /id="personSearch"/);
+  assert.match(html, /id="vehicleSearch"/);
+  assert.match(styles, /--meos-blue: #005493/);
+  assert.match(styles, /\.meos-profile-grid/);
+  assert.match(script, /fingerprint: "VN-8842-ER"/);
+  assert.match(script, /function filteredPeople\(/);
+  assert.match(script, /function renderProfile\(/);
+  assert.match(script, /function filteredVehicles\(/);
+  assert.match(serverCode, /meos\.orpoverheid\.nl/);
+  assert.match(serverCode, /"meos\.html", "meos\.css", "meos\.js"/);
+  assert.match(overheidServerCode, /function serveMeosStatic/);
+  assert.match(caddy, /meos\.orpoverheid\.nl/);
+  assert.match(caddy, /meos\.orpdefensie\.nl, meos\.orppolitie\.nl/);
+  assert.match(caddy, /redir https:\/\/meos\.orpoverheid\.nl\{uri\} permanent/);
 });
 
 test("portal boot waits for the app before revealing the shell", () => {

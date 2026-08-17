@@ -62,6 +62,22 @@ hovj.orpdefensie.nl, hovj.orppolitie.nl {
   redir https://hovj.orpoverheid.nl{uri} permanent
 }
 
+# Centrale MEOS plek. Politie/Defensie aliassen sturen naar ORP Overheid.
+meos.orpoverheid.nl {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3020
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer-when-downgrade
+    X-Frame-Options DENY
+  }
+}
+
+meos.orpdefensie.nl, meos.orppolitie.nl {
+  redir https://meos.orpoverheid.nl{uri} permanent
+}
+
 # Porto draait als eigen service, zodat personeelsportaal deploys OPS niet onderbreken.
 porto.orpdefensie.nl {
   encode zstd gzip

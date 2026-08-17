@@ -2099,10 +2099,19 @@ function serveStatic(req, res, url) {
     redirectToPorto(res, url.pathname === "/porto.html" ? "/porto.html" : url.pathname);
     return;
   }
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].split(":")[0].trim().toLowerCase();
+  const isMeosHost = host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
+  const isMeosRoute = isMeosHost || ["meos", "meos.html"].includes(firstSegment.toLowerCase());
   const publicFormConfig = publicFormForRequest(req, url);
   const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek", "systeemstatus"]);
   const publicFormAssets = new Set(["/public-forms.css", "/public-forms.js", "/client-guard.js"]);
-  const requested = publicFormConfig ? (publicFormAssets.has(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html") : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase()) ? "/index.html" : url.pathname;
+  const requested = isMeosRoute && (url.pathname === "/" || ["/meos", "/meos.html"].includes(url.pathname))
+    ? "/meos.html"
+    : publicFormConfig
+      ? (publicFormAssets.has(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html")
+      : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase())
+        ? "/index.html"
+        : url.pathname;
   if (requested === "/personeelsportaal-data.js") {
     writeHeadSecure(res, 200, {
       "Content-Type": "text/javascript; charset=utf-8",
@@ -2119,7 +2128,7 @@ function serveStatic(req, res, url) {
     res.end(portoClientDataScript(organization));
     return;
   }
-  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "client-guard.js", "portal-boot.js", "portal-client-errors.js", "portal-loader-failsafe.js", "boot-failsafe.js", "public-forms.html", "public-forms.css", "public-forms.js"]);
+  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "client-guard.js", "portal-boot.js", "portal-client-errors.js", "portal-loader-failsafe.js", "boot-failsafe.js", "public-forms.html", "public-forms.css", "public-forms.js", "meos.html", "meos.css", "meos.js"]);
   serveWhitelistedStatic({
     root,
     requested,
