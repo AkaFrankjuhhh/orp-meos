@@ -3,6 +3,7 @@ const test = require("node:test");
 
 const {
   portalIdentitySearchHints,
+  portalPersonDisplayName,
   portalPersonMatchesSearchHints,
   serviceNumberFromDiscordNickname,
   stripDiscordNicknamePrefix
@@ -25,4 +26,23 @@ test("MEOS identity hints parse Discord nicknames from the personnel portal", ()
 test("MEOS identity hints handle active duty prefixes before service nicknames", () => {
   assert.equal(stripDiscordNicknamePrefix("OVD-K [73-04] Slak G."), "Slak G.");
   assert.equal(serviceNumberFromDiscordNickname("[73-04] Slak G."), "73-04");
+});
+
+test("MEOS profile names prefer full portal names over compact Discord fallbacks", () => {
+  assert.equal(
+    portalPersonDisplayName({
+      name: "Slak G.",
+      discord_username: "Frank B",
+      raw: { name: "Slak Giesen" }
+    }, { fallbackNickname: "[73-01] Slak G." }),
+    "Slak Giesen"
+  );
+  assert.equal(
+    portalPersonDisplayName({
+      name: "",
+      discord_username: "Frank B",
+      raw: {}
+    }, { fallbackNickname: "[73-01] Slak G." }),
+    "Slak G."
+  );
 });

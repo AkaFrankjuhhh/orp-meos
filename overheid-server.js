@@ -4,7 +4,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
 const { createHttpResponder, serveWhitelistedStatic } = require("./modules/http-security");
-const { portalIdentityForDiscordId, hasPortalIdentityDatabase } = require("./modules/side-tasks-portal-identity");
+const { portalIdentityForDiscordId, hasPortalIdentityDatabase, portalPersonDisplayName } = require("./modules/side-tasks-portal-identity");
 
 loadEnv();
 
@@ -369,8 +369,11 @@ async function meosProfileForDiscordUser(user, matches = [], member = {}) {
   if (!identity && !allowMeosDemoProfileFallback()) return null;
   const person = identity?.person || {};
   const fallback = meosFallbackProfile(user);
+  const portalName = portalPersonDisplayName(person, {
+    fallbackNickname: member?.nick || identity?.nickname || ""
+  });
   return {
-    name: String(person.name || fallback.name).trim(),
+    name: String(portalName || fallback.name).trim(),
     rank: String(person.rank || fallback.rank || "").trim(),
     serviceNumber: String(person.service_number || person.previous_service_number || serviceNumberFromNickname(identity?.nickname) || fallback.serviceNumber).trim(),
     avatarUrl: discordAvatarUrl(user),

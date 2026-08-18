@@ -7,7 +7,17 @@ const dutchSurnameParticles = new Set([
   "aan", "bij", "de", "del", "den", "der", "des", "du", "het", "in", "la", "op", "ten", "ter", "tot", "uit", "van", "vanden", "ver", "voor"
 ]);
 const activePortalStatusSql = "lower(coalesce(status, 'Actief')) not in ('inactief', 'ontslagen', 'gearchiveerd', 'archief', 'blacklist', 'geblacklist')";
-const identityColumns = "id, name, discord_id, discord_username, avatar, rank, service_number, previous_service_number, status, updated_at";
+const identityColumns = "id, name, discord_id, discord_username, avatar, rank, service_number, previous_service_number, status, raw, updated_at";
+
+function parseJson(value, fallback = {}) {
+  if (value == null) return fallback;
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(String(value));
+  } catch {
+    return fallback;
+  }
+}
 
 function formatNameForDiscordNickname(name) {
   const parts = String(name || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
@@ -83,7 +93,7 @@ function nicknameForPortalPerson(person, organizationKey) {
     ? organization.discord.nicknameSymbolSeparator
     : " ";
   const prefix = symbols ? `[${serviceNumber}${separator}${symbols}]` : `[${serviceNumber}]`;
-  const name = formatNameForDiscordNickname(person.name || person.discord_username || "");
+  const name = formatNameForDiscordNickname(portalPersonDisplayName(person) || person.discord_username || "");
   return `${prefix} ${name}`.trim().slice(0, 32).trim();
 }
 
@@ -125,6 +135,44 @@ function serviceNumberFromDiscordNickname(value) {
   if (bracketMatch) return bracketMatch[1].trim();
   const prefixMatch = text.match(/^([A-Za-z]{1,10}-\d{1,3}|\d{2}-\d{2})\b/);
   return prefixMatch ? prefixMatch[1].trim() : "";
+}
+
+function cleanPortalName(value) {
+  const name = String(value || "").trim().replace(/\s+/g, " ");
+  if (!name || /^onbekend$/i.test(name)) return "";
+  return stripDiscordNicknamePrefix(name);
+}
+
+function isCompactPortalName(value) {
+  const name = cleanPortalName(value);
+  if (!name) return true;
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return true;
+  const last = parts[parts.length - 1];
+  return parts.length === 2 && /^[A-Z]\.?$/.test(last);
+}
+
+function addPortalNameCandidate(candidates, value) {
+  const name = cleanPortalName(value);
+  if (name && !candidates.some((candidate) => normalizeIdentityText(candidate) === normalizeIdentityText(name))) {
+    candidates.push(name);
+  }
+}
+
+function portalPersonDisplayName(person = {}, options = {}) {
+  const raw = parseJson(person.raw, {});
+  const candidates = [];
+  addPortalNameCandidate(candidates, raw.name);
+  addPortalNameCandidate(candidates, raw.fullName);
+  addPortalNameCandidate(candidates, raw.displayName);
+  addPortalNameCandidate(candidates, raw.profile?.name);
+  addPortalNameCandidate(candidates, person.name);
+  addPortalNameCandidate(candidates, options.fallbackNickname);
+  addPortalNameCandidate(candidates, raw.discordUsername);
+  addPortalNameCandidate(candidates, raw.discord_username);
+  addPortalNameCandidate(candidates, person.discord_username);
+
+  return candidates.find((candidate) => !isCompactPortalName(candidate)) || candidates[0] || "";
 }
 
 function portalIdentitySearchHints(user = {}, member = {}) {
@@ -174,14 +222,15 @@ function portalPersonMatchesSearchHints(person, hints = {}) {
   const names = new Set(hints.names || []);
   const usernames = new Set(hints.usernames || []);
   const singleTokenNames = new Set(hints.singleTokenNames || []);
-  const personName = normalizeIdentityText(person?.name || "");
-  const formattedName = normalizeIdentityText(formatNameForDiscordNickname(person?.name || ""));
+  const personDisplayName = portalPersonDisplayName(person);
+  const personName = normalizeIdentityText(personDisplayName || person?.name || "");
+  const formattedName = normalizeIdentityText(formatNameForDiscordNickname(personDisplayName || person?.name || ""));
   const personUsername = normalizeIdentityText(person?.discord_username || "");
 
   if (personName && names.has(personName)) return true;
   if (formattedName && names.has(formattedName)) return true;
   if (personUsername && (usernames.has(personUsername) || names.has(personUsername))) return true;
-  const firstName = firstIdentityToken(person?.name || "");
+  const firstName = firstIdentityToken(personDisplayName || person?.name || "");
   return Boolean(firstName && singleTokenNames.has(firstName));
 }
 
@@ -299,6 +348,7 @@ module.exports = {
   hasPortalIdentityDatabase,
   formatNameForDiscordNickname,
   portalIdentitySearchHints,
+  portalPersonDisplayName,
   portalPersonMatchesSearchHints,
   serviceNumberFromDiscordNickname,
   stripDiscordNicknamePrefix

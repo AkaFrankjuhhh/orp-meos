@@ -19,6 +19,7 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /if \(isMeosHost\(req\)\) \{\s+const returnTo = safeMeosReturnTo/);
   assert.match(callbackBlock, /isMeosLogin \? meosCallbackUrl\(req\) : cookies\.orp_overheid_redirect \|\| callbackUrl\(req\)/);
   assert.match(code, /portalIdentityForDiscordId\(user\?\.id, \{[\s\S]*organizationPriority,[\s\S]*guildMember: member,[\s\S]*linkMissingDiscordId: true/);
+  assert.match(code, /portalPersonDisplayName\(person, \{[\s\S]*fallbackNickname: member\?\.nick \|\| identity\?\.nickname \|\| ""/);
   assert.match(code, /hasPortalIdentityDatabase\(\)/);
   assert.match(code, /function allowMeosDemoProfileFallback\(\)/);
   assert.match(code, /Geen actief personeelsprofiel gevonden in Defensie of Politie/);
