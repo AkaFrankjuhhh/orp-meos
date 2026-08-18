@@ -4,7 +4,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
 const { createHttpResponder, serveWhitelistedStatic } = require("./modules/http-security");
-const { portalIdentityForDiscordId } = require("./modules/side-tasks-portal-identity");
+const { portalIdentityForDiscordId, hasPortalIdentityDatabase } = require("./modules/side-tasks-portal-identity");
 
 loadEnv();
 
@@ -354,9 +354,19 @@ function meosFallbackProfile(user = null) {
   };
 }
 
-async function meosProfileForDiscordUser(user, matches = []) {
+function allowMeosDemoProfileFallback() {
+  return !hasPortalIdentityDatabase() && String(process.env.NODE_ENV || "development").toLowerCase() !== "production";
+}
+
+async function meosProfileForDiscordUser(user, matches = [], member = {}) {
   const organizationPriority = meosOrganizationPriority(matches);
-  const identity = await portalIdentityForDiscordId(user?.id, { organizationPriority });
+  const identity = await portalIdentityForDiscordId(user?.id, {
+    organizationPriority,
+    discordUser: user,
+    guildMember: member,
+    linkMissingDiscordId: true
+  });
+  if (!identity && !allowMeosDemoProfileFallback()) return null;
   const person = identity?.person || {};
   const fallback = meosFallbackProfile(user);
   return {
@@ -663,7 +673,11 @@ async function handleRequest(req, res) {
       }
 
       if (isMeosLogin) {
-        const profile = await meosProfileForDiscordUser(user, meosMatches);
+        const profile = await meosProfileForDiscordUser(user, meosMatches, member);
+        if (!profile) {
+          sendHtml(res, 403, loginPage("Geen actief personeelsprofiel gevonden in Defensie of Politie voor jouw Discord-account."));
+          return;
+        }
         const sessionId = rememberMeosSession(profile);
         writeHeadSecure(res, 302, {
           Location: rememberedState?.meosHomeUrl || meosHomeUrl(req),
