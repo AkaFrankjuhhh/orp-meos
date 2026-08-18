@@ -237,6 +237,11 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(script, /function filteredVehicles\(/);
   assert.match(script, /data-open-vehicle/);
   assert.match(script, /\/voertuigen\/\$\{vehicleSlug/);
+  assert.match(html, /id="meosProfileName">Frank Bright</);
+  assert.match(html, /id="dashboardTitle">Welkom Frank Bright\./);
+  assert.match(script, /function profileFullName\(profile\)/);
+  assert.match(script, /name\.textContent = profileFullName\(nextProfile\)/);
+  assert.doesNotMatch(script, /compactProfileName/);
   assert.match(script, /Kenteken/);
   assert.match(script, /Eigenaar/);
   assert.match(script, /Kleur van voertuig/);

@@ -298,7 +298,6 @@
   const themeStorageKey = "orp-meos-theme";
   const defaultMeosProfile = {
     name: "Frank Bright",
-    displayName: "Frank B",
     rank: "Brigadegeneraal",
     serviceNumber: "70-04",
     avatarUrl: "/assets/meos-logo.png?v=20260818-site-logo"
@@ -372,15 +371,20 @@
     applyTheme(nextTheme);
   }
 
-  function compactProfileName(name) {
-    const parts = String(name || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
-    if (!parts.length) return defaultMeosProfile.displayName;
-    if (parts.length === 1) return parts[0];
-    return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}`;
+  function profileFullName(profile) {
+    return String(profile?.name || defaultMeosProfile.name).trim() || defaultMeosProfile.name;
   }
 
   function profileMetaLine(profile) {
     return [profile.rank, profile.serviceNumber].map((value) => String(value || "").trim()).filter(Boolean).join(" \u00b7 ");
+  }
+
+  function renderDashboardProfile(profile) {
+    const fullName = profileFullName(profile);
+    const title = $("#dashboardTitle");
+    const welcome = $("#dashboardWelcomeLine");
+    if (title) title.textContent = `Welkom ${fullName}.`;
+    if (welcome) welcome.textContent = `Hallo ${fullName}, welkom in MEOS vandaag.`;
   }
 
   function renderMeosProfile(profile = defaultMeosProfile, authenticated = false) {
@@ -391,10 +395,11 @@
     const login = $("#meosProfileLogin");
     const logout = $("#meosProfileLogout");
     if (avatar) avatar.src = nextProfile.avatarUrl || defaultMeosProfile.avatarUrl;
-    if (name) name.textContent = nextProfile.displayName || compactProfileName(nextProfile.name);
+    if (name) name.textContent = profileFullName(nextProfile);
     if (meta) meta.textContent = profileMetaLine(nextProfile);
     if (login) login.hidden = authenticated;
     if (logout) logout.hidden = !authenticated;
+    renderDashboardProfile(nextProfile);
   }
 
   async function loadMeosSession() {
