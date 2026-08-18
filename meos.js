@@ -499,10 +499,9 @@
           <div class="meos-info-grid">
             <div class="meos-info-field"><span>Kenteken</span><strong>${escapeHtml(vehicle.plate)}</strong></div>
             <div class="meos-info-field"><span>Eigenaar</span><strong>${escapeHtml(vehicle.owner)}</strong></div>
+            <div class="meos-info-field"><span>Model</span><strong>${escapeHtml(vehicle.model)}</strong></div>
+            <div class="meos-info-field"><span>VIN</span><strong>${escapeHtml(vehicle.vin)}</strong></div>
             <div class="meos-info-field"><span>Kleur van voertuig</span><strong>${escapeHtml(vehicleColor(vehicle))}</strong></div>
-            <div class="meos-info-field"><span>WOK status</span><strong>${escapeHtml(vehicle.wok || "-")}</strong></div>
-            <div class="meos-info-field"><span>APK Status</span><strong>${escapeHtml(vehicle.apkStatus || "-")}</strong></div>
-            <div class="meos-info-field"><span>Gestolen</span><strong>${escapeHtml(vehicleStolenDetail(vehicle))}</strong></div>
           </div>
         </article>
       </div>
@@ -513,8 +512,9 @@
             <h2>Voertuig informatie</h2>
           </div>
           <div class="meos-info-grid">
-            <div class="meos-info-field"><span>Model</span><strong>${escapeHtml(vehicle.model)}</strong></div>
-            <div class="meos-info-field"><span>VIN</span><strong>${escapeHtml(vehicle.vin)}</strong></div>
+            <div class="meos-info-field"><span>APK Status</span><strong>${escapeHtml(vehicle.apkStatus || "-")}</strong></div>
+            <div class="meos-info-field"><span>WOK status</span><strong>${escapeHtml(vehicle.wok || "-")}</strong></div>
+            <div class="meos-info-field"><span>Gestolen</span><strong>${escapeHtml(vehicleStolenDetail(vehicle))}</strong></div>
             <div class="meos-info-field"><span>Inbeslaggenomen</span><strong>${escapeHtml(vehicle.impounded)}</strong></div>
             <div class="meos-info-field"><span>Dienst Auto</span><strong>${escapeHtml(vehicle.serviceVehicle)}</strong></div>
           </div>

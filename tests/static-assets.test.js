@@ -122,6 +122,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   const meosFiveMStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "meos-store-fivem.js"), "utf8");
   const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
   const caddy = fs.readFileSync(path.join(process.cwd(), "deploy", "Caddyfile.example"), "utf8");
+  const vehicleDetailCode = script.slice(script.indexOf("function renderVehicleDetail"), script.indexOf("function renderProfile"));
 
   assert.match(html, /ORP Overheid MEOS/);
   assert.match(html, /data-section="dashboard"/);
@@ -141,7 +142,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosProfileLogout"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
   assert.match(html, /meos\.css\?v=20260818-profile-add-entries/);
-  assert.match(html, /meos\.js\?v=20260818-profile-add-entries/);
+  assert.match(html, /meos\.js\?v=20260818-vehicle-field-layout/);
   assert.match(html, /meos-menu-icon/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
@@ -262,6 +263,11 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(script, /Kleur van voertuig/);
   assert.match(script, /WOK status/);
   assert.match(script, /APK Status/);
+  assert.ok(vehicleDetailCode.indexOf("Model") < vehicleDetailCode.indexOf("Kleur van voertuig"));
+  assert.ok(vehicleDetailCode.indexOf("VIN") < vehicleDetailCode.indexOf("Kleur van voertuig"));
+  assert.ok(vehicleDetailCode.indexOf("Voertuig informatie") < vehicleDetailCode.indexOf("APK Status"));
+  assert.ok(vehicleDetailCode.indexOf("Voertuig informatie") < vehicleDetailCode.indexOf("WOK status"));
+  assert.ok(vehicleDetailCode.indexOf("Voertuig informatie") < vehicleDetailCode.indexOf("Gestolen"));
   assert.match(meosDemoDataCode, /stolenReason: "Aangifte diefstal bij Vespucci"/);
   assert.doesNotMatch(script, /Eigenaar openen|data-owner-profile/);
   assert.match(serverCode, /meos\.orpoverheid\.nl/);
