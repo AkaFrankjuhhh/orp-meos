@@ -667,6 +667,12 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.warrant {
   background: var(--meos-blue);
 }
 
+.meos-secondary.muted {
+  color: var(--meos-secondary-text);
+  background: var(--meos-subtle-bg);
+  border: 1px solid var(--meos-subtle-border);
+}
+
 .meos-feed {
   margin-top: 20px;
   border-top: 1px solid var(--meos-feed-border);
@@ -897,6 +903,68 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
 
 .meos-card-title h2 {
   font-size: 25px;
+}
+
+.meos-entry-form {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  background: var(--meos-subtle-bg);
+}
+
+.meos-entry-form[hidden] {
+  display: none;
+}
+
+.meos-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.meos-form-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--meos-label-text);
+  font-size: 12px;
+}
+
+.meos-form-grid label.wide {
+  grid-column: 1 / -1;
+}
+
+.meos-form-grid input,
+.meos-form-grid textarea {
+  width: 100%;
+  border: 1px solid var(--meos-input-border);
+  border-radius: 2px;
+  padding: 10px 11px;
+  color: var(--meos-text);
+  background: var(--meos-input-bg);
+}
+
+.meos-form-grid textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.meos-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.meos-form-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(201, 54, 54, 0.28);
+  border-radius: 4px;
+  color: var(--meos-red);
+  background: rgba(201, 54, 54, 0.08);
+  font-weight: 700;
 }
 
 .meos-info-grid {
@@ -1140,6 +1208,7 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
   .meos-tile-grid,
   .meos-search-row,
   .meos-info-grid,
+  .meos-form-grid,
   .meos-record-body,
   .meos-result-card,
   .meos-warrant-grid {

@@ -6,6 +6,7 @@
   let meosDataLoaded = false;
   let meosDataError = "";
   let meosDataSource = null;
+  let currentMeosProfile = null;
   const themeStorageKey = "orp-meos-theme";
   const defaultMeosProfile = {
     name: "Frank Bright",
@@ -100,6 +101,7 @@
 
   function renderMeosProfile(profile = defaultMeosProfile, authenticated = false) {
     const nextProfile = { ...defaultMeosProfile, ...(profile || {}) };
+    currentMeosProfile = nextProfile;
     const avatar = $("#meosProfileAvatar");
     const name = $("#meosProfileName");
     const meta = $("#meosProfileMeta");
@@ -141,10 +143,19 @@
     }
   }
 
-  async function apiJson(path) {
-    const response = await fetch(path, {
-      headers: { Accept: "application/json" },
+  async function apiJson(path, options = {}) {
+    const headers = { Accept: "application/json", ...(options.headers || {}) };
+    const fetchOptions = {
+      ...options,
+      headers,
       credentials: "same-origin"
+    };
+    if (Object.prototype.hasOwnProperty.call(options, "body") && typeof options.body !== "string") {
+      fetchOptions.body = JSON.stringify(options.body || {});
+      fetchOptions.headers = { ...headers, "Content-Type": "application/json" };
+    }
+    const response = await fetch(path, {
+      ...fetchOptions
     });
     let payload = null;
     try {
@@ -211,6 +222,23 @@
     const label = meosDataSource?.label || "MEOS data";
     const live = meosDataSource?.live ? "live" : "conceptdata";
     syncLine.textContent = `Laatste synchronisatie: ${label} (${live}).`;
+  }
+
+  function todayMeosDate() {
+    const date = new Date();
+    const months = ["jan.", "feb.", "mrt.", "apr.", "mei", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  }
+
+  function currentVerbalistName() {
+    return profileFullName(currentMeosProfile || defaultMeosProfile);
+  }
+
+  function updatePersonInState(updatedPerson) {
+    if (!updatedPerson?.id) return;
+    const normalizedPerson = normalizePersonData(updatedPerson);
+    people = people.map((person) => person.id === normalizedPerson.id ? normalizedPerson : person);
+    activePersonId = normalizedPerson.id;
   }
 
   async function loadMeosData() {
@@ -394,6 +422,62 @@
     `).join("")}</div>`;
   }
 
+  function renderRecordEntryForm(person) {
+    return `
+      <form class="meos-entry-form" data-meos-add-record-form data-person-id="${escapeHtml(person.id)}" hidden>
+        <div class="meos-form-grid">
+          <label>
+            <span>Datum</span>
+            <input name="date" type="text" value="${escapeHtml(todayMeosDate())}" maxlength="40" />
+          </label>
+          <label>
+            <span>Sanctie</span>
+            <input name="sanction" type="text" placeholder="PV, waarschuwing, signalering" maxlength="80" required />
+          </label>
+          <label>
+            <span>Verbalisant</span>
+            <input name="verbalist" type="text" value="${escapeHtml(currentVerbalistName())}" maxlength="120" />
+          </label>
+          <label class="wide">
+            <span>Notitie</span>
+            <textarea name="note" rows="4" maxlength="2000" required></textarea>
+          </label>
+        </div>
+        <p class="meos-form-error" data-form-error hidden></p>
+        <div class="meos-form-actions">
+          <button class="meos-primary" type="submit">Opslaan</button>
+          <button class="meos-secondary muted" type="button" data-close-entry-form>Annuleren</button>
+        </div>
+      </form>
+    `;
+  }
+
+  function renderNoteEntryForm(person) {
+    return `
+      <form class="meos-entry-form" data-meos-add-note-form data-person-id="${escapeHtml(person.id)}" hidden>
+        <div class="meos-form-grid">
+          <label>
+            <span>Datum</span>
+            <input name="date" type="text" value="${escapeHtml(todayMeosDate())}" maxlength="40" />
+          </label>
+          <label>
+            <span>Verbalisant</span>
+            <input name="author" type="text" value="${escapeHtml(currentVerbalistName())}" maxlength="120" />
+          </label>
+          <label class="wide">
+            <span>Notitie</span>
+            <textarea name="note" rows="4" maxlength="2000" required></textarea>
+          </label>
+        </div>
+        <p class="meos-form-error" data-form-error hidden></p>
+        <div class="meos-form-actions">
+          <button class="meos-primary" type="submit">Opslaan</button>
+          <button class="meos-secondary muted" type="button" data-close-entry-form>Annuleren</button>
+        </div>
+      </form>
+    `;
+  }
+
   function renderVehicleDetail(vehicleKey = activeVehiclePlate, options = {}) {
     const vehicle = findVehicle(vehicleKey) || allVehicles()[0];
     const target = $("#vehicleDetailView");
@@ -503,16 +587,18 @@
         <article class="meos-panel">
           <div class="meos-card-title">
             <h2>Strafbladen</h2>
-            <button class="meos-secondary" type="button">Toevoegen</button>
+            <button class="meos-secondary" type="button" data-toggle-record-form>Toevoegen</button>
           </div>
+          ${renderRecordEntryForm(person)}
           ${person.records.length ? `<div class="meos-date-tabs">${recordDates}</div><div id="recordDetail">${renderRecord(activeRecord)}</div>` : '<div class="meos-empty">Geen strafbladen gevonden.</div>'}
         </article>
 
         <article class="meos-panel">
           <div class="meos-card-title">
             <h2>Notitie's</h2>
-            <button class="meos-secondary" type="button">Toevoegen</button>
+            <button class="meos-secondary" type="button" data-toggle-note-form>Toevoegen</button>
           </div>
+          ${renderNoteEntryForm(person)}
           ${person.notes.length ? `
             <table class="meos-table">
               <thead><tr><th>Datum</th><th>Verbalisant</th><th>Notitie</th></tr></thead>
@@ -712,6 +798,57 @@
     }
   }
 
+  function formPayload(form) {
+    const data = new FormData(form);
+    return Object.fromEntries([...data.entries()].map(([key, value]) => [key, String(value || "").trim()]));
+  }
+
+  function setFormError(form, message = "") {
+    const target = $("[data-form-error]", form);
+    if (!target) return;
+    target.textContent = message;
+    target.hidden = !message;
+  }
+
+  function setFormBusy(form, busy) {
+    $$("button, input, textarea", form).forEach((element) => {
+      element.disabled = busy;
+    });
+  }
+
+  async function submitMeosEntryForm(form, type) {
+    const personId = form.dataset.personId || activePersonId;
+    const path = type === "record"
+      ? `/api/meos/people/${encodeURIComponent(personId)}/records`
+      : `/api/meos/people/${encodeURIComponent(personId)}/notes`;
+    setFormError(form, "");
+    setFormBusy(form, true);
+    try {
+      const payload = await apiJson(path, {
+        method: "POST",
+        body: formPayload(form)
+      });
+      updatePersonInState(payload.person);
+      renderProfile(payload.person?.id || personId, { updateUrl: false });
+      renderPeople();
+      renderWarrantOverview();
+      renderQuickSearch();
+    } catch (error) {
+      setFormError(form, error.message || "Opslaan is mislukt.");
+      setFormBusy(form, false);
+    }
+  }
+
+  function toggleEntryForm(selector) {
+    const form = $(selector);
+    if (!form) return;
+    form.hidden = !form.hidden;
+    setFormError(form, "");
+    if (!form.hidden) {
+      $("textarea, input", form)?.focus();
+    }
+  }
+
   function bindInterfaceGuards() {
     document.addEventListener("contextmenu", (event) => event.preventDefault());
     document.addEventListener("keydown", (event) => {
@@ -772,6 +909,26 @@
         return;
       }
 
+      if (event.target.closest("[data-toggle-record-form]")) {
+        toggleEntryForm("[data-meos-add-record-form]");
+        return;
+      }
+
+      if (event.target.closest("[data-toggle-note-form]")) {
+        toggleEntryForm("[data-meos-add-note-form]");
+        return;
+      }
+
+      if (event.target.closest("[data-close-entry-form]")) {
+        const form = event.target.closest("form");
+        if (form) {
+          form.hidden = true;
+          setFormError(form, "");
+          form.reset();
+        }
+        return;
+      }
+
       const recordButton = event.target.closest("[data-record-index]");
       if (recordButton) {
         const person = findPerson(activePersonId);
@@ -798,6 +955,20 @@
 
       if (event.target.closest("[data-toggle-sidebar]")) {
         document.body.classList.toggle("sidebar-open");
+      }
+    });
+
+    document.addEventListener("submit", (event) => {
+      const recordForm = event.target.closest?.("[data-meos-add-record-form]");
+      if (recordForm) {
+        event.preventDefault();
+        submitMeosEntryForm(recordForm, "record");
+        return;
+      }
+      const noteForm = event.target.closest?.("[data-meos-add-note-form]");
+      if (noteForm) {
+        event.preventDefault();
+        submitMeosEntryForm(noteForm, "note");
       }
     });
 

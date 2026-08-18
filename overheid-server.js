@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
-const { createHttpResponder, serveWhitelistedStatic } = require("./modules/http-security");
+const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic } = require("./modules/http-security");
 const { portalIdentityForDiscordId, hasPortalIdentityDatabase, portalPersonDisplayName } = require("./modules/side-tasks-portal-identity");
 const { getMeosStore, meosStoreConfigFromEnv } = require("./modules/meos-store");
 
@@ -12,6 +12,7 @@ loadEnv();
 const port = Number(process.env.OVERHEID_PORT || process.env.PORT || 3020);
 const appBaseUrl = process.env.OVERHEID_APP_BASE_URL || `http://localhost:${port}`;
 const { writeHeadSecure, sendJson, sendHtml } = createHttpResponder({ appBaseUrl });
+const readMeosBody = createJsonBodyReader(Number(process.env.MEOS_MAX_BODY_BYTES || process.env.MAX_BODY_BYTES || 65536));
 
 const roleRoutes = [
   {
@@ -576,6 +577,74 @@ function meosPathParam(pathname, prefix) {
   }
 }
 
+function meosNestedPathParam(pathname, prefix, suffix) {
+  const text = String(pathname || "");
+  if (!text.startsWith(prefix) || !text.endsWith(suffix)) return "";
+  const raw = text.slice(prefix.length, text.length - suffix.length).replace(/^\/+|\/+$/g, "");
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function meosTodayDate() {
+  const date = new Date();
+  const months = ["jan.", "feb.", "mrt.", "apr.", "mei", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function meosText(value, field, options = {}) {
+  const max = Number(options.max || 500);
+  const required = Boolean(options.required);
+  const fallback = options.fallback || "";
+  const raw = String(value ?? "").trim();
+  const text = (raw || String(fallback || "").trim()).replace(/\r\n/g, "\n");
+  if (required && !text) {
+    const error = new Error(`${field} is verplicht.`);
+    error.status = 400;
+    throw error;
+  }
+  if (text.length > max) {
+    const error = new Error(`${field} mag maximaal ${max} tekens bevatten.`);
+    error.status = 400;
+    throw error;
+  }
+  return text;
+}
+
+function meosActorName(session) {
+  return String(session?.profile?.name || session?.profile?.discordUsername || "MEOS").trim() || "MEOS";
+}
+
+function meosCreatedBy(session) {
+  return {
+    name: meosActorName(session),
+    discordId: session?.profile?.discordId || "",
+    organizationKey: session?.profile?.organizationKey || "",
+    serviceNumber: session?.profile?.serviceNumber || ""
+  };
+}
+
+function meosRecordFromBody(body = {}, session = null) {
+  return {
+    date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
+    sanction: meosText(body.sanction, "Sanctie", { max: 80, required: true }),
+    verbalist: meosText(body.verbalist, "Verbalisant", { max: 120, fallback: meosActorName(session) }),
+    note: meosText(body.note, "Notitie", { max: 2000, required: true }),
+    createdBy: meosCreatedBy(session)
+  };
+}
+
+function meosNoteFromBody(body = {}, session = null) {
+  return {
+    date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
+    author: meosText(body.author, "Verbalisant", { max: 120, fallback: meosActorName(session) }),
+    note: meosText(body.note, "Notitie", { max: 2000, required: true }),
+    createdBy: meosCreatedBy(session)
+  };
+}
+
 async function sendMeosStoreResponse(req, res, action, details, handler) {
   const session = requireMeosApiSession(req, res);
   if (!session) return true;
@@ -592,6 +661,32 @@ async function sendMeosStoreResponse(req, res, action, details, handler) {
     sendJson(res, error.status || 500, {
       ok: false,
       error: error.message || "MEOS data ophalen is mislukt."
+    });
+  }
+  return true;
+}
+
+async function sendMeosMutationResponse(req, res, action, details, handler) {
+  const session = requireMeosApiSession(req, res);
+  if (!session) return true;
+  try {
+    const body = await readMeosBody(req);
+    const payload = await handler(getMeosStore(), session, body);
+    appendMeosAudit(req, session, action, {
+      ...details,
+      recordId: payload.record?.id || "",
+      noteId: payload.note?.id || ""
+    });
+    sendJson(res, 200, {
+      ok: true,
+      authenticated: true,
+      ...payload
+    });
+  } catch (error) {
+    console.error(`MEOS API ${action} mislukt:`, error.message || error);
+    sendJson(res, error.status || 500, {
+      ok: false,
+      error: error.message || "MEOS wijziging opslaan is mislukt."
     });
   }
   return true;
@@ -686,6 +781,22 @@ async function handleRequest(req, res) {
         throw error;
       }
       return { person };
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/people/") && url.pathname.endsWith("/records") && req.method === "POST") {
+    const value = meosNestedPathParam(url.pathname, "/api/meos/people/", "/records");
+    await sendMeosMutationResponse(req, res, "records.add", { person: value }, async (store, session, body) => {
+      return store.addPersonRecord(value, meosRecordFromBody(body, session));
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/people/") && url.pathname.endsWith("/notes") && req.method === "POST") {
+    const value = meosNestedPathParam(url.pathname, "/api/meos/people/", "/notes");
+    await sendMeosMutationResponse(req, res, "notes.add", { person: value }, async (store, session, body) => {
+      return store.addPersonNote(value, meosNoteFromBody(body, session));
     });
     return;
   }

@@ -41,6 +41,33 @@ test("MEOS demo store searches people, vehicles and arrest warrants", async () =
   assert.ok(warrants.some((warrant) => warrant.person.name === "Damian Kroes"));
 });
 
+test("MEOS demo store can add profile records and notes", async () => {
+  const store = createDemoMeosStore();
+
+  const recordResult = await store.addPersonRecord("ernie-nugz", {
+    date: "18 aug. 2026",
+    sanction: "PV",
+    verbalist: "Frank Bright",
+    note: "Nieuwe testregistratie.",
+    createdBy: { name: "Frank Bright" }
+  });
+  assert.equal(recordResult.record.sanction, "PV");
+  assert.equal(recordResult.person.records[0].note, "Nieuwe testregistratie.");
+
+  const noteResult = await store.addPersonNote("ernie-nugz", {
+    date: "18 aug. 2026",
+    author: "Frank Bright",
+    note: "Nieuwe testnotitie.",
+    createdBy: { name: "Frank Bright" }
+  });
+  assert.equal(noteResult.note.author, "Frank Bright");
+  assert.equal(noteResult.person.notes[0].note, "Nieuwe testnotitie.");
+
+  const person = await store.getPerson("ernie-nugz");
+  assert.equal(person.records[0].note, "Nieuwe testregistratie.");
+  assert.equal(person.notes[0].note, "Nieuwe testnotitie.");
+});
+
 test("MEOS store factory defaults to cached demo data", async () => {
   const config = meosStoreConfigFromEnv({
     MEOS_DATA_SOURCE: "",
@@ -55,6 +82,16 @@ test("MEOS store factory defaults to cached demo data", async () => {
   assert.equal(snapshot.people.length, 53);
   assert.ok(snapshot.vehicles.length >= 70);
   assert.ok(snapshot.warrants.length >= 10);
+
+  const result = await store.addPersonNote("ernie-nugz", {
+    date: "18 aug. 2026",
+    author: "Frank Bright",
+    note: "Cache wordt ververst.",
+    createdBy: { name: "Frank Bright" }
+  });
+  assert.equal(result.person.notes[0].note, "Cache wordt ververst.");
+  const updatedSnapshot = await store.snapshot();
+  assert.equal(updatedSnapshot.people.find((person) => person.id === "ernie-nugz").notes[0].note, "Cache wordt ververst.");
 });
 
 test("MEOS FiveM scaffold maps view rows to MEOS shape", async () => {

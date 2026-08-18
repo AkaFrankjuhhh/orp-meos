@@ -140,8 +140,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosProfileAvatar"/);
   assert.match(html, /id="meosProfileLogout"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
-  assert.match(html, /meos\.css\?v=20260818-vehicle-detail/);
-  assert.match(html, /meos\.js\?v=20260818-api-store/);
+  assert.match(html, /meos\.css\?v=20260818-profile-add-entries/);
+  assert.match(html, /meos\.js\?v=20260818-profile-add-entries/);
   assert.match(html, /meos-menu-icon/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
@@ -180,6 +180,9 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-vehicle-row/);
   assert.match(styles, /\.meos-result-card\[data-open-vehicle\]:hover/);
   assert.match(styles, /\.meos-warrant-grid/);
+  assert.match(styles, /\.meos-entry-form/);
+  assert.match(styles, /\.meos-form-grid/);
+  assert.match(styles, /\.meos-form-error/);
   assert.match(styles, /transform: scale\(1\.01\)/);
   assert.match(styles, /\.meos-profile-grid/);
   assert.match(script, /const themeStorageKey = "orp-meos-theme"/);
@@ -187,8 +190,13 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(script, /\/api\/meos\/session/);
   assert.match(script, /\/api\/meos\/logout/);
   assert.match(script, /\/api\/meos\/data/);
+  assert.match(script, /\/api\/meos\/people\/\$\{encodeURIComponent\(personId\)\}\/records/);
+  assert.match(script, /\/api\/meos\/people\/\$\{encodeURIComponent\(personId\)\}\/notes/);
   assert.match(script, /async function loadMeosData\(/);
   assert.match(script, /function setMeosPeople\(/);
+  assert.match(script, /function renderRecordEntryForm\(person\)/);
+  assert.match(script, /function renderNoteEntryForm\(person\)/);
+  assert.match(script, /async function submitMeosEntryForm\(form, type\)/);
   assert.match(script, /function applyTheme\(theme\)/);
   assert.match(script, /function renderMeosProfile\(/);
   assert.match(script, /function personSlug\(/);
@@ -209,6 +217,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosStoreCode, /MEOS_DATA_SOURCE/);
   assert.match(meosStoreCode, /MEOS_CACHE_TTL_MS/);
   assert.match(meosDemoStoreCode, /class DemoMeosStore/);
+  assert.match(meosDemoStoreCode, /addPersonRecord/);
+  assert.match(meosDemoStoreCode, /addPersonNote/);
   assert.match(meosFiveMStoreCode, /class FiveMMeosStore/);
   assert.match(meosFiveMStoreCode, /meos_people_view/);
   assert.match(meosFiveMStoreCode, /meos_vehicles_view/);
@@ -235,6 +245,10 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.doesNotMatch(script, /Zorgpas|Tol pas|Eerste Hulp Pas|Heli Vliegbrevet|Auto Rijbewijs|Motor Rijbewijs|Vrachtwagen Rijbewijs/);
   assert.match(script, /function filteredPeople\(/);
   assert.match(script, /function renderProfile\(/);
+  assert.match(script, /data-toggle-record-form/);
+  assert.match(script, /data-toggle-note-form/);
+  assert.match(script, /data-meos-add-record-form/);
+  assert.match(script, /data-meos-add-note-form/);
   assert.match(script, /function filteredVehicles\(/);
   assert.match(script, /data-open-vehicle/);
   assert.match(script, /\/voertuigen\/\$\{vehicleSlug/);
@@ -265,6 +279,11 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(overheidServerCode, /const redirectUri = meosCallbackUrl\(req\);/);
   assert.match(overheidServerCode, /\/api\/meos\/session/);
   assert.match(overheidServerCode, /\/api\/meos\/data/);
+  assert.match(overheidServerCode, /\/api\/meos\/people\/"\, "\/records"/);
+  assert.match(overheidServerCode, /\/api\/meos\/people\/"\, "\/notes"/);
+  assert.match(overheidServerCode, /sendMeosMutationResponse/);
+  assert.match(overheidServerCode, /meosRecordFromBody/);
+  assert.match(overheidServerCode, /meosNoteFromBody/);
   assert.match(overheidServerCode, /\/api\/meos\/session\/debug/);
   assert.match(overheidServerCode, /appendMeosAudit/);
   assert.match(overheidServerCode, /getMeosStore/);
@@ -358,6 +377,18 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
     });
     assert.equal(debug.status, 401);
     assert.match(debug.headers.get("content-type") || "", /application\/json/);
+
+    const addRecord = await fetch(`${overheidBaseUrl}/api/meos/people/ernie-nugz/records`, {
+      method: "POST",
+      headers: {
+        "x-forwarded-host": "meos.orpoverheid.nl",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ sanction: "PV", note: "Niet opslaan zonder sessie." }),
+      redirect: "manual"
+    });
+    assert.equal(addRecord.status, 401);
+    assert.match(addRecord.headers.get("content-type") || "", /application\/json/);
 
     const page = await fetch(`${overheidBaseUrl}/`, {
       headers: { "x-forwarded-host": "meos.orpoverheid.nl" },

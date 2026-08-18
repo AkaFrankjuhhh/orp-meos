@@ -78,6 +78,11 @@ class CachedMeosStore {
     return clone(snapshot);
   }
 
+  clearCache() {
+    this.cachedSnapshot = null;
+    this.cachedAt = 0;
+  }
+
   async listPeople(options = {}) {
     const query = normalize(options.query);
     const field = options.field || "all";
@@ -133,6 +138,28 @@ class CachedMeosStore {
       this.listVehicles({ query, limit })
     ]);
     return { people, vehicles };
+  }
+
+  async addPersonRecord(personValue, record = {}) {
+    if (typeof this.store.addPersonRecord !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen strafblad-writes.");
+      error.status = 501;
+      throw error;
+    }
+    const result = await this.store.addPersonRecord(personValue, record);
+    this.clearCache();
+    return result;
+  }
+
+  async addPersonNote(personValue, note = {}) {
+    if (typeof this.store.addPersonNote !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen notitie-writes.");
+      error.status = 501;
+      throw error;
+    }
+    const result = await this.store.addPersonNote(personValue, note);
+    this.clearCache();
+    return result;
   }
 }
 

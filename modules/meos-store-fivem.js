@@ -258,6 +258,18 @@ class FiveMMeosStore {
     ]);
     return { people, vehicles };
   }
+
+  async addPersonRecord() {
+    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor strafbladen voordat MEOS_DATA_SOURCE=fivem dit kan opslaan.");
+    error.status = 501;
+    throw error;
+  }
+
+  async addPersonNote() {
+    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor notities voordat MEOS_DATA_SOURCE=fivem dit kan opslaan.");
+    error.status = 501;
+    throw error;
+  }
 }
 
 function createFiveMMeosStore(options = {}) {

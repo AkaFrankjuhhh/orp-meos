@@ -53,6 +53,10 @@ function enrichVehicle(vehicle, person) {
   };
 }
 
+function entryId(prefix) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
+}
+
 class DemoMeosStore {
   constructor(options = {}) {
     this.people = Array.isArray(options.people) ? clone(options.people) : buildDemoMeosPeople();
@@ -94,16 +98,20 @@ class DemoMeosStore {
   }
 
   async getPerson(value) {
+    const person = this.findPersonRef(value);
+    return person ? clone(person) : null;
+  }
+
+  findPersonRef(value) {
     const normalized = normalize(value);
     const slug = String(value || "").trim().toLowerCase();
-    const person = this.people.find((candidate) => {
+    return this.people.find((candidate) => {
       return normalize(candidate.id) === normalized
         || slugFromValue(candidate.name).toLowerCase() === slug
         || normalize(candidate.name) === normalized
         || normalize(candidate.bsn) === normalized
         || normalize(candidate.fingerprint) === normalized;
-    });
-    return person ? clone(person) : null;
+    }) || null;
   }
 
   async listVehicles(options = {}) {
@@ -142,6 +150,51 @@ class DemoMeosStore {
     return {
       people: people.slice(0, limit),
       vehicles: vehicles.slice(0, limit)
+    };
+  }
+
+  async addPersonRecord(personValue, record = {}) {
+    const person = this.findPersonRef(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const nextRecord = {
+      id: record.id || entryId("PV"),
+      date: String(record.date || "").trim(),
+      sanction: String(record.sanction || "").trim(),
+      verbalist: String(record.verbalist || "").trim(),
+      note: String(record.note || "").trim(),
+      createdAt: new Date().toISOString(),
+      createdBy: record.createdBy || null
+    };
+    person.records = [nextRecord, ...(person.records || [])];
+    return {
+      record: clone(nextRecord),
+      person: clone(person)
+    };
+  }
+
+  async addPersonNote(personValue, note = {}) {
+    const person = this.findPersonRef(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const nextNote = {
+      id: note.id || entryId("NT"),
+      date: String(note.date || "").trim(),
+      author: String(note.author || "").trim(),
+      note: String(note.note || "").trim(),
+      createdAt: new Date().toISOString(),
+      createdBy: note.createdBy || null
+    };
+    person.notes = [nextNote, ...(person.notes || [])];
+    return {
+      note: clone(nextNote),
+      person: clone(person)
     };
   }
 
