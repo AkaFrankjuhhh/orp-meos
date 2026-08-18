@@ -165,6 +165,17 @@ class CachedMeosStore {
     return result;
   }
 
+  async addPersonFine(personValue, fine = {}) {
+    if (typeof this.store.addPersonFine !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen boete-writes.");
+      error.status = 501;
+      throw error;
+    }
+    const result = await this.store.addPersonFine(personValue, fine);
+    this.clearCache();
+    return result;
+  }
+
   async deletePersonRecord(personValue, recordId) {
     if (typeof this.store.deletePersonRecord !== "function") {
       const error = new Error("Deze MEOS databron ondersteunt nog geen strafblad-verwijderingen.");

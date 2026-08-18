@@ -271,6 +271,12 @@ class FiveMMeosStore {
     throw error;
   }
 
+  async addPersonFine() {
+    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor boetes voordat MEOS_DATA_SOURCE=fivem dit kan opslaan.");
+    error.status = 501;
+    throw error;
+  }
+
   async deletePersonRecord() {
     const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor strafbladen voordat MEOS_DATA_SOURCE=fivem dit kan verwijderen.");
     error.status = 501;

@@ -215,6 +215,8 @@ class DemoMeosStore {
       sanction: String(record.sanction || "").trim(),
       verbalist: String(record.verbalist || "").trim(),
       note: String(record.note || "").trim(),
+      source: String(record.source || "").trim(),
+      articleIds: Array.isArray(record.articleIds) ? record.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
       createdAt: new Date().toISOString(),
       createdBy: record.createdBy || null
     };
@@ -243,6 +245,30 @@ class DemoMeosStore {
     person.notes = [nextNote, ...(person.notes || [])];
     return {
       note: clone(nextNote),
+      person: clone(person)
+    };
+  }
+
+  async addPersonFine(personValue, fine = {}) {
+    const person = this.findPersonRef(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const nextFine = {
+      id: fine.id || entryId("BT"),
+      fine: String(fine.fine || "").trim(),
+      amount: String(fine.amount || "").trim(),
+      writtenAt: String(fine.writtenAt || "").trim(),
+      writtenBy: String(fine.writtenBy || "").trim(),
+      articleIds: Array.isArray(fine.articleIds) ? fine.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+      createdAt: new Date().toISOString(),
+      createdBy: fine.createdBy || null
+    };
+    person.fines = [nextFine, ...(person.fines || [])];
+    return {
+      fine: clone(nextFine),
       person: clone(person)
     };
   }

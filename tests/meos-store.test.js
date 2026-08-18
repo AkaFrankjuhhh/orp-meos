@@ -60,9 +60,12 @@ test("MEOS demo store can add profile records and notes", async () => {
     sanction: "PV",
     verbalist: "Frank Bright",
     note: "Nieuwe testregistratie.",
+    source: "wetboek",
+    articleIds: ["II-1"],
     createdBy: { name: "Frank Bright" }
   });
   assert.equal(recordResult.record.sanction, "PV");
+  assert.deepEqual(recordResult.record.articleIds, ["II-1"]);
   assert.equal(recordResult.person.records[0].note, "Nieuwe testregistratie.");
 
   const noteResult = await store.addPersonNote("ernie-nugz", {
@@ -74,9 +77,21 @@ test("MEOS demo store can add profile records and notes", async () => {
   assert.equal(noteResult.note.author, "Frank Bright");
   assert.equal(noteResult.person.notes[0].note, "Nieuwe testnotitie.");
 
+  const fineResult = await store.addPersonFine("ernie-nugz", {
+    fine: "Wetboek boete II-1",
+    amount: "EUR 3.000",
+    writtenAt: "18 aug. 2026",
+    writtenBy: "Frank Bright",
+    articleIds: ["II-1"],
+    createdBy: { name: "Frank Bright" }
+  });
+  assert.equal(fineResult.fine.amount, "EUR 3.000");
+  assert.deepEqual(fineResult.person.fines[0].articleIds, ["II-1"]);
+
   const person = await store.getPerson("ernie-nugz");
   assert.equal(person.records[0].note, "Nieuwe testregistratie.");
   assert.equal(person.notes[0].note, "Nieuwe testnotitie.");
+  assert.equal(person.fines[0].fine, "Wetboek boete II-1");
 });
 
 test("MEOS demo store can delete records, notes and fines", async () => {
@@ -149,6 +164,7 @@ test("MEOS FiveM scaffold maps view rows to MEOS shape", async () => {
 
   const store = createFiveMMeosStore({ driver: "mysql", databaseUrl: "mysql://readonly@example/meos" });
   await assert.rejects(() => store.snapshot(), /mysql2 is nog niet geinstalleerd/);
+  await assert.rejects(() => store.addPersonFine("citizen-1", { fine: "Test", amount: "EUR 100" }), /read-only/);
   await assert.rejects(() => store.deletePersonFine("citizen-1", "fine-0"), /read-only/);
   assert.equal(sqlIdentifier("orp_meos.people_view", "fallback_view"), "orp_meos.people_view");
   assert.equal(sqlIdentifier("people;drop table users", "fallback_view"), "fallback_view");

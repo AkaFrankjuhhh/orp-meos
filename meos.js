@@ -17,6 +17,23 @@
       canDeleteEntries: false
     }
   };
+  const wetboekRecordState = {
+    personId: "",
+    articles: [],
+    loaded: false,
+    loading: false,
+    error: "",
+    formError: "",
+    query: "",
+    category: "all",
+    selected: [],
+    date: "",
+    sanction: "PV",
+    extraNote: "",
+    createFine: false,
+    fineAmount: "",
+    busy: false
+  };
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -239,6 +256,483 @@
 
   function currentVerbalistName() {
     return profileFullName(currentMeosProfile || defaultMeosProfile);
+  }
+
+  function asArray(value) {
+    return Array.isArray(value) ? value : [];
+  }
+
+  function normalizeWetboekArticles(payload = {}) {
+    const wetboek = payload.wetboek || payload;
+    const rows = Array.isArray(wetboek.articles) ? wetboek.articles : [];
+    return rows.map((article, index) => ({
+      ...article,
+      id: String(article.id || article.articleId || `artikel-${index + 1}`).trim(),
+      title: String(article.title || article.heading || "Onbekend artikel").trim(),
+      category: String(article.category || article.sectionLabel || "Overig").trim(),
+      sectionLabel: String(article.sectionLabel || "").trim(),
+      contentText: String(article.contentText || article.text || "").trim(),
+      tables: asArray(article.tables).map((table, tableIndex) => ({
+        ...table,
+        index: table.index ?? tableIndex,
+        type: String(table.type || "table").trim(),
+        rows: asArray(table.rows)
+      }))
+    })).filter((article) => article.id);
+  }
+
+  async function loadWetboekArticles() {
+    if (wetboekRecordState.loaded || wetboekRecordState.loading) return;
+    wetboekRecordState.loading = true;
+    wetboekRecordState.error = "";
+    renderWetboekRecordModal();
+    try {
+      const payload = await apiJson("/api/meos/wetboek/articles");
+      wetboekRecordState.articles = normalizeWetboekArticles(payload);
+      wetboekRecordState.loaded = true;
+    } catch (error) {
+      wetboekRecordState.error = error.message || "Wetboek kon niet worden geladen.";
+    } finally {
+      wetboekRecordState.loading = false;
+      renderWetboekRecordModal();
+    }
+  }
+
+  function wetboekArticleById(articleId) {
+    return wetboekRecordState.articles.find((article) => article.id === articleId) || null;
+  }
+
+  function wetboekArticleSearchText(article) {
+    const tableText = asArray(article.tables).flatMap((table) => asArray(table.rows).flatMap((row) => Object.values(row || {}))).join(" ");
+    return [article.id, article.title, article.heading, article.category, article.sectionLabel, article.contentText, tableText].join(" ");
+  }
+
+  function wetboekCategories() {
+    return [...new Set(wetboekRecordState.articles.map((article) => article.category).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "nl"));
+  }
+
+  function filteredWetboekArticles() {
+    const query = normalize(wetboekRecordState.query);
+    const category = wetboekRecordState.category;
+    return wetboekRecordState.articles.filter((article) => {
+      const categoryMatches = !category || category === "all" || article.category === category;
+      const queryMatches = !query || normalize(wetboekArticleSearchText(article)).includes(query);
+      return categoryMatches && queryMatches;
+    });
+  }
+
+  function wetboekPenaltyParts(row = {}) {
+    return [
+      ["Celstraf", row.Celstraf],
+      ["Taakstraf", row.Taakstraf],
+      ["Boete", row.Boete || row.Bedrag],
+      ["Rijontzegging", row.Rijontzegging || row.Rijverbod],
+      ["Inbeslagname", row.Inbeslagname]
+    ].filter(([, value]) => String(value || "").trim())
+      .map(([label, value]) => `${label}: ${String(value).trim()}`);
+  }
+
+  function wetboekArticleChoices(article) {
+    return asArray(article?.tables).flatMap((table, tableIndex) => asArray(table.rows).map((row, rowIndex) => {
+      const effectiveTableIndex = table.index ?? tableIndex;
+      const title = String(row?.Feit || row?.Veroordeling || row?.Omschrijving || row?.Titel || `Regel ${rowIndex + 1}`).trim();
+      const penalty = wetboekPenaltyParts(row).join(" | ") || "geen strafbedrag";
+      return {
+        key: `${effectiveTableIndex}:${rowIndex}`,
+        tableIndex: String(effectiveTableIndex),
+        rowIndex: String(rowIndex),
+        label: `${title} - ${penalty}`,
+        row,
+        table
+      };
+    }));
+  }
+
+  function selectedWetboekChoice(item) {
+    const article = wetboekArticleById(item.articleId);
+    const choices = wetboekArticleChoices(article);
+    return choices.find((choice) => choice.tableIndex === String(item.tableIndex) && choice.rowIndex === String(item.rowIndex)) || choices[0] || null;
+  }
+
+  function parseEuroAmount(value) {
+    const match = String(value || "").match(/\d[\d.,]*/);
+    if (!match) return 0;
+    const parsed = Number(match[0].replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+  }
+
+  function parseDurationValue(value) {
+    const match = String(value || "").match(/\d+(?:[.,]\d+)?/);
+    if (!match) return 0;
+    const parsed = Number(match[0].replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function calculateWetboekTotals(items = wetboekRecordState.selected) {
+    return items.reduce((totals, item) => {
+      const choice = selectedWetboekChoice(item);
+      const row = choice?.row || {};
+      totals.fine += parseEuroAmount(row.Boete || row.Bedrag);
+      totals.jailMonths += parseDurationValue(row.Celstraf);
+      totals.taskHours += parseDurationValue(row.Taakstraf);
+      totals.drivingBanMonths += parseDurationValue(row.Rijontzegging || row.Rijverbod);
+      if (choice) totals.count += 1;
+      return totals;
+    }, { fine: 0, jailMonths: 0, taskHours: 0, drivingBanMonths: 0, count: 0 });
+  }
+
+  function formatEuroAmount(amount) {
+    const value = Number(amount || 0);
+    if (!value) return "";
+    return `EUR ${Math.round(value).toLocaleString("nl-NL")}`;
+  }
+
+  function wetboekRecordFineAmount() {
+    const customAmount = String(wetboekRecordState.fineAmount || "").trim();
+    if (customAmount) return customAmount;
+    return formatEuroAmount(calculateWetboekTotals().fine);
+  }
+
+  function composeWetboekRecordNote(items = wetboekRecordState.selected) {
+    const lines = items.map((item) => {
+      const article = wetboekArticleById(item.articleId);
+      const choice = selectedWetboekChoice(item);
+      const penalty = wetboekPenaltyParts(choice?.row || {}).join(", ") || "geen automatische strafwaarde";
+      return `- ${article?.id || item.articleId} ${article?.title || ""}: ${penalty}`;
+    });
+    if (!lines.length) return "";
+    const totals = calculateWetboekTotals(items);
+    const totalParts = [
+      totals.fine ? `Boete totaal: ${formatEuroAmount(totals.fine)}` : "",
+      totals.jailMonths ? `Celstraf totaal: ${totals.jailMonths} maand(en)` : "",
+      totals.taskHours ? `Taakstraf totaal: ${totals.taskHours} uur` : "",
+      totals.drivingBanMonths ? `Rijontzegging totaal: ${totals.drivingBanMonths} maand(en)` : ""
+    ].filter(Boolean);
+    return [
+      "Wetboek strafberekening:",
+      ...lines,
+      totalParts.length ? `Totaal: ${totalParts.join(" | ")}` : ""
+    ].filter(Boolean).join("\n");
+  }
+
+  function wetboekRecordNoteWithExtra() {
+    const baseNote = composeWetboekRecordNote();
+    const extraNote = String(wetboekRecordState.extraNote || "").trim();
+    return [
+      baseNote,
+      extraNote ? `Aanvullende notitie:\n${extraNote}` : ""
+    ].filter(Boolean).join("\n\n");
+  }
+
+  function wetboekFineTitle() {
+    const ids = [...new Set(wetboekRecordState.selected.map((item) => item.articleId).filter(Boolean))];
+    return ids.length ? `Wetboek boete ${ids.join(", ")}` : "Wetboek boete";
+  }
+
+  function renderWetboekArticleList() {
+    if (wetboekRecordState.loading) return '<div class="meos-empty">Wetboek artikelen laden...</div>';
+    if (wetboekRecordState.error) {
+      return `
+        <div class="meos-empty">
+          ${escapeHtml(wetboekRecordState.error)}
+          <button class="meos-secondary muted" type="button" data-retry-wetboek>Opnieuw laden</button>
+        </div>
+      `;
+    }
+    const articles = filteredWetboekArticles().slice(0, 24);
+    if (!articles.length) return '<div class="meos-empty">Geen Wetboek artikelen gevonden.</div>';
+    return articles.map((article) => {
+      const isSelected = wetboekRecordState.selected.some((item) => item.articleId === article.id);
+      const summary = article.contentText ? `${article.contentText.slice(0, 170)}${article.contentText.length > 170 ? "..." : ""}` : "Geen omschrijving beschikbaar.";
+      return `
+        <article class="meos-wetboek-result">
+          <div>
+            <strong>${escapeHtml(article.id)} - ${escapeHtml(article.title)}</strong>
+            <span>${escapeHtml(article.category || "Overig")}</span>
+            <p>${escapeHtml(summary)}</p>
+          </div>
+          <button class="meos-secondary" type="button" data-add-wetboek-article="${escapeHtml(article.id)}" ${isSelected ? "disabled" : ""}>Toevoegen</button>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderWetboekSelectedList() {
+    if (!wetboekRecordState.selected.length) {
+      return '<div class="meos-empty">Nog geen artikelen geselecteerd.</div>';
+    }
+    return wetboekRecordState.selected.map((item) => {
+      const article = wetboekArticleById(item.articleId);
+      const choices = wetboekArticleChoices(article);
+      const selectedChoice = selectedWetboekChoice(item);
+      return `
+        <article class="meos-wetboek-selection">
+          <div class="meos-wetboek-selection-head">
+            <strong>${escapeHtml(article?.id || item.articleId)} - ${escapeHtml(article?.title || "Artikel")}</strong>
+            <button class="meos-danger-action" type="button" data-remove-wetboek-selection="${escapeHtml(item.articleId)}">Verwijderen</button>
+          </div>
+          ${choices.length ? `
+            <label>
+              <span>Strafregel</span>
+              <select data-wetboek-row-choice="${escapeHtml(item.articleId)}">
+                ${choices.map((choice) => `<option value="${escapeHtml(choice.key)}" ${choice.key === selectedChoice?.key ? "selected" : ""}>${escapeHtml(choice.label)}</option>`).join("")}
+              </select>
+            </label>
+          ` : '<p>Dit artikel heeft geen strafmatrix of boetelijst.</p>'}
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderWetboekTotals(totals) {
+    const items = [
+      ["Boete", totals.fine ? formatEuroAmount(totals.fine) : "Geen"],
+      ["Celstraf", totals.jailMonths ? `${totals.jailMonths} maand(en)` : "Geen"],
+      ["Taakstraf", totals.taskHours ? `${totals.taskHours} uur` : "Geen"],
+      ["Rijontzegging", totals.drivingBanMonths ? `${totals.drivingBanMonths} maand(en)` : "Geen"]
+    ];
+    return `<div class="meos-wetboek-totals">${items.map(([label, value]) => `
+      <div>
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+    `).join("")}</div>`;
+  }
+
+  function renderWetboekRecordModal() {
+    const modal = $("#meosRecordModal");
+    if (!modal || !wetboekRecordState.personId) return;
+    const person = findPerson(wetboekRecordState.personId);
+    const totals = calculateWetboekTotals();
+    const fineAmount = wetboekRecordFineAmount();
+    const notePreview = wetboekRecordNoteWithExtra() || "Selecteer artikelen of vul een aanvullende notitie in.";
+    modal.innerHTML = `
+      <section class="meos-record-modal" role="dialog" aria-modal="true" aria-labelledby="meosRecordModalTitle">
+        <header class="meos-record-modal-head">
+          <div>
+            <p>Strafberekening</p>
+            <h2 id="meosRecordModalTitle">Strafblad toevoegen voor ${escapeHtml(person?.name || "persoon")}</h2>
+          </div>
+          <button class="meos-secondary muted" type="button" data-close-record-modal>Sluiten</button>
+        </header>
+
+        <div class="meos-record-modal-grid">
+          <section class="meos-wetboek-search" aria-label="Wetboek doorzoeken">
+            <div class="meos-record-modal-tools">
+              <label>
+                <span>Wetboek zoeken</span>
+                <input id="wetboekSearch" data-wetboek-field="query" type="search" placeholder="Bijv. rijden onder invloed, diefstal..." value="${escapeHtml(wetboekRecordState.query)}" />
+              </label>
+              <label>
+                <span>Categorie</span>
+                <select data-wetboek-field="category">
+                  <option value="all">Alle categorieen</option>
+                  ${wetboekCategories().map((category) => `<option value="${escapeHtml(category)}" ${category === wetboekRecordState.category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("")}
+                </select>
+              </label>
+            </div>
+            <div class="meos-wetboek-results">${renderWetboekArticleList()}</div>
+          </section>
+
+          <section class="meos-wetboek-compose" aria-label="Strafbepaling">
+            <h3>Strafbepaling</h3>
+            ${renderWetboekSelectedList()}
+            ${renderWetboekTotals(totals)}
+
+            <div class="meos-record-modal-fields">
+              <label>
+                <span>Datum</span>
+                <input data-wetboek-field="date" type="text" maxlength="40" value="${escapeHtml(wetboekRecordState.date || todayMeosDate())}" />
+              </label>
+              <label>
+                <span>Sanctie</span>
+                <input data-wetboek-field="sanction" type="text" maxlength="80" value="${escapeHtml(wetboekRecordState.sanction || "PV")}" />
+              </label>
+              <label class="wide">
+                <span>Extra notitie</span>
+                <textarea data-wetboek-field="extraNote" rows="3" maxlength="1200" placeholder="Bijv. context, locatie of bijzonderheden">${escapeHtml(wetboekRecordState.extraNote)}</textarea>
+              </label>
+              <label class="wide">
+                <span>Samengestelde strafbladtekst</span>
+                <textarea readonly rows="6">${escapeHtml(notePreview)}</textarea>
+              </label>
+              <label class="meos-check-row wide">
+                <input data-wetboek-field="createFine" type="checkbox" ${wetboekRecordState.createFine ? "checked" : ""} />
+                <span>Direct openstaande boete toevoegen aan deze persoon</span>
+              </label>
+              <label>
+                <span>Boetebedrag</span>
+                <input data-wetboek-field="fineAmount" type="text" maxlength="80" placeholder="Bijv. EUR 3.000" value="${escapeHtml(fineAmount)}" />
+              </label>
+            </div>
+
+            ${wetboekRecordState.formError ? `<p class="meos-form-error">${escapeHtml(wetboekRecordState.formError)}</p>` : ""}
+            <div class="meos-form-actions">
+              <button class="meos-secondary muted" type="button" data-close-record-modal>Annuleren</button>
+              <button class="meos-primary" type="button" data-save-record-modal ${wetboekRecordState.busy ? "disabled" : ""}>Opslaan</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    `;
+    modal.hidden = false;
+    document.body.classList.add("meos-modal-open");
+  }
+
+  function focusWetboekField(name) {
+    const field = $(`[data-wetboek-field="${name}"]`);
+    if (!field) return;
+    field.focus();
+    if (typeof field.setSelectionRange === "function") {
+      const end = String(field.value || "").length;
+      field.setSelectionRange(end, end);
+    }
+  }
+
+  function openWetboekRecordModal(personId = activePersonId) {
+    wetboekRecordState.personId = personId;
+    wetboekRecordState.formError = "";
+    wetboekRecordState.query = "";
+    wetboekRecordState.category = "all";
+    wetboekRecordState.selected = [];
+    wetboekRecordState.date = todayMeosDate();
+    wetboekRecordState.sanction = "PV";
+    wetboekRecordState.extraNote = "";
+    wetboekRecordState.createFine = false;
+    wetboekRecordState.fineAmount = "";
+    wetboekRecordState.busy = false;
+    renderWetboekRecordModal();
+    loadWetboekArticles();
+  }
+
+  function closeWetboekRecordModal() {
+    const modal = $("#meosRecordModal");
+    if (modal) {
+      modal.hidden = true;
+      modal.innerHTML = "";
+    }
+    wetboekRecordState.personId = "";
+    wetboekRecordState.formError = "";
+    wetboekRecordState.busy = false;
+    document.body.classList.remove("meos-modal-open");
+  }
+
+  function addWetboekArticle(articleId) {
+    const article = wetboekArticleById(articleId);
+    if (!article || wetboekRecordState.selected.some((item) => item.articleId === article.id)) return;
+    if (wetboekRecordState.selected.length >= 10) {
+      wetboekRecordState.formError = "Voeg maximaal 10 Wetboek artikelen per strafblad toe.";
+      renderWetboekRecordModal();
+      return;
+    }
+    const choice = wetboekArticleChoices(article)[0] || null;
+    wetboekRecordState.selected.push({
+      articleId: article.id,
+      tableIndex: choice?.tableIndex || "",
+      rowIndex: choice?.rowIndex || ""
+    });
+    wetboekRecordState.formError = "";
+    wetboekRecordState.fineAmount = "";
+    renderWetboekRecordModal();
+  }
+
+  function removeWetboekSelection(articleId) {
+    wetboekRecordState.selected = wetboekRecordState.selected.filter((item) => item.articleId !== articleId);
+    wetboekRecordState.fineAmount = "";
+    renderWetboekRecordModal();
+  }
+
+  function updateWetboekChoice(articleId, choiceKey) {
+    const item = wetboekRecordState.selected.find((selection) => selection.articleId === articleId);
+    if (!item) return;
+    const [tableIndex, rowIndex] = String(choiceKey || "").split(":");
+    item.tableIndex = tableIndex || "";
+    item.rowIndex = rowIndex || "";
+    wetboekRecordState.fineAmount = "";
+    renderWetboekRecordModal();
+  }
+
+  function handleWetboekRecordInput(event) {
+    const field = event.target.closest?.("[data-wetboek-field]");
+    if (!field) return;
+    const name = field.dataset.wetboekField;
+    if (field.type === "checkbox") wetboekRecordState[name] = field.checked;
+    else wetboekRecordState[name] = field.value;
+    if (name === "query") {
+      renderWetboekRecordModal();
+      focusWetboekField("query");
+    }
+  }
+
+  function handleWetboekRecordChange(event) {
+    const rowChoice = event.target.closest?.("[data-wetboek-row-choice]");
+    if (rowChoice) {
+      updateWetboekChoice(rowChoice.dataset.wetboekRowChoice, rowChoice.value);
+      return;
+    }
+    const field = event.target.closest?.("[data-wetboek-field]");
+    if (!field) return;
+    const name = field.dataset.wetboekField;
+    if (field.type === "checkbox") wetboekRecordState[name] = field.checked;
+    else wetboekRecordState[name] = field.value;
+    if (["category", "createFine"].includes(name)) renderWetboekRecordModal();
+  }
+
+  async function submitWetboekRecordModal() {
+    if (wetboekRecordState.busy) return;
+    const personId = wetboekRecordState.personId || activePersonId;
+    const note = wetboekRecordNoteWithExtra();
+    if (!note.trim()) {
+      wetboekRecordState.formError = "Selecteer minimaal een Wetboek artikel of vul een notitie in.";
+      renderWetboekRecordModal();
+      return;
+    }
+    if (note.length > 2000) {
+      wetboekRecordState.formError = "De samengestelde strafbladtekst is te lang. Verwijder een artikel of verkort de extra notitie.";
+      renderWetboekRecordModal();
+      return;
+    }
+    const body = {
+      date: wetboekRecordState.date || todayMeosDate(),
+      sanction: wetboekRecordState.sanction || "PV",
+      verbalist: currentVerbalistName(),
+      note,
+      source: "wetboek",
+      articleIds: wetboekRecordState.selected.map((item) => item.articleId).filter(Boolean)
+    };
+    if (wetboekRecordState.createFine) {
+      const amount = wetboekRecordFineAmount();
+      if (!amount) {
+        wetboekRecordState.formError = "Vul een boetebedrag in om direct een boete toe te voegen.";
+        renderWetboekRecordModal();
+        return;
+      }
+      body.createFine = true;
+      body.fine = wetboekFineTitle();
+      body.amount = amount;
+      body.writtenAt = body.date;
+      body.writtenBy = currentVerbalistName();
+    }
+    wetboekRecordState.busy = true;
+    wetboekRecordState.formError = "";
+    renderWetboekRecordModal();
+    try {
+      const payload = await apiJson(`/api/meos/people/${encodeURIComponent(personId)}/records`, {
+        method: "POST",
+        body
+      });
+      updatePersonInState(payload.person);
+      closeWetboekRecordModal();
+      renderProfile(payload.person?.id || personId, { updateUrl: false });
+      renderPeople();
+      renderWarrantOverview();
+      renderQuickSearch();
+    } catch (error) {
+      wetboekRecordState.busy = false;
+      wetboekRecordState.formError = error.message || "Strafblad opslaan is mislukt.";
+      renderWetboekRecordModal();
+    }
   }
 
   function updatePersonInState(updatedPerson) {
@@ -912,6 +1406,11 @@
         return;
       }
 
+      if (event.key === "Escape" && $("#meosRecordModal") && !$("#meosRecordModal").hidden) {
+        closeWetboekRecordModal();
+        return;
+      }
+
       const clickableRow = event.target.closest?.(".meos-result-card[data-open-profile], .meos-result-card[data-open-vehicle]");
       if (clickableRow && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
@@ -960,7 +1459,7 @@
       }
 
       if (event.target.closest("[data-toggle-record-form]")) {
-        toggleEntryForm("[data-meos-add-record-form]");
+        openWetboekRecordModal(activePersonId);
         return;
       }
 
@@ -976,6 +1475,37 @@
           setFormError(form, "");
           form.reset();
         }
+        return;
+      }
+
+      if (event.target.closest("[data-close-record-modal]") || event.target.id === "meosRecordModal") {
+        closeWetboekRecordModal();
+        return;
+      }
+
+      const retryWetboek = event.target.closest("[data-retry-wetboek]");
+      if (retryWetboek) {
+        wetboekRecordState.loaded = false;
+        wetboekRecordState.loading = false;
+        wetboekRecordState.error = "";
+        loadWetboekArticles();
+        return;
+      }
+
+      const addWetboek = event.target.closest("[data-add-wetboek-article]");
+      if (addWetboek) {
+        addWetboekArticle(addWetboek.dataset.addWetboekArticle);
+        return;
+      }
+
+      const removeWetboek = event.target.closest("[data-remove-wetboek-selection]");
+      if (removeWetboek) {
+        removeWetboekSelection(removeWetboek.dataset.removeWetboekSelection);
+        return;
+      }
+
+      if (event.target.closest("[data-save-record-modal]")) {
+        submitWetboekRecordModal();
         return;
       }
 
@@ -1028,6 +1558,8 @@
       }
     });
 
+    document.addEventListener("input", handleWetboekRecordInput);
+    document.addEventListener("change", handleWetboekRecordChange);
     $("#personSearch")?.addEventListener("input", renderPeople);
     $("#personSearchField")?.addEventListener("change", renderPeople);
     $("#vehicleSearch")?.addEventListener("input", renderVehicles);

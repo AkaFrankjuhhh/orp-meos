@@ -50,6 +50,7 @@ const meosSessionTtlMs = Number(process.env.MEOS_SESSION_MAX_AGE_SECONDS || 7 * 
 const meosSessions = new Map();
 const meosRateLimitHits = new Map();
 const defaultMeosDeleteRoleIds = ["1426544463043362937"];
+const wetboekApiCache = new Map();
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -718,6 +719,8 @@ function meosRecordFromBody(body = {}, session = null) {
     sanction: meosText(body.sanction, "Sanctie", { max: 80, required: true }),
     verbalist: meosText(body.verbalist, "Verbalisant", { max: 120, fallback: meosActorName(session) }),
     note: meosText(body.note, "Notitie", { max: 2000, required: true }),
+    source: meosText(body.source, "Bron", { max: 80 }),
+    articleIds: Array.isArray(body.articleIds) ? body.articleIds.map((value) => meosText(value, "Wetboek artikel", { max: 40 })).filter(Boolean).slice(0, 20) : [],
     createdBy: meosCreatedBy(session)
   };
 }
@@ -729,6 +732,97 @@ function meosNoteFromBody(body = {}, session = null) {
     note: meosText(body.note, "Notitie", { max: 2000, required: true }),
     createdBy: meosCreatedBy(session)
   };
+}
+
+function meosFineFromBody(body = {}, session = null) {
+  return {
+    fine: meosText(body.fine || body.title, "Boete", { max: 160, required: true }),
+    amount: meosText(body.amount, "Bedrag", { max: 80, required: true }),
+    writtenAt: meosText(body.writtenAt || body.date, "Uitgeschreven op", { max: 40, fallback: meosTodayDate() }),
+    writtenBy: meosText(body.writtenBy || body.verbalist, "Uitgeschreven door", { max: 120, fallback: meosActorName(session) }),
+    articleIds: Array.isArray(body.articleIds) ? body.articleIds.map((value) => meosText(value, "Wetboek artikel", { max: 40 })).filter(Boolean).slice(0, 20) : [],
+    createdBy: meosCreatedBy(session)
+  };
+}
+
+function meosShouldCreateFine(body = {}) {
+  return body.createFine === true || String(body.createFine || "").toLowerCase() === "true";
+}
+
+function wetboekApiBaseUrl() {
+  const configured = String(process.env.MEOS_WETBOEK_API_BASE_URL || "https://wetboek.orpoverheid.nl").trim();
+  const baseUrl = new URL(configured || "https://wetboek.orpoverheid.nl");
+  if (!["https:", "http:"].includes(baseUrl.protocol)) {
+    const error = new Error("MEOS Wetboek API URL moet http of https zijn.");
+    error.status = 500;
+    throw error;
+  }
+  return baseUrl.toString().replace(/\/+$/, "");
+}
+
+function wetboekApiHeaders() {
+  const apiKey = String(process.env.MEOS_WETBOEK_API_KEY || process.env.WETBOEK_MEOS_API_KEY || "").trim();
+  return {
+    Accept: "application/json",
+    ...(apiKey ? { "X-Wetboek-Api-Key": apiKey } : {})
+  };
+}
+
+async function fetchWetboekApiJson(apiPath) {
+  const pathValue = String(apiPath || "/api/meos/articles");
+  const cacheTtlMs = Math.max(0, Number(process.env.MEOS_WETBOEK_CACHE_TTL_MS || 5 * 60 * 1000));
+  const timeoutMs = Math.max(1000, Number(process.env.MEOS_WETBOEK_TIMEOUT_MS || 8000));
+  const cacheKey = pathValue;
+  const now = Date.now();
+  const cached = wetboekApiCache.get(cacheKey);
+  if (cached && cacheTtlMs > 0 && now - cached.cachedAt < cacheTtlMs) return cached.payload;
+
+  const targetUrl = new URL(pathValue, `${wetboekApiBaseUrl()}/`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(targetUrl, {
+      headers: wetboekApiHeaders(),
+      signal: controller.signal
+    });
+    const text = await response.text();
+    let payload = null;
+    try {
+      payload = text ? JSON.parse(text) : {};
+    } catch {
+      payload = { error: text || "Wetboek API gaf geen geldige JSON terug." };
+    }
+    if (!response.ok) {
+      const error = new Error(payload?.error || payload?.message || `Wetboek API fout ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    if (cacheTtlMs > 0) wetboekApiCache.set(cacheKey, { cachedAt: now, payload });
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function sendMeosWetboekResponse(req, res, action, details, handler) {
+  const session = requireMeosApiSession(req, res);
+  if (!session) return true;
+  try {
+    const payload = await handler(session);
+    appendMeosAudit(req, session, action, details);
+    sendJson(res, 200, {
+      ok: true,
+      authenticated: true,
+      ...payload
+    });
+  } catch (error) {
+    console.error(`MEOS Wetboek API ${action} mislukt:`, error.message || error);
+    sendJson(res, error.status || 502, {
+      ok: false,
+      error: error.message || "Wetboek data ophalen is mislukt."
+    });
+  }
+  return true;
 }
 
 async function sendMeosStoreResponse(req, res, action, details, handler) {
@@ -763,6 +857,7 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
       ...details,
       recordId: payload.record?.id || "",
       noteId: payload.note?.id || "",
+      fineId: payload.fine?.id || "",
       deletedId: payload.deleted?.id || ""
     });
     sendJson(res, 200, {
@@ -875,6 +970,26 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (url.pathname === "/api/meos/wetboek/articles" && req.method === "GET") {
+    await sendMeosWetboekResponse(req, res, "wetboek.articles", {}, async () => {
+      const payload = await fetchWetboekApiJson("/api/meos/articles");
+      return { wetboek: payload };
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/wetboek/search" && req.method === "GET") {
+    const query = url.searchParams.get("q") || url.searchParams.get("query") || "";
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    const payloadPath = `/api/meos/search${params.toString() ? `?${params}` : ""}`;
+    await sendMeosWetboekResponse(req, res, "wetboek.search", { query }, async () => {
+      const payload = await fetchWetboekApiJson(payloadPath);
+      return { wetboek: payload };
+    });
+    return;
+  }
+
   if (url.pathname === "/api/meos/people" && req.method === "GET") {
     const query = url.searchParams.get("q") || url.searchParams.get("query") || "";
     const field = url.searchParams.get("field") || "all";
@@ -902,7 +1017,24 @@ async function handleRequest(req, res) {
   if (url.pathname.startsWith("/api/meos/people/") && url.pathname.endsWith("/records") && req.method === "POST") {
     const value = meosNestedPathParam(url.pathname, "/api/meos/people/", "/records");
     await sendMeosMutationResponse(req, res, "records.add", { person: value }, async (store, session, body) => {
-      return store.addPersonRecord(value, meosRecordFromBody(body, session));
+      const record = meosRecordFromBody(body, session);
+      const fine = meosShouldCreateFine(body) ? meosFineFromBody(body, session) : null;
+      const recordResult = await store.addPersonRecord(value, record);
+      if (!meosShouldCreateFine(body)) return recordResult;
+      const fineResult = await store.addPersonFine(value, fine);
+      return {
+        ...recordResult,
+        fine: fineResult.fine,
+        person: fineResult.person
+      };
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/people/") && url.pathname.endsWith("/fines") && req.method === "POST") {
+    const value = meosNestedPathParam(url.pathname, "/api/meos/people/", "/fines");
+    await sendMeosMutationResponse(req, res, "fines.add", { person: value }, async (store, session, body) => {
+      return store.addPersonFine(value, meosFineFromBody(body, session));
     });
     return;
   }

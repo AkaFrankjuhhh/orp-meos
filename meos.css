@@ -988,6 +988,243 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
   font-weight: 700;
 }
 
+body.meos-modal-open {
+  overflow: hidden;
+}
+
+.meos-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 29, 55, 0.38);
+}
+
+html[data-meos-theme="dark"] .meos-modal-backdrop {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.meos-modal-backdrop[hidden] {
+  display: none;
+}
+
+.meos-record-modal {
+  width: min(1280px, 100%);
+  max-height: calc(100vh - 48px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  color: var(--meos-text);
+  background: var(--meos-panel-bg);
+  border: 1px solid var(--meos-line);
+  border-radius: 6px;
+  box-shadow: 0 20px 70px rgba(0, 48, 88, 0.28);
+}
+
+html[data-meos-theme="dark"] .meos-record-modal {
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.62);
+}
+
+.meos-record-modal-head {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--meos-line);
+  background: var(--meos-subtle-bg);
+}
+
+.meos-record-modal-head p {
+  margin: 0 0 4px;
+  color: var(--meos-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.meos-record-modal-head h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.meos-record-modal-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(360px, 1.05fr) minmax(360px, 1fr);
+}
+
+.meos-wetboek-search,
+.meos-wetboek-compose {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px 18px;
+  overflow: auto;
+}
+
+.meos-wetboek-compose {
+  border-left: 1px solid var(--meos-line);
+  background: var(--meos-soft);
+}
+
+.meos-wetboek-compose h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.meos-record-modal-tools,
+.meos-record-modal-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 12px;
+}
+
+.meos-record-modal-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.meos-record-modal-tools label,
+.meos-record-modal-fields label,
+.meos-wetboek-selection label {
+  display: grid;
+  gap: 6px;
+  color: var(--meos-label-text);
+  font-size: 12px;
+}
+
+.meos-record-modal-tools input,
+.meos-record-modal-tools select,
+.meos-record-modal-fields input,
+.meos-record-modal-fields textarea,
+.meos-wetboek-selection select {
+  width: 100%;
+  border: 1px solid var(--meos-input-border);
+  border-radius: 2px;
+  padding: 10px 11px;
+  color: var(--meos-text);
+  background: var(--meos-input-bg);
+}
+
+.meos-record-modal-fields textarea {
+  resize: vertical;
+}
+
+.meos-record-modal-fields textarea[readonly] {
+  min-height: 118px;
+  color: var(--meos-secondary-text);
+  background: var(--meos-subtle-bg);
+}
+
+.meos-record-modal-fields .wide {
+  grid-column: 1 / -1;
+}
+
+.meos-check-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  color: var(--meos-text);
+  font-weight: 700;
+}
+
+.meos-check-row input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.meos-wetboek-results {
+  display: grid;
+  gap: 8px;
+}
+
+.meos-wetboek-result,
+.meos-wetboek-selection {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  padding: 12px;
+  background: var(--meos-elevated-bg);
+}
+
+.meos-wetboek-result {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.meos-wetboek-result strong,
+.meos-wetboek-selection strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.meos-wetboek-result span {
+  display: block;
+  margin-top: 3px;
+  color: var(--meos-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.meos-wetboek-result p,
+.meos-wetboek-selection p {
+  margin: 6px 0 0;
+  color: var(--meos-secondary-text);
+  line-height: 1.35;
+}
+
+.meos-wetboek-result button:disabled,
+.meos-record-modal button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.meos-wetboek-selection-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.meos-wetboek-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.meos-wetboek-totals div {
+  min-height: 66px;
+  padding: 10px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  background: var(--meos-elevated-bg);
+}
+
+.meos-wetboek-totals span {
+  display: block;
+  color: var(--meos-label-text);
+  font-size: 12px;
+}
+
+.meos-wetboek-totals strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
 .meos-info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1182,8 +1419,14 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
   }
 
   .meos-dashboard-grid,
-  .meos-profile-grid {
+  .meos-profile-grid,
+  .meos-record-modal-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .meos-wetboek-compose {
+    border-left: 0;
+    border-top: 1px solid var(--meos-line);
   }
 }
 
@@ -1234,12 +1477,30 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
 
   .meos-tile-grid,
   .meos-search-row,
+  .meos-record-modal-tools,
+  .meos-record-modal-fields,
   .meos-info-grid,
   .meos-form-grid,
   .meos-record-body,
   .meos-result-card,
+  .meos-wetboek-result,
+  .meos-wetboek-totals,
   .meos-warrant-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .meos-modal-backdrop {
+    padding: 8px;
+  }
+
+  .meos-record-modal {
+    max-height: calc(100vh - 16px);
+  }
+
+  .meos-record-modal-head,
+  .meos-wetboek-selection-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .meos-inline-search {
