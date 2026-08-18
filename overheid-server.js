@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
 const { createHttpResponder, serveWhitelistedStatic } = require("./modules/http-security");
 const { portalIdentityForDiscordId, hasPortalIdentityDatabase, portalPersonDisplayName } = require("./modules/side-tasks-portal-identity");
+const { getMeosStore, meosStoreConfigFromEnv } = require("./modules/meos-store");
 
 loadEnv();
 
@@ -134,6 +135,67 @@ function getMeosSession(req) {
     return null;
   }
   return session;
+}
+
+function meosLoginUrlForRequest(req) {
+  try {
+    const url = new URL(req.url, requestBaseUrl(req));
+    return `/api/meos/login?returnTo=${encodeURIComponent(safeMeosReturnTo(url.pathname))}`;
+  } catch {
+    return "/api/meos/login?returnTo=%2Fdashboard";
+  }
+}
+
+function requireMeosApiSession(req, res) {
+  const session = getMeosSession(req);
+  if (session) return session;
+  sendJson(res, 401, {
+    authenticated: false,
+    error: "MEOS login vereist.",
+    loginUrl: meosLoginUrlForRequest(req)
+  });
+  return null;
+}
+
+function meosClientIp(req) {
+  return String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "")
+    .split(",")[0]
+    .trim();
+}
+
+function meosAuditLogPath() {
+  const configured = String(process.env.MEOS_AUDIT_LOG_PATH || "meos-audit.log").trim();
+  if (!configured || configured.toLowerCase() === "off") return "";
+  return path.isAbsolute(configured) ? configured : path.join(__dirname, configured);
+}
+
+function appendMeosAudit(req, session, action, details = {}) {
+  const filePath = meosAuditLogPath();
+  if (!filePath) return;
+  const entry = {
+    at: new Date().toISOString(),
+    action,
+    path: req.url,
+    host: forwardedHost(req),
+    ip: meosClientIp(req),
+    actor: {
+      name: session?.profile?.name || "",
+      discordId: session?.profile?.discordId || "",
+      organizationKey: session?.profile?.organizationKey || "",
+      serviceNumber: session?.profile?.serviceNumber || ""
+    },
+    details
+  };
+  const line = `${JSON.stringify(entry)}\n`;
+  fs.mkdir(path.dirname(filePath), { recursive: true }, (mkdirError) => {
+    if (mkdirError) {
+      console.error("MEOS audit map maken mislukt:", mkdirError.message || mkdirError);
+      return;
+    }
+    fs.appendFile(filePath, line, (appendError) => {
+      if (appendError) console.error("MEOS audit schrijven mislukt:", appendError.message || appendError);
+    });
+  });
 }
 
 function deleteMeosSession(req) {
@@ -380,7 +442,10 @@ async function meosProfileForDiscordUser(user, matches = [], member = {}) {
     discordId: normalizeDiscordId(user?.id || ""),
     discordUsername: user?.username || "",
     organizationKey: identity?.organizationKey || organizationPriority[0] || "overheid",
-    matchedOrganizations: organizationPriority
+    matchedOrganizations: organizationPriority,
+    portalPersonId: String(person.id || "").trim(),
+    identityLinkedBy: String(identity?.linkedBy || (identity ? "discord_id" : "fallback")).trim(),
+    portalNickname: String(identity?.nickname || "").trim()
   };
 }
 
@@ -502,6 +567,36 @@ function choicePage(routes, returnTo = "/") {
   });
 }
 
+function meosPathParam(pathname, prefix) {
+  const raw = String(pathname || "").slice(prefix.length).replace(/^\/+/, "");
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+async function sendMeosStoreResponse(req, res, action, details, handler) {
+  const session = requireMeosApiSession(req, res);
+  if (!session) return true;
+  try {
+    const payload = await handler(getMeosStore(), session);
+    appendMeosAudit(req, session, action, details);
+    sendJson(res, 200, {
+      ok: true,
+      authenticated: true,
+      ...payload
+    });
+  } catch (error) {
+    console.error(`MEOS API ${action} mislukt:`, error.message || error);
+    sendJson(res, error.status || 500, {
+      ok: false,
+      error: error.message || "MEOS data ophalen is mislukt."
+    });
+  }
+  return true;
+}
+
 async function handleRequest(req, res) {
   const url = new URL(req.url, requestBaseUrl(req));
   if (req.method === "GET" && serveMeosStatic(req, res, url)) return;
@@ -532,6 +627,106 @@ async function handleRequest(req, res) {
       uptimeSeconds: Math.round(process.uptime()),
       configuredRoutes: roleRoutes.filter((route) => route.roleId).map((route) => route.key)
     });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/session/debug" && req.method === "GET") {
+    const session = requireMeosApiSession(req, res);
+    if (!session) return;
+    appendMeosAudit(req, session, "session.debug", {});
+    sendJson(res, 200, {
+      ok: true,
+      authenticated: true,
+      dataSource: meosStoreConfigFromEnv(),
+      session: {
+        createdAt: session.createdAt,
+        expiresAt: new Date(session.expiresAt).toISOString()
+      },
+      profile: {
+        name: session.profile?.name || "",
+        rank: session.profile?.rank || "",
+        serviceNumber: session.profile?.serviceNumber || "",
+        organizationKey: session.profile?.organizationKey || "",
+        matchedOrganizations: session.profile?.matchedOrganizations || [],
+        discordId: session.profile?.discordId || "",
+        discordUsername: session.profile?.discordUsername || "",
+        portalPersonId: session.profile?.portalPersonId || "",
+        identityLinkedBy: session.profile?.identityLinkedBy || "",
+        portalNickname: session.profile?.portalNickname || ""
+      }
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/data" && req.method === "GET") {
+    await sendMeosStoreResponse(req, res, "data.snapshot", {}, async (store) => {
+      const snapshot = await store.snapshot();
+      return { data: snapshot };
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/people" && req.method === "GET") {
+    const query = url.searchParams.get("q") || url.searchParams.get("query") || "";
+    const field = url.searchParams.get("field") || "all";
+    const limit = url.searchParams.get("limit") || "";
+    await sendMeosStoreResponse(req, res, "people.list", { query, field, limit }, async (store) => ({
+      people: await store.listPeople({ query, field, limit })
+    }));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/people/") && req.method === "GET") {
+    const value = meosPathParam(url.pathname, "/api/meos/people/");
+    await sendMeosStoreResponse(req, res, "people.detail", { value }, async (store) => {
+      const person = await store.getPerson(value);
+      if (!person) {
+        const error = new Error("Persoon niet gevonden.");
+        error.status = 404;
+        throw error;
+      }
+      return { person };
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/vehicles" && req.method === "GET") {
+    const query = url.searchParams.get("q") || url.searchParams.get("query") || "";
+    const limit = url.searchParams.get("limit") || "";
+    await sendMeosStoreResponse(req, res, "vehicles.list", { query, limit }, async (store) => ({
+      vehicles: await store.listVehicles({ query, limit })
+    }));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/vehicles/") && req.method === "GET") {
+    const value = meosPathParam(url.pathname, "/api/meos/vehicles/");
+    await sendMeosStoreResponse(req, res, "vehicles.detail", { value }, async (store) => {
+      const vehicle = await store.getVehicle(value);
+      if (!vehicle) {
+        const error = new Error("Voertuig niet gevonden.");
+        error.status = 404;
+        throw error;
+      }
+      return { vehicle };
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/warrants" && req.method === "GET") {
+    const limit = url.searchParams.get("limit") || "";
+    await sendMeosStoreResponse(req, res, "warrants.list", { limit }, async (store) => ({
+      warrants: await store.listWarrants({ limit })
+    }));
+    return;
+  }
+
+  if (url.pathname === "/api/meos/search" && req.method === "GET") {
+    const query = url.searchParams.get("q") || url.searchParams.get("query") || "";
+    const limit = url.searchParams.get("limit") || "";
+    await sendMeosStoreResponse(req, res, "search", { query, limit }, async (store) => ({
+      results: await store.search({ query, limit })
+    }));
     return;
   }
 
