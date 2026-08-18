@@ -2137,7 +2137,7 @@ function serveStatic(req, res, url) {
     res,
     writeHeadSecure,
     publicRootFiles,
-    isAllowedFeatureScript: (relativePath) => /^personeelsportaal\/[^/]+\.js$/.test(relativePath)
+    isAllowedFeatureScript: (relativePath) => /^personeelsportaal\/[^/]+\.js$/.test(relativePath) || /^meos\/(?:[^/]+|pages\/[^/]+)\.js$/.test(relativePath)
   });
 }
 

@@ -5,6 +5,8 @@ const test = require("node:test");
 
 test("MEOS login is limited to the configured police and defensie role allowlist", () => {
   const code = fs.readFileSync(path.join(process.cwd(), "overheid-server.js"), "utf8");
+  const routesCode = fs.readFileSync(path.join(process.cwd(), "modules", "meos-api-routes.js"), "utf8");
+  const meosServerCode = `${code}\n${routesCode}`;
   const meosRoutesBlock = code.slice(code.indexOf("const meosRoleRoutes"), code.indexOf("const INTERNAL_COMPLAINT_RETURN_TO"));
   const callbackBlock = code.slice(code.indexOf('if (url.pathname === "/auth/discord/callback"'));
   const healthRolesBlock = code.slice(code.indexOf("function configuredMeosHealthRoleIds"), code.indexOf("function meosPermissionsForMember"));
@@ -16,7 +18,7 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /function meosOrganizationPriority\(matches = \[\]\)/);
   assert.match(code, /function meosCallbackUrl\(req\)/);
   assert.match(code, /MEOS_DISCORD_REDIRECT_URI/);
-  assert.match(code, /const redirectUri = meosCallbackUrl\(req\);/);
+  assert.match(meosServerCode, /const redirectUri = meosCallbackUrl\(req\);/);
   assert.match(code, /if \(isMeosHost\(req\)\) \{\s+const returnTo = safeMeosReturnTo/);
   assert.match(callbackBlock, /isMeosLogin \? meosCallbackUrl\(req\) : cookies\.orp_overheid_redirect \|\| callbackUrl\(req\)/);
   assert.match(code, /portalIdentityForDiscordId\(user\?\.id, \{[\s\S]*organizationPriority,[\s\S]*guildMember: member,[\s\S]*linkMissingDiscordId: true/);
@@ -34,8 +36,8 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /MEOS_DEFENSIE_HEALTH_ROLE_IDS/);
   assert.match(code, /MEOS_POLITIE_HEALTH_ROLE_IDS/);
   assert.match(code, /canViewDataHealth/);
-  assert.match(code, /\/api\/meos\/data-health/);
-  assert.match(code, /permission: "canViewDataHealth"/);
+  assert.match(meosServerCode, /\/api\/meos\/data-health/);
+  assert.match(meosServerCode, /permission: "canViewDataHealth"/);
   assert.match(healthRolesBlock, /DISCORD_KADER_ROLE_ID/);
   assert.match(healthRolesBlock, /DISCORD_POLITIE_KORPSLEIDING_ROLE_ID/);
   assert.doesNotMatch(healthRolesBlock, /OVJ/);

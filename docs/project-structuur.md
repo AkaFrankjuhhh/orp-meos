@@ -6,6 +6,7 @@ Defensie Personeelsportaal en het Porto-Systeem worden vanaf nu behandeld als tw
 
 - `index.html` + `app.js` + `personeelsportaal-data.js` + `personeelsportaal.css`: Defensie Personeelsportaal
 - `porto.html` + `porto.js` + `porto.css`: Porto-Systeem
+- `meos.html` + `meos/` + `meos.css`: ORP Overheid MEOS
 
 Ze delen bewust dezelfde login, sessie en personeelsdata.
 Ze moeten verder zo veel mogelijk eigen routes, eigen frontendcode en eigen styling krijgen.
@@ -21,6 +22,8 @@ Ze moeten verder zo veel mogelijk eigen routes, eigen frontendcode en eigen styl
 - `modules/porto.js`: Porto voertuigreeksen, OPS-rechten, actieve eenheden, koppels en Porto payload-opbouw.
 - `modules/porto-routes.js`: alle `/api/porto/...` routes voor profiel, status, OPS, voertuigen, koppels en testtools.
 - `modules/personeelsportaal-routes.js`: alle Defensie Personeelsportaal API-routes voor personeel, profielen, afwezigheid, I8, mentor, W&S, archief, state en logboek.
+- `modules/meos-api-routes.js`: alle `/api/meos/...` routes voor sessie, zoeken, personen, voertuigen, strafbladen, notities, boetes, Wetboek en databronstatus.
+- `modules/meos-store.js`, `modules/meos-store-demo.js`, `modules/meos-store-fivem.js`: MEOS data-adapterlaag voor demo-data en toekomstige FiveM databaseviews.
 
 ## Richting voor verdere opsplitsing
 
@@ -54,4 +57,12 @@ Porto heeft nu een eigen frontendmap:
 - `porto/duty.js`: Status 0, dienstpaneel, statusknoppen en voertuigkeuze.
 - `porto/profile.js`: Porto-profielpopup, trainingen en telefoonnummer.
 
+MEOS heeft nu een eigen frontendmap:
+
+- `meos/app.js`: hoofdentrypoint, routing en schermrendering.
+- `meos/api.js`: JSON API-client met loginredirects.
+- `meos/core.js`: kleine gedeelde helpers voor DOM, escaping, zoeken en PNG-normalisatie.
+- `meos/pages/databron.js`: databronstatus voor KL/Kader.
+
 De modules worden bewust vÃ³Ã³r `app.js` en `porto.js` geladen. Daardoor kunnen we functionaliteit stap voor stap uit de hoofdbestanden halen zonder alles tegelijk te breken.
+Voor MEOS wordt `meos/app.js` als module geladen; de root `meos.js` blijft alleen bestaan als compatibiliteitsloader.
