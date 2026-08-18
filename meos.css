@@ -282,6 +282,14 @@ button {
   background-image: url("/assets/meos-icon-warrant.png?v=20260817-png-icons");
 }
 
+.meos-nav-icon.data {
+  background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
+}
+
+.meos-nav-item.active .meos-nav-icon.data {
+  background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
+}
+
 html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.dashboard {
   background-image: url("/assets/meos-icon-dashboard-active.png?v=20260817-png-icons");
 }
@@ -296,6 +304,10 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.vehicle {
 
 html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.warrant {
   background-image: url("/assets/meos-icon-warrant-active.png?v=20260817-png-icons");
+}
+
+html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.data {
+  background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
 }
 
 .meos-sidebar-status {
@@ -1420,6 +1432,126 @@ html[data-meos-theme="dark"] .meos-record-modal {
   font-weight: 500;
 }
 
+.meos-health-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.meos-health-card {
+  display: grid;
+  gap: 5px;
+  min-height: 84px;
+  padding: 12px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  background: var(--meos-elevated-bg);
+}
+
+.meos-health-card span,
+.meos-health-check span {
+  color: var(--meos-label-text);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.meos-health-card strong {
+  color: var(--meos-text);
+  font-size: 18px;
+}
+
+.meos-health-card small,
+.meos-health-check small {
+  color: var(--meos-secondary-text);
+  line-height: 1.35;
+}
+
+.meos-health-pill {
+  width: fit-content;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #b8d7ee;
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: var(--meos-blue);
+  background: #edf7ff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.meos-health-pill.ok {
+  border-color: #9ed6bc;
+  color: #087344;
+  background: #effcf6;
+}
+
+.meos-health-pill.warning {
+  border-color: #f1ca79;
+  color: #8a5a00;
+  background: #fff7df;
+}
+
+.meos-health-pill.danger {
+  border-color: #f0a1a1;
+  color: #9f1d1d;
+  background: #fff0f0;
+}
+
+.meos-health-checks {
+  display: grid;
+  gap: 8px;
+}
+
+.meos-health-check {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(140px, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  background: var(--meos-elevated-bg);
+}
+
+.meos-health-check strong,
+.meos-health-check code {
+  display: block;
+  margin-top: 3px;
+  color: var(--meos-text);
+  font-size: 14px;
+}
+
+.meos-health-check > small {
+  grid-column: 1 / -1;
+}
+
+html[data-meos-theme="dark"] .meos-health-pill {
+  border-color: #8b4c22;
+  color: #ffb783;
+  background: #311b12;
+}
+
+html[data-meos-theme="dark"] .meos-health-pill.ok {
+  border-color: #1d7f55;
+  color: #8df0bd;
+  background: #123124;
+}
+
+html[data-meos-theme="dark"] .meos-health-pill.warning {
+  border-color: #8b6b22;
+  color: #f2d38a;
+  background: #332813;
+}
+
+html[data-meos-theme="dark"] .meos-health-pill.danger {
+  border-color: #9c3434;
+  color: #ff9b9b;
+  background: #361818;
+}
+
 .meos-record-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 32%);
@@ -1635,6 +1767,8 @@ html[data-meos-theme="dark"] .meos-record-modal {
   .meos-form-grid,
   .meos-record-body,
   .meos-result-card,
+  .meos-health-check,
+  .meos-health-summary,
   .meos-wetboek-result,
   .meos-wetboek-totals,
   .meos-warrant-grid {

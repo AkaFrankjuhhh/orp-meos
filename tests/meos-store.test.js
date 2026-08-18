@@ -1,10 +1,12 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
 const { buildDemoMeosPeople } = require(path.join(process.cwd(), "modules", "meos-demo-data"));
 const { createDemoMeosStore } = require(path.join(process.cwd(), "modules", "meos-store-demo"));
-const { createMeosStore, meosStoreConfigFromEnv } = require(path.join(process.cwd(), "modules", "meos-store"));
+const { CachedMeosStore, createMeosStore, meosStoreConfigFromEnv } = require(path.join(process.cwd(), "modules", "meos-store"));
 const { createFiveMMeosStore, mapPersonRow, mapVehicleRow, sqlIdentifier } = require(path.join(process.cwd(), "modules", "meos-store-fivem"));
 
 test("MEOS demo data lives outside the browser bundle", () => {
@@ -117,6 +119,7 @@ test("MEOS store factory defaults to cached demo data", async () => {
   });
   assert.equal(config.dataSource, "demo");
   assert.equal(config.cacheTtlMs, 2500);
+  assert.equal(config.fivemDriver, "postgres");
 
   const store = createMeosStore({ dataSource: "demo", cacheTtlMs: 2500 });
   const snapshot = await store.snapshot();
@@ -134,6 +137,47 @@ test("MEOS store factory defaults to cached demo data", async () => {
   assert.equal(result.person.notes[0].note, "Cache wordt ververst.");
   const updatedSnapshot = await store.snapshot();
   assert.equal(updatedSnapshot.people.find((person) => person.id === "ernie-nugz").notes[0].note, "Cache wordt ververst.");
+});
+
+test("MEOS datasource health reports demo counts and cache state", async () => {
+  const store = createMeosStore({ dataSource: "demo", cacheTtlMs: 2500 });
+  const health = await store.sourceHealth();
+
+  assert.equal(health.ok, true);
+  assert.equal(health.status, "healthy");
+  assert.equal(health.dataSource.type, "demo");
+  assert.equal(health.cache.ttlMs, 2500);
+  assert.equal(health.counts.players, 53);
+  assert.ok(health.counts.vehicles >= 70);
+  assert.ok(health.checks.some((check) => check.key === "players" && check.required));
+});
+
+test("MEOS cached store keeps stale data when a live refresh fails", async () => {
+  let fail = false;
+  const baseStore = {
+    source: { type: "test-live", label: "Test live", live: true },
+    async snapshot() {
+      if (fail) throw new Error("database offline");
+      return {
+        dataSource: this.source,
+        people: [{ id: "p1", name: "Test Persoon", vehicles: [] }],
+        vehicles: [],
+        warrants: []
+      };
+    }
+  };
+  const store = new CachedMeosStore(baseStore, { cacheTtlMs: 0 });
+  const first = await store.snapshot();
+  assert.equal(first.people.length, 1);
+
+  fail = true;
+  const fallback = await store.snapshot();
+  assert.equal(fallback.dataSource.stale, true);
+  assert.match(fallback.dataSource.lastError.message, /database offline/);
+
+  const health = await store.sourceHealth();
+  assert.equal(health.cache.hasSnapshot, true);
+  assert.match(health.cache.lastSnapshotError.message, /database offline/);
 });
 
 test("MEOS FiveM scaffold maps view rows to MEOS shape", async () => {
@@ -164,8 +208,67 @@ test("MEOS FiveM scaffold maps view rows to MEOS shape", async () => {
 
   const store = createFiveMMeosStore({ driver: "mysql", databaseUrl: "mysql://readonly@example/meos" });
   await assert.rejects(() => store.snapshot(), /mysql2 is nog niet geinstalleerd/);
-  await assert.rejects(() => store.addPersonFine("citizen-1", { fine: "Test", amount: "EUR 100" }), /read-only/);
-  await assert.rejects(() => store.deletePersonFine("citizen-1", "fine-0"), /read-only/);
+  const health = await store.sourceHealth();
+  assert.equal(health.ok, false);
+  assert.equal(health.status, "unsupported_driver");
+  assert.match(health.error, /mysql2 is nog niet geinstalleerd/);
   assert.equal(sqlIdentifier("orp_meos.people_view", "fallback_view"), "orp_meos.people_view");
   assert.equal(sqlIdentifier("people;drop table users", "fallback_view"), "fallback_view");
+});
+
+test("MEOS FiveM store writes dossier data outside the read-only FiveM views", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "meos-case-"));
+  const caseDataPath = path.join(tempDir, "case-data.json");
+  const store = createFiveMMeosStore({
+    driver: "postgres",
+    databaseUrl: "postgres://readonly@example/meos",
+    caseDataPath
+  });
+  store.loadPeople = async () => [mapPersonRow({
+    id: "citizen-1",
+    name: "Test Speler",
+    bsn: "ORP-BSN-100",
+    fingerprint: "ORP-V-100"
+  })];
+  store.loadVehicles = async () => [];
+  store.loadWarrants = async () => [];
+  store.loadHouses = async () => [];
+
+  const recordResult = await store.addPersonRecord("citizen-1", {
+    date: "18 aug. 2026",
+    sanction: "PV",
+    verbalist: "Frank Bright",
+    note: "MEOS dossier blijft lokaal.",
+    articleIds: ["II-1"]
+  });
+  assert.equal(recordResult.record.sanction, "PV");
+  assert.equal(recordResult.person.records[0].note, "MEOS dossier blijft lokaal.");
+
+  const noteResult = await store.addPersonNote("citizen-1", {
+    date: "18 aug. 2026",
+    author: "Frank Bright",
+    note: "Lokale notitie."
+  });
+  assert.equal(noteResult.note.author, "Frank Bright");
+
+  const fineResult = await store.addPersonFine("citizen-1", {
+    fine: "Boete test",
+    amount: "EUR 100",
+    writtenAt: "18 aug. 2026",
+    writtenBy: "Frank Bright"
+  });
+  assert.equal(fineResult.fine.amount, "EUR 100");
+
+  const person = await store.getPerson("citizen-1");
+  assert.equal(person.records.length, 1);
+  assert.equal(person.notes.length, 1);
+  assert.equal(person.fines.length, 1);
+
+  await store.deletePersonFine("citizen-1", fineResult.fine.id);
+  const updated = await store.getPerson("citizen-1");
+  assert.equal(updated.fines.length, 0);
+
+  const saved = JSON.parse(fs.readFileSync(caseDataPath, "utf8"));
+  assert.equal(saved.people["citizen-1"].records[0].note, "MEOS dossier blijft lokaal.");
+  assert.equal(store.source.caseDataPath, caseDataPath);
 });

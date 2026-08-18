@@ -241,7 +241,7 @@ function isMeosHost(req) {
 
 function isMeosPageRoute(pathname) {
   const firstSegment = String(pathname || "").split("/").filter(Boolean)[0]?.toLowerCase() || "";
-  return ["dashboard", "personen", "voertuigen", "arrestatiebevelen", "at"].includes(firstSegment);
+  return ["dashboard", "personen", "voertuigen", "arrestatiebevelen", "databron", "at"].includes(firstSegment);
 }
 
 function serveMeosStatic(req, res, url) {
@@ -442,16 +442,37 @@ function configuredMeosDeleteRoleIds(organizationKey = "") {
   return common;
 }
 
+function configuredMeosHealthRoleIds(organizationKey = "") {
+  const common = envIdList("MEOS_HEALTH_ROLE_IDS");
+  const key = String(organizationKey || "").trim().toLowerCase();
+  if (key === "defensie") {
+    return [
+      ...common,
+      ...envIdList("MEOS_DEFENSIE_HEALTH_ROLE_IDS", "DISCORD_KADER_ROLE_ID")
+    ];
+  }
+  if (key === "politie") {
+    return [
+      ...common,
+      ...envIdList("MEOS_POLITIE_HEALTH_ROLE_IDS", "DISCORD_POLITIE_KORPSLEIDING_ROLE_ID")
+    ];
+  }
+  return common;
+}
+
 function meosPermissionsForMember(roles, organizations = [], userId = "") {
   const memberRoles = roles instanceof Set ? roles : new Set(roles || []);
   const organizationKeys = organizations.length ? organizations : ["overheid"];
   const deleteRoleIds = new Set(organizationKeys.flatMap((key) => configuredMeosDeleteRoleIds(key)));
+  const healthRoleIds = new Set(organizationKeys.flatMap((key) => configuredMeosHealthRoleIds(key)));
   const canDeleteEntries = isDevOverride(userId) || [...deleteRoleIds].some((roleId) => memberRoles.has(roleId));
+  const canViewDataHealth = isDevOverride(userId) || [...healthRoleIds].some((roleId) => memberRoles.has(roleId));
   return {
     canViewEntries: true,
     canWriteEntries: true,
     canDeleteEntries,
-    canViewAudit: canDeleteEntries
+    canViewAudit: canDeleteEntries,
+    canViewDataHealth
   };
 }
 
@@ -479,7 +500,8 @@ function meosFallbackProfile(user = null) {
       canViewEntries: false,
       canWriteEntries: false,
       canDeleteEntries: false,
-      canViewAudit: false
+      canViewAudit: false,
+      canViewDataHealth: false
     }
   };
 }
@@ -866,10 +888,11 @@ async function sendMeosWetboekResponse(req, res, action, details, handler) {
   return true;
 }
 
-async function sendMeosStoreResponse(req, res, action, details, handler) {
+async function sendMeosStoreResponse(req, res, action, details, handler, options = {}) {
   const session = requireMeosApiSession(req, res);
   if (!session) return true;
   try {
+    if (options.permission) requireMeosPermission(session, options.permission, options.permissionMessage);
     const payload = await handler(getMeosStore(), session);
     appendMeosAudit(req, session, action, details);
     sendJson(res, 200, {
@@ -1012,6 +1035,16 @@ async function handleRequest(req, res) {
     await sendMeosStoreResponse(req, res, "data.snapshot", {}, async (store) => {
       const snapshot = await store.snapshot();
       return { data: snapshot };
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/data-health" && req.method === "GET") {
+    await sendMeosStoreResponse(req, res, "data.health", {}, async (store) => {
+      return { health: await store.sourceHealth() };
+    }, {
+      permission: "canViewDataHealth",
+      permissionMessage: "Alleen KL/Kader kan de MEOS databronstatus bekijken."
     });
     return;
   }

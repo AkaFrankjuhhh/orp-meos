@@ -7,6 +7,7 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   const code = fs.readFileSync(path.join(process.cwd(), "overheid-server.js"), "utf8");
   const meosRoutesBlock = code.slice(code.indexOf("const meosRoleRoutes"), code.indexOf("const INTERNAL_COMPLAINT_RETURN_TO"));
   const callbackBlock = code.slice(code.indexOf('if (url.pathname === "/auth/discord/callback"'));
+  const healthRolesBlock = code.slice(code.indexOf("function configuredMeosHealthRoleIds"), code.indexOf("function meosPermissionsForMember"));
 
   assert.match(meosRoutesBlock, /roleIds: \["1423468016099918024", "1425931664877551708"\]/);
   assert.match(meosRoutesBlock, /roleIds: \["1423471185391255705", "1425715749862772818"\]/);
@@ -28,6 +29,16 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /canWriteEntries: true/);
   assert.match(code, /canViewAudit: canDeleteEntries/);
   assert.match(code, /canViewAudit: false/);
+  assert.match(code, /function configuredMeosHealthRoleIds/);
+  assert.match(code, /MEOS_HEALTH_ROLE_IDS/);
+  assert.match(code, /MEOS_DEFENSIE_HEALTH_ROLE_IDS/);
+  assert.match(code, /MEOS_POLITIE_HEALTH_ROLE_IDS/);
+  assert.match(code, /canViewDataHealth/);
+  assert.match(code, /\/api\/meos\/data-health/);
+  assert.match(code, /permission: "canViewDataHealth"/);
+  assert.match(healthRolesBlock, /DISCORD_KADER_ROLE_ID/);
+  assert.match(healthRolesBlock, /DISCORD_POLITIE_KORPSLEIDING_ROLE_ID/);
+  assert.doesNotMatch(healthRolesBlock, /OVJ/);
   assert.match(code, /MEOS_DEFENSIE_DELETE_ROLE_IDS/);
   assert.match(code, /MEOS_POLITIE_DELETE_ROLE_IDS/);
   assert.match(code, /const defaultMeosDeleteRoleIds = \["1426544463043362937"\]/);

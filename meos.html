@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" href="/assets/meos-logo.png?v=20260818-site-logo" />
-  <link rel="stylesheet" href="/meos.css?v=20260818-owner-profile-link" />
+  <link rel="stylesheet" href="/meos.css?v=20260818-data-health" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -40,6 +40,10 @@
           <button class="meos-nav-item" type="button" data-section="arrestatiebevelen">
             <span class="meos-nav-icon warrant" aria-hidden="true"></span>
             <span>ArrestatieBevel</span>
+          </button>
+          <button id="meosDataHealthNav" class="meos-nav-item" type="button" data-section="databron" data-health-only hidden>
+            <span class="meos-nav-icon data" aria-hidden="true"></span>
+            <span>Databron</span>
           </button>
         </section>
       </nav>
@@ -210,11 +214,25 @@
           <div id="warrantOverview" class="meos-warrant-grid" aria-live="polite"></div>
         </section>
       </section>
+
+      <section class="meos-page" data-page="databron" aria-labelledby="dataHealthTitle">
+        <div class="meos-breadcrumb">Databron</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="dataHealthTitle">Databron status</h2>
+              <p>FiveM koppeling, views en cache.</p>
+            </div>
+            <button class="meos-secondary" type="button" data-refresh-data-health>Verversen</button>
+          </div>
+          <div id="dataHealthView" aria-live="polite"></div>
+        </section>
+      </section>
     </main>
   </div>
 
   <div id="meosRecordModal" class="meos-modal-backdrop" hidden></div>
 
-  <script src="/meos.js?v=20260818-owner-profile-link" defer></script>
+  <script src="/meos.js?v=20260818-data-health" defer></script>
 </body>
 </html>

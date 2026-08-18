@@ -250,6 +250,34 @@ class DemoMeosStore {
     };
   }
 
+  async sourceHealth() {
+    const vehicles = this.allVehicles();
+    const warrants = this.activeArrestWarrants();
+    const housingCount = this.people.reduce((total, person) => total + (Array.isArray(person.houses) ? person.houses.length : 0), 0);
+    return {
+      ok: true,
+      status: "healthy",
+      checkedAt: new Date().toISOString(),
+      dataSource: this.source,
+      configured: true,
+      driver: "demo",
+      framework: "demo",
+      counts: {
+        players: this.people.length,
+        vehicles: vehicles.length,
+        housing: housingCount,
+        warrants: warrants.length
+      },
+      checks: [
+        { key: "players", label: "Spelers", view: "demo.people", required: true, ok: true, available: true, missing: false, count: this.people.length },
+        { key: "vehicles", label: "Voertuigen", view: "demo.vehicles", required: true, ok: true, available: true, missing: false, count: vehicles.length },
+        { key: "housing", label: "Huisvestigingen", view: "demo.houses", required: false, ok: true, available: true, missing: false, count: housingCount },
+        { key: "warrants", label: "Arrestatiebevelen", view: "demo.warrants", required: false, ok: true, available: true, missing: false, count: warrants.length }
+      ],
+      durationMs: 0
+    };
+  }
+
   async addPersonRecord(personValue, record = {}) {
     const person = this.findPersonRef(personValue);
     if (!person) {

@@ -12,12 +12,13 @@ function meosStoreConfigFromEnv(env = process.env) {
   return {
     dataSource: String(env.MEOS_DATA_SOURCE || "demo").trim().toLowerCase(),
     cacheTtlMs: Math.max(0, Number(env.MEOS_CACHE_TTL_MS || 15000)),
-    fivemDriver: String(env.MEOS_FIVEM_DB_DRIVER || "mysql").trim().toLowerCase(),
+    fivemDriver: String(env.MEOS_FIVEM_DB_DRIVER || "postgres").trim().toLowerCase(),
     fivemFramework: String(env.MEOS_FIVEM_FRAMEWORK || "custom").trim().toLowerCase(),
     fivemPlayersView: String(env.MEOS_FIVEM_PLAYERS_VIEW || env.MEOS_FIVEM_PEOPLE_VIEW || "meos_people_view").trim(),
     fivemVehiclesView: String(env.MEOS_FIVEM_VEHICLES_VIEW || "meos_vehicles_view").trim(),
     fivemHousingView: String(env.MEOS_FIVEM_HOUSING_VIEW || "meos_housing_view").trim(),
-    fivemWarrantsView: String(env.MEOS_FIVEM_WARRANTS_VIEW || "meos_arrest_warrants_view").trim()
+    fivemWarrantsView: String(env.MEOS_FIVEM_WARRANTS_VIEW || "meos_arrest_warrants_view").trim(),
+    meosCaseDataPath: String(env.MEOS_CASE_DATA_PATH || "meos-case-data.json").trim()
   };
 }
 
@@ -69,6 +70,8 @@ class CachedMeosStore {
     };
     this.cachedSnapshot = null;
     this.cachedAt = 0;
+    this.lastSnapshotSuccessAt = "";
+    this.lastSnapshotError = null;
   }
 
   async snapshot() {
@@ -76,15 +79,79 @@ class CachedMeosStore {
     if (this.cachedSnapshot && this.cacheTtlMs > 0 && now - this.cachedAt < this.cacheTtlMs) {
       return clone(this.cachedSnapshot);
     }
-    const snapshot = normalizeSnapshot(await this.store.snapshot(), this.source);
-    this.cachedSnapshot = snapshot;
-    this.cachedAt = now;
-    return clone(snapshot);
+    try {
+      const snapshot = normalizeSnapshot(await this.store.snapshot(), this.source);
+      this.cachedSnapshot = snapshot;
+      this.cachedAt = now;
+      this.lastSnapshotSuccessAt = snapshot.generatedAt || new Date().toISOString();
+      this.lastSnapshotError = null;
+      return clone(snapshot);
+    } catch (error) {
+      this.lastSnapshotError = {
+        at: new Date().toISOString(),
+        message: String(error?.message || error || "MEOS data ophalen is mislukt.").slice(0, 240)
+      };
+      if (this.cachedSnapshot) {
+        const fallback = clone(this.cachedSnapshot);
+        fallback.dataSource = {
+          ...(fallback.dataSource || this.source),
+          stale: true,
+          lastError: this.lastSnapshotError
+        };
+        return fallback;
+      }
+      throw error;
+    }
   }
 
   clearCache() {
     this.cachedSnapshot = null;
     this.cachedAt = 0;
+  }
+
+  async sourceHealth() {
+    let health;
+    try {
+      if (typeof this.store.sourceHealth === "function") {
+        health = await this.store.sourceHealth();
+      } else {
+        const snapshot = await this.snapshot();
+        health = {
+          ok: true,
+          status: "healthy",
+          checkedAt: new Date().toISOString(),
+          dataSource: snapshot.dataSource || this.source,
+          configured: true,
+          counts: {
+            players: snapshot.people.length,
+            vehicles: snapshot.vehicles.length,
+            warrants: snapshot.warrants.length
+          },
+          checks: []
+        };
+      }
+    } catch (error) {
+      health = {
+        ok: false,
+        status: "error",
+        checkedAt: new Date().toISOString(),
+        dataSource: this.source,
+        configured: false,
+        error: String(error?.message || error || "MEOS databronstatus ophalen is mislukt.").slice(0, 240),
+        checks: [],
+        counts: {}
+      };
+    }
+    return {
+      ...health,
+      cache: {
+        ttlMs: this.cacheTtlMs,
+        hasSnapshot: Boolean(this.cachedSnapshot),
+        cachedAt: this.cachedAt ? new Date(this.cachedAt).toISOString() : "",
+        lastSnapshotSuccessAt: this.lastSnapshotSuccessAt,
+        lastSnapshotError: this.lastSnapshotError
+      }
+    };
   }
 
   async listPeople(options = {}) {
@@ -223,7 +290,8 @@ function createMeosStore(options = {}) {
     playersView: config.playersView || config.fivemPlayersView,
     vehiclesView: config.vehiclesView || config.fivemVehiclesView,
     housingView: config.housingView || config.fivemHousingView,
-    warrantsView: config.warrantsView || config.fivemWarrantsView
+    warrantsView: config.warrantsView || config.fivemWarrantsView,
+    caseDataPath: config.caseDataPath || config.meosCaseDataPath
   };
   const baseStore = config.dataSource === "fivem"
     ? createFiveMMeosStore(storeOptions)

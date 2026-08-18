@@ -1,7 +1,14 @@
 "use strict";
 
+const fs = require("node:fs/promises");
+const path = require("node:path");
+
 const { normalize, slugFromValue } = require("./meos-demo-data");
 const { normalizeLimit, personMatchesSearch, personSearchQueries } = require("./meos-store-demo");
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 function asArray(value) {
   if (Array.isArray(value)) return value;
@@ -101,10 +108,59 @@ function searchVehicleFields(vehicle) {
   return [vehicle.plate, vehicle.model, vehicle.owner, vehicle.primaryColor, vehicle.secondaryColor, vehicle.vin];
 }
 
+function sanitizeHealthError(error) {
+  return String(error?.message || error || "Onbekende databasefout").replace(/\s+/g, " ").slice(0, 240);
+}
+
+function entryId(prefix) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
+}
+
+function normalizeCaseData(data = {}) {
+  const people = data.people && typeof data.people === "object" ? data.people : {};
+  return { people };
+}
+
+function personCaseBucket(data, personId) {
+  const key = String(personId || "").trim();
+  if (!data.people[key]) data.people[key] = { records: [], notes: [], fines: [] };
+  const bucket = data.people[key];
+  bucket.records = Array.isArray(bucket.records) ? bucket.records : [];
+  bucket.notes = Array.isArray(bucket.notes) ? bucket.notes : [];
+  bucket.fines = Array.isArray(bucket.fines) ? bucket.fines : [];
+  return bucket;
+}
+
+function fallbackEntryIndex(entryIdValue, prefix) {
+  const match = String(entryIdValue || "").match(new RegExp(`^${prefix}-(\\d+)$`, "i"));
+  if (!match) return -1;
+  const index = Number(match[1]);
+  return Number.isInteger(index) && index >= 0 ? index : -1;
+}
+
+function deleteCaseEntry(bucket, collection, entryIdValue, fallbackPrefix) {
+  const entries = Array.isArray(bucket[collection]) ? bucket[collection] : [];
+  const normalizedId = normalize(entryIdValue);
+  let index = entries.findIndex((entry) => normalize(entry?.id) === normalizedId);
+  if (index === -1) {
+    const fallbackIndex = fallbackEntryIndex(entryIdValue, fallbackPrefix);
+    if (fallbackIndex >= 0 && fallbackIndex < entries.length) index = fallbackIndex;
+  }
+  if (index === -1) {
+    const error = new Error("MEOS item niet gevonden.");
+    error.status = 404;
+    throw error;
+  }
+  const [deleted] = entries.splice(index, 1);
+  bucket[collection] = entries;
+  return deleted || null;
+}
+
 class FiveMMeosStore {
   constructor(options = {}) {
     this.databaseUrl = options.databaseUrl || process.env.MEOS_FIVEM_DATABASE_URL || "";
-    this.driver = String(options.driver || process.env.MEOS_FIVEM_DB_DRIVER || "mysql").trim().toLowerCase();
+    this.caseDataPath = path.resolve(options.caseDataPath || process.env.MEOS_CASE_DATA_PATH || "meos-case-data.json");
+    this.driver = String(options.driver || process.env.MEOS_FIVEM_DB_DRIVER || "postgres").trim().toLowerCase();
     this.framework = String(options.framework || process.env.MEOS_FIVEM_FRAMEWORK || "custom").trim().toLowerCase();
     this.playersView = sqlIdentifier(options.playersView || process.env.MEOS_FIVEM_PLAYERS_VIEW || options.peopleView || process.env.MEOS_FIVEM_PEOPLE_VIEW, "meos_people_view");
     this.peopleView = this.playersView;
@@ -116,6 +172,7 @@ class FiveMMeosStore {
       label: `FiveM ${this.framework} database`,
       live: true,
       driver: this.driver,
+      caseDataPath: this.caseDataPath,
       views: {
         players: this.playersView,
         vehicles: this.vehiclesView,
@@ -124,6 +181,39 @@ class FiveMMeosStore {
       }
     };
     this.pool = null;
+  }
+
+  viewContracts() {
+    return [
+      {
+        key: "players",
+        label: "Spelers",
+        view: this.playersView,
+        required: true,
+        columns: ["id", "name", "bsn", "fingerprint", "birth_date", "height", "status", "licenses"]
+      },
+      {
+        key: "vehicles",
+        label: "Voertuigen",
+        view: this.vehiclesView,
+        required: true,
+        columns: ["plate", "owner_id", "owner", "model", "vin", "primary_color", "secondary_color", "pearl_color", "apk_status", "wok", "stolen", "stolen_reason", "stolen_date", "impounded", "service_vehicle"]
+      },
+      {
+        key: "housing",
+        label: "Huisvestigingen",
+        view: this.housingView,
+        required: false,
+        columns: ["id", "person_id", "owner", "location", "building", "status"]
+      },
+      {
+        key: "warrants",
+        label: "Arrestatiebevelen",
+        view: this.warrantsView,
+        required: false,
+        columns: ["id", "person_id", "person_name", "reason", "issued_at", "issued_by", "priority", "status", "instruction"]
+      }
+    ];
   }
 
   assertConfigured() {
@@ -160,6 +250,87 @@ class FiveMMeosStore {
     return result.rows || [];
   }
 
+  async checkViewContract(contract) {
+    const started = Date.now();
+    const base = {
+      key: contract.key,
+      label: contract.label,
+      view: contract.view,
+      required: Boolean(contract.required),
+      columns: contract.columns,
+      ok: false,
+      available: false,
+      missing: false,
+      count: null,
+      durationMs: 0
+    };
+    try {
+      await this.query(`select ${contract.columns.join(", ")} from ${contract.view} limit 1`);
+      const rows = await this.query(`select count(*)::int as count from ${contract.view}`);
+      return {
+        ...base,
+        ok: true,
+        available: true,
+        count: Number(rows[0]?.count || 0),
+        durationMs: Date.now() - started
+      };
+    } catch (error) {
+      const missing = this.isMissingOptionalView(error, contract.view);
+      const optionalMissing = missing && !contract.required;
+      return {
+        ...base,
+        ok: optionalMissing,
+        available: false,
+        missing,
+        status: optionalMissing ? "missing_optional" : "error",
+        error: sanitizeHealthError(error),
+        durationMs: Date.now() - started
+      };
+    }
+  }
+
+  async sourceHealth() {
+    const checkedAt = new Date().toISOString();
+    const contracts = this.viewContracts();
+    const base = {
+      ok: false,
+      status: "error",
+      checkedAt,
+      dataSource: this.source,
+      configured: Boolean(this.databaseUrl),
+      driver: this.driver,
+      framework: this.framework,
+      views: this.source.views,
+      caseDataPath: this.caseDataPath,
+      checks: [],
+      counts: {},
+      durationMs: 0
+    };
+    const started = Date.now();
+    try {
+      this.assertConfigured();
+    } catch (error) {
+      return {
+        ...base,
+        status: error.status === 501 ? "unsupported_driver" : "not_configured",
+        error: sanitizeHealthError(error),
+        durationMs: Date.now() - started
+      };
+    }
+
+    const checks = await Promise.all(contracts.map((contract) => this.checkViewContract(contract)));
+    const ok = checks.every((check) => check.ok);
+    return {
+      ...base,
+      ok,
+      status: ok ? "healthy" : "degraded",
+      checks,
+      counts: Object.fromEntries(checks.map((check) => [check.key, Number.isFinite(check.count) ? check.count : null])),
+      missingOptionalViews: checks.filter((check) => !check.required && check.missing).map((check) => check.key),
+      durationMs: Date.now() - started
+    };
+  }
+
   async loadPeople() {
     const rows = await this.query(`select * from ${this.playersView} order by name limit 1000`);
     return rows.map(mapPersonRow);
@@ -194,13 +365,42 @@ class FiveMMeosStore {
     return error?.code === "42P01" || String(error?.message || "").includes(viewName);
   }
 
+  async readCaseData() {
+    try {
+      const content = await fs.readFile(this.caseDataPath, "utf8");
+      return normalizeCaseData(JSON.parse(content));
+    } catch (error) {
+      if (error?.code === "ENOENT") return normalizeCaseData();
+      throw error;
+    }
+  }
+
+  async writeCaseData(data) {
+    await fs.mkdir(path.dirname(this.caseDataPath), { recursive: true });
+    const tempPath = `${this.caseDataPath}.${process.pid}.tmp`;
+    await fs.writeFile(tempPath, `${JSON.stringify(normalizeCaseData(data), null, 2)}\n`, "utf8");
+    await fs.rename(tempPath, this.caseDataPath);
+  }
+
+  mergeCaseData(people, caseData) {
+    for (const person of people) {
+      const bucket = caseData.people[person.id];
+      if (!bucket) continue;
+      person.records = [...asArray(bucket.records), ...asArray(person.records)];
+      person.notes = [...asArray(bucket.notes), ...asArray(person.notes)];
+      person.fines = [...asArray(bucket.fines), ...asArray(person.fines)];
+    }
+  }
+
   async snapshot() {
-    const [people, vehicles, warrants, houses] = await Promise.all([
+    const [people, vehicles, warrants, houses, caseData] = await Promise.all([
       this.loadPeople(),
       this.loadVehicles(),
       this.loadWarrants(),
-      this.loadHouses()
+      this.loadHouses(),
+      this.readCaseData()
     ]);
+    this.mergeCaseData(people, caseData);
     const peopleById = new Map(people.map((person) => [normalize(person.id), person]));
     const peopleByName = new Map(people.map((person) => [normalize(person.name), person]));
     for (const vehicle of vehicles) {
@@ -303,40 +503,137 @@ class FiveMMeosStore {
     return { people, vehicles };
   }
 
-  async addPersonRecord() {
-    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor strafbladen voordat MEOS_DATA_SOURCE=fivem dit kan opslaan.");
-    error.status = 501;
-    throw error;
+  async addPersonRecord(personValue, record = {}) {
+    const person = await this.getPerson(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const data = await this.readCaseData();
+    const bucket = personCaseBucket(data, person.id);
+    const nextRecord = {
+      id: record.id || entryId("PV"),
+      date: String(record.date || "").trim(),
+      sanction: String(record.sanction || "").trim(),
+      verbalist: String(record.verbalist || "").trim(),
+      note: String(record.note || "").trim(),
+      source: String(record.source || "").trim(),
+      articleIds: Array.isArray(record.articleIds) ? record.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+      articleSelections: Array.isArray(record.articleSelections) ? clone(record.articleSelections) : [],
+      calculatedTotals: record.calculatedTotals && typeof record.calculatedTotals === "object" ? clone(record.calculatedTotals) : null,
+      createdAt: new Date().toISOString(),
+      createdBy: record.createdBy || null
+    };
+    bucket.records = [nextRecord, ...bucket.records];
+    await this.writeCaseData(data);
+    return {
+      record: clone(nextRecord),
+      person: { ...person, records: [clone(nextRecord), ...asArray(person.records)] }
+    };
   }
 
-  async addPersonNote() {
-    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor notities voordat MEOS_DATA_SOURCE=fivem dit kan opslaan.");
-    error.status = 501;
-    throw error;
+  async addPersonNote(personValue, note = {}) {
+    const person = await this.getPerson(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const data = await this.readCaseData();
+    const bucket = personCaseBucket(data, person.id);
+    const nextNote = {
+      id: note.id || entryId("NT"),
+      date: String(note.date || "").trim(),
+      author: String(note.author || "").trim(),
+      note: String(note.note || "").trim(),
+      createdAt: new Date().toISOString(),
+      createdBy: note.createdBy || null
+    };
+    bucket.notes = [nextNote, ...bucket.notes];
+    await this.writeCaseData(data);
+    return {
+      note: clone(nextNote),
+      person: { ...person, notes: [clone(nextNote), ...asArray(person.notes)] }
+    };
   }
 
-  async addPersonFine() {
-    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor boetes voordat MEOS_DATA_SOURCE=fivem dit kan opslaan.");
-    error.status = 501;
-    throw error;
+  async addPersonFine(personValue, fine = {}) {
+    const person = await this.getPerson(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const data = await this.readCaseData();
+    const bucket = personCaseBucket(data, person.id);
+    const nextFine = {
+      id: fine.id || entryId("BT"),
+      fine: String(fine.fine || "").trim(),
+      amount: String(fine.amount || "").trim(),
+      writtenAt: String(fine.writtenAt || "").trim(),
+      writtenBy: String(fine.writtenBy || "").trim(),
+      articleIds: Array.isArray(fine.articleIds) ? fine.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+      createdAt: new Date().toISOString(),
+      createdBy: fine.createdBy || null
+    };
+    bucket.fines = [nextFine, ...bucket.fines];
+    await this.writeCaseData(data);
+    return {
+      fine: clone(nextFine),
+      person: { ...person, fines: [clone(nextFine), ...asArray(person.fines)] }
+    };
   }
 
-  async deletePersonRecord() {
-    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor strafbladen voordat MEOS_DATA_SOURCE=fivem dit kan verwijderen.");
-    error.status = 501;
-    throw error;
+  async deletePersonRecord(personValue, recordId) {
+    const person = await this.getPerson(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const data = await this.readCaseData();
+    const bucket = personCaseBucket(data, person.id);
+    const deleted = deleteCaseEntry(bucket, "records", recordId, "record");
+    await this.writeCaseData(data);
+    return {
+      deleted: { type: "record", id: recordId, entry: clone(deleted) },
+      person: { ...person, records: asArray(person.records).filter((record) => normalize(record?.id) !== normalize(recordId)) }
+    };
   }
 
-  async deletePersonNote() {
-    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor notities voordat MEOS_DATA_SOURCE=fivem dit kan verwijderen.");
-    error.status = 501;
-    throw error;
+  async deletePersonNote(personValue, noteId) {
+    const person = await this.getPerson(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const data = await this.readCaseData();
+    const bucket = personCaseBucket(data, person.id);
+    const deleted = deleteCaseEntry(bucket, "notes", noteId, "note");
+    await this.writeCaseData(data);
+    return {
+      deleted: { type: "note", id: noteId, entry: clone(deleted) },
+      person: { ...person, notes: asArray(person.notes).filter((note) => normalize(note?.id) !== normalize(noteId)) }
+    };
   }
 
-  async deletePersonFine() {
-    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor boetes voordat MEOS_DATA_SOURCE=fivem dit kan verwijderen.");
-    error.status = 501;
-    throw error;
+  async deletePersonFine(personValue, fineId) {
+    const person = await this.getPerson(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const data = await this.readCaseData();
+    const bucket = personCaseBucket(data, person.id);
+    const deleted = deleteCaseEntry(bucket, "fines", fineId, "fine");
+    await this.writeCaseData(data);
+    return {
+      deleted: { type: "fine", id: fineId, entry: clone(deleted) },
+      person: { ...person, fines: asArray(person.fines).filter((fine) => normalize(fine?.id) !== normalize(fineId)) }
+    };
   }
 }
 
