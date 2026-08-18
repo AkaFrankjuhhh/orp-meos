@@ -402,6 +402,16 @@ test("MEOS Discord login uses the public callback redirect URI", async () => {
   try {
     await waitForServer(server, 8000, `${overheidBaseUrl}/api/health`);
 
+    const genericLogin = await fetch(`${overheidBaseUrl}/api/auth/login?returnTo=/personen/Frank-Bright`, {
+      headers: {
+        "x-forwarded-host": "meos.orpoverheid.nl",
+        "x-forwarded-proto": "https"
+      },
+      redirect: "manual"
+    });
+    assert.equal(genericLogin.status, 302);
+    assert.equal(genericLogin.headers.get("location"), "/api/meos/login?returnTo=%2Fpersonen%2FFrank-Bright");
+
     const login = await fetch(`${overheidBaseUrl}/api/meos/login?returnTo=/dashboard`, {
       headers: {
         "x-forwarded-host": "meos.orpoverheid.nl",

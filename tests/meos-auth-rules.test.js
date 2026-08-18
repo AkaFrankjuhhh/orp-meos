@@ -16,6 +16,8 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /function meosCallbackUrl\(req\)/);
   assert.match(code, /MEOS_DISCORD_REDIRECT_URI/);
   assert.match(code, /const redirectUri = meosCallbackUrl\(req\);/);
+  assert.match(code, /if \(isMeosHost\(req\)\) \{\s+const returnTo = safeMeosReturnTo/);
+  assert.match(callbackBlock, /isMeosLogin \? meosCallbackUrl\(req\) : cookies\.orp_overheid_redirect \|\| callbackUrl\(req\)/);
   assert.match(code, /portalIdentityForDiscordId\(user\?\.id, \{ organizationPriority \}\)/);
   assert.match(callbackBlock, /matchingRoutesForRoles\(meosRoleRoutes, roles, user\.id\)/);
   assert.match(callbackBlock, /rememberedState\?\.surface === "meos" \|\| isMeosHost\(req\) \|\| returnTo === "\/meos"/);

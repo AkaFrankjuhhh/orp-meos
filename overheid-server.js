@@ -590,6 +590,14 @@ async function handleRequest(req, res) {
   }
 
   if (url.pathname === "/api/auth/login" && req.method === "GET") {
+    if (isMeosHost(req)) {
+      const returnTo = safeMeosReturnTo(url.searchParams.get("returnTo") || "/dashboard");
+      writeHeadSecure(res, 302, {
+        Location: `/api/meos/login?returnTo=${encodeURIComponent(returnTo)}`
+      });
+      res.end();
+      return;
+    }
     if (!discordConfigured()) {
       sendHtml(res, 500, loginPage("Discord of organisatie rollen ontbreken in .env."));
       return;
@@ -632,14 +640,14 @@ async function handleRequest(req, res) {
         res.end(loginPage("Discord login sessie klopt niet. Probeer opnieuw."));
         return;
       }
-      const redirectUri = rememberedState?.redirectUri || cookies.orp_overheid_redirect || callbackUrl(req);
       const returnTo = rememberedState?.returnTo || returnToFromCookie(req);
+      const isMeosLogin = rememberedState?.surface === "meos" || isMeosHost(req) || returnTo === "/meos";
+      const redirectUri = rememberedState?.redirectUri || (isMeosLogin ? meosCallbackUrl(req) : cookies.orp_overheid_redirect || callbackUrl(req));
       const token = await exchangeCode(url.searchParams.get("code"), redirectUri);
       const user = await getDiscordUser(token.access_token);
       const member = await getGuildMember(token.access_token);
       const roles = new Set(member.roles || []);
       const matches = matchingRoutesForRoles(roleRoutes, roles, user.id);
-      const isMeosLogin = rememberedState?.surface === "meos" || isMeosHost(req) || returnTo === "/meos";
       const meosMatches = isMeosLogin
         ? matchingRoutesForRoles(meosRoleRoutes, roles, user.id)
         : [];
