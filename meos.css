@@ -866,6 +866,18 @@ button.meos-result-card {
   background: #effcf6;
 }
 
+.meos-chip.info {
+  border-color: #b8d7ee;
+  color: var(--meos-blue);
+  background: #edf7ff;
+}
+
+.meos-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 html[data-meos-theme="dark"] .meos-chip.warning {
   border-color: #8b6b22;
   color: #f2d38a;
@@ -882,6 +894,12 @@ html[data-meos-theme="dark"] .meos-chip.ok {
   border-color: #247553;
   color: #91e7c2;
   background: #123124;
+}
+
+html[data-meos-theme="dark"] .meos-chip.info {
+  border-color: #8b4c22;
+  color: #ffb783;
+  background: #311b12;
 }
 
 html[data-meos-theme="dark"] .meos-person-row.wanted {
@@ -1388,6 +1406,49 @@ html[data-meos-theme="dark"] .meos-record-modal {
   display: flex;
   justify-content: flex-end;
   padding-top: 12px;
+}
+
+.meos-timeline {
+  display: grid;
+  gap: 8px;
+}
+
+.meos-timeline-item {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px 10px 14px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  background: var(--meos-elevated-bg);
+  box-shadow: inset 3px 0 0 var(--meos-blue);
+}
+
+.meos-timeline-item.warning {
+  box-shadow: inset 3px 0 0 #d58a00;
+}
+
+.meos-timeline-item.danger {
+  box-shadow: inset 3px 0 0 #d84545;
+}
+
+.meos-timeline-item span {
+  color: var(--meos-label-text);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.meos-timeline-item strong {
+  color: var(--meos-text);
+  font-size: 15px;
+}
+
+.meos-timeline-item p,
+.meos-timeline-item small {
+  margin: 0;
+  color: var(--meos-secondary-text);
+  line-height: 1.35;
 }
 
 .meos-empty {

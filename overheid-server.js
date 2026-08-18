@@ -192,13 +192,19 @@ function appendMeosAudit(req, session, action, details = {}) {
   const entry = {
     at: new Date().toISOString(),
     action,
+    method: req.method,
     path: req.url,
     host: forwardedHost(req),
     ip: meosClientIp(req),
+    userAgent: String(req.headers["user-agent"] || "").slice(0, 240),
     actor: {
       name: session?.profile?.name || "",
+      rank: session?.profile?.rank || "",
+      serviceNumber: session?.profile?.serviceNumber || "",
       discordId: session?.profile?.discordId || "",
-      organizationKey: session?.profile?.organizationKey || ""
+      discordUsername: session?.profile?.discordUsername || "",
+      organizationKey: session?.profile?.organizationKey || "",
+      portalPersonId: session?.profile?.portalPersonId || ""
     },
     details
   };
@@ -440,8 +446,12 @@ function meosPermissionsForMember(roles, organizations = [], userId = "") {
   const memberRoles = roles instanceof Set ? roles : new Set(roles || []);
   const organizationKeys = organizations.length ? organizations : ["overheid"];
   const deleteRoleIds = new Set(organizationKeys.flatMap((key) => configuredMeosDeleteRoleIds(key)));
+  const canDeleteEntries = isDevOverride(userId) || [...deleteRoleIds].some((roleId) => memberRoles.has(roleId));
   return {
-    canDeleteEntries: isDevOverride(userId) || [...deleteRoleIds].some((roleId) => memberRoles.has(roleId))
+    canViewEntries: true,
+    canWriteEntries: true,
+    canDeleteEntries,
+    canViewAudit: canDeleteEntries
   };
 }
 
@@ -466,7 +476,10 @@ function meosFallbackProfile(user = null) {
     discordUsername: user?.username || "",
     organizationKey: "overheid",
     permissions: {
-      canDeleteEntries: false
+      canViewEntries: false,
+      canWriteEntries: false,
+      canDeleteEntries: false,
+      canViewAudit: false
     }
   };
 }
@@ -697,8 +710,11 @@ function meosActorName(session) {
 function meosCreatedBy(session) {
   return {
     name: meosActorName(session),
+    rank: session?.profile?.rank || "",
+    serviceNumber: session?.profile?.serviceNumber || "",
     discordId: session?.profile?.discordId || "",
-    organizationKey: session?.profile?.organizationKey || ""
+    organizationKey: session?.profile?.organizationKey || "",
+    portalPersonId: session?.profile?.portalPersonId || ""
   };
 }
 
@@ -713,6 +729,29 @@ function requireMeosPermission(session, permission, message) {
   throw error;
 }
 
+function meosArticleSelectionsFromBody(body = {}) {
+  const selections = Array.isArray(body.articleSelections) ? body.articleSelections : [];
+  return selections.slice(0, 20).map((selection) => ({
+    articleId: meosText(selection?.articleId || selection?.id, "Wetboek artikel", { max: 40 }),
+    tableIndex: meosText(selection?.tableIndex, "Wetboek tabel", { max: 20 }),
+    rowIndex: meosText(selection?.rowIndex, "Wetboek strafregel", { max: 20 }),
+    officialInDuty: Boolean(selection?.officialInDuty),
+    attempted: Boolean(selection?.attempted)
+  })).filter((selection) => selection.articleId);
+}
+
+function meosCalculatedTotalsFromBody(body = {}) {
+  if (!body.calculatedTotals || typeof body.calculatedTotals !== "object") return null;
+  const totals = body.calculatedTotals;
+  return {
+    fine: meosText(totals.fine, "Berekende boete", { max: 40 }),
+    jailMonths: meosText(totals.jailMonths, "Berekende celstraf", { max: 40 }),
+    taskHours: meosText(totals.taskHours, "Berekende taakstraf", { max: 40 }),
+    drivingBanMonths: meosText(totals.drivingBanMonths, "Berekende rijontzegging", { max: 40 }),
+    taskConverted: Boolean(totals.taskConverted)
+  };
+}
+
 function meosRecordFromBody(body = {}, session = null) {
   return {
     date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
@@ -721,6 +760,8 @@ function meosRecordFromBody(body = {}, session = null) {
     note: meosText(body.note, "Notitie", { max: 2000, required: true }),
     source: meosText(body.source, "Bron", { max: 80 }),
     articleIds: Array.isArray(body.articleIds) ? body.articleIds.map((value) => meosText(value, "Wetboek artikel", { max: 40 })).filter(Boolean).slice(0, 20) : [],
+    articleSelections: meosArticleSelectionsFromBody(body),
+    calculatedTotals: meosCalculatedTotalsFromBody(body),
     createdBy: meosCreatedBy(session)
   };
 }
@@ -855,10 +896,15 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
     const payload = await handler(getMeosStore(), session, body);
     appendMeosAudit(req, session, action, {
       ...details,
+      personId: payload.person?.id || "",
+      personName: payload.person?.name || "",
       recordId: payload.record?.id || "",
       noteId: payload.note?.id || "",
       fineId: payload.fine?.id || "",
-      deletedId: payload.deleted?.id || ""
+      deletedId: payload.deleted?.id || "",
+      deletedType: payload.deleted?.type || "",
+      articleIds: payload.record?.articleIds || payload.fine?.articleIds || [],
+      calculatedTotals: payload.record?.calculatedTotals || null
     });
     sendJson(res, 200, {
       ok: true,
@@ -1027,6 +1073,9 @@ async function handleRequest(req, res) {
         fine: fineResult.fine,
         person: fineResult.person
       };
+    }, {
+      permission: "canWriteEntries",
+      permissionMessage: "Je MEOS rol mag geen strafbladen toevoegen."
     });
     return;
   }
@@ -1035,6 +1084,9 @@ async function handleRequest(req, res) {
     const value = meosNestedPathParam(url.pathname, "/api/meos/people/", "/fines");
     await sendMeosMutationResponse(req, res, "fines.add", { person: value }, async (store, session, body) => {
       return store.addPersonFine(value, meosFineFromBody(body, session));
+    }, {
+      permission: "canWriteEntries",
+      permissionMessage: "Je MEOS rol mag geen boetes toevoegen."
     });
     return;
   }
@@ -1043,6 +1095,9 @@ async function handleRequest(req, res) {
     const value = meosNestedPathParam(url.pathname, "/api/meos/people/", "/notes");
     await sendMeosMutationResponse(req, res, "notes.add", { person: value }, async (store, session, body) => {
       return store.addPersonNote(value, meosNoteFromBody(body, session));
+    }, {
+      permission: "canWriteEntries",
+      permissionMessage: "Je MEOS rol mag geen notities toevoegen."
     });
     return;
   }
@@ -1054,7 +1109,7 @@ async function handleRequest(req, res) {
     }, {
       readBody: false,
       permission: "canDeleteEntries",
-      permissionMessage: "Alleen kader of korpsleiding kan strafbladen verwijderen."
+      permissionMessage: "Alleen kader, korpsleiding of OVJ kan strafbladen verwijderen."
     });
     return;
   }
@@ -1066,7 +1121,7 @@ async function handleRequest(req, res) {
     }, {
       readBody: false,
       permission: "canDeleteEntries",
-      permissionMessage: "Alleen kader of korpsleiding kan notities verwijderen."
+      permissionMessage: "Alleen kader, korpsleiding of OVJ kan notities verwijderen."
     });
     return;
   }
@@ -1078,7 +1133,7 @@ async function handleRequest(req, res) {
     }, {
       readBody: false,
       permission: "canDeleteEntries",
-      permissionMessage: "Alleen kader of korpsleiding kan boetes verwijderen."
+      permissionMessage: "Alleen kader, korpsleiding of OVJ kan boetes verwijderen."
     });
     return;
   }

@@ -24,6 +24,10 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /function allowMeosDemoProfileFallback\(\)/);
   assert.match(code, /MEOS_REQUIRE_PORTAL_IDENTITY/);
   assert.match(code, /function meosPermissionsForMember\(roles, organizations = \[\], userId = ""\)/);
+  assert.match(code, /canViewEntries: true/);
+  assert.match(code, /canWriteEntries: true/);
+  assert.match(code, /canViewAudit: canDeleteEntries/);
+  assert.match(code, /canViewAudit: false/);
   assert.match(code, /MEOS_DEFENSIE_DELETE_ROLE_IDS/);
   assert.match(code, /MEOS_POLITIE_DELETE_ROLE_IDS/);
   assert.match(code, /const defaultMeosDeleteRoleIds = \["1426544463043362937"\]/);

@@ -86,6 +86,17 @@ function mapWarrantRow(row = {}) {
   };
 }
 
+function mapHouseRow(row = {}) {
+  return {
+    id: String(row.id || row.house_id || row.property_id || row.pand_id || ""),
+    personId: String(row.person_id || row.personId || row.owner_id || row.citizenid || row.identifier || ""),
+    owner: String(row.owner || row.owner_name || row.eigenaar || ""),
+    location: String(row.location || row.locatie || row.address || row.adres || ""),
+    building: String(row.building || row.pand || row.house || row.property || ""),
+    status: String(row.status || row.state || row.staat || "Actief")
+  };
+}
+
 function searchVehicleFields(vehicle) {
   return [vehicle.plate, vehicle.model, vehicle.owner, vehicle.primaryColor, vehicle.secondaryColor, vehicle.vin];
 }
@@ -95,15 +106,23 @@ class FiveMMeosStore {
     this.databaseUrl = options.databaseUrl || process.env.MEOS_FIVEM_DATABASE_URL || "";
     this.driver = String(options.driver || process.env.MEOS_FIVEM_DB_DRIVER || "mysql").trim().toLowerCase();
     this.framework = String(options.framework || process.env.MEOS_FIVEM_FRAMEWORK || "custom").trim().toLowerCase();
+    this.playersView = sqlIdentifier(options.playersView || process.env.MEOS_FIVEM_PLAYERS_VIEW || options.peopleView || process.env.MEOS_FIVEM_PEOPLE_VIEW, "meos_people_view");
+    this.peopleView = this.playersView;
+    this.vehiclesView = sqlIdentifier(options.vehiclesView || process.env.MEOS_FIVEM_VEHICLES_VIEW, "meos_vehicles_view");
+    this.housingView = sqlIdentifier(options.housingView || process.env.MEOS_FIVEM_HOUSING_VIEW, "meos_housing_view");
+    this.warrantsView = sqlIdentifier(options.warrantsView || process.env.MEOS_FIVEM_WARRANTS_VIEW, "meos_arrest_warrants_view");
     this.source = {
       type: "fivem",
       label: `FiveM ${this.framework} database`,
       live: true,
-      driver: this.driver
+      driver: this.driver,
+      views: {
+        players: this.playersView,
+        vehicles: this.vehiclesView,
+        housing: this.housingView,
+        warrants: this.warrantsView
+      }
     };
-    this.peopleView = sqlIdentifier(options.peopleView || process.env.MEOS_FIVEM_PEOPLE_VIEW, "meos_people_view");
-    this.vehiclesView = sqlIdentifier(options.vehiclesView || process.env.MEOS_FIVEM_VEHICLES_VIEW, "meos_vehicles_view");
-    this.warrantsView = sqlIdentifier(options.warrantsView || process.env.MEOS_FIVEM_WARRANTS_VIEW, "meos_arrest_warrants_view");
     this.pool = null;
   }
 
@@ -142,7 +161,7 @@ class FiveMMeosStore {
   }
 
   async loadPeople() {
-    const rows = await this.query(`select * from ${this.peopleView} order by name limit 1000`);
+    const rows = await this.query(`select * from ${this.playersView} order by name limit 1000`);
     return rows.map(mapPersonRow);
   }
 
@@ -156,16 +175,31 @@ class FiveMMeosStore {
       const rows = await this.query(`select * from ${this.warrantsView} where coalesce(status, 'Actief') <> 'Gesloten' order by issued_at desc limit 500`);
       return rows.map(mapWarrantRow);
     } catch (error) {
-      if (String(error.message || "").includes(this.warrantsView)) return [];
+      if (this.isMissingOptionalView(error, this.warrantsView)) return [];
       throw error;
     }
   }
 
+  async loadHouses() {
+    try {
+      const rows = await this.query(`select * from ${this.housingView} order by location limit 2000`);
+      return rows.map(mapHouseRow);
+    } catch (error) {
+      if (this.isMissingOptionalView(error, this.housingView)) return [];
+      throw error;
+    }
+  }
+
+  isMissingOptionalView(error, viewName) {
+    return error?.code === "42P01" || String(error?.message || "").includes(viewName);
+  }
+
   async snapshot() {
-    const [people, vehicles, warrants] = await Promise.all([
+    const [people, vehicles, warrants, houses] = await Promise.all([
       this.loadPeople(),
       this.loadVehicles(),
-      this.loadWarrants()
+      this.loadWarrants(),
+      this.loadHouses()
     ]);
     const peopleById = new Map(people.map((person) => [normalize(person.id), person]));
     const peopleByName = new Map(people.map((person) => [normalize(person.name), person]));
@@ -175,6 +209,16 @@ class FiveMMeosStore {
       vehicle.owner = vehicle.owner || owner.name;
       vehicle.ownerId = owner.id;
       owner.vehicles.push(vehicle);
+    }
+    for (const house of houses) {
+      const owner = peopleById.get(normalize(house.personId)) || peopleByName.get(normalize(house.owner));
+      if (!owner) continue;
+      owner.houses.push({
+        id: house.id,
+        location: house.location,
+        building: house.building,
+        status: house.status
+      });
     }
     const warrantsWithPerson = warrants.map((warrant) => {
       const person = peopleById.get(normalize(warrant.personId)) || peopleByName.get(normalize(warrant.personName));
@@ -306,5 +350,6 @@ module.exports = {
   mapPersonRow,
   mapVehicleRow,
   mapWarrantRow,
+  mapHouseRow,
   sqlIdentifier
 };

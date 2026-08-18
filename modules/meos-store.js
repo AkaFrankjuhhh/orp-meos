@@ -13,7 +13,11 @@ function meosStoreConfigFromEnv(env = process.env) {
     dataSource: String(env.MEOS_DATA_SOURCE || "demo").trim().toLowerCase(),
     cacheTtlMs: Math.max(0, Number(env.MEOS_CACHE_TTL_MS || 15000)),
     fivemDriver: String(env.MEOS_FIVEM_DB_DRIVER || "mysql").trim().toLowerCase(),
-    fivemFramework: String(env.MEOS_FIVEM_FRAMEWORK || "custom").trim().toLowerCase()
+    fivemFramework: String(env.MEOS_FIVEM_FRAMEWORK || "custom").trim().toLowerCase(),
+    fivemPlayersView: String(env.MEOS_FIVEM_PLAYERS_VIEW || env.MEOS_FIVEM_PEOPLE_VIEW || "meos_people_view").trim(),
+    fivemVehiclesView: String(env.MEOS_FIVEM_VEHICLES_VIEW || "meos_vehicles_view").trim(),
+    fivemHousingView: String(env.MEOS_FIVEM_HOUSING_VIEW || "meos_housing_view").trim(),
+    fivemWarrantsView: String(env.MEOS_FIVEM_WARRANTS_VIEW || "meos_arrest_warrants_view").trim()
   };
 }
 
@@ -215,7 +219,11 @@ function createMeosStore(options = {}) {
   const storeOptions = {
     ...config,
     driver: config.driver || config.fivemDriver,
-    framework: config.framework || config.fivemFramework
+    framework: config.framework || config.fivemFramework,
+    playersView: config.playersView || config.fivemPlayersView,
+    vehiclesView: config.vehiclesView || config.fivemVehiclesView,
+    housingView: config.housingView || config.fivemHousingView,
+    warrantsView: config.warrantsView || config.fivemWarrantsView
   };
   const baseStore = config.dataSource === "fivem"
     ? createFiveMMeosStore(storeOptions)

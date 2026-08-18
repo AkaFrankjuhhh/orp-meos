@@ -35,9 +35,57 @@ function personSearchQueries(query, field = "all") {
   return [...queries].filter(Boolean);
 }
 
+function searchTokens(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function editDistance(left, right) {
+  const a = String(left || "");
+  const b = String(right || "");
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let previous = [...Array(b.length + 1).keys()];
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + cost
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+function fuzzyTokenMatches(queryToken, targetToken) {
+  if (!queryToken || !targetToken) return false;
+  if (targetToken.includes(queryToken) || queryToken.includes(targetToken)) return true;
+  if (queryToken.length === 1) return targetToken.startsWith(queryToken);
+  const tolerance = queryToken.length >= 6 ? 2 : 1;
+  return editDistance(queryToken, targetToken) <= tolerance;
+}
+
+function fuzzyNameMatches(name, query) {
+  const queryTokens = searchTokens(query);
+  if (!queryTokens.length) return true;
+  const nameTokens = searchTokens(name);
+  return queryTokens.every((queryToken) => nameTokens.some((targetToken) => fuzzyTokenMatches(queryToken, targetToken)));
+}
+
 function personMatchesSearch(person, field, query) {
   const queries = personSearchQueries(query, field);
   if (!queries.length) return true;
+  if ((field === "name" || field === "all") && fuzzyNameMatches(person.name, query)) return true;
   return personSearchFields(person, field).some((value) => {
     const normalizedValue = normalize(value);
     return queries.some((candidate) => normalizedValue.includes(candidate));
@@ -217,6 +265,8 @@ class DemoMeosStore {
       note: String(record.note || "").trim(),
       source: String(record.source || "").trim(),
       articleIds: Array.isArray(record.articleIds) ? record.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+      articleSelections: Array.isArray(record.articleSelections) ? clone(record.articleSelections) : [],
+      calculatedTotals: record.calculatedTotals && typeof record.calculatedTotals === "object" ? clone(record.calculatedTotals) : null,
       createdAt: new Date().toISOString(),
       createdBy: record.createdBy || null
     };
@@ -337,6 +387,7 @@ module.exports = {
   personMatchesSearch,
   personSearchQueries,
   personSearchFields,
+  fuzzyNameMatches,
   vehicleSearchFields,
   vehicleSlug
 };

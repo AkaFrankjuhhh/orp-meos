@@ -14,6 +14,8 @@
     serviceNumber: "70-04",
     avatarUrl: "/assets/meos-logo.png?v=20260818-site-logo",
     permissions: {
+      canViewEntries: false,
+      canWriteEntries: false,
       canDeleteEntries: false
     }
   };
@@ -50,6 +52,49 @@
 
   function normalize(value) {
     return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
+
+  function searchTokens(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/g)
+      .map((token) => token.trim())
+      .filter(Boolean);
+  }
+
+  function editDistance(left, right) {
+    const a = String(left || "");
+    const b = String(right || "");
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    let previous = [...Array(b.length + 1).keys()];
+    for (let i = 1; i <= a.length; i += 1) {
+      const current = [i];
+      for (let j = 1; j <= b.length; j += 1) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        current[j] = Math.min(current[j - 1] + 1, previous[j] + 1, previous[j - 1] + cost);
+      }
+      previous = current;
+    }
+    return previous[b.length];
+  }
+
+  function fuzzyTokenMatches(queryToken, targetToken) {
+    if (!queryToken || !targetToken) return false;
+    if (targetToken.includes(queryToken) || queryToken.includes(targetToken)) return true;
+    if (queryToken.length === 1) return targetToken.startsWith(queryToken);
+    const tolerance = queryToken.length >= 6 ? 2 : 1;
+    return editDistance(queryToken, targetToken) <= tolerance;
+  }
+
+  function fuzzyNameMatches(name, query) {
+    const queryTokens = searchTokens(query);
+    if (!queryTokens.length) return true;
+    const nameTokens = searchTokens(name);
+    return queryTokens.every((queryToken) => nameTokens.some((targetToken) => fuzzyTokenMatches(queryToken, targetToken)));
   }
 
   function personSlug(person) {
@@ -114,6 +159,10 @@
 
   function canDeleteMeosEntries() {
     return Boolean(currentMeosProfile?.permissions?.canDeleteEntries);
+  }
+
+  function canWriteMeosEntries() {
+    return Boolean(currentMeosProfile?.permissions?.canWriteEntries);
   }
 
   function renderDashboardProfile(profile) {
@@ -401,6 +450,19 @@
     return wetboekPenaltyModifier(item).labels.join(", ");
   }
 
+  function wetboekModifierBadges(item = {}) {
+    const badges = [];
+    if (item.officialInDuty) badges.push("Ambtenaar +33%");
+    if (item.attempted) badges.push("Poging -33%");
+    return badges;
+  }
+
+  function renderWetboekBadges(labels = []) {
+    const cleanLabels = labels.map((label) => String(label || "").trim()).filter(Boolean);
+    if (!cleanLabels.length) return "";
+    return `<div class="meos-badge-row">${cleanLabels.map((label) => `<span class="meos-chip info">${escapeHtml(label)}</span>`).join("")}</div>`;
+  }
+
   function calculateWetboekTotals(items = wetboekRecordState.selected) {
     const rawTotals = items.reduce((totals, item) => {
       const article = wetboekArticleById(item.articleId);
@@ -572,7 +634,7 @@
       const article = wetboekArticleById(item.articleId);
       const choices = wetboekArticleChoices(article);
       const selectedChoice = selectedWetboekChoice(item);
-      const modifierText = wetboekModifierText(item);
+      const modifierBadges = wetboekModifierBadges(item);
       return `
         <article class="meos-wetboek-selection">
           <div class="meos-wetboek-selection-head">
@@ -587,7 +649,7 @@
               </select>
             </label>
           ` : '<p>Dit artikel heeft geen strafmatrix of boetelijst.</p>'}
-          ${modifierText ? `<p class="meos-wetboek-selection-modifier">${escapeHtml(modifierText)}</p>` : ""}
+          ${renderWetboekBadges(modifierBadges)}
         </article>
       `;
     }).join("");
@@ -605,10 +667,15 @@
       totals.taskConverted ? `${formatPenaltyNumber(totals.convertedTaskHours)} taakstraf wordt ${formatPenaltyNumber(totals.taskToJailMonths)} celstraf (:2).` : "",
       totals.modifierLabels.length ? totals.modifierLabels.join(" en ") : ""
     ].filter(Boolean);
+    const badges = [
+      totals.taskConverted ? "Taakstraf omgezet" : "",
+      ...totals.modifierLabels
+    ].filter(Boolean);
     return `
       <div class="meos-wetboek-total-summary">
         <span>Berekend totaal</span>
         <strong>${escapeHtml(summary)}</strong>
+        ${renderWetboekBadges(badges)}
         ${notes.length ? `<p>${escapeHtml(notes.join(" | "))}</p>` : ""}
       </div>
       <div class="meos-wetboek-totals">${items.map(([label, value]) => `
@@ -627,6 +694,7 @@
     const totals = calculateWetboekTotals();
     const fineAmount = wetboekRecordFineAmount();
     const notePreview = wetboekRecordNoteWithExtra() || "Selecteer artikelen of vul een aanvullende notitie in.";
+    const saveLabel = wetboekRecordState.createFine ? "Strafblad + boete opslaan" : "Strafblad opslaan";
     modal.innerHTML = `
       <section class="meos-record-modal" role="dialog" aria-modal="true" aria-labelledby="meosRecordModalTitle">
         <header class="meos-record-modal-head">
@@ -690,7 +758,7 @@
             ${wetboekRecordState.formError ? `<p class="meos-form-error">${escapeHtml(wetboekRecordState.formError)}</p>` : ""}
             <div class="meos-form-actions">
               <button class="meos-secondary muted" type="button" data-close-record-modal>Annuleren</button>
-              <button class="meos-primary" type="button" data-save-record-modal ${wetboekRecordState.busy ? "disabled" : ""}>Opslaan</button>
+              <button class="meos-primary" type="button" data-save-record-modal ${wetboekRecordState.busy ? "disabled" : ""}>${escapeHtml(saveLabel)}</button>
             </div>
           </section>
         </div>
@@ -711,6 +779,10 @@
   }
 
   function openWetboekRecordModal(personId = activePersonId) {
+    if (!canWriteMeosEntries()) {
+      window.alert("Je MEOS rol mag geen strafbladen toevoegen.");
+      return;
+    }
     wetboekRecordState.personId = personId;
     wetboekRecordState.formError = "";
     wetboekRecordState.query = "";
@@ -826,13 +898,28 @@
       renderWetboekRecordModal();
       return;
     }
+    const totals = calculateWetboekTotals();
     const body = {
       date: wetboekRecordState.date || todayMeosDate(),
       sanction: wetboekRecordState.sanction || "PV",
       verbalist: currentVerbalistName(),
       note,
       source: "wetboek",
-      articleIds: wetboekRecordState.selected.map((item) => item.articleId).filter(Boolean)
+      articleIds: wetboekRecordState.selected.map((item) => item.articleId).filter(Boolean),
+      articleSelections: wetboekRecordState.selected.map((item) => ({
+        articleId: item.articleId,
+        tableIndex: item.tableIndex,
+        rowIndex: item.rowIndex,
+        officialInDuty: Boolean(item.officialInDuty),
+        attempted: Boolean(item.attempted)
+      })),
+      calculatedTotals: {
+        fine: String(totals.fine || ""),
+        jailMonths: String(totals.jailMonths || ""),
+        taskHours: String(totals.taskHours || ""),
+        drivingBanMonths: String(totals.drivingBanMonths || ""),
+        taskConverted: Boolean(totals.taskConverted)
+      }
     };
     if (wetboekRecordState.createFine) {
       const amount = wetboekRecordFineAmount();
@@ -950,11 +1037,33 @@
     return fields[field] || fields.all;
   }
 
+  function personSearchQueries(query, field = "all") {
+    const raw = String(query || "").trim();
+    const normalized = normalize(raw);
+    const queries = new Set(normalized ? [normalized] : []);
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length >= 4) {
+      if (field === "bsn" || field === "all") queries.add(normalize(`ORP-BSN-${digits}`));
+      if (field === "fingerprint" || field === "all") queries.add(normalize(`ORP-V-${digits}`));
+    }
+    return [...queries].filter(Boolean);
+  }
+
+  function personMatchesSearch(person, field, query) {
+    const queries = personSearchQueries(query, field);
+    if (!queries.length) return true;
+    if ((field === "name" || field === "all") && fuzzyNameMatches(person.name, query)) return true;
+    return personSearchFields(person, field).some((value) => {
+      const normalizedValue = normalize(value);
+      return queries.some((candidate) => normalizedValue.includes(candidate));
+    });
+  }
+
   function filteredPeople() {
-    const query = normalize($("#personSearch")?.value || "");
+    const query = $("#personSearch")?.value || "";
     const field = $("#personSearchField")?.value || "all";
     if (!query) return people;
-    return people.filter((person) => personSearchFields(person, field).some((value) => normalize(value).includes(query)));
+    return people.filter((person) => personMatchesSearch(person, field, query));
   }
 
   function filteredVehicles() {
@@ -1053,6 +1162,111 @@
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value || "-")}</strong>
       </div>
+    `).join("")}</div>`;
+  }
+
+  function parseMeosDateTimestamp(value) {
+    const raw = String(value || "").trim();
+    const iso = Date.parse(raw);
+    if (Number.isFinite(iso)) return iso;
+    const match = raw.toLowerCase().match(/(\d{1,2})\s+([a-z.]+)\s+(\d{4})/);
+    if (!match) return 0;
+    const months = {
+      "jan.": 0,
+      jan: 0,
+      "feb.": 1,
+      feb: 1,
+      "mrt.": 2,
+      mrt: 2,
+      "apr.": 3,
+      apr: 3,
+      mei: 4,
+      "jun.": 5,
+      jun: 5,
+      "jul.": 6,
+      jul: 6,
+      "aug.": 7,
+      aug: 7,
+      "sep.": 8,
+      sep: 8,
+      "okt.": 9,
+      okt: 9,
+      "nov.": 10,
+      nov: 10,
+      "dec.": 11,
+      dec: 11
+    };
+    const month = months[match[2]];
+    if (month == null) return 0;
+    return new Date(Number(match[3]), month, Number(match[1])).getTime();
+  }
+
+  function timelineText(value, max = 140) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (text.length <= max) return text;
+    return `${text.slice(0, max - 3)}...`;
+  }
+
+  function profileTimelineItems(person) {
+    const items = [];
+    (person.records || []).forEach((record, index) => items.push({
+      type: "Strafblad",
+      date: record.date || record.createdAt || "",
+      title: record.sanction || "PV",
+      meta: record.verbalist || "",
+      text: record.note || "",
+      tone: "danger",
+      order: parseMeosDateTimestamp(record.createdAt || record.date) || (9000 - index)
+    }));
+    (person.notes || []).forEach((note, index) => items.push({
+      type: "Notitie",
+      date: note.date || note.createdAt || "",
+      title: note.author || "MEOS",
+      meta: "Notitie",
+      text: note.note || "",
+      tone: "info",
+      order: parseMeosDateTimestamp(note.createdAt || note.date) || (8000 - index)
+    }));
+    (person.fines || []).forEach((fine, index) => items.push({
+      type: "Boete",
+      date: fine.writtenAt || fine.createdAt || "",
+      title: fine.amount || "Boete",
+      meta: fine.writtenBy || "",
+      text: fine.fine || "",
+      tone: "warning",
+      order: parseMeosDateTimestamp(fine.createdAt || fine.writtenAt) || (7000 - index)
+    }));
+    (person.arrestWarrants || []).forEach((warrant, index) => items.push({
+      type: "ArrestatieBevel",
+      date: warrant.issuedAt || "",
+      title: warrant.priority || warrant.status || "Actief",
+      meta: warrant.issuedBy || "",
+      text: warrant.reason || warrant.instruction || "",
+      tone: "danger",
+      order: parseMeosDateTimestamp(warrant.issuedAt) || (6000 - index)
+    }));
+    (person.vehicles || []).forEach((vehicle, index) => items.push({
+      type: "Voertuig",
+      date: vehicle.plate || "",
+      title: vehicle.model || vehicle.plate || "Voertuig",
+      meta: vehicleColor(vehicle),
+      text: vehicleStolenDetail(vehicle),
+      tone: normalize(vehicle.stolen) === "ja" ? "danger" : "info",
+      order: 1000 - index
+    }));
+    return items.sort((left, right) => right.order - left.order).slice(0, 8);
+  }
+
+  function renderProfileTimeline(person) {
+    const items = profileTimelineItems(person);
+    if (!items.length) return '<div class="meos-empty">Nog geen tijdlijngegevens gevonden.</div>';
+    return `<div class="meos-timeline">${items.map((item) => `
+      <article class="meos-timeline-item ${escapeHtml(item.tone)}">
+        <span>${escapeHtml(item.type)}</span>
+        <strong>${escapeHtml(item.title)}</strong>
+        <p>${escapeHtml([item.date, item.meta].filter(Boolean).join(" - "))}</p>
+        ${item.text ? `<small>${escapeHtml(timelineText(item.text))}</small>` : ""}
+      </article>
     `).join("")}</div>`;
   }
 
@@ -1184,6 +1398,7 @@
     activeVehiclePlate = selectedVehicle?.plate || "";
     const activeRecord = person.records[0] || null;
     const profileTitle = `${person.name}`;
+    const canWrite = canWriteMeosEntries();
     const recordDates = person.records.map((record, index) => `
       <button class="${index === 0 ? "active" : ""}" type="button" data-record-index="${index}">${escapeHtml(record.date)}</button>
     `).join("");
@@ -1229,19 +1444,26 @@
       <div class="meos-profile-col">
         <article class="meos-panel">
           <div class="meos-card-title">
-            <h2>Strafbladen</h2>
-            <button class="meos-secondary" type="button" data-toggle-record-form>Toevoegen</button>
+            <h2>Tijdlijn</h2>
           </div>
-          ${renderRecordEntryForm(person)}
+          ${renderProfileTimeline(person)}
+        </article>
+
+        <article class="meos-panel">
+          <div class="meos-card-title">
+            <h2>Strafbladen</h2>
+            ${canWrite ? '<button class="meos-secondary" type="button" data-toggle-record-form>Toevoegen</button>' : ""}
+          </div>
+          ${canWrite ? renderRecordEntryForm(person) : ""}
           ${person.records.length ? `<div class="meos-date-tabs">${recordDates}</div><div id="recordDetail">${renderRecord(activeRecord, 0, person)}</div>` : '<div class="meos-empty">Geen strafbladen gevonden.</div>'}
         </article>
 
         <article class="meos-panel">
           <div class="meos-card-title">
             <h2>Notitie's</h2>
-            <button class="meos-secondary" type="button" data-toggle-note-form>Toevoegen</button>
+            ${canWrite ? '<button class="meos-secondary" type="button" data-toggle-note-form>Toevoegen</button>' : ""}
           </div>
-          ${renderNoteEntryForm(person)}
+          ${canWrite ? renderNoteEntryForm(person) : ""}
           ${person.notes.length ? `
             <table class="meos-table">
               <thead><tr><th>Datum</th><th>Verbalisant</th><th>Notitie</th>${canDeleteMeosEntries() ? "<th>Beheer</th>" : ""}</tr></thead>
@@ -1267,7 +1489,12 @@
 
   function renderRecord(record, index = 0, person = null) {
     if (!record) return '<div class="meos-empty">Geen strafblad geselecteerd.</div>';
+    const badges = [
+      ...(Array.isArray(record.articleIds) ? record.articleIds : []),
+      record.calculatedTotals?.taskConverted ? "Taakstraf omgezet" : ""
+    ].filter(Boolean);
     return `
+      ${renderWetboekBadges(badges)}
       <div class="meos-record-body">
         <div>
           <div class="meos-info-field"><span>Sanctie</span><strong>${escapeHtml(record.sanction)}</strong></div>
@@ -1351,14 +1578,15 @@
       if (target) target.innerHTML = `<div class="meos-empty">${escapeHtml(meosDataError || "MEOS data laden...")}</div>`;
       return;
     }
-    const query = normalize($("#dashboardQuickSearch")?.value || "");
+    const rawQuery = $("#dashboardQuickSearch")?.value || "";
+    const query = normalize(rawQuery);
     const target = $("#dashboardSearchPreview");
     if (!target) return;
     if (!query) {
       target.innerHTML = '<div class="meos-empty">Typ een zoekterm om personen en voertuigen te vinden.</div>';
       return;
     }
-    const personMatches = people.filter((person) => personSearchFields(person, "all").some((value) => normalize(value).includes(query))).slice(0, 3);
+    const personMatches = people.filter((person) => personMatchesSearch(person, "all", rawQuery)).slice(0, 3);
     const vehicleMatches = allVehicles().filter((vehicle) => [vehicle.plate, vehicle.model, vehicle.owner].some((value) => normalize(value).includes(query))).slice(0, 3);
     const items = [
       ...personMatches.map((person) => `<button class="meos-result-card" type="button" data-open-profile="${escapeHtml(person.id)}"><span><strong>${escapeHtml(person.name)}</strong><span class="meos-result-meta"><span class="meos-chip">Persoon</span><span class="meos-chip">BSN ${escapeHtml(person.bsn)}</span></span></span></button>`),
@@ -1461,6 +1689,10 @@
   }
 
   async function submitMeosEntryForm(form, type) {
+    if (!canWriteMeosEntries()) {
+      setFormError(form, "Je MEOS rol mag geen gegevens toevoegen.");
+      return;
+    }
     const personId = form.dataset.personId || activePersonId;
     const path = type === "record"
       ? `/api/meos/people/${encodeURIComponent(personId)}/records`
