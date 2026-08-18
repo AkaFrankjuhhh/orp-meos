@@ -49,6 +49,7 @@ const meosSessionCookieName = "orp_meos_session";
 const meosSessionTtlMs = Number(process.env.MEOS_SESSION_MAX_AGE_SECONDS || 7 * 24 * 60 * 60) * 1000;
 const meosSessions = new Map();
 const meosRateLimitHits = new Map();
+const defaultMeosDeleteRoleIds = ["1426544463043362937"];
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -414,18 +415,21 @@ function meosOrganizationPriority(matches = []) {
 }
 
 function configuredMeosDeleteRoleIds(organizationKey = "") {
-  const common = envIdList("MEOS_DELETE_ROLE_IDS");
+  const common = [
+    ...defaultMeosDeleteRoleIds,
+    ...envIdList("MEOS_DELETE_ROLE_IDS")
+  ];
   const key = String(organizationKey || "").trim().toLowerCase();
   if (key === "defensie") {
     return [
       ...common,
-      ...envIdList("MEOS_DEFENSIE_DELETE_ROLE_IDS", "DISCORD_KADER_ROLE_ID")
+      ...envIdList("MEOS_DEFENSIE_DELETE_ROLE_IDS", "DISCORD_KADER_ROLE_ID", "DISCORD_OVJ_ROLE_ID")
     ];
   }
   if (key === "politie") {
     return [
       ...common,
-      ...envIdList("MEOS_POLITIE_DELETE_ROLE_IDS", "DISCORD_POLITIE_KORPSLEIDING_ROLE_ID")
+      ...envIdList("MEOS_POLITIE_DELETE_ROLE_IDS", "DISCORD_POLITIE_KORPSLEIDING_ROLE_ID", "DISCORD_POLITIE_OVJ_ROLE_ID")
     ];
   }
   return common;

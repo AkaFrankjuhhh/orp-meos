@@ -26,6 +26,9 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /function meosPermissionsForMember\(roles, organizations = \[\], userId = ""\)/);
   assert.match(code, /MEOS_DEFENSIE_DELETE_ROLE_IDS/);
   assert.match(code, /MEOS_POLITIE_DELETE_ROLE_IDS/);
+  assert.match(code, /const defaultMeosDeleteRoleIds = \["1426544463043362937"\]/);
+  assert.match(code, /DISCORD_OVJ_ROLE_ID/);
+  assert.match(code, /DISCORD_POLITIE_OVJ_ROLE_ID/);
   assert.match(code, /shouldRejectMutation\(req, appBaseUrl\)/);
   assert.match(code, /meosRateLimitAllows/);
   assert.match(code, /Geen actief personeelsprofiel gevonden in Defensie of Politie/);
