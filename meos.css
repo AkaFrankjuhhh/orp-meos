@@ -1198,6 +1198,46 @@ html[data-meos-theme="dark"] .meos-record-modal {
   align-items: center;
 }
 
+.meos-wetboek-modifiers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.meos-wetboek-modifiers .meos-check-row,
+.meos-wetboek-total-summary {
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  background: var(--meos-elevated-bg);
+}
+
+.meos-wetboek-total-summary {
+  display: grid;
+  gap: 6px;
+  border-color: var(--meos-blue-soft);
+  box-shadow: inset 4px 0 0 var(--meos-blue);
+}
+
+.meos-wetboek-total-summary span {
+  color: var(--meos-label-text);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.meos-wetboek-total-summary strong {
+  color: var(--meos-blue);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.meos-wetboek-total-summary p {
+  margin: 0;
+  color: var(--meos-secondary-text);
+  line-height: 1.35;
+}
+
 .meos-wetboek-totals {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1484,6 +1524,7 @@ html[data-meos-theme="dark"] .meos-record-modal {
   .meos-record-body,
   .meos-result-card,
   .meos-wetboek-result,
+  .meos-wetboek-modifiers,
   .meos-wetboek-totals,
   .meos-warrant-grid {
     grid-template-columns: minmax(0, 1fr);

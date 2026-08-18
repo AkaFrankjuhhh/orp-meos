@@ -142,8 +142,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosProfileLogout"/);
   assert.match(html, /id="meosRecordModal"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
-  assert.match(html, /meos\.css\?v=20260818-wetboek-record-modal/);
-  assert.match(html, /meos\.js\?v=20260818-wetboek-record-modal/);
+  assert.match(html, /meos\.css\?v=20260818-sentence-modifiers/);
+  assert.match(html, /meos\.js\?v=20260818-sentence-modifiers/);
   assert.match(html, /meos-menu-icon/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
@@ -190,6 +190,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-modal-backdrop/);
   assert.match(styles, /\.meos-record-modal/);
   assert.match(styles, /\.meos-wetboek-result/);
+  assert.match(styles, /\.meos-wetboek-modifiers/);
+  assert.match(styles, /\.meos-wetboek-total-summary/);
   assert.match(styles, /\.meos-wetboek-totals/);
   assert.match(styles, /transform: scale\(1\.01\)/);
   assert.match(styles, /\.meos-profile-grid/);
@@ -209,8 +211,16 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(script, /\/api\/meos\/wetboek\/articles/);
   assert.match(script, /function renderWetboekRecordModal\(/);
   assert.match(script, /function calculateWetboekTotals\(/);
+  assert.match(script, /function wetboekPenaltyModifier\(/);
+  assert.match(script, /function applyPenaltyModifier\(/);
   assert.match(script, /function composeWetboekRecordNote\(/);
   assert.match(script, /async function submitWetboekRecordModal\(/);
+  assert.match(script, /officialInDuty/);
+  assert.match(script, /attempted/);
+  assert.match(script, /Ambtenaar in functie \(\+33%\)/);
+  assert.match(script, /Poging tot \(-33%\)/);
+  assert.match(script, /taskToJailMonths/);
+  assert.match(script, /Taakstraf omgezet naar celstraf/);
   assert.match(script, /data-add-wetboek-article/);
   assert.match(script, /data-save-record-modal/);
   assert.match(script, /createFine/);

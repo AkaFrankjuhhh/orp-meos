@@ -32,6 +32,8 @@
     extraNote: "",
     createFine: false,
     fineAmount: "",
+    officialInDuty: false,
+    attempted: false,
     busy: false
   };
 
@@ -369,8 +371,35 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  function formatPenaltyNumber(value) {
+    const rounded = Math.round(Number(value || 0) * 10) / 10;
+    if (!rounded) return "0";
+    return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(".", ",");
+  }
+
+  function wetboekPenaltyModifier() {
+    const labels = [];
+    let factor = 1;
+    if (wetboekRecordState.officialInDuty) {
+      factor *= 1.33;
+      labels.push("Ambtenaar in functie +33%");
+    }
+    if (wetboekRecordState.attempted) {
+      factor *= 0.67;
+      labels.push("Poging tot -33%");
+    }
+    return { factor, labels };
+  }
+
+  function applyPenaltyModifier(value, roundToEuros = false) {
+    const number = Number(value || 0);
+    if (!number) return 0;
+    const adjusted = number * wetboekPenaltyModifier().factor;
+    return roundToEuros ? Math.round(adjusted) : Math.round(adjusted * 10) / 10;
+  }
+
   function calculateWetboekTotals(items = wetboekRecordState.selected) {
-    return items.reduce((totals, item) => {
+    const rawTotals = items.reduce((totals, item) => {
       const choice = selectedWetboekChoice(item);
       const row = choice?.row || {};
       totals.fine += parseEuroAmount(row.Boete || row.Bedrag);
@@ -380,6 +409,24 @@
       if (choice) totals.count += 1;
       return totals;
     }, { fine: 0, jailMonths: 0, taskHours: 0, drivingBanMonths: 0, count: 0 });
+    const hasJail = rawTotals.jailMonths > 0;
+    const taskToJailMonths = hasJail ? rawTotals.taskHours / 2 : 0;
+    const modifier = wetboekPenaltyModifier();
+    return {
+      count: rawTotals.count,
+      rawFine: rawTotals.fine,
+      rawJailMonths: rawTotals.jailMonths,
+      rawTaskHours: rawTotals.taskHours,
+      rawDrivingBanMonths: rawTotals.drivingBanMonths,
+      taskConverted: hasJail && rawTotals.taskHours > 0,
+      taskToJailMonths,
+      modifierFactor: modifier.factor,
+      modifierLabels: modifier.labels,
+      fine: applyPenaltyModifier(rawTotals.fine, true),
+      jailMonths: applyPenaltyModifier(rawTotals.jailMonths + taskToJailMonths),
+      taskHours: hasJail ? 0 : applyPenaltyModifier(rawTotals.taskHours),
+      drivingBanMonths: applyPenaltyModifier(rawTotals.drivingBanMonths)
+    };
   }
 
   function formatEuroAmount(amount) {
@@ -405,13 +452,18 @@
     const totals = calculateWetboekTotals(items);
     const totalParts = [
       totals.fine ? `Boete totaal: ${formatEuroAmount(totals.fine)}` : "",
-      totals.jailMonths ? `Celstraf totaal: ${totals.jailMonths} maand(en)` : "",
-      totals.taskHours ? `Taakstraf totaal: ${totals.taskHours} uur` : "",
-      totals.drivingBanMonths ? `Rijontzegging totaal: ${totals.drivingBanMonths} maand(en)` : ""
+      totals.jailMonths ? `Celstraf totaal: ${formatPenaltyNumber(totals.jailMonths)} maand(en)` : "",
+      totals.taskHours ? `Taakstraf totaal: ${formatPenaltyNumber(totals.taskHours)} uur` : "",
+      totals.drivingBanMonths ? `Rijontzegging totaal: ${formatPenaltyNumber(totals.drivingBanMonths)} maand(en)` : ""
+    ].filter(Boolean);
+    const ruleParts = [
+      totals.taskConverted ? `Taakstraf omgezet naar celstraf: ${formatPenaltyNumber(totals.rawTaskHours)} / 2 = ${formatPenaltyNumber(totals.taskToJailMonths)} maand(en)` : "",
+      totals.modifierLabels.length ? `Aanpassingen: ${totals.modifierLabels.join(", ")}` : ""
     ].filter(Boolean);
     return [
       "Wetboek strafberekening:",
       ...lines,
+      ...ruleParts,
       totalParts.length ? `Totaal: ${totalParts.join(" | ")}` : ""
     ].filter(Boolean).join("\n");
   }
@@ -488,16 +540,28 @@
   function renderWetboekTotals(totals) {
     const items = [
       ["Boete", totals.fine ? formatEuroAmount(totals.fine) : "Geen"],
-      ["Celstraf", totals.jailMonths ? `${totals.jailMonths} maand(en)` : "Geen"],
-      ["Taakstraf", totals.taskHours ? `${totals.taskHours} uur` : "Geen"],
-      ["Rijontzegging", totals.drivingBanMonths ? `${totals.drivingBanMonths} maand(en)` : "Geen"]
+      ["Celstraf", totals.jailMonths ? `${formatPenaltyNumber(totals.jailMonths)} maand(en)` : "Geen"],
+      ["Taakstraf", totals.taskHours ? `${formatPenaltyNumber(totals.taskHours)} uur` : "Geen"],
+      ["Rijontzegging", totals.drivingBanMonths ? `${formatPenaltyNumber(totals.drivingBanMonths)} maand(en)` : "Geen"]
     ];
-    return `<div class="meos-wetboek-totals">${items.map(([label, value]) => `
-      <div>
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(value)}</strong>
+    const summary = items.filter(([, value]) => value !== "Geen").map(([label, value]) => `${label}: ${value}`).join(" | ") || "Geen straf berekend";
+    const notes = [
+      totals.taskConverted ? `${formatPenaltyNumber(totals.rawTaskHours)} taakstraf wordt ${formatPenaltyNumber(totals.taskToJailMonths)} celstraf (:2).` : "",
+      totals.modifierLabels.length ? totals.modifierLabels.join(" en ") : ""
+    ].filter(Boolean);
+    return `
+      <div class="meos-wetboek-total-summary">
+        <span>Berekend totaal</span>
+        <strong>${escapeHtml(summary)}</strong>
+        ${notes.length ? `<p>${escapeHtml(notes.join(" | "))}</p>` : ""}
       </div>
-    `).join("")}</div>`;
+      <div class="meos-wetboek-totals">${items.map(([label, value]) => `
+        <div>
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `).join("")}</div>
+    `;
   }
 
   function renderWetboekRecordModal() {
@@ -538,6 +602,16 @@
           <section class="meos-wetboek-compose" aria-label="Strafbepaling">
             <h3>Strafbepaling</h3>
             ${renderWetboekSelectedList()}
+            <div class="meos-wetboek-modifiers" aria-label="Incident opties">
+              <label class="meos-check-row">
+                <input data-wetboek-field="officialInDuty" type="checkbox" ${wetboekRecordState.officialInDuty ? "checked" : ""} />
+                <span>Ambtenaar in functie (+33%)</span>
+              </label>
+              <label class="meos-check-row">
+                <input data-wetboek-field="attempted" type="checkbox" ${wetboekRecordState.attempted ? "checked" : ""} />
+                <span>Poging tot (-33%)</span>
+              </label>
+            </div>
             ${renderWetboekTotals(totals)}
 
             <div class="meos-record-modal-fields">
@@ -555,7 +629,7 @@
               </label>
               <label class="wide">
                 <span>Samengestelde strafbladtekst</span>
-                <textarea readonly rows="6">${escapeHtml(notePreview)}</textarea>
+                <textarea data-wetboek-note-preview readonly rows="6">${escapeHtml(notePreview)}</textarea>
               </label>
               <label class="meos-check-row wide">
                 <input data-wetboek-field="createFine" type="checkbox" ${wetboekRecordState.createFine ? "checked" : ""} />
@@ -601,6 +675,8 @@
     wetboekRecordState.extraNote = "";
     wetboekRecordState.createFine = false;
     wetboekRecordState.fineAmount = "";
+    wetboekRecordState.officialInDuty = false;
+    wetboekRecordState.attempted = false;
     wetboekRecordState.busy = false;
     renderWetboekRecordModal();
     loadWetboekArticles();
@@ -662,6 +738,9 @@
     if (name === "query") {
       renderWetboekRecordModal();
       focusWetboekField("query");
+    } else if (name === "extraNote") {
+      const preview = $("[data-wetboek-note-preview]");
+      if (preview) preview.value = wetboekRecordNoteWithExtra() || "Selecteer artikelen of vul een aanvullende notitie in.";
     }
   }
 
@@ -676,7 +755,7 @@
     const name = field.dataset.wetboekField;
     if (field.type === "checkbox") wetboekRecordState[name] = field.checked;
     else wetboekRecordState[name] = field.value;
-    if (["category", "createFine"].includes(name)) renderWetboekRecordModal();
+    if (["category", "createFine", "officialInDuty", "attempted"].includes(name)) renderWetboekRecordModal();
   }
 
   async function submitWetboekRecordModal() {
