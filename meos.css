@@ -1191,6 +1191,32 @@ html[data-meos-theme="dark"] .meos-record-modal {
   opacity: 0.62;
 }
 
+.meos-wetboek-result-actions {
+  min-width: 258px;
+  display: grid;
+  justify-items: stretch;
+  gap: 8px;
+}
+
+.meos-wetboek-add-options {
+  display: grid;
+  gap: 6px;
+}
+
+.meos-wetboek-add-options .meos-check-row {
+  min-height: 34px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  padding: 7px 9px;
+  background: var(--meos-subtle-bg);
+  font-size: 12px;
+}
+
+.meos-wetboek-add-options .meos-check-row input:disabled,
+.meos-wetboek-add-options .meos-check-row input:disabled + span {
+  opacity: 0.62;
+}
+
 .meos-wetboek-selection-head {
   display: flex;
   justify-content: space-between;
@@ -1198,13 +1224,6 @@ html[data-meos-theme="dark"] .meos-record-modal {
   align-items: center;
 }
 
-.meos-wetboek-modifiers {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.meos-wetboek-modifiers .meos-check-row,
 .meos-wetboek-total-summary {
   border: 1px solid var(--meos-card-border);
   border-radius: 4px;
@@ -1236,6 +1255,13 @@ html[data-meos-theme="dark"] .meos-record-modal {
   margin: 0;
   color: var(--meos-secondary-text);
   line-height: 1.35;
+}
+
+.meos-wetboek-selection-modifier {
+  margin: 0;
+  color: var(--meos-blue);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .meos-wetboek-totals {
@@ -1524,10 +1550,13 @@ html[data-meos-theme="dark"] .meos-record-modal {
   .meos-record-body,
   .meos-result-card,
   .meos-wetboek-result,
-  .meos-wetboek-modifiers,
   .meos-wetboek-totals,
   .meos-warrant-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .meos-wetboek-result-actions {
+    min-width: 0;
   }
 
   .meos-modal-backdrop {

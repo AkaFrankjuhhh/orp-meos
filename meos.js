@@ -26,14 +26,13 @@
     formError: "",
     query: "",
     category: "all",
+    articleModifiers: {},
     selected: [],
     date: "",
     sanction: "PV",
     extraNote: "",
     createFine: false,
     fineAmount: "",
-    officialInDuty: false,
-    attempted: false,
     busy: false
   };
 
@@ -377,55 +376,82 @@
     return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(".", ",");
   }
 
-  function wetboekPenaltyModifier() {
+  function wetboekPenaltyModifier(item = {}) {
     const labels = [];
     let factor = 1;
-    if (wetboekRecordState.officialInDuty) {
+    if (item.officialInDuty) {
       factor *= 1.33;
       labels.push("Ambtenaar in functie +33%");
     }
-    if (wetboekRecordState.attempted) {
+    if (item.attempted) {
       factor *= 0.67;
       labels.push("Poging tot -33%");
     }
     return { factor, labels };
   }
 
-  function applyPenaltyModifier(value, roundToEuros = false) {
+  function applyPenaltyModifier(value, roundToEuros = false, item = {}) {
     const number = Number(value || 0);
     if (!number) return 0;
-    const adjusted = number * wetboekPenaltyModifier().factor;
+    const adjusted = number * wetboekPenaltyModifier(item).factor;
     return roundToEuros ? Math.round(adjusted) : Math.round(adjusted * 10) / 10;
+  }
+
+  function wetboekModifierText(item = {}) {
+    return wetboekPenaltyModifier(item).labels.join(", ");
   }
 
   function calculateWetboekTotals(items = wetboekRecordState.selected) {
     const rawTotals = items.reduce((totals, item) => {
+      const article = wetboekArticleById(item.articleId);
       const choice = selectedWetboekChoice(item);
       const row = choice?.row || {};
-      totals.fine += parseEuroAmount(row.Boete || row.Bedrag);
-      totals.jailMonths += parseDurationValue(row.Celstraf);
-      totals.taskHours += parseDurationValue(row.Taakstraf);
-      totals.drivingBanMonths += parseDurationValue(row.Rijontzegging || row.Rijverbod);
+      const fine = parseEuroAmount(row.Boete || row.Bedrag);
+      const jailMonths = parseDurationValue(row.Celstraf);
+      const taskHours = parseDurationValue(row.Taakstraf);
+      const drivingBanMonths = parseDurationValue(row.Rijontzegging || row.Rijverbod);
+      const modifier = wetboekPenaltyModifier(item);
+      totals.rawFine += fine;
+      totals.rawJailMonths += jailMonths;
+      totals.rawTaskHours += taskHours;
+      totals.rawDrivingBanMonths += drivingBanMonths;
+      totals.fine += applyPenaltyModifier(fine, true, item);
+      totals.jailMonths += applyPenaltyModifier(jailMonths, false, item);
+      totals.taskHours += applyPenaltyModifier(taskHours, false, item);
+      totals.drivingBanMonths += applyPenaltyModifier(drivingBanMonths, false, item);
+      if (modifier.labels.length) {
+        totals.modifierLabels.push(`${article?.id || item.articleId}: ${modifier.labels.join(", ")}`);
+      }
       if (choice) totals.count += 1;
       return totals;
-    }, { fine: 0, jailMonths: 0, taskHours: 0, drivingBanMonths: 0, count: 0 });
+    }, {
+      fine: 0,
+      jailMonths: 0,
+      taskHours: 0,
+      drivingBanMonths: 0,
+      rawFine: 0,
+      rawJailMonths: 0,
+      rawTaskHours: 0,
+      rawDrivingBanMonths: 0,
+      modifierLabels: [],
+      count: 0
+    });
     const hasJail = rawTotals.jailMonths > 0;
     const taskToJailMonths = hasJail ? rawTotals.taskHours / 2 : 0;
-    const modifier = wetboekPenaltyModifier();
     return {
       count: rawTotals.count,
-      rawFine: rawTotals.fine,
-      rawJailMonths: rawTotals.jailMonths,
-      rawTaskHours: rawTotals.taskHours,
-      rawDrivingBanMonths: rawTotals.drivingBanMonths,
+      rawFine: rawTotals.rawFine,
+      rawJailMonths: rawTotals.rawJailMonths,
+      rawTaskHours: rawTotals.rawTaskHours,
+      rawDrivingBanMonths: rawTotals.rawDrivingBanMonths,
       taskConverted: hasJail && rawTotals.taskHours > 0,
       taskToJailMonths,
-      modifierFactor: modifier.factor,
-      modifierLabels: modifier.labels,
-      fine: applyPenaltyModifier(rawTotals.fine, true),
-      jailMonths: applyPenaltyModifier(rawTotals.jailMonths + taskToJailMonths),
-      taskHours: hasJail ? 0 : applyPenaltyModifier(rawTotals.taskHours),
-      drivingBanMonths: applyPenaltyModifier(rawTotals.drivingBanMonths)
+      convertedTaskHours: rawTotals.taskHours,
+      modifierLabels: rawTotals.modifierLabels,
+      fine: rawTotals.fine,
+      jailMonths: Math.round((rawTotals.jailMonths + taskToJailMonths) * 10) / 10,
+      taskHours: hasJail ? 0 : rawTotals.taskHours,
+      drivingBanMonths: rawTotals.drivingBanMonths
     };
   }
 
@@ -457,7 +483,7 @@
       totals.drivingBanMonths ? `Rijontzegging totaal: ${formatPenaltyNumber(totals.drivingBanMonths)} maand(en)` : ""
     ].filter(Boolean);
     const ruleParts = [
-      totals.taskConverted ? `Taakstraf omgezet naar celstraf: ${formatPenaltyNumber(totals.rawTaskHours)} / 2 = ${formatPenaltyNumber(totals.taskToJailMonths)} maand(en)` : "",
+      totals.taskConverted ? `Taakstraf omgezet naar celstraf: ${formatPenaltyNumber(totals.convertedTaskHours)} / 2 = ${formatPenaltyNumber(totals.taskToJailMonths)} maand(en)` : "",
       totals.modifierLabels.length ? `Aanpassingen: ${totals.modifierLabels.join(", ")}` : ""
     ].filter(Boolean);
     return [
@@ -482,6 +508,21 @@
     return ids.length ? `Wetboek boete ${ids.join(", ")}` : "Wetboek boete";
   }
 
+  function wetboekArticleModifier(articleId) {
+    return wetboekRecordState.articleModifiers?.[articleId] || {};
+  }
+
+  function setWetboekArticleModifier(articleId, modifierName, checked) {
+    if (!articleId || !["officialInDuty", "attempted"].includes(modifierName)) return;
+    wetboekRecordState.articleModifiers = {
+      ...(wetboekRecordState.articleModifiers || {}),
+      [articleId]: {
+        ...wetboekArticleModifier(articleId),
+        [modifierName]: Boolean(checked)
+      }
+    };
+  }
+
   function renderWetboekArticleList() {
     if (wetboekRecordState.loading) return '<div class="meos-empty">Wetboek artikelen laden...</div>';
     if (wetboekRecordState.error) {
@@ -496,6 +537,7 @@
     if (!articles.length) return '<div class="meos-empty">Geen Wetboek artikelen gevonden.</div>';
     return articles.map((article) => {
       const isSelected = wetboekRecordState.selected.some((item) => item.articleId === article.id);
+      const modifiers = wetboekArticleModifier(article.id);
       const summary = article.contentText ? `${article.contentText.slice(0, 170)}${article.contentText.length > 170 ? "..." : ""}` : "Geen omschrijving beschikbaar.";
       return `
         <article class="meos-wetboek-result">
@@ -504,7 +546,19 @@
             <span>${escapeHtml(article.category || "Overig")}</span>
             <p>${escapeHtml(summary)}</p>
           </div>
-          <button class="meos-secondary" type="button" data-add-wetboek-article="${escapeHtml(article.id)}" ${isSelected ? "disabled" : ""}>Toevoegen</button>
+          <div class="meos-wetboek-result-actions">
+            <div class="meos-wetboek-add-options">
+              <label class="meos-check-row compact">
+                <input type="checkbox" data-wetboek-article-modifier="officialInDuty" data-article-id="${escapeHtml(article.id)}" ${modifiers.officialInDuty ? "checked" : ""} ${isSelected ? "disabled" : ""} />
+                <span>Ambtenaar in functie (+33%)</span>
+              </label>
+              <label class="meos-check-row compact">
+                <input type="checkbox" data-wetboek-article-modifier="attempted" data-article-id="${escapeHtml(article.id)}" ${modifiers.attempted ? "checked" : ""} ${isSelected ? "disabled" : ""} />
+                <span>Poging tot (-33%)</span>
+              </label>
+            </div>
+            <button class="meos-secondary" type="button" data-add-wetboek-article="${escapeHtml(article.id)}" ${isSelected ? "disabled" : ""}>Toevoegen</button>
+          </div>
         </article>
       `;
     }).join("");
@@ -518,6 +572,7 @@
       const article = wetboekArticleById(item.articleId);
       const choices = wetboekArticleChoices(article);
       const selectedChoice = selectedWetboekChoice(item);
+      const modifierText = wetboekModifierText(item);
       return `
         <article class="meos-wetboek-selection">
           <div class="meos-wetboek-selection-head">
@@ -532,6 +587,7 @@
               </select>
             </label>
           ` : '<p>Dit artikel heeft geen strafmatrix of boetelijst.</p>'}
+          ${modifierText ? `<p class="meos-wetboek-selection-modifier">${escapeHtml(modifierText)}</p>` : ""}
         </article>
       `;
     }).join("");
@@ -546,7 +602,7 @@
     ];
     const summary = items.filter(([, value]) => value !== "Geen").map(([label, value]) => `${label}: ${value}`).join(" | ") || "Geen straf berekend";
     const notes = [
-      totals.taskConverted ? `${formatPenaltyNumber(totals.rawTaskHours)} taakstraf wordt ${formatPenaltyNumber(totals.taskToJailMonths)} celstraf (:2).` : "",
+      totals.taskConverted ? `${formatPenaltyNumber(totals.convertedTaskHours)} taakstraf wordt ${formatPenaltyNumber(totals.taskToJailMonths)} celstraf (:2).` : "",
       totals.modifierLabels.length ? totals.modifierLabels.join(" en ") : ""
     ].filter(Boolean);
     return `
@@ -602,16 +658,6 @@
           <section class="meos-wetboek-compose" aria-label="Strafbepaling">
             <h3>Strafbepaling</h3>
             ${renderWetboekSelectedList()}
-            <div class="meos-wetboek-modifiers" aria-label="Incident opties">
-              <label class="meos-check-row">
-                <input data-wetboek-field="officialInDuty" type="checkbox" ${wetboekRecordState.officialInDuty ? "checked" : ""} />
-                <span>Ambtenaar in functie (+33%)</span>
-              </label>
-              <label class="meos-check-row">
-                <input data-wetboek-field="attempted" type="checkbox" ${wetboekRecordState.attempted ? "checked" : ""} />
-                <span>Poging tot (-33%)</span>
-              </label>
-            </div>
             ${renderWetboekTotals(totals)}
 
             <div class="meos-record-modal-fields">
@@ -669,14 +715,13 @@
     wetboekRecordState.formError = "";
     wetboekRecordState.query = "";
     wetboekRecordState.category = "all";
+    wetboekRecordState.articleModifiers = {};
     wetboekRecordState.selected = [];
     wetboekRecordState.date = todayMeosDate();
     wetboekRecordState.sanction = "PV";
     wetboekRecordState.extraNote = "";
     wetboekRecordState.createFine = false;
     wetboekRecordState.fineAmount = "";
-    wetboekRecordState.officialInDuty = false;
-    wetboekRecordState.attempted = false;
     wetboekRecordState.busy = false;
     renderWetboekRecordModal();
     loadWetboekArticles();
@@ -703,10 +748,13 @@
       return;
     }
     const choice = wetboekArticleChoices(article)[0] || null;
+    const modifiers = wetboekArticleModifier(article.id);
     wetboekRecordState.selected.push({
       articleId: article.id,
       tableIndex: choice?.tableIndex || "",
-      rowIndex: choice?.rowIndex || ""
+      rowIndex: choice?.rowIndex || "",
+      officialInDuty: Boolean(modifiers.officialInDuty),
+      attempted: Boolean(modifiers.attempted)
     });
     wetboekRecordState.formError = "";
     wetboekRecordState.fineAmount = "";
@@ -745,6 +793,12 @@
   }
 
   function handleWetboekRecordChange(event) {
+    const articleModifier = event.target.closest?.("[data-wetboek-article-modifier]");
+    if (articleModifier) {
+      setWetboekArticleModifier(articleModifier.dataset.articleId, articleModifier.dataset.wetboekArticleModifier, articleModifier.checked);
+      return;
+    }
+
     const rowChoice = event.target.closest?.("[data-wetboek-row-choice]");
     if (rowChoice) {
       updateWetboekChoice(rowChoice.dataset.wetboekRowChoice, rowChoice.value);
@@ -755,7 +809,7 @@
     const name = field.dataset.wetboekField;
     if (field.type === "checkbox") wetboekRecordState[name] = field.checked;
     else wetboekRecordState[name] = field.value;
-    if (["category", "createFine", "officialInDuty", "attempted"].includes(name)) renderWetboekRecordModal();
+    if (["category", "createFine"].includes(name)) renderWetboekRecordModal();
   }
 
   async function submitWetboekRecordModal() {
