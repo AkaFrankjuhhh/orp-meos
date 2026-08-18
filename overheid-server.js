@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { URLSearchParams } = require("node:url");
-const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic } = require("./modules/http-security");
+const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { portalIdentityForDiscordId, hasPortalIdentityDatabase, portalPersonDisplayName } = require("./modules/side-tasks-portal-identity");
 const { getMeosStore, meosStoreConfigFromEnv } = require("./modules/meos-store");
 
@@ -48,6 +48,7 @@ const pendingOAuthStates = new Map();
 const meosSessionCookieName = "orp_meos_session";
 const meosSessionTtlMs = Number(process.env.MEOS_SESSION_MAX_AGE_SECONDS || 7 * 24 * 60 * 60) * 1000;
 const meosSessions = new Map();
+const meosRateLimitHits = new Map();
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -164,6 +165,19 @@ function meosClientIp(req) {
     .trim();
 }
 
+function meosRateLimitAllows(req, scope, limit, windowMs) {
+  const now = Date.now();
+  const key = `${scope}:${meosClientIp(req) || "unknown"}`;
+  const recent = (meosRateLimitHits.get(key) || []).filter((timestamp) => now - timestamp < windowMs);
+  if (recent.length >= limit) {
+    meosRateLimitHits.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  meosRateLimitHits.set(key, recent);
+  return true;
+}
+
 function meosAuditLogPath() {
   const configured = String(process.env.MEOS_AUDIT_LOG_PATH || "meos-audit.log").trim();
   if (!configured || configured.toLowerCase() === "off") return "";
@@ -182,8 +196,7 @@ function appendMeosAudit(req, session, action, details = {}) {
     actor: {
       name: session?.profile?.name || "",
       discordId: session?.profile?.discordId || "",
-      organizationKey: session?.profile?.organizationKey || "",
-      serviceNumber: session?.profile?.serviceNumber || ""
+      organizationKey: session?.profile?.organizationKey || ""
     },
     details
   };
@@ -367,6 +380,12 @@ function normalizeDiscordId(value) {
   return String(value || "").replace(/^discord:/i, "").trim();
 }
 
+function envIdList(...keys) {
+  return keys.flatMap((key) => String(process.env[key] || "").split(/[,\s]+/))
+    .map(normalizeDiscordId)
+    .filter(Boolean);
+}
+
 function devOverrideIds() {
   return new Set(String(process.env.DEV_OVERRIDE_DISCORD_IDS || "").split(/[,\s]+/).map(normalizeDiscordId).filter(Boolean));
 }
@@ -394,6 +413,33 @@ function meosOrganizationPriority(matches = []) {
     });
 }
 
+function configuredMeosDeleteRoleIds(organizationKey = "") {
+  const common = envIdList("MEOS_DELETE_ROLE_IDS");
+  const key = String(organizationKey || "").trim().toLowerCase();
+  if (key === "defensie") {
+    return [
+      ...common,
+      ...envIdList("MEOS_DEFENSIE_DELETE_ROLE_IDS", "DISCORD_KADER_ROLE_ID")
+    ];
+  }
+  if (key === "politie") {
+    return [
+      ...common,
+      ...envIdList("MEOS_POLITIE_DELETE_ROLE_IDS", "DISCORD_POLITIE_KORPSLEIDING_ROLE_ID")
+    ];
+  }
+  return common;
+}
+
+function meosPermissionsForMember(roles, organizations = [], userId = "") {
+  const memberRoles = roles instanceof Set ? roles : new Set(roles || []);
+  const organizationKeys = organizations.length ? organizations : ["overheid"];
+  const deleteRoleIds = new Set(organizationKeys.flatMap((key) => configuredMeosDeleteRoleIds(key)));
+  return {
+    canDeleteEntries: isDevOverride(userId) || [...deleteRoleIds].some((roleId) => memberRoles.has(roleId))
+  };
+}
+
 function discordAvatarUrl(user) {
   if (!user?.id || !user?.avatar) return "/assets/meos-logo.png?v=20260818-site-logo";
   const extension = String(user.avatar).startsWith("a_") ? "gif" : "png";
@@ -413,12 +459,18 @@ function meosFallbackProfile(user = null) {
     avatarUrl: discordAvatarUrl(user || {}),
     discordId: normalizeDiscordId(user?.id || ""),
     discordUsername: user?.username || "",
-    organizationKey: "overheid"
+    organizationKey: "overheid",
+    permissions: {
+      canDeleteEntries: false
+    }
   };
 }
 
 function allowMeosDemoProfileFallback() {
-  return !hasPortalIdentityDatabase() && String(process.env.NODE_ENV || "development").toLowerCase() !== "production";
+  const requiresPortalIdentity = String(process.env.MEOS_REQUIRE_PORTAL_IDENTITY || "true").toLowerCase() !== "false";
+  return !requiresPortalIdentity
+    && !hasPortalIdentityDatabase()
+    && String(process.env.NODE_ENV || "development").toLowerCase() !== "production";
 }
 
 async function meosProfileForDiscordUser(user, matches = [], member = {}) {
@@ -588,6 +640,26 @@ function meosNestedPathParam(pathname, prefix, suffix) {
   }
 }
 
+function meosEntryPathParams(pathname, collection) {
+  const prefix = "/api/meos/people/";
+  const marker = `/${collection}/`;
+  const text = String(pathname || "");
+  if (!text.startsWith(prefix)) return { person: "", entryId: "" };
+  const rest = text.slice(prefix.length);
+  const index = rest.indexOf(marker);
+  if (index === -1) return { person: "", entryId: "" };
+  const rawPerson = rest.slice(0, index);
+  const rawEntryId = rest.slice(index + marker.length);
+  try {
+    return {
+      person: decodeURIComponent(rawPerson),
+      entryId: decodeURIComponent(rawEntryId)
+    };
+  } catch {
+    return { person: rawPerson, entryId: rawEntryId };
+  }
+}
+
 function meosTodayDate() {
   const date = new Date();
   const months = ["jan.", "feb.", "mrt.", "apr.", "mei", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."];
@@ -621,9 +693,19 @@ function meosCreatedBy(session) {
   return {
     name: meosActorName(session),
     discordId: session?.profile?.discordId || "",
-    organizationKey: session?.profile?.organizationKey || "",
-    serviceNumber: session?.profile?.serviceNumber || ""
+    organizationKey: session?.profile?.organizationKey || ""
   };
+}
+
+function meosHasPermission(session, permission) {
+  return Boolean(session?.profile?.permissions?.[permission]);
+}
+
+function requireMeosPermission(session, permission, message) {
+  if (meosHasPermission(session, permission)) return;
+  const error = new Error(message || "Je hebt geen MEOS rechten voor deze actie.");
+  error.status = 403;
+  throw error;
 }
 
 function meosRecordFromBody(body = {}, session = null) {
@@ -666,16 +748,18 @@ async function sendMeosStoreResponse(req, res, action, details, handler) {
   return true;
 }
 
-async function sendMeosMutationResponse(req, res, action, details, handler) {
+async function sendMeosMutationResponse(req, res, action, details, handler, options = {}) {
   const session = requireMeosApiSession(req, res);
   if (!session) return true;
   try {
-    const body = await readMeosBody(req);
+    if (options.permission) requireMeosPermission(session, options.permission, options.permissionMessage);
+    const body = options.readBody === false ? {} : await readMeosBody(req);
     const payload = await handler(getMeosStore(), session, body);
     appendMeosAudit(req, session, action, {
       ...details,
       recordId: payload.record?.id || "",
-      noteId: payload.note?.id || ""
+      noteId: payload.note?.id || "",
+      deletedId: payload.deleted?.id || ""
     });
     sendJson(res, 200, {
       ok: true,
@@ -695,6 +779,31 @@ async function sendMeosMutationResponse(req, res, action, details, handler) {
 async function handleRequest(req, res) {
   const url = new URL(req.url, requestBaseUrl(req));
   if (req.method === "GET" && serveMeosStatic(req, res, url)) return;
+
+  if (shouldRejectMutation(req, appBaseUrl)) {
+    sendJson(res, 403, { ok: false, error: "Ongeldige origin." });
+    return;
+  }
+
+  if (url.pathname === "/api/meos/login" && !meosRateLimitAllows(
+    req,
+    "meos-login",
+    Number(process.env.MEOS_LOGIN_RATE_LIMIT_MAX || 30),
+    Number(process.env.MEOS_LOGIN_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000)
+  )) {
+    sendJson(res, 429, { ok: false, error: "Te veel MEOS loginpogingen. Wacht even en probeer opnieuw." });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/") && ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) && !meosRateLimitAllows(
+    req,
+    "meos-mutation",
+    Number(process.env.MEOS_MUTATION_RATE_LIMIT_MAX || 60),
+    Number(process.env.MEOS_MUTATION_RATE_LIMIT_WINDOW_MS || 60 * 1000)
+  )) {
+    sendJson(res, 429, { ok: false, error: "Te veel MEOS wijzigingen kort achter elkaar." });
+    return;
+  }
 
   if (url.pathname === "/assets/orp-overheid-background.png" && req.method === "GET") {
     const assetPath = path.join(__dirname, "assets", "orp-overheid-background.png");
@@ -747,7 +856,8 @@ async function handleRequest(req, res) {
         discordUsername: session.profile?.discordUsername || "",
         portalPersonId: session.profile?.portalPersonId || "",
         identityLinkedBy: session.profile?.identityLinkedBy || "",
-        portalNickname: session.profile?.portalNickname || ""
+        portalNickname: session.profile?.portalNickname || "",
+        permissions: session.profile?.permissions || {}
       }
     });
     return;
@@ -797,6 +907,42 @@ async function handleRequest(req, res) {
     const value = meosNestedPathParam(url.pathname, "/api/meos/people/", "/notes");
     await sendMeosMutationResponse(req, res, "notes.add", { person: value }, async (store, session, body) => {
       return store.addPersonNote(value, meosNoteFromBody(body, session));
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/people/") && url.pathname.includes("/records/") && req.method === "DELETE") {
+    const { person, entryId } = meosEntryPathParams(url.pathname, "records");
+    await sendMeosMutationResponse(req, res, "records.delete", { person, entryId }, async (store) => {
+      return store.deletePersonRecord(person, entryId);
+    }, {
+      readBody: false,
+      permission: "canDeleteEntries",
+      permissionMessage: "Alleen kader of korpsleiding kan strafbladen verwijderen."
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/people/") && url.pathname.includes("/notes/") && req.method === "DELETE") {
+    const { person, entryId } = meosEntryPathParams(url.pathname, "notes");
+    await sendMeosMutationResponse(req, res, "notes.delete", { person, entryId }, async (store) => {
+      return store.deletePersonNote(person, entryId);
+    }, {
+      readBody: false,
+      permission: "canDeleteEntries",
+      permissionMessage: "Alleen kader of korpsleiding kan notities verwijderen."
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/meos/people/") && url.pathname.includes("/fines/") && req.method === "DELETE") {
+    const { person, entryId } = meosEntryPathParams(url.pathname, "fines");
+    await sendMeosMutationResponse(req, res, "fines.delete", { person, entryId }, async (store) => {
+      return store.deletePersonFine(person, entryId);
+    }, {
+      readBody: false,
+      permission: "canDeleteEntries",
+      permissionMessage: "Alleen kader of korpsleiding kan boetes verwijderen."
     });
     return;
   }
@@ -987,6 +1133,7 @@ async function handleRequest(req, res) {
           sendHtml(res, 403, loginPage("Geen actief personeelsprofiel gevonden in Defensie of Politie voor jouw Discord-account."));
           return;
         }
+        profile.permissions = meosPermissionsForMember(roles, profile.matchedOrganizations || meosOrganizationPriority(meosMatches), user.id);
         const sessionId = rememberMeosSession(profile);
         writeHeadSecure(res, 302, {
           Location: rememberedState?.meosHomeUrl || meosHomeUrl(req),

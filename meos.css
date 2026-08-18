@@ -673,6 +673,27 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.warrant {
   border: 1px solid var(--meos-subtle-border);
 }
 
+.meos-danger-action {
+  min-height: 30px;
+  border: 1px solid rgba(176, 28, 28, 0.22);
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: #fff;
+  background: #c92f2f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+html[data-meos-theme="dark"] .meos-danger-action {
+  border-color: rgba(255, 107, 26, 0.45);
+  background: #d64f1d;
+}
+
+.meos-danger-action:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .meos-feed {
   margin-top: 20px;
   border-top: 1px solid var(--meos-feed-border);
@@ -1058,6 +1079,12 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
   grid-template-columns: minmax(0, 1fr) minmax(180px, 32%);
   gap: 22px;
   padding-top: 14px;
+}
+
+.meos-record-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
 }
 
 .meos-empty {

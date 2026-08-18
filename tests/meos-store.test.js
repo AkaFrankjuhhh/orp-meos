@@ -5,7 +5,7 @@ const test = require("node:test");
 const { buildDemoMeosPeople } = require(path.join(process.cwd(), "modules", "meos-demo-data"));
 const { createDemoMeosStore } = require(path.join(process.cwd(), "modules", "meos-store-demo"));
 const { createMeosStore, meosStoreConfigFromEnv } = require(path.join(process.cwd(), "modules", "meos-store"));
-const { createFiveMMeosStore, mapPersonRow, mapVehicleRow } = require(path.join(process.cwd(), "modules", "meos-store-fivem"));
+const { createFiveMMeosStore, mapPersonRow, mapVehicleRow, sqlIdentifier } = require(path.join(process.cwd(), "modules", "meos-store-fivem"));
 
 test("MEOS demo data lives outside the browser bundle", () => {
   const people = buildDemoMeosPeople();
@@ -24,8 +24,19 @@ test("MEOS demo store searches people, vehicles and arrest warrants", async () =
   assert.equal(peopleByBsn.length, 1);
   assert.equal(peopleByBsn[0].name, "Ernie Nugz");
 
+  const peopleByBsnDigits = await store.listPeople({ query: "44499819", field: "bsn" });
+  assert.equal(peopleByBsnDigits.length, 1);
+  assert.equal(peopleByBsnDigits[0].name, "Ernie Nugz");
+
+  const peopleByFingerprintDigits = await store.listPeople({ query: "38445989", field: "fingerprint" });
+  assert.equal(peopleByFingerprintDigits.length, 1);
+  assert.equal(peopleByFingerprintDigits[0].name, "Ernie Nugz");
+
   const personBySlug = await store.getPerson("Damian-Kroes");
   assert.equal(personBySlug.name, "Damian Kroes");
+
+  const personByFingerprintDigits = await store.getPerson("38445989");
+  assert.equal(personByFingerprintDigits.name, "Ernie Nugz");
 
   const vehicles = await store.listVehicles({ query: "WFX 403" });
   assert.equal(vehicles.length, 1);
@@ -66,6 +77,22 @@ test("MEOS demo store can add profile records and notes", async () => {
   const person = await store.getPerson("ernie-nugz");
   assert.equal(person.records[0].note, "Nieuwe testregistratie.");
   assert.equal(person.notes[0].note, "Nieuwe testnotitie.");
+});
+
+test("MEOS demo store can delete records, notes and fines", async () => {
+  const store = createDemoMeosStore();
+
+  const recordDelete = await store.deletePersonRecord("ernie-nugz", "record-0");
+  assert.equal(recordDelete.deleted.type, "record");
+  assert.equal(recordDelete.person.records.length, 3);
+
+  const noteDelete = await store.deletePersonNote("ernie-nugz", "note-0");
+  assert.equal(noteDelete.deleted.type, "note");
+  assert.equal(noteDelete.person.notes.length, 1);
+
+  const fineDelete = await store.deletePersonFine("ernie-nugz", "fine-0");
+  assert.equal(fineDelete.deleted.type, "fine");
+  assert.equal(fineDelete.person.fines.length, 0);
 });
 
 test("MEOS store factory defaults to cached demo data", async () => {
@@ -122,4 +149,7 @@ test("MEOS FiveM scaffold maps view rows to MEOS shape", async () => {
 
   const store = createFiveMMeosStore({ driver: "mysql", databaseUrl: "mysql://readonly@example/meos" });
   await assert.rejects(() => store.snapshot(), /mysql2 is nog niet geinstalleerd/);
+  await assert.rejects(() => store.deletePersonFine("citizen-1", "fine-0"), /read-only/);
+  assert.equal(sqlIdentifier("orp_meos.people_view", "fallback_view"), "orp_meos.people_view");
+  assert.equal(sqlIdentifier("people;drop table users", "fallback_view"), "fallback_view");
 });

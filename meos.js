@@ -12,7 +12,10 @@
     name: "Frank Bright",
     rank: "Brigadegeneraal",
     serviceNumber: "70-04",
-    avatarUrl: "/assets/meos-logo.png?v=20260818-site-logo"
+    avatarUrl: "/assets/meos-logo.png?v=20260818-site-logo",
+    permissions: {
+      canDeleteEntries: false
+    }
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -89,6 +92,10 @@
 
   function profileMetaLine(profile) {
     return [profile.rank, profile.serviceNumber].map((value) => String(value || "").trim()).filter(Boolean).join(" \u00b7 ");
+  }
+
+  function canDeleteMeosEntries() {
+    return Boolean(currentMeosProfile?.permissions?.canDeleteEntries);
   }
 
   function renderDashboardProfile(profile) {
@@ -422,6 +429,15 @@
     `).join("")}</div>`;
   }
 
+  function entryIdentifier(entry, type, index) {
+    return String(entry?.id || `${type}-${index}`).trim();
+  }
+
+  function deleteEntryButton(person, type, entry, index, label = "Verwijderen") {
+    if (!canDeleteMeosEntries()) return "";
+    return `<button class="meos-danger-action" type="button" data-delete-entry="${escapeHtml(type)}" data-person-id="${escapeHtml(person.id)}" data-entry-id="${escapeHtml(entryIdentifier(entry, type, index))}">${escapeHtml(label)}</button>`;
+  }
+
   function renderRecordEntryForm(person) {
     return `
       <form class="meos-entry-form" data-meos-add-record-form data-person-id="${escapeHtml(person.id)}" hidden>
@@ -590,7 +606,7 @@
             <button class="meos-secondary" type="button" data-toggle-record-form>Toevoegen</button>
           </div>
           ${renderRecordEntryForm(person)}
-          ${person.records.length ? `<div class="meos-date-tabs">${recordDates}</div><div id="recordDetail">${renderRecord(activeRecord)}</div>` : '<div class="meos-empty">Geen strafbladen gevonden.</div>'}
+          ${person.records.length ? `<div class="meos-date-tabs">${recordDates}</div><div id="recordDetail">${renderRecord(activeRecord, 0, person)}</div>` : '<div class="meos-empty">Geen strafbladen gevonden.</div>'}
         </article>
 
         <article class="meos-panel">
@@ -601,8 +617,8 @@
           ${renderNoteEntryForm(person)}
           ${person.notes.length ? `
             <table class="meos-table">
-              <thead><tr><th>Datum</th><th>Verbalisant</th><th>Notitie</th></tr></thead>
-              <tbody>${person.notes.map((note) => `<tr><td>${escapeHtml(note.date)}</td><td>${escapeHtml(note.author)}</td><td>${escapeHtml(note.note)}</td></tr>`).join("")}</tbody>
+              <thead><tr><th>Datum</th><th>Verbalisant</th><th>Notitie</th>${canDeleteMeosEntries() ? "<th>Beheer</th>" : ""}</tr></thead>
+              <tbody>${person.notes.map((note, index) => `<tr><td>${escapeHtml(note.date)}</td><td>${escapeHtml(note.author)}</td><td>${escapeHtml(note.note)}</td>${canDeleteMeosEntries() ? `<td>${deleteEntryButton(person, "note", note, index)}</td>` : ""}</tr>`).join("")}</tbody>
             </table>
           ` : '<div class="meos-empty">Geen notities gevonden.</div>'}
         </article>
@@ -611,8 +627,8 @@
           <h2>Openstaande boete's</h2>
           ${person.fines.length ? `
             <table class="meos-table">
-              <thead><tr><th>Boete</th><th>Bedrag</th><th>Uitgeschreven op</th><th>Uitgeschreven door</th></tr></thead>
-              <tbody>${person.fines.map((fine) => `<tr><td>${escapeHtml(fine.fine)}</td><td>${escapeHtml(fine.amount)}</td><td>${escapeHtml(fine.writtenAt)}</td><td>${escapeHtml(fine.writtenBy)}</td></tr>`).join("")}</tbody>
+              <thead><tr><th>Boete</th><th>Bedrag</th><th>Uitgeschreven op</th><th>Uitgeschreven door</th>${canDeleteMeosEntries() ? "<th>Beheer</th>" : ""}</tr></thead>
+              <tbody>${person.fines.map((fine, index) => `<tr><td>${escapeHtml(fine.fine)}</td><td>${escapeHtml(fine.amount)}</td><td>${escapeHtml(fine.writtenAt)}</td><td>${escapeHtml(fine.writtenBy)}</td>${canDeleteMeosEntries() ? `<td>${deleteEntryButton(person, "fine", fine, index)}</td>` : ""}</tr>`).join("")}</tbody>
             </table>
           ` : '<div class="meos-empty">Geen openstaande boetes gevonden.</div>'}
         </article>
@@ -622,7 +638,7 @@
     setPage("profile", { nav: "personen", person, updateUrl: options.updateUrl });
   }
 
-  function renderRecord(record) {
+  function renderRecord(record, index = 0, person = null) {
     if (!record) return '<div class="meos-empty">Geen strafblad geselecteerd.</div>';
     return `
       <div class="meos-record-body">
@@ -635,6 +651,7 @@
           <div class="meos-info-field"><span>Datum</span><strong>${escapeHtml(record.date)}</strong></div>
         </div>
       </div>
+      ${person ? `<div class="meos-record-actions">${deleteEntryButton(person, "record", record, index)}</div>` : ""}
     `;
   }
 
@@ -839,6 +856,39 @@
     }
   }
 
+  async function deleteMeosEntry(button) {
+    const type = String(button.dataset.deleteEntry || "").trim();
+    const personId = button.dataset.personId || activePersonId;
+    const entryId = button.dataset.entryId || "";
+    const collections = {
+      record: "records",
+      note: "notes",
+      fine: "fines"
+    };
+    const labels = {
+      record: "strafblad",
+      note: "notitie",
+      fine: "boete"
+    };
+    const collection = collections[type];
+    if (!collection || !personId || !entryId) return;
+    if (!window.confirm(`Weet je zeker dat je deze ${labels[type]} wilt verwijderen?`)) return;
+    button.disabled = true;
+    try {
+      const payload = await apiJson(`/api/meos/people/${encodeURIComponent(personId)}/${collection}/${encodeURIComponent(entryId)}`, {
+        method: "DELETE"
+      });
+      updatePersonInState(payload.person);
+      renderProfile(payload.person?.id || personId, { updateUrl: false });
+      renderPeople();
+      renderWarrantOverview();
+      renderQuickSearch();
+    } catch (error) {
+      window.alert(error.message || "Verwijderen is mislukt.");
+      button.disabled = false;
+    }
+  }
+
   function toggleEntryForm(selector) {
     const form = $(selector);
     if (!form) return;
@@ -929,12 +979,18 @@
         return;
       }
 
+      const deleteEntry = event.target.closest("[data-delete-entry]");
+      if (deleteEntry) {
+        deleteMeosEntry(deleteEntry);
+        return;
+      }
+
       const recordButton = event.target.closest("[data-record-index]");
       if (recordButton) {
         const person = findPerson(activePersonId);
         const index = Number(recordButton.dataset.recordIndex);
         $$(".meos-date-tabs button").forEach((button) => button.classList.toggle("active", button === recordButton));
-        $("#recordDetail").innerHTML = renderRecord(person?.records?.[index]);
+        $("#recordDetail").innerHTML = renderRecord(person?.records?.[index], index, person);
         return;
       }
 

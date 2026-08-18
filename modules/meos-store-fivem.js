@@ -1,7 +1,7 @@
 "use strict";
 
 const { normalize, slugFromValue } = require("./meos-demo-data");
-const { normalizeLimit } = require("./meos-store-demo");
+const { normalizeLimit, personMatchesSearch, personSearchQueries } = require("./meos-store-demo");
 
 function asArray(value) {
   if (Array.isArray(value)) return value;
@@ -23,6 +23,11 @@ function yesNo(value, fallback = "Nee") {
   if (["ja", "yes", "true", "1"].includes(normalized)) return "Ja";
   if (["nee", "no", "false", "0"].includes(normalized)) return "Nee";
   return String(value || fallback);
+}
+
+function sqlIdentifier(value, fallback) {
+  const raw = String(value || fallback || "").trim();
+  return /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/.test(raw) ? raw : fallback;
 }
 
 function mapPersonRow(row = {}) {
@@ -81,10 +86,6 @@ function mapWarrantRow(row = {}) {
   };
 }
 
-function searchPersonFields(person) {
-  return [person.name, person.bsn, person.fingerprint, person.birthDate, person.status];
-}
-
 function searchVehicleFields(vehicle) {
   return [vehicle.plate, vehicle.model, vehicle.owner, vehicle.primaryColor, vehicle.secondaryColor, vehicle.vin];
 }
@@ -100,6 +101,9 @@ class FiveMMeosStore {
       live: true,
       driver: this.driver
     };
+    this.peopleView = sqlIdentifier(options.peopleView || process.env.MEOS_FIVEM_PEOPLE_VIEW, "meos_people_view");
+    this.vehiclesView = sqlIdentifier(options.vehiclesView || process.env.MEOS_FIVEM_VEHICLES_VIEW, "meos_vehicles_view");
+    this.warrantsView = sqlIdentifier(options.warrantsView || process.env.MEOS_FIVEM_WARRANTS_VIEW, "meos_arrest_warrants_view");
     this.pool = null;
   }
 
@@ -138,21 +142,21 @@ class FiveMMeosStore {
   }
 
   async loadPeople() {
-    const rows = await this.query("select * from meos_people_view order by name limit 1000");
+    const rows = await this.query(`select * from ${this.peopleView} order by name limit 1000`);
     return rows.map(mapPersonRow);
   }
 
   async loadVehicles() {
-    const rows = await this.query("select * from meos_vehicles_view order by plate limit 2000");
+    const rows = await this.query(`select * from ${this.vehiclesView} order by plate limit 2000`);
     return rows.map(mapVehicleRow);
   }
 
   async loadWarrants() {
     try {
-      const rows = await this.query("select * from meos_arrest_warrants_view where coalesce(status, 'Actief') <> 'Gesloten' order by issued_at desc limit 500");
+      const rows = await this.query(`select * from ${this.warrantsView} where coalesce(status, 'Actief') <> 'Gesloten' order by issued_at desc limit 500`);
       return rows.map(mapWarrantRow);
     } catch (error) {
-      if (String(error.message || "").includes("meos_arrest_warrants_view")) return [];
+      if (String(error.message || "").includes(this.warrantsView)) return [];
       throw error;
     }
   }
@@ -196,19 +200,12 @@ class FiveMMeosStore {
   }
 
   async listPeople(options = {}) {
-    const query = normalize(options.query);
+    const query = String(options.query || "");
     const field = options.field || "all";
     const limit = normalizeLimit(options.limit);
     const { people } = await this.snapshot();
     const rows = query
-      ? people.filter((person) => {
-        const values = field === "name" ? [person.name]
-          : field === "bsn" ? [person.bsn]
-            : field === "fingerprint" ? [person.fingerprint]
-              : field === "birthDate" ? [person.birthDate]
-                : searchPersonFields(person);
-        return values.some((value) => normalize(value).includes(query));
-      })
+      ? people.filter((person) => personMatchesSearch(person, field, query))
       : people;
     return rows.slice(0, limit);
   }
@@ -216,12 +213,15 @@ class FiveMMeosStore {
   async getPerson(value) {
     const normalized = normalize(value);
     const slug = String(value || "").trim().toLowerCase();
+    const identityQueries = new Set(personSearchQueries(value, "all"));
     const { people } = await this.snapshot();
     return people.find((person) => normalize(person.id) === normalized
       || slugFromValue(person.name).toLowerCase() === slug
       || normalize(person.name) === normalized
       || normalize(person.bsn) === normalized
-      || normalize(person.fingerprint) === normalized) || null;
+      || normalize(person.fingerprint) === normalized
+      || identityQueries.has(normalize(person.bsn))
+      || identityQueries.has(normalize(person.fingerprint))) || null;
   }
 
   async listVehicles(options = {}) {
@@ -270,6 +270,24 @@ class FiveMMeosStore {
     error.status = 501;
     throw error;
   }
+
+  async deletePersonRecord() {
+    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor strafbladen voordat MEOS_DATA_SOURCE=fivem dit kan verwijderen.");
+    error.status = 501;
+    throw error;
+  }
+
+  async deletePersonNote() {
+    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor notities voordat MEOS_DATA_SOURCE=fivem dit kan verwijderen.");
+    error.status = 501;
+    throw error;
+  }
+
+  async deletePersonFine() {
+    const error = new Error("MEOS FiveM datasource is nu read-only. Maak later een schrijfview/tabel voor boetes voordat MEOS_DATA_SOURCE=fivem dit kan verwijderen.");
+    error.status = 501;
+    throw error;
+  }
 }
 
 function createFiveMMeosStore(options = {}) {
@@ -281,5 +299,6 @@ module.exports = {
   createFiveMMeosStore,
   mapPersonRow,
   mapVehicleRow,
-  mapWarrantRow
+  mapWarrantRow,
+  sqlIdentifier
 };

@@ -23,6 +23,27 @@ function personSearchFields(person, field = "all") {
   return fields[field] || fields.all;
 }
 
+function personSearchQueries(query, field = "all") {
+  const raw = String(query || "").trim();
+  const normalized = normalize(raw);
+  const queries = new Set(normalized ? [normalized] : []);
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 4) {
+    if (field === "bsn" || field === "all") queries.add(normalize(`ORP-BSN-${digits}`));
+    if (field === "fingerprint" || field === "all") queries.add(normalize(`ORP-V-${digits}`));
+  }
+  return [...queries].filter(Boolean);
+}
+
+function personMatchesSearch(person, field, query) {
+  const queries = personSearchQueries(query, field);
+  if (!queries.length) return true;
+  return personSearchFields(person, field).some((value) => {
+    const normalizedValue = normalize(value);
+    return queries.some((candidate) => normalizedValue.includes(candidate));
+  });
+}
+
 function vehicleSearchFields(vehicle) {
   return [
     vehicle.plate,
@@ -57,6 +78,31 @@ function entryId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 }
 
+function fallbackEntryIndex(entryId, prefix) {
+  const match = String(entryId || "").match(new RegExp(`^${prefix}-(\\d+)$`, "i"));
+  if (!match) return -1;
+  const index = Number(match[1]);
+  return Number.isInteger(index) && index >= 0 ? index : -1;
+}
+
+function deleteFromPersonCollection(person, collection, entryId, fallbackPrefix) {
+  const entries = Array.isArray(person[collection]) ? person[collection] : [];
+  const normalizedId = normalize(entryId);
+  let index = entries.findIndex((entry) => normalize(entry?.id) === normalizedId);
+  if (index === -1) {
+    const fallbackIndex = fallbackEntryIndex(entryId, fallbackPrefix);
+    if (fallbackIndex >= 0 && fallbackIndex < entries.length) index = fallbackIndex;
+  }
+  if (index === -1) {
+    const error = new Error("MEOS item niet gevonden.");
+    error.status = 404;
+    throw error;
+  }
+  const [deleted] = entries.splice(index, 1);
+  person[collection] = entries;
+  return deleted || null;
+}
+
 class DemoMeosStore {
   constructor(options = {}) {
     this.people = Array.isArray(options.people) ? clone(options.people) : buildDemoMeosPeople();
@@ -88,11 +134,11 @@ class DemoMeosStore {
   }
 
   async listPeople(options = {}) {
-    const query = normalize(options.query);
+    const query = String(options.query || "");
     const field = options.field || "all";
     const limit = normalizeLimit(options.limit);
     const rows = query
-      ? this.people.filter((person) => personSearchFields(person, field).some((value) => normalize(value).includes(query)))
+      ? this.people.filter((person) => personMatchesSearch(person, field, query))
       : this.people;
     return clone(rows.slice(0, limit));
   }
@@ -105,12 +151,15 @@ class DemoMeosStore {
   findPersonRef(value) {
     const normalized = normalize(value);
     const slug = String(value || "").trim().toLowerCase();
+    const identityQueries = new Set(personSearchQueries(value, "all"));
     return this.people.find((candidate) => {
       return normalize(candidate.id) === normalized
         || slugFromValue(candidate.name).toLowerCase() === slug
         || normalize(candidate.name) === normalized
         || normalize(candidate.bsn) === normalized
-        || normalize(candidate.fingerprint) === normalized;
+        || normalize(candidate.fingerprint) === normalized
+        || identityQueries.has(normalize(candidate.bsn))
+        || identityQueries.has(normalize(candidate.fingerprint));
     }) || null;
   }
 
@@ -198,6 +247,48 @@ class DemoMeosStore {
     };
   }
 
+  async deletePersonRecord(personValue, recordId) {
+    const person = this.findPersonRef(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const deleted = deleteFromPersonCollection(person, "records", recordId, "record");
+    return {
+      deleted: { type: "record", id: recordId, entry: clone(deleted) },
+      person: clone(person)
+    };
+  }
+
+  async deletePersonNote(personValue, noteId) {
+    const person = this.findPersonRef(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const deleted = deleteFromPersonCollection(person, "notes", noteId, "note");
+    return {
+      deleted: { type: "note", id: noteId, entry: clone(deleted) },
+      person: clone(person)
+    };
+  }
+
+  async deletePersonFine(personValue, fineId) {
+    const person = this.findPersonRef(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const deleted = deleteFromPersonCollection(person, "fines", fineId, "fine");
+    return {
+      deleted: { type: "fine", id: fineId, entry: clone(deleted) },
+      person: clone(person)
+    };
+  }
+
   async snapshot() {
     return {
       dataSource: this.source,
@@ -217,6 +308,8 @@ module.exports = {
   DemoMeosStore,
   createDemoMeosStore,
   normalizeLimit,
+  personMatchesSearch,
+  personSearchQueries,
   personSearchFields,
   vehicleSearchFields,
   vehicleSlug

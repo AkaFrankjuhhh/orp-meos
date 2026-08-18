@@ -1,7 +1,7 @@
 "use strict";
 
 const { normalize, slugFromValue } = require("./meos-demo-data");
-const { createDemoMeosStore, normalizeLimit, personSearchFields, vehicleSearchFields } = require("./meos-store-demo");
+const { createDemoMeosStore, normalizeLimit, personMatchesSearch, personSearchQueries, vehicleSearchFields } = require("./meos-store-demo");
 const { createFiveMMeosStore } = require("./meos-store-fivem");
 
 function clone(value) {
@@ -84,12 +84,12 @@ class CachedMeosStore {
   }
 
   async listPeople(options = {}) {
-    const query = normalize(options.query);
+    const query = String(options.query || "");
     const field = options.field || "all";
     const limit = normalizeLimit(options.limit);
     const { people } = await this.snapshot();
     const rows = query
-      ? people.filter((person) => personSearchFields(person, field).some((value) => normalize(value).includes(query)))
+      ? people.filter((person) => personMatchesSearch(person, field, query))
       : people;
     return rows.slice(0, limit);
   }
@@ -97,12 +97,15 @@ class CachedMeosStore {
   async getPerson(value) {
     const normalized = normalize(value);
     const slug = String(value || "").trim().toLowerCase();
+    const identityQueries = new Set(personSearchQueries(value, "all"));
     const { people } = await this.snapshot();
     return people.find((person) => normalize(person.id) === normalized
       || slugFromValue(person.name).toLowerCase() === slug
       || normalize(person.name) === normalized
       || normalize(person.bsn) === normalized
-      || normalize(person.fingerprint) === normalized) || null;
+      || normalize(person.fingerprint) === normalized
+      || identityQueries.has(normalize(person.bsn))
+      || identityQueries.has(normalize(person.fingerprint))) || null;
   }
 
   async listVehicles(options = {}) {
@@ -158,6 +161,39 @@ class CachedMeosStore {
       throw error;
     }
     const result = await this.store.addPersonNote(personValue, note);
+    this.clearCache();
+    return result;
+  }
+
+  async deletePersonRecord(personValue, recordId) {
+    if (typeof this.store.deletePersonRecord !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen strafblad-verwijderingen.");
+      error.status = 501;
+      throw error;
+    }
+    const result = await this.store.deletePersonRecord(personValue, recordId);
+    this.clearCache();
+    return result;
+  }
+
+  async deletePersonNote(personValue, noteId) {
+    if (typeof this.store.deletePersonNote !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen notitie-verwijderingen.");
+      error.status = 501;
+      throw error;
+    }
+    const result = await this.store.deletePersonNote(personValue, noteId);
+    this.clearCache();
+    return result;
+  }
+
+  async deletePersonFine(personValue, fineId) {
+    if (typeof this.store.deletePersonFine !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen boete-verwijderingen.");
+      error.status = 501;
+      throw error;
+    }
+    const result = await this.store.deletePersonFine(personValue, fineId);
     this.clearCache();
     return result;
   }
