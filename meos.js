@@ -1013,6 +1013,33 @@
     return allVehicles().find((vehicle) => vehicleSlug(vehicle).toLowerCase() === normalizedSlug || normalize(vehicle.plate) === normalize(normalizedSlug)) || null;
   }
 
+  function vehicleOwnerPerson(vehicle) {
+    if (!vehicle) return null;
+    const ownerId = String(vehicle.ownerId || "").trim();
+    if (ownerId) {
+      const byId = people.find((person) => person.id === ownerId);
+      if (byId) return byId;
+    }
+    const ownerName = normalize(vehicle.owner);
+    if (!ownerName) return null;
+    return people.find((person) => normalize(person.name) === ownerName) || null;
+  }
+
+  function renderVehicleOwnerField(vehicle) {
+    const owner = vehicleOwnerPerson(vehicle);
+    const ownerName = vehicle.owner || owner?.name || "-";
+    if (!owner) return `<strong>${escapeHtml(ownerName)}</strong>`;
+    return `
+      <button
+        class="meos-info-link"
+        type="button"
+        data-open-profile="${escapeHtml(owner.id)}"
+        data-open-profile-vehicle="${escapeHtml(vehicle.plate)}"
+        aria-label="Persoonsprofiel openen ${escapeHtml(owner.name)}"
+      >${escapeHtml(ownerName)}</button>
+    `;
+  }
+
   function vehicleColor(vehicle) {
     return [
       vehicle.primaryColor,
@@ -1355,7 +1382,7 @@
           </div>
           <div class="meos-info-grid">
             <div class="meos-info-field"><span>Kenteken</span><strong>${escapeHtml(vehicle.plate)}</strong></div>
-            <div class="meos-info-field"><span>Eigenaar</span><strong>${escapeHtml(vehicle.owner)}</strong></div>
+            <div class="meos-info-field"><span>Eigenaar</span>${renderVehicleOwnerField(vehicle)}</div>
             <div class="meos-info-field"><span>Model</span><strong>${escapeHtml(vehicle.model)}</strong></div>
             <div class="meos-info-field"><span>VIN</span><strong>${escapeHtml(vehicle.vin)}</strong></div>
             <div class="meos-info-field"><span>Kleur van voertuig</span><strong>${escapeHtml(vehicleColor(vehicle))}</strong></div>
@@ -1804,9 +1831,13 @@
 
       const openProfile = event.target.closest("[data-open-profile]");
       if (openProfile) {
-        const person = findPerson(openProfile.dataset.openProfile);
-        activeVehiclePlate = person?.vehicles?.[0]?.plate || "";
-        renderProfile(person?.id || openProfile.dataset.openProfile);
+        const personId = openProfile.dataset.openProfile || "";
+        const person = people.find((candidate) => candidate.id === personId) || findPersonBySlug(personId);
+        if (!person) return;
+        const contextVehicle = openProfile.dataset.openProfileVehicle || "";
+        const ownsContextVehicle = contextVehicle && (person.vehicles || []).some((vehicle) => normalize(vehicle.plate) === normalize(contextVehicle));
+        activeVehiclePlate = ownsContextVehicle ? contextVehicle : person.vehicles?.[0]?.plate || "";
+        renderProfile(person.id);
         return;
       }
 

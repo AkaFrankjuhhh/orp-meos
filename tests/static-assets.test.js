@@ -144,8 +144,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosProfileLogout"/);
   assert.match(html, /id="meosRecordModal"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
-  assert.match(html, /meos\.css\?v=20260818-audit-timeline-fivem/);
-  assert.match(html, /meos\.js\?v=20260818-audit-timeline-fivem/);
+  assert.match(html, /meos\.css\?v=20260818-owner-profile-link/);
+  assert.match(html, /meos\.js\?v=20260818-owner-profile-link/);
   assert.match(html, /meos-menu-icon/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
@@ -191,6 +191,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-record-actions/);
   assert.match(styles, /\.meos-badge-row/);
   assert.match(styles, /\.meos-timeline/);
+  assert.match(styles, /\.meos-info-link/);
   assert.match(styles, /\.meos-modal-backdrop/);
   assert.match(styles, /\.meos-record-modal/);
   assert.match(styles, /\.meos-wetboek-result/);
@@ -251,6 +252,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(script, /function renderMeosProfile\(/);
   assert.match(script, /function personSlug\(/);
   assert.match(script, /function vehicleSlug\(/);
+  assert.match(script, /function vehicleOwnerPerson\(vehicle\)/);
+  assert.match(script, /function renderVehicleOwnerField\(vehicle\)/);
   assert.match(script, /function renderVehicleDetail\(/);
   assert.match(script, /function vehicleStolenDetail\(/);
   assert.doesNotMatch(script, /const basePeople = \[/);
@@ -324,6 +327,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.doesNotMatch(script, /compactProfileName/);
   assert.match(script, /Kenteken/);
   assert.match(script, /Eigenaar/);
+  assert.match(script, /data-open-profile-vehicle/);
+  assert.match(script, /ownsContextVehicle/);
   assert.match(script, /Kleur van voertuig/);
   assert.match(script, /WOK status/);
   assert.match(script, /APK Status/);

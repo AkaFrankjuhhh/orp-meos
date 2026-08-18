@@ -1334,6 +1334,31 @@ html[data-meos-theme="dark"] .meos-record-modal {
   font-weight: 400;
 }
 
+.meos-info-link {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--meos-text);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  transition: color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.meos-info-link:hover,
+.meos-info-link:focus-visible {
+  color: var(--meos-blue);
+  border-bottom-color: var(--meos-blue);
+  outline: none;
+  transform: translateX(2px);
+}
+
 .meos-license-list {
   display: flex;
   flex-wrap: wrap;
