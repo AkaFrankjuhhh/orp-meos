@@ -1062,6 +1062,7 @@ function meosProcessVerbalRelatedFromBody(related = {}) {
   return {
     personId: meosText(related.personId, "PV persoon", { max: 120 }),
     personName: meosText(related.personName, "PV persoon naam", { max: 160 }),
+    personBirthDate: meosText(related.personBirthDate, "PV persoon geboortedatum", { max: 80 }),
     personBsn: meosText(related.personBsn, "PV persoon BSN", { max: 80 }),
     personFingerprint: meosText(related.personFingerprint, "PV persoon vingerafdruk", { max: 80 }),
     vehiclePlate: meosText(related.vehiclePlate, "PV voertuig", { max: 40 }).toUpperCase(),
@@ -1092,6 +1093,7 @@ function meosProcessVerbalFromBody(body = {}, session = null) {
     date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
     location: meosText(body.location, "Locatie", { max: 160 }),
     subjectName: meosText(body.subjectName, "Betrokkene", { max: 160 }),
+    subjectBirthDate: meosText(body.subjectBirthDate, "Geboortedatum", { max: 80 }),
     subjectBsn: meosText(body.subjectBsn, "BSN", { max: 80 }),
     subjectFingerprint: meosText(body.subjectFingerprint, "Vingerafdruk", { max: 80 }),
     summary: meosText(body.summary, "Samenvatting", { max: 1000 }),

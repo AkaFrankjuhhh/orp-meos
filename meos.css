@@ -999,6 +999,24 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
   font-size: 25px;
 }
 
+.meos-profile-pv-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meos-profile-pv-action select {
+  min-width: 150px;
+  border: 1px solid var(--meos-input-border);
+  border-radius: 2px;
+  padding: 9px 10px;
+  color: var(--meos-text);
+  background: var(--meos-input-bg);
+  font-weight: 700;
+}
+
 .meos-entry-form {
   display: grid;
   gap: 12px;
@@ -1755,21 +1773,69 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
   background: var(--meos-input-bg);
 }
 
-.meos-pv-form-block {
+.meos-pv-person-search {
+  position: relative;
+}
+
+.meos-pv-person-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 4;
   display: grid;
-  gap: 10px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--meos-line);
+  gap: 4px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  background: var(--meos-panel-bg);
+  box-shadow: 0 14px 34px rgba(0, 58, 104, 0.18);
 }
 
-.meos-pv-form-block h3 {
-  margin: 0;
-  font-size: 16px;
+html[data-meos-theme="dark"] .meos-pv-person-suggestions {
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
 }
 
-.meos-pv-related-grid {
-  margin-top: 0;
+.meos-pv-person-suggestions[hidden] {
+  display: none;
+}
+
+.meos-pv-person-suggestions button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 9px 10px;
+  color: var(--meos-text);
+  background: transparent;
+  text-align: left;
+}
+
+.meos-pv-person-suggestions button:hover,
+.meos-pv-person-suggestions button:focus-visible {
+  border-color: var(--meos-blue);
+  background: var(--meos-subtle-bg);
+  outline: none;
+}
+
+.meos-pv-person-suggestions span {
+  color: var(--meos-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.meos-pv-modal .meos-pv-form {
+  display: grid;
+  gap: 12px;
+}
+
+.meos-pv-modal-body {
+  min-height: 0;
+  padding: 16px 18px;
+  overflow: auto;
 }
 
 .meos-pv-preview-block {

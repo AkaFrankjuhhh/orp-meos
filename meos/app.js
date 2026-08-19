@@ -166,6 +166,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     activeType: "bevindingen",
     editingId: "",
     supplementSource: null,
+    prefillPersonId: "",
     scope: "mine",
     author: "",
     query: "",
@@ -1193,6 +1194,12 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     return people.find((person) => person.id === id) || people[0] || null;
   }
 
+  function findPersonStrict(id) {
+    const personId = String(id || "").trim();
+    if (!personId) return null;
+    return people.find((person) => person.id === personId) || null;
+  }
+
   function findPersonBySlug(slug) {
     const normalizedSlug = String(slug || "").trim().toLowerCase();
     return people.find((person) => personSlug(person).toLowerCase() === normalizedSlug || person.id.toLowerCase() === normalizedSlug) || null;
@@ -1501,6 +1508,18 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     `).join("")}</div>`;
   }
 
+  function renderProfileProcessVerbalAction(person) {
+    if (!canWriteMeosEntries()) return "";
+    return `
+      <div class="meos-profile-pv-action">
+        <select data-profile-pv-type aria-label="PV type kiezen">
+          ${Object.entries(processVerbalTypes).map(([key, config]) => `<option value="${escapeHtml(key)}">${escapeHtml(config.shortLabel)}</option>`).join("")}
+        </select>
+        <button class="meos-primary" type="button" data-create-profile-pv="${escapeHtml(person.id)}">Maak PV</button>
+      </div>
+    `;
+  }
+
   function entryIdentifier(entry, type, index) {
     return String(entry?.id || `${type}-${index}`).trim();
   }
@@ -1645,6 +1664,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         <article class="meos-panel">
           <div class="meos-card-title">
             <h2 id="profileTitle">Persoon ${escapeHtml(profileTitle)}</h2>
+            ${renderProfileProcessVerbalAction(person)}
           </div>
           <div class="meos-info-grid">
             <div class="meos-info-field"><span>Geslacht</span><strong>${escapeHtml(person.gender)}</strong></div>
@@ -1838,11 +1858,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
   function processVerbalRelatedLines(related = {}) {
     return [
-      related.parentProcessVerbalId ? ["Aanvullend op", `${related.parentProcessVerbalId}${related.parentProcessVerbalTitle ? ` - ${related.parentProcessVerbalTitle}` : ""}`] : null,
-      related.personName ? ["Persoon", [related.personName, related.personBsn, related.personFingerprint].filter(Boolean).join(" - ")] : null,
-      related.vehiclePlate ? ["Voertuig", [related.vehiclePlate, related.vehicleLabel].filter(Boolean).join(" - ")] : null,
-      related.warrantId ? ["ArrestatieBevel", [related.warrantId, related.warrantLabel].filter(Boolean).join(" - ")] : null,
-      related.entryId ? ["Registratie", [related.entryType, related.entryLabel].filter(Boolean).join(" - ")] : null
+      related.parentProcessVerbalId ? ["Aanvullend op", `${related.parentProcessVerbalId}${related.parentProcessVerbalTitle ? ` - ${related.parentProcessVerbalTitle}` : ""}`] : null
     ].filter(Boolean);
   }
 
@@ -1850,57 +1866,84 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     return processVerbalRelatedLines(row.related || {}).map(([label, value]) => `${label}: ${value}`).join(" | ");
   }
 
-  function processVerbalEntryId(entry, type, index) {
-    return entryIdentifier(entry, type, index);
+  function processVerbalPersonLabel(person) {
+    if (!person) return "";
+    return [person.name, person.bsn, person.fingerprint, person.birthDate].filter(Boolean).join(" - ");
   }
 
-  function processVerbalEntryOptions() {
-    return people.flatMap((person) => [
-      ...(person.records || []).map((record, index) => ({
-        value: `record::${person.id}::${processVerbalEntryId(record, "record", index)}`,
-        label: `${person.name} - Strafblad - ${record.date || ""} - ${record.sanction || "PV"}`
-      })),
-      ...(person.notes || []).map((note, index) => ({
-        value: `note::${person.id}::${processVerbalEntryId(note, "note", index)}`,
-        label: `${person.name} - Notitie - ${note.date || ""} - ${note.author || "MEOS"}`
-      }))
-    ]).slice(0, 160);
+  function processVerbalPersonFromSearch(value = "") {
+    const raw = String(value || "").trim();
+    if (!raw) return null;
+    const normalizedValue = normalize(raw);
+    const digits = raw.replace(/\D/g, "");
+    return people.find((person) => {
+      const exactFields = [
+        person.id,
+        person.name,
+        person.bsn,
+        person.fingerprint,
+        person.birthDate,
+        processVerbalPersonLabel(person)
+      ];
+      if (exactFields.some((field) => normalize(field) === normalizedValue)) return true;
+      if (digits.length >= 4) {
+        return [person.bsn, person.fingerprint]
+          .some((field) => String(field || "").replace(/\D/g, "") === digits);
+      }
+      return false;
+    }) || null;
   }
 
-  function parseProcessVerbalEntryValue(value = "") {
-    const [entryType, personId, entryId] = String(value || "").split("::");
-    if (!entryType || !personId || !entryId) return null;
-    const person = findPerson(personId);
-    if (!person) return null;
-    const collection = entryType === "note" ? person.notes || [] : person.records || [];
-    const entry = collection.find((item, index) => processVerbalEntryId(item, entryType, index) === entryId);
-    if (!entry) return null;
-    return {
-      entryType,
-      entryId,
-      entryLabel: entryType === "note"
-        ? `${person.name} - Notitie - ${entry.date || ""} - ${entry.author || "MEOS"}`
-        : `${person.name} - Strafblad - ${entry.date || ""} - ${entry.sanction || "PV"}`
-    };
+  function processVerbalPersonSuggestions(query = "") {
+    const raw = String(query || "").trim();
+    if (!raw) return [];
+    const exact = processVerbalPersonFromSearch(raw);
+    if (exact) return [];
+    return people
+      .filter((person) => personMatchesSearch(person, "all", raw))
+      .slice(0, 8);
   }
 
-  function processVerbalRelatedFromForm(data = {}) {
-    const person = findPerson(data.relatedPersonId);
-    const vehicle = findVehicle(data.relatedVehiclePlate);
-    const warrant = activeArrestWarrants().find((item) => item.id === data.relatedWarrantId);
-    const entry = parseProcessVerbalEntryValue(data.relatedEntry);
+  function processVerbalPersonFromFormData(data = {}) {
+    return findPersonStrict(data.relatedPersonId)
+      || processVerbalPersonFromSearch(data.subjectName)
+      || processVerbalPersonFromSearch(data.subjectBsn)
+      || processVerbalPersonFromSearch(data.subjectFingerprint)
+      || processVerbalPersonFromSearch(data.subjectBirthDate);
+  }
+
+  function processVerbalRelatedForPerson(person = null, extra = {}) {
     return {
       personId: person?.id || "",
       personName: person?.name || "",
+      personBirthDate: person?.birthDate || "",
       personBsn: person?.bsn || "",
       personFingerprint: person?.fingerprint || "",
-      vehiclePlate: vehicle?.plate || "",
-      vehicleLabel: vehicle ? `${vehicle.model || "Voertuig"} - ${vehicle.owner || ""}`.trim() : "",
-      warrantId: warrant?.id || "",
-      warrantLabel: warrant ? `${warrant.person?.name || ""} - ${warrant.reason || warrant.priority || ""}`.trim() : "",
-      entryType: entry?.entryType || "",
-      entryId: entry?.entryId || "",
-      entryLabel: entry?.entryLabel || "",
+      parentProcessVerbalId: extra.parentProcessVerbalId || "",
+      parentProcessVerbalTitle: extra.parentProcessVerbalTitle || ""
+    };
+  }
+
+  function processVerbalFieldDefaultsForPerson(type, person = null) {
+    if (!person) return {};
+    const detail = [person.name, person.bsn, person.fingerprint, person.birthDate ? `geb. ${person.birthDate}` : ""]
+      .filter(Boolean)
+      .join(" - ");
+    const defaults = {
+      bevindingen: { betrokkenen: detail },
+      aanhouding: { suspectName: person.name },
+      verhoor: { heardPerson: person.name },
+      inbeslagneming: { seizedFrom: detail },
+      aangifte: { reporterName: person.name, victimName: person.name },
+      relaas: { suspectName: person.name }
+    };
+    return defaults[type] || {};
+  }
+
+  function processVerbalRelatedFromForm(data = {}) {
+    const person = processVerbalPersonFromFormData(data);
+    return {
+      ...processVerbalRelatedForPerson(person),
       parentProcessVerbalId: data.parentProcessVerbalId || "",
       parentProcessVerbalTitle: data.parentProcessVerbalTitle || ""
     };
@@ -1911,11 +1954,15 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     const config = processVerbalConfig(type);
     const createdBy = row?.createdBy || currentMeosProfile || defaultMeosProfile;
     const supplement = !row && processVerbalState.supplementSource;
+    const prefillPerson = !row && processVerbalState.prefillPersonId ? findPersonStrict(processVerbalState.prefillPersonId) : null;
     const supplementalRelated = supplement ? {
       ...(supplement.related || {}),
       parentProcessVerbalId: supplement.id || "",
       parentProcessVerbalTitle: supplement.title || supplement.typeLabel || ""
     } : null;
+    const prefillRelated = prefillPerson ? processVerbalRelatedForPerson(prefillPerson) : null;
+    const related = row?.related || supplementalRelated || prefillRelated || {};
+    const defaultFields = processVerbalFieldDefaultsForPerson(type, prefillPerson);
     return {
       id: row?.id || "",
       type,
@@ -1924,12 +1971,13 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       status: row?.status || "concept",
       date: row?.date || todayMeosDate(),
       location: row?.location || "",
-      subjectName: row?.subjectName || supplementalRelated?.personName || "",
-      subjectBsn: row?.subjectBsn || supplementalRelated?.personBsn || "",
-      subjectFingerprint: row?.subjectFingerprint || supplementalRelated?.personFingerprint || "",
+      subjectName: row?.subjectName || related.personName || "",
+      subjectBirthDate: row?.subjectBirthDate || related.personBirthDate || "",
+      subjectBsn: row?.subjectBsn || related.personBsn || "",
+      subjectFingerprint: row?.subjectFingerprint || related.personFingerprint || "",
       summary: row?.summary || (supplement ? `Aanvullend op PV ${supplement.id || ""}: ${supplement.title || supplement.typeLabel || ""}`.trim() : ""),
-      fields: row?.fields || {},
-      related: row?.related || supplementalRelated || {},
+      fields: row?.fields || defaultFields,
+      related,
       document: row?.document || "",
       createdBy
     };
@@ -1953,6 +2001,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       date: data.date || todayMeosDate(),
       location: data.location || "",
       subjectName: data.subjectName || linkedPerson?.name || "",
+      subjectBirthDate: data.subjectBirthDate || linkedPerson?.birthDate || "",
       subjectBsn: data.subjectBsn || linkedPerson?.bsn || "",
       subjectFingerprint: data.subjectFingerprint || linkedPerson?.fingerprint || "",
       summary: data.summary || "",
@@ -1992,6 +2041,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     ].filter(Boolean);
     const subject = [
       draft.subjectName ? `Betrokkene: ${draft.subjectName}` : "",
+      draft.subjectBirthDate ? `Geboortedatum: ${draft.subjectBirthDate}` : "",
       draft.subjectBsn ? `BSN: ${draft.subjectBsn}` : "",
       draft.subjectFingerprint ? `Vingerafdruk: ${draft.subjectFingerprint}` : ""
     ].filter(Boolean);
@@ -2084,13 +2134,22 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     `;
   }
 
-  function renderProcessVerbalRelatedForm(draft, readonly) {
+  function renderProcessVerbalPersonSuggestions(query, selectedPersonId = "", readonly = false) {
+    const suggestions = readonly ? [] : processVerbalPersonSuggestions(query)
+      .filter((person) => person.id !== selectedPersonId);
+    if (!suggestions.length) return '<div class="meos-pv-person-suggestions" data-pv-person-suggestions hidden></div>';
+    return `<div class="meos-pv-person-suggestions" data-pv-person-suggestions>
+      ${suggestions.map((person) => `
+        <button type="button" data-pv-person-select="${escapeHtml(person.id)}">
+          <strong>${escapeHtml(person.name)}</strong>
+          <span>${escapeHtml([person.bsn, person.fingerprint, person.birthDate].filter(Boolean).join(" - "))}</span>
+        </button>
+      `).join("")}
+    </div>`;
+  }
+
+  function renderProcessVerbalPersonSearch(draft, readonly) {
     const related = draft.related || {};
-    const selectedEntry = related.entryId ? `${related.entryType || "record"}::${related.personId || ""}::${related.entryId}` : "";
-    const personOptions = people.map((person) => `<option value="${escapeHtml(person.id)}" ${related.personId === person.id ? "selected" : ""}>${escapeHtml(`${person.name} - ${person.bsn} - ${person.fingerprint}`)}</option>`).join("");
-    const vehicleOptions = allVehicles().map((vehicle) => `<option value="${escapeHtml(vehicle.plate)}" ${related.vehiclePlate === vehicle.plate ? "selected" : ""}>${escapeHtml(`${vehicle.plate} - ${vehicle.model} - ${vehicle.owner}`)}</option>`).join("");
-    const warrantOptions = activeArrestWarrants().map((warrant) => `<option value="${escapeHtml(warrant.id || "")}" ${related.warrantId === warrant.id ? "selected" : ""}>${escapeHtml(`${warrant.id || "ArrestatieBevel"} - ${warrant.person?.name || ""} - ${warrant.reason || ""}`)}</option>`).join("");
-    const entryOptions = processVerbalEntryOptions().map((entry) => `<option value="${escapeHtml(entry.value)}" ${selectedEntry === entry.value ? "selected" : ""}>${escapeHtml(entry.label)}</option>`).join("");
     const parentLine = related.parentProcessVerbalId ? `
       <label class="wide">
         <span>Aanvullend op</span>
@@ -2100,37 +2159,13 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       </label>
     ` : "";
     return `
-      <div class="meos-form-grid meos-pv-related-grid">
-        ${parentLine}
-        <label>
-          <span>Gekoppelde persoon</span>
-          <select name="relatedPersonId" ${readonly ? "disabled" : ""}>
-            <option value="">Geen persoon koppelen</option>
-            ${personOptions}
-          </select>
-        </label>
-        <label>
-          <span>Gekoppeld voertuig</span>
-          <select name="relatedVehiclePlate" ${readonly ? "disabled" : ""}>
-            <option value="">Geen voertuig koppelen</option>
-            ${vehicleOptions}
-          </select>
-        </label>
-        <label>
-          <span>ArrestatieBevel</span>
-          <select name="relatedWarrantId" ${readonly ? "disabled" : ""}>
-            <option value="">Geen arrestatiebevel koppelen</option>
-            ${warrantOptions}
-          </select>
-        </label>
-        <label>
-          <span>Strafblad / notitie</span>
-          <select name="relatedEntry" ${readonly ? "disabled" : ""}>
-            <option value="">Geen registratie koppelen</option>
-            ${entryOptions}
-          </select>
-        </label>
-      </div>
+      ${parentLine}
+      <label class="wide meos-pv-person-search">
+        <span>Betrokkene zoeken</span>
+        <input name="subjectName" data-pv-person-search type="search" value="${escapeHtml(draft.subjectName)}" maxlength="160" placeholder="Naam, ORP-BSN-... of ORP-V-..." autocomplete="off" ${readonly ? "disabled" : ""} />
+        <input name="relatedPersonId" type="hidden" value="${escapeHtml(related.personId || "")}" />
+        ${renderProcessVerbalPersonSuggestions(draft.subjectName, related.personId || "", readonly)}
+      </label>
     `;
   }
 
@@ -2160,27 +2195,24 @@ import { renderDataHealthHtml } from "./pages/databron.js";
             <span>Locatie</span>
             <input name="location" type="text" value="${escapeHtml(draft.location)}" maxlength="160" ${readonly ? "disabled" : ""} />
           </label>
+          ${renderProcessVerbalPersonSearch(draft, readonly)}
           <label>
-            <span>Betrokkene</span>
-            <input name="subjectName" type="text" value="${escapeHtml(draft.subjectName)}" maxlength="160" placeholder="Naam speler of verdachte" ${readonly ? "disabled" : ""} />
+            <span>Geboortedatum</span>
+            <input name="subjectBirthDate" data-pv-person-identity type="text" value="${escapeHtml(draft.subjectBirthDate)}" maxlength="80" placeholder="Bijv. 17-03-1945" ${readonly ? "disabled" : ""} />
           </label>
           <label>
             <span>BSN</span>
-            <input name="subjectBsn" type="text" value="${escapeHtml(draft.subjectBsn)}" maxlength="80" placeholder="ORP-BSN-..." ${readonly ? "disabled" : ""} />
+            <input name="subjectBsn" data-pv-person-identity type="text" value="${escapeHtml(draft.subjectBsn)}" maxlength="80" placeholder="ORP-BSN-..." ${readonly ? "disabled" : ""} />
           </label>
           <label>
             <span>Vingerafdruk</span>
-            <input name="subjectFingerprint" type="text" value="${escapeHtml(draft.subjectFingerprint)}" maxlength="80" placeholder="ORP-V-..." ${readonly ? "disabled" : ""} />
+            <input name="subjectFingerprint" data-pv-person-identity type="text" value="${escapeHtml(draft.subjectFingerprint)}" maxlength="80" placeholder="ORP-V-..." ${readonly ? "disabled" : ""} />
           </label>
           <label class="wide">
             <span>Samenvatting</span>
             <textarea name="summary" rows="3" maxlength="1000" placeholder="Korte zakelijke samenvatting van dit PV." ${readonly ? "disabled" : ""}>${escapeHtml(draft.summary)}</textarea>
           </label>
           ${config.fields.map((field) => renderProcessVerbalFieldInput(draft, field, readonly)).join("")}
-        </div>
-        <div class="meos-pv-form-block">
-          <h3>Koppelingen</h3>
-          ${renderProcessVerbalRelatedForm(draft, readonly)}
         </div>
         <p class="meos-form-error" data-form-error ${processVerbalState.formError ? "" : "hidden"}>${escapeHtml(processVerbalState.formError)}</p>
         <div class="meos-pv-preview-block">
@@ -2197,6 +2229,60 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         </div>
       </form>
     `;
+  }
+
+  function renderProcessVerbalModal() {
+    const modal = $("#meosProcessVerbalModal");
+    if (!modal || !processVerbalState.prefillPersonId) return;
+    const person = findPersonStrict(processVerbalState.prefillPersonId);
+    const config = processVerbalConfig(processVerbalState.activeType);
+    modal.innerHTML = `
+      <section class="meos-record-modal meos-pv-modal" role="dialog" aria-modal="true" aria-labelledby="meosProcessVerbalModalTitle">
+        <header class="meos-record-modal-head">
+          <div>
+            <p>Proces Verbaal</p>
+            <h2 id="meosProcessVerbalModalTitle">${escapeHtml(config.label)}${person ? ` voor ${escapeHtml(person.name)}` : ""}</h2>
+          </div>
+          <button class="meos-secondary muted" type="button" data-close-process-verbal-modal>Sluiten</button>
+        </header>
+        <div class="meos-pv-modal-body">
+          ${renderProcessVerbalForm()}
+        </div>
+      </section>
+    `;
+    modal.hidden = false;
+    document.body.classList.add("meos-modal-open");
+    const search = $("[data-pv-person-search]", modal);
+    if (search) search.focus();
+  }
+
+  function openProfileProcessVerbal(personId, type = "bevindingen") {
+    if (!canWriteMeosEntries()) {
+      window.alert("Je MEOS rol mag geen processen-verbaal opmaken.");
+      return;
+    }
+    const person = findPersonStrict(personId);
+    if (!person) return;
+    processVerbalState.activeType = processVerbalTypes[type] ? type : "bevindingen";
+    processVerbalState.editingId = "";
+    processVerbalState.supplementSource = null;
+    processVerbalState.prefillPersonId = person.id;
+    processVerbalState.formError = "";
+    renderProcessVerbalModal();
+  }
+
+  function closeProcessVerbalModal() {
+    const modal = $("#meosProcessVerbalModal");
+    if (modal) {
+      modal.hidden = true;
+      modal.innerHTML = "";
+    }
+    processVerbalState.prefillPersonId = "";
+    processVerbalState.formError = "";
+    processVerbalState.busy = false;
+    if ($("#meosRecordModal")?.hidden !== false) {
+      document.body.classList.remove("meos-modal-open");
+    }
   }
 
   function renderProcessVerbalRows() {
@@ -2349,16 +2435,62 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     </div>`;
   }
 
-  function updateProcessVerbalPreview() {
-    const form = $("[data-process-verbal-form]");
-    const preview = $("#processVerbalPreview");
-    if (!form || !preview) return;
-    preview.textContent = composeProcessVerbalDocument(processVerbalDraftFromForm(form, "concept"));
+  function processVerbalFormField(form, name) {
+    return form?.elements?.[name] || $(`[name="${name}"]`, form);
   }
 
-  function setProcessVerbalBusy(busy) {
+  function setProcessVerbalFieldValue(form, name, value, overwrite = true) {
+    const field = processVerbalFormField(form, name);
+    if (!field || (!overwrite && String(field.value || "").trim())) return;
+    field.value = value || "";
+  }
+
+  function fillProcessVerbalPersonFields(form, person, overwrite = true) {
+    if (!form || !person) return;
+    setProcessVerbalFieldValue(form, "relatedPersonId", person.id, true);
+    setProcessVerbalFieldValue(form, "subjectName", person.name, overwrite);
+    setProcessVerbalFieldValue(form, "subjectBirthDate", person.birthDate, overwrite);
+    setProcessVerbalFieldValue(form, "subjectBsn", person.bsn, overwrite);
+    setProcessVerbalFieldValue(form, "subjectFingerprint", person.fingerprint, overwrite);
+    const defaults = processVerbalFieldDefaultsForPerson(processVerbalState.activeType, person);
+    Object.entries(defaults).forEach(([name, value]) => setProcessVerbalFieldValue(form, name, value, false));
+  }
+
+  function renderPersonSuggestionsForInput(input) {
+    const form = input?.closest?.("[data-process-verbal-form]");
+    const target = form ? $("[data-pv-person-suggestions]", form) : null;
+    if (!target) return;
+    const query = input.value || "";
+    const selectedId = processVerbalFormField(form, "relatedPersonId")?.value || "";
+    target.outerHTML = renderProcessVerbalPersonSuggestions(query, selectedId, input.disabled);
+  }
+
+  function syncProcessVerbalPersonFromInput(input) {
+    const form = input?.closest?.("[data-process-verbal-form]");
+    if (!form) return;
+    const data = formPayload(form);
+    const person = processVerbalPersonFromFormData(data);
+    if (person) {
+      fillProcessVerbalPersonFields(form, person);
+    } else if (input.matches?.("[data-pv-person-search]")) {
+      setProcessVerbalFieldValue(form, "relatedPersonId", "", true);
+    }
+    const search = $("[data-pv-person-search]", form);
+    if (search) renderPersonSuggestionsForInput(search);
+    updateProcessVerbalPreview(form);
+  }
+
+  function updateProcessVerbalPreview(form = null) {
+    form = form || $("[data-process-verbal-form]");
+    const preview = $("#processVerbalPreview");
+    const scopedPreview = form ? $("#processVerbalPreview", form) : preview;
+    if (!form || !scopedPreview) return;
+    scopedPreview.textContent = composeProcessVerbalDocument(processVerbalDraftFromForm(form, "concept"));
+  }
+
+  function setProcessVerbalBusy(busy, form = null) {
     processVerbalState.busy = busy;
-    const form = $("[data-process-verbal-form]");
+    form = form || $("[data-process-verbal-form]");
     if (!form) return;
     $$("button, input, textarea, select", form).forEach((element) => {
       element.disabled = busy;
@@ -2370,13 +2502,14 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     processVerbalState.supplementSource = row;
     processVerbalState.editingId = "";
     processVerbalState.activeType = row.type || "bevindingen";
+    processVerbalState.prefillPersonId = "";
     processVerbalState.formError = "";
     setPage("proces-verbaal");
     renderProcessVerbalView();
   }
 
-  function exportProcessVerbalPdf(row = null) {
-    const draft = row || processVerbalDraftFromForm($("[data-process-verbal-form]") || document.createElement("form"), "concept");
+  function exportProcessVerbalPdf(row = null, form = null) {
+    const draft = row || processVerbalDraftFromForm(form || $("[data-process-verbal-form]") || document.createElement("form"), "concept");
     const title = String(draft.title || draft.typeLabel || "proces-verbaal").replace(/[^\w\s.-]+/g, "").trim() || "proces-verbaal";
     const documentText = draft.document || composeProcessVerbalDocument(draft);
     const exportWindow = window.open("", "_blank", "width=900,height=1100");
@@ -2413,12 +2546,13 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     setTimeout(() => exportWindow.print(), 250);
   }
 
-  async function submitProcessVerbal(status = "concept") {
-    const form = $("[data-process-verbal-form]");
+  async function submitProcessVerbal(status = "concept", form = null) {
+    form = form || $("[data-process-verbal-form]");
     if (!form) return;
     if (status === "definitief" && !window.confirm("Definitief opslaan? Dit PV kan daarna niet meer worden gewijzigd.")) return;
     processVerbalState.formError = "";
-    setProcessVerbalBusy(true);
+    const isModalForm = Boolean(form.closest("#meosProcessVerbalModal"));
+    setProcessVerbalBusy(true, form);
     try {
       const body = processVerbalDraftFromForm(form, status);
       const id = form.dataset.processVerbalId || "";
@@ -2429,14 +2563,20 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       processVerbalState.editingId = payload.processVerbal?.id || "";
       processVerbalState.activeType = payload.processVerbal?.type || processVerbalState.activeType;
       processVerbalState.supplementSource = null;
+      processVerbalState.prefillPersonId = "";
       processVerbalState.loaded = false;
       processVerbalState.relatedLoaded = false;
       await loadProcessVerbals(true);
+      if (isModalForm) {
+        closeProcessVerbalModal();
+        loadRelatedProcessVerbals(true);
+      }
     } catch (error) {
       processVerbalState.formError = error.message || "Proces-verbaal opslaan is mislukt.";
-      renderProcessVerbalView();
+      if (isModalForm) renderProcessVerbalModal();
+      else renderProcessVerbalView();
     } finally {
-      setProcessVerbalBusy(false);
+      setProcessVerbalBusy(false, form);
     }
   }
 
@@ -2600,6 +2740,11 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         return;
       }
 
+      if (event.key === "Escape" && $("#meosProcessVerbalModal") && !$("#meosProcessVerbalModal").hidden) {
+        closeProcessVerbalModal();
+        return;
+      }
+
       if (event.key === "Escape" && $("#meosRecordModal") && !$("#meosRecordModal").hidden) {
         closeWetboekRecordModal();
         return;
@@ -2649,10 +2794,29 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         return;
       }
 
+      const createProfilePv = event.target.closest("[data-create-profile-pv]");
+      if (createProfilePv) {
+        const container = createProfilePv.closest(".meos-profile-pv-action");
+        const type = $("[data-profile-pv-type]", container)?.value || "bevindingen";
+        openProfileProcessVerbal(createProfilePv.dataset.createProfilePv || activePersonId, type);
+        return;
+      }
+
+      const selectPvPerson = event.target.closest("[data-pv-person-select]");
+      if (selectPvPerson) {
+        const form = selectPvPerson.closest("[data-process-verbal-form]");
+        const person = findPersonStrict(selectPvPerson.dataset.pvPersonSelect);
+        fillProcessVerbalPersonFields(form, person);
+        const suggestions = form ? $("[data-pv-person-suggestions]", form) : null;
+        if (suggestions) suggestions.hidden = true;
+        updateProcessVerbalPreview(form);
+        return;
+      }
+
       const exportProcessVerbal = event.target.closest("[data-export-process-verbal]");
       if (exportProcessVerbal) {
         const rowId = exportProcessVerbal.dataset.exportProcessVerbal || processVerbalState.editingId || "";
-        exportProcessVerbalPdf(rowId ? processVerbalById(rowId) : null);
+        exportProcessVerbalPdf(rowId ? processVerbalById(rowId) : null, exportProcessVerbal.closest("[data-process-verbal-form]"));
         return;
       }
 
@@ -2670,6 +2834,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         processVerbalState.editingId = row.id;
         processVerbalState.activeType = row.type || processVerbalState.activeType;
         processVerbalState.supplementSource = null;
+        processVerbalState.prefillPersonId = "";
         processVerbalState.formError = "";
         setPage("proces-verbaal");
         renderProcessVerbalView();
@@ -2705,6 +2870,11 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
       if (event.target.closest("[data-close-record-modal]") || event.target.id === "meosRecordModal") {
         closeWetboekRecordModal();
+        return;
+      }
+
+      if (event.target.closest("[data-close-process-verbal-modal]") || event.target.id === "meosProcessVerbalModal") {
+        closeProcessVerbalModal();
         return;
       }
 
@@ -2779,6 +2949,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         processVerbalState.activeType = selectProcessVerbalType.dataset.pvSelectType || "bevindingen";
         processVerbalState.editingId = "";
         processVerbalState.supplementSource = null;
+        processVerbalState.prefillPersonId = "";
         processVerbalState.formError = "";
         renderProcessVerbalView();
         return;
@@ -2787,6 +2958,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       if (event.target.closest("[data-pv-new]")) {
         processVerbalState.editingId = "";
         processVerbalState.supplementSource = null;
+        processVerbalState.prefillPersonId = "";
         processVerbalState.formError = "";
         renderProcessVerbalView();
         return;
@@ -2794,7 +2966,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
       const saveProcessVerbal = event.target.closest("[data-save-process-verbal]");
       if (saveProcessVerbal) {
-        submitProcessVerbal(saveProcessVerbal.dataset.saveProcessVerbal || "concept");
+        submitProcessVerbal(saveProcessVerbal.dataset.saveProcessVerbal || "concept", saveProcessVerbal.closest("[data-process-verbal-form]"));
         return;
       }
 
@@ -2819,7 +2991,14 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
     document.addEventListener("input", (event) => {
       handleWetboekRecordInput(event);
-      if (event.target.closest?.("[data-process-verbal-form]")) updateProcessVerbalPreview();
+      if (event.target.matches?.("[data-pv-person-search]")) {
+        renderPersonSuggestionsForInput(event.target);
+      }
+      if (event.target.matches?.("[data-pv-person-search], [data-pv-person-identity]")) {
+        syncProcessVerbalPersonFromInput(event.target);
+        return;
+      }
+      if (event.target.closest?.("[data-process-verbal-form]")) updateProcessVerbalPreview(event.target.closest("[data-process-verbal-form]"));
       if (event.target.matches?.("[data-pv-author-filter]")) {
         processVerbalState.author = event.target.value || "";
         processVerbalState.loaded = false;
@@ -2833,7 +3012,11 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     });
     document.addEventListener("change", (event) => {
       handleWetboekRecordChange(event);
-      if (event.target.closest?.("[data-process-verbal-form]")) updateProcessVerbalPreview();
+      if (event.target.matches?.("[data-pv-person-search], [data-pv-person-identity]")) {
+        syncProcessVerbalPersonFromInput(event.target);
+        return;
+      }
+      if (event.target.closest?.("[data-process-verbal-form]")) updateProcessVerbalPreview(event.target.closest("[data-process-verbal-form]"));
       if (event.target.matches?.("[data-pv-scope]")) {
         processVerbalState.scope = event.target.value === "all" ? "all" : "mine";
         processVerbalState.loaded = false;

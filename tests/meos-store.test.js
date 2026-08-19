@@ -111,6 +111,7 @@ test("MEOS demo store keeps process-verbaal visibility scoped to the author", as
     related: {
       personId: "ernie-nugz",
       personName: "Ernie Nugz",
+      personBirthDate: "17-03-1945",
       personBsn: "ORP-BSN-44499819",
       personFingerprint: "ORP-V-38445989",
       vehiclePlate: "WFX 403",
@@ -158,6 +159,11 @@ test("MEOS demo store keeps process-verbaal visibility scoped to the author", as
   const linkedRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, query: "WFX 403" });
   assert.equal(linkedRows.length, 1);
   assert.equal(linkedRows[0].related.personId, "ernie-nugz");
+  assert.equal(linkedRows[0].related.personBirthDate, "17-03-1945");
+
+  const birthDateRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, query: "17-03-1945" });
+  assert.equal(birthDateRows.length, 1);
+  assert.equal(birthDateRows[0].related.personId, "ernie-nugz");
 
   const verhoorRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "verhoor" });
   assert.equal(verhoorRows.length, 1);
@@ -325,7 +331,8 @@ test("MEOS FiveM store writes dossier data outside the read-only FiveM views", a
     id: "citizen-1",
     name: "Test Speler",
     bsn: "ORP-BSN-100",
-    fingerprint: "ORP-V-100"
+    fingerprint: "ORP-V-100",
+    birth_date: "01-01-1999"
   })];
   store.loadVehicles = async () => [];
   store.loadWarrants = async () => [];
@@ -361,10 +368,12 @@ test("MEOS FiveM store writes dossier data outside the read-only FiveM views", a
     title: "PV onderzoek live data",
     status: "concept",
     date: "18 aug. 2026",
+    subjectBirthDate: "01-01-1999",
     document: "Concept PV naast read-only FiveM views.",
     related: {
       personId: "citizen-1",
       personName: "Test Speler",
+      personBirthDate: "01-01-1999",
       personBsn: "ORP-BSN-100"
     },
     createdBy: { name: "Frank Bright", serviceNumber: "70-04", discordId: "1" },
@@ -372,6 +381,7 @@ test("MEOS FiveM store writes dossier data outside the read-only FiveM views", a
   });
   assert.equal(processVerbalResult.processVerbal.type, "onderzoek");
   assert.equal(processVerbalResult.processVerbal.related.personId, "citizen-1");
+  assert.equal(processVerbalResult.processVerbal.subjectBirthDate, "01-01-1999");
 
   const ownProcessVerbals = await store.listProcessVerbals({ actorKey: "discord:1" });
   assert.equal(ownProcessVerbals.length, 1);
