@@ -23,6 +23,7 @@ Ze moeten verder zo veel mogelijk eigen routes, eigen frontendcode en eigen styl
 - `modules/porto-routes.js`: alle `/api/porto/...` routes voor profiel, status, OPS, voertuigen, koppels en testtools.
 - `modules/personeelsportaal-routes.js`: alle Defensie Personeelsportaal API-routes voor personeel, profielen, afwezigheid, I8, mentor, W&S, archief, state en logboek.
 - `modules/meos-api-routes.js`: alle `/api/meos/...` routes voor sessie, zoeken, personen, voertuigen, strafbladen, notities, boetes, Wetboek en databronstatus.
+- `modules/meos-normalization.js`: MEOS normalisatie voor ORP-BSN, ORP-V, kenteken en VIN voordat data naar de UI gaat.
 - `modules/meos-store.js`, `modules/meos-store-demo.js`, `modules/meos-store-fivem.js`: MEOS data-adapterlaag voor demo-data en toekomstige FiveM databaseviews.
 
 ## Richting voor verdere opsplitsing

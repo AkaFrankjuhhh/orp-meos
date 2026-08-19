@@ -5,7 +5,7 @@ Deze map bevat browsermodules voor `meos.html`.
 ## Bestanden
 
 - `app.js`: hoofdentrypoint, pagina-routing en schermrendering.
-- `api.js`: JSON calls naar `/api/meos/...`, inclusief login-redirect bij 401.
+- `api.js`: JSON calls naar `/api/meos/...`, inclusief login-redirect bij 401 en CSRF-header voor mutaties.
 - `core.js`: kleine gedeelde browserhelpers zoals DOM-selectors, escaping, normalisatie en PNG-conversie.
 - `pages/databron.js`: rendering voor de KL/Kader-only databronstatus.
 

@@ -17,6 +17,18 @@ MEOS_FIVEM_HOUSING_VIEW=meos_housing_view
 MEOS_FIVEM_WARRANTS_VIEW=meos_arrest_warrants_view
 ```
 
+Controleer de koppeling daarna met:
+
+```bash
+npm run meos:check-db
+```
+
+Voor machineleesbare output:
+
+```bash
+npm run meos:check-db -- --json
+```
+
 ## KL/Kader healthcheck
 
 De MEOS pagina `/databron` en API `/api/meos/data-health` zijn alleen zichtbaar met:
@@ -44,6 +56,12 @@ grant select on meos_arrest_warrants_view to meos_readonly;
 ```
 
 MEOS gebruikt alleen `select` voor FiveM basisdata. Strafbladen, notities en boetes worden opgeslagen in `MEOS_CASE_DATA_PATH`; auditlogs blijven in `MEOS_AUDIT_LOG_PATH`.
+
+MEOS normaliseert server-side:
+
+- BSN naar `ORP-BSN-<cijfers>`
+- vingerafdruk naar `ORP-V-<cijfers>`
+- kentekens en VIN naar hoofdletters
 
 ## View contract
 
@@ -109,3 +127,5 @@ left join players p on p.citizenid = w.citizenid;
 ```
 
 `meos_people_view` en `meos_vehicles_view` zijn verplicht. `meos_housing_view` en `meos_arrest_warrants_view` mogen tijdelijk ontbreken; `/databron` toont ze dan als optioneel missend.
+
+`npm run meos:check-db` gebruikt hetzelfde contract als `/databron`, maar is sneller voor onderhoud op de VPS.

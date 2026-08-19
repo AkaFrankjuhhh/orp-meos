@@ -121,10 +121,13 @@ test("MEOS concept is wired as primary overheid surface", () => {
   const serverCode = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const overheidServerCode = fs.readFileSync(path.join(process.cwd(), "overheid-server.js"), "utf8");
   const meosRoutesCode = fs.readFileSync(path.join(process.cwd(), "modules", "meos-api-routes.js"), "utf8");
+  const meosNormalizationCode = fs.readFileSync(path.join(process.cwd(), "modules", "meos-normalization.js"), "utf8");
   const meosDemoDataCode = fs.readFileSync(path.join(process.cwd(), "modules", "meos-demo-data.js"), "utf8");
   const meosStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "meos-store.js"), "utf8");
   const meosDemoStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "meos-store-demo.js"), "utf8");
   const meosFiveMStoreCode = fs.readFileSync(path.join(process.cwd(), "modules", "meos-store-fivem.js"), "utf8");
+  const meosCheckDbScript = fs.readFileSync(path.join(process.cwd(), "scripts", "meos-check-db.js"), "utf8");
+  const packageJson = fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8");
   const envExample = fs.readFileSync(path.join(process.cwd(), ".env.example"), "utf8");
   const caddy = fs.readFileSync(path.join(process.cwd(), "deploy", "Caddyfile.example"), "utf8");
   const meosFivemDocs = fs.readFileSync(path.join(process.cwd(), "docs", "meos-fivem-database.md"), "utf8");
@@ -161,8 +164,12 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(legacyScript, /import\("\/meos\/app\.js\?v=20260818-meos-modules"\)/);
   assert.match(script, /from "\.\/core\.js"/);
   assert.match(script, /from "\.\/api\.js"/);
+  assert.match(script, /import \{ apiJson, setMeosCsrfToken \} from "\.\/api\.js"/);
   assert.match(script, /from "\.\/pages\/databron\.js"/);
   assert.match(meosDataHealthCode, /export function renderDataHealthHtml/);
+  assert.match(meosApiCode, /export function setMeosCsrfToken/);
+  assert.match(meosApiCode, /"X-MEOS-CSRF"/);
+  assert.match(meosApiCode, /mutationMethods/);
   assert.match(html, /meos-menu-icon/);
   assert.doesNotMatch(html, /meos\.js\?v=20260817-discord-profile/);
   assert.match(styles, /--meos-blue: #005493/);
@@ -228,6 +235,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
   assert.match(meosClientCode, /\/api\/meos\/session/);
   assert.match(meosClientCode, /\/api\/meos\/logout/);
+  assert.match(meosClientCode, /setMeosCsrfToken\(payload\.csrfToken \|\| ""\)/);
   assert.match(meosClientCode, /\/api\/meos\/data/);
   assert.match(meosClientCode, /\/api\/meos\/data-health/);
   assert.match(meosClientCode, /\/api\/meos\/people\/\$\{encodeURIComponent\(personId\)\}\/records/);
@@ -294,6 +302,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosDemoDataCode, /ORP-BSN-\$\{demoNumber/);
   assert.match(meosDemoDataCode, /ORP-V-\$\{demoNumber/);
   assert.match(meosStoreCode, /function createMeosStore\(/);
+  assert.match(meosStoreCode, /normalizePersonIdentity/);
+  assert.match(meosStoreCode, /normalizeVehicleIdentity/);
   assert.match(meosStoreCode, /MEOS_DATA_SOURCE/);
   assert.match(meosStoreCode, /MEOS_CACHE_TTL_MS/);
   assert.match(meosStoreCode, /MEOS_FIVEM_PLAYERS_VIEW/);
@@ -315,6 +325,9 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosDemoStoreCode, /async sourceHealth\(\)/);
   assert.match(meosDemoStoreCode, /deleteFromPersonCollection/);
   assert.match(meosFiveMStoreCode, /class FiveMMeosStore/);
+  assert.match(meosFiveMStoreCode, /normalizeOrpBsn/);
+  assert.match(meosFiveMStoreCode, /normalizeOrpFingerprint/);
+  assert.match(meosFiveMStoreCode, /normalizeVehiclePlate/);
   assert.match(meosFiveMStoreCode, /meos_people_view/);
   assert.match(meosFiveMStoreCode, /meos_vehicles_view/);
   assert.match(meosFiveMStoreCode, /meos_housing_view/);
@@ -330,6 +343,9 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosFiveMStoreCode, /checkViewContract/);
   assert.match(meosFiveMStoreCode, /async sourceHealth\(\)/);
   assert.match(meosFiveMStoreCode, /select count\(\*\)::int as count/);
+  assert.match(meosNormalizationCode, /function normalizeOrpBsn/);
+  assert.match(meosNormalizationCode, /function normalizeOrpFingerprint/);
+  assert.match(meosNormalizationCode, /function normalizeVehiclePlate/);
   assert.match(meosClientCode, /function routeFromLocation\(/);
   assert.match(meosClientCode, /function activeArrestWarrants\(/);
   assert.match(meosClientCode, /function renderWarrantOverview\(/);
@@ -420,6 +436,14 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosServerCode, /MEOS_REQUIRE_PORTAL_IDENTITY/);
   assert.match(meosServerCode, /shouldRejectMutation/);
   assert.match(meosServerCode, /meosRateLimitAllows/);
+  assert.match(meosServerCode, /csrfToken: crypto\.randomBytes\(32\)\.toString\("hex"\)/);
+  assert.match(meosServerCode, /function requireMeosCsrf/);
+  assert.match(meosServerCode, /"x-meos-csrf"/);
+  assert.match(meosServerCode, /crypto\.timingSafeEqual/);
+  assert.match(meosServerCode, /function meosRateLimitIdentity/);
+  assert.match(meosServerCode, /MEOS_MUTATION_USER_RATE_LIMIT_MAX/);
+  assert.match(meosServerCode, /csrfToken: session\?\.csrfToken \|\| ""/);
+  assert.match(meosServerCode, /requireMeosCsrf\(req, session\)/);
   assert.match(meosServerCode, /records\.delete/);
   assert.match(meosServerCode, /notes\.delete/);
   assert.match(meosServerCode, /fines\.add/);
@@ -441,6 +465,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(envExample, /MEOS_WETBOEK_CACHE_TTL_MS=300000/);
   assert.match(envExample, /DISCORD_POLITIE_OVJ_ROLE_ID=1426544463043362937/);
   assert.match(envExample, /MEOS_LOGIN_RATE_LIMIT_MAX=30/);
+  assert.match(envExample, /MEOS_MUTATION_USER_RATE_LIMIT_MAX=60/);
   assert.match(envExample, /MEOS_DATA_SOURCE=demo/);
   assert.match(envExample, /MEOS_FIVEM_DB_DRIVER=postgres/);
   assert.match(envExample, /MEOS_FIVEM_DATABASE_URL=/);
@@ -454,10 +479,17 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(caddy, /redir https:\/\/meos\.orpoverheid\.nl\{uri\} permanent/);
   assert.match(meosFivemDocs, /MEOS FiveM databasekoppeling/);
   assert.match(meosFivemDocs, /create role meos_readonly/);
+  assert.match(meosFivemDocs, /npm run meos:check-db/);
+  assert.match(meosFivemDocs, /ORP-BSN-<cijfers>/);
+  assert.match(meosFivemDocs, /ORP-V-<cijfers>/);
   assert.match(meosFivemDocs, /create or replace view meos_people_view/);
   assert.match(meosFivemDocs, /meos_vehicles_view/);
   assert.match(meosFivemDocs, /MEOS_CASE_DATA_PATH/);
   assert.match(meosFivemDocs, /\/api\/meos\/data-health/);
+  assert.match(packageJson, /"meos:check-db": "node scripts\/meos-check-db\.js"/);
+  assert.match(meosCheckDbScript, /createFiveMMeosStore/);
+  assert.match(meosCheckDbScript, /sourceHealth/);
+  assert.match(meosCheckDbScript, /--json/);
 
   for (const asset of [
     "meos-icon-dashboard.png",

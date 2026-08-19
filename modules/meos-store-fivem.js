@@ -4,6 +4,12 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 
 const { normalize, slugFromValue } = require("./meos-demo-data");
+const {
+  normalizeOrpBsn,
+  normalizeOrpFingerprint,
+  normalizeVehiclePlate,
+  normalizeVehicleVin
+} = require("./meos-normalization");
 const { normalizeLimit, personMatchesSearch, personSearchQueries } = require("./meos-store-demo");
 
 function clone(value) {
@@ -43,8 +49,8 @@ function mapPersonRow(row = {}) {
     id: String(row.id || row.citizenid || row.identifier || slugFromValue(name)).trim(),
     name,
     gender: String(row.gender || row.sex || "-"),
-    bsn: String(row.bsn || row.orp_bsn || row.citizenid || ""),
-    fingerprint: String(row.fingerprint || row.orp_fingerprint || row.identifier || ""),
+    bsn: normalizeOrpBsn(row.bsn || row.orp_bsn || row.citizenid || ""),
+    fingerprint: normalizeOrpFingerprint(row.fingerprint || row.orp_fingerprint || row.identifier || ""),
     birthDate: String(row.birth_date || row.birthDate || row.dateofbirth || ""),
     height: String(row.height || row.length || ""),
     status: String(row.status || row.signalering || "Geen signalering"),
@@ -59,7 +65,7 @@ function mapPersonRow(row = {}) {
 }
 
 function mapVehicleRow(row = {}) {
-  const plate = String(row.plate || row.kenteken || "").trim();
+  const plate = normalizeVehiclePlate(row.plate || row.kenteken || "");
   return {
     plate,
     model: String(row.model || row.vehicle_model || row.voertuig || ""),
@@ -75,7 +81,7 @@ function mapVehicleRow(row = {}) {
     stolenReason: String(row.stolen_reason || row.stolenReason || row.gestolen_reden || ""),
     stolenDate: String(row.stolen_date || row.stolenDate || row.gestolen_datum || ""),
     serviceVehicle: yesNo(row.service_vehicle || row.serviceVehicle || row.dienst_auto),
-    vin: String(row.vin || row.vehicle_id || "")
+    vin: normalizeVehicleVin(row.vin || row.vehicle_id || "")
   };
 }
 

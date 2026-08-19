@@ -1,4 +1,4 @@
-import { apiJson } from "./api.js";
+import { apiJson, setMeosCsrfToken } from "./api.js";
 import {
   $,
   $$,
@@ -174,8 +174,10 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       });
       if (!response.ok) throw new Error(`MEOS sessie ophalen mislukt (${response.status})`);
       const payload = await response.json();
+      setMeosCsrfToken(payload.csrfToken || "");
       renderMeosProfile(payload.profile, Boolean(payload.authenticated));
     } catch {
+      setMeosCsrfToken("");
       renderMeosProfile(defaultMeosProfile, false);
     }
   }
@@ -184,10 +186,8 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     const logout = $("#meosProfileLogout");
     if (logout) logout.disabled = true;
     try {
-      await fetch("/api/meos/logout", {
-        method: "POST",
-        credentials: "same-origin"
-      });
+      await apiJson("/api/meos/logout", { method: "POST" });
+      setMeosCsrfToken("");
       renderMeosProfile(defaultMeosProfile, false);
     } finally {
       if (logout) logout.disabled = false;

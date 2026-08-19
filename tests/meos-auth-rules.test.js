@@ -48,6 +48,12 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /DISCORD_POLITIE_OVJ_ROLE_ID/);
   assert.match(code, /shouldRejectMutation\(req, appBaseUrl\)/);
   assert.match(code, /meosRateLimitAllows/);
+  assert.match(code, /function requireMeosCsrf/);
+  assert.match(code, /function meosRateLimitIdentity/);
+  assert.match(code, /MEOS_MUTATION_USER_RATE_LIMIT_MAX/);
+  assert.match(code, /crypto\.timingSafeEqual/);
+  assert.match(meosServerCode, /csrfToken: session\?\.csrfToken \|\| ""/);
+  assert.match(meosServerCode, /requireMeosCsrf\(req, session\)/);
   assert.match(code, /Geen actief personeelsprofiel gevonden in Defensie of Politie/);
   assert.match(callbackBlock, /matchingRoutesForRoles\(meosRoleRoutes, roles, user\.id\)/);
   assert.match(callbackBlock, /profile\.permissions = meosPermissionsForMember\(roles, profile\.matchedOrganizations \|\| meosOrganizationPriority\(meosMatches\), user\.id\)/);

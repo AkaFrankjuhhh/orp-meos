@@ -139,8 +139,10 @@ Kijk eerst hier:
 - `meos/pages/databron.js`: KL/Kader-only databronstatus.
 - `modules/meos-api-routes.js`: MEOS API-routes.
 - `modules/meos-store.js`: storefactory, cache en fallbackgedrag.
+- `modules/meos-normalization.js`: server-side BSN, vingerafdruk, kenteken en VIN normalisatie.
 - `modules/meos-store-demo.js`: demo/conceptdata.
 - `modules/meos-store-fivem.js`: toekomstige FiveM databaseviews en MEOS dossierbestand.
+- `scripts/meos-check-db.js`: VPS-check voor het FiveM viewcontract.
 - `docs/meos-fivem-database.md`
 - `tests/meos-store.test.js`
 - `tests/meos-auth-rules.test.js`

@@ -5,6 +5,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const { buildDemoMeosPeople } = require(path.join(process.cwd(), "modules", "meos-demo-data"));
+const { normalizeOrpBsn, normalizeOrpFingerprint, normalizeVehiclePlate } = require(path.join(process.cwd(), "modules", "meos-normalization"));
 const { createDemoMeosStore } = require(path.join(process.cwd(), "modules", "meos-store-demo"));
 const { CachedMeosStore, createMeosStore, meosStoreConfigFromEnv } = require(path.join(process.cwd(), "modules", "meos-store"));
 const { createFiveMMeosStore, mapPersonRow, mapVehicleRow, sqlIdentifier } = require(path.join(process.cwd(), "modules", "meos-store-fivem"));
@@ -184,27 +185,34 @@ test("MEOS FiveM scaffold maps view rows to MEOS shape", async () => {
   const person = mapPersonRow({
     citizenid: "citizen-1",
     full_name: "Test Speler",
-    orp_bsn: "ORP-BSN-12345678",
-    orp_fingerprint: "ORP-V-87654321",
+    orp_bsn: "12345678",
+    orp_fingerprint: "87654321",
     birth_date: "01-01-1999",
     licenses: '["Theorie","Auto"]'
   });
   assert.equal(person.id, "citizen-1");
   assert.equal(person.name, "Test Speler");
+  assert.equal(person.bsn, "ORP-BSN-12345678");
+  assert.equal(person.fingerprint, "ORP-V-87654321");
   assert.deepEqual(person.licenses, ["Theorie", "Auto"]);
 
   const vehicle = mapVehicleRow({
-    plate: "ORP-001",
+    plate: "orp-001",
     owner_id: "citizen-1",
     model: "Karin Sultan",
+    vin: "orp-sultan-001",
     wok: true,
     stolen: false,
     apk_status: "Herkeuring nodig"
   });
   assert.equal(vehicle.plate, "ORP-001");
+  assert.equal(vehicle.vin, "ORP-SULTAN-001");
   assert.equal(vehicle.wok, "Ja");
   assert.equal(vehicle.stolen, "Nee");
   assert.equal(vehicle.apkStatus, "Herkeuring nodig");
+  assert.equal(normalizeOrpBsn("44499819"), "ORP-BSN-44499819");
+  assert.equal(normalizeOrpFingerprint("orp-v-38445989"), "ORP-V-38445989");
+  assert.equal(normalizeVehiclePlate(" wfx 403 "), "WFX 403");
 
   const store = createFiveMMeosStore({ driver: "mysql", databaseUrl: "mysql://readonly@example/meos" });
   await assert.rejects(() => store.snapshot(), /mysql2 is nog niet geinstalleerd/);

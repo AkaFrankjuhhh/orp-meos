@@ -122,6 +122,7 @@ function rememberMeosSession(profile) {
   const sessionId = crypto.randomBytes(32).toString("hex");
   meosSessions.set(sessionId, {
     id: sessionId,
+    csrfToken: crypto.randomBytes(32).toString("hex"),
     profile,
     createdAt: new Date().toISOString(),
     expiresAt: Date.now() + meosSessionTtlMs
@@ -168,9 +169,15 @@ function meosClientIp(req) {
     .trim();
 }
 
-function meosRateLimitAllows(req, scope, limit, windowMs) {
+function meosRateLimitIdentity(session) {
+  const profile = session?.profile || {};
+  return String(profile.discordId || profile.portalPersonId || profile.discordUsername || "").trim();
+}
+
+function meosRateLimitAllows(req, scope, limit, windowMs, identity = "") {
   const now = Date.now();
-  const key = `${scope}:${meosClientIp(req) || "unknown"}`;
+  const actor = String(identity || "").trim();
+  const key = `${scope}:${actor || meosClientIp(req) || "unknown"}`;
   const recent = (meosRateLimitHits.get(key) || []).filter((timestamp) => now - timestamp < windowMs);
   if (recent.length >= limit) {
     meosRateLimitHits.set(key, recent);
@@ -179,6 +186,32 @@ function meosRateLimitAllows(req, scope, limit, windowMs) {
   recent.push(now);
   meosRateLimitHits.set(key, recent);
   return true;
+}
+
+function meosRateLimitError(message) {
+  const error = new Error(message);
+  error.status = 429;
+  return error;
+}
+
+function meosCsrfHeader(req) {
+  return String(req.headers["x-meos-csrf"] || req.headers["x-csrf-token"] || "").trim();
+}
+
+function safeTokenEquals(left, right) {
+  const leftText = String(left || "");
+  const rightText = String(right || "");
+  if (!leftText || !rightText) return false;
+  const leftBuffer = Buffer.from(leftText);
+  const rightBuffer = Buffer.from(rightText);
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function requireMeosCsrf(req, session) {
+  if (safeTokenEquals(session?.csrfToken, meosCsrfHeader(req))) return;
+  const error = new Error("Ongeldige MEOS beveiligingstoken. Herlaad de pagina en probeer opnieuw.");
+  error.status = 403;
+  throw error;
 }
 
 function meosAuditLogPath() {
@@ -879,6 +912,7 @@ async function sendMeosWetboekResponse(req, res, action, details, handler) {
     sendJson(res, 200, {
       ok: true,
       authenticated: true,
+      csrfToken: session.csrfToken || "",
       ...payload
     });
   } catch (error) {
@@ -901,6 +935,7 @@ async function sendMeosStoreResponse(req, res, action, details, handler, options
     sendJson(res, 200, {
       ok: true,
       authenticated: true,
+      csrfToken: session.csrfToken || "",
       ...payload
     });
   } catch (error) {
@@ -917,6 +952,16 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
   const session = requireMeosApiSession(req, res);
   if (!session) return true;
   try {
+    if (!meosRateLimitAllows(
+      req,
+      "meos-mutation-user",
+      Number(process.env.MEOS_MUTATION_USER_RATE_LIMIT_MAX || process.env.MEOS_MUTATION_RATE_LIMIT_MAX || 60),
+      Number(process.env.MEOS_MUTATION_USER_RATE_LIMIT_WINDOW_MS || process.env.MEOS_MUTATION_RATE_LIMIT_WINDOW_MS || 60 * 1000),
+      meosRateLimitIdentity(session)
+    )) {
+      throw meosRateLimitError("Te veel MEOS wijzigingen met jouw account kort achter elkaar.");
+    }
+    requireMeosCsrf(req, session);
     if (options.permission) requireMeosPermission(session, options.permission, options.permissionMessage);
     const body = options.readBody === false ? {} : await readMeosBody(req);
     const payload = await handler(getMeosStore(), session, body);
@@ -935,6 +980,7 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
     sendJson(res, 200, {
       ok: true,
       authenticated: true,
+      csrfToken: session.csrfToken || "",
       ...payload
     });
   } catch (error) {
@@ -967,6 +1013,7 @@ const { handleMeosApiRoute } = createMeosApiRoutes({
   meosFineFromBody,
   meosNoteFromBody,
   getMeosSession,
+  requireMeosCsrf,
   meosFallbackProfile,
   deleteMeosSession,
   clearMeosSessionCookie,

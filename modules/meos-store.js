@@ -1,6 +1,7 @@
 "use strict";
 
 const { normalize, slugFromValue } = require("./meos-demo-data");
+const { normalizePersonIdentity, normalizeVehicleIdentity } = require("./meos-normalization");
 const { createDemoMeosStore, normalizeLimit, personMatchesSearch, personSearchQueries, vehicleSearchFields } = require("./meos-store-demo");
 const { createFiveMMeosStore } = require("./meos-store-fivem");
 
@@ -48,8 +49,9 @@ function vehiclesFromPeople(people) {
 }
 
 function normalizeSnapshot(snapshot = {}, source = {}) {
-  const people = Array.isArray(snapshot.people) ? snapshot.people : [];
-  const vehicles = Array.isArray(snapshot.vehicles) && snapshot.vehicles.length ? snapshot.vehicles : vehiclesFromPeople(people);
+  const people = (Array.isArray(snapshot.people) ? snapshot.people : []).map(normalizePersonIdentity);
+  const vehicles = (Array.isArray(snapshot.vehicles) && snapshot.vehicles.length ? snapshot.vehicles : vehiclesFromPeople(people))
+    .map(normalizeVehicleIdentity);
   const warrants = Array.isArray(snapshot.warrants) && snapshot.warrants.length ? snapshot.warrants : activeArrestWarrantsFromPeople(people);
   return {
     dataSource: snapshot.dataSource || source,

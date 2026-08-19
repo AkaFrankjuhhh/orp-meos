@@ -23,6 +23,7 @@ function createMeosApiRoutes(context = {}) {
     meosFineFromBody,
     meosNoteFromBody,
     getMeosSession,
+    requireMeosCsrf,
     meosFallbackProfile,
     deleteMeosSession,
     clearMeosSessionCookie,
@@ -253,17 +254,30 @@ function createMeosApiRoutes(context = {}) {
       const session = getMeosSession(req);
       sendJson(res, 200, {
         authenticated: Boolean(session),
+        csrfToken: session?.csrfToken || "",
         profile: session?.profile || meosFallbackProfile()
       });
       return true;
     }
 
     if (url.pathname === "/api/meos/logout" && req.method === "POST") {
-      deleteMeosSession(req);
-      writeHeadSecure(res, 204, {
-        "Set-Cookie": clearMeosSessionCookie(req)
-      });
-      res.end();
+      const session = getMeosSession(req);
+      try {
+        if (session) {
+          requireMeosCsrf(req, session);
+          appendMeosAudit(req, session, "session.logout", {});
+        }
+        deleteMeosSession(req);
+        writeHeadSecure(res, 204, {
+          "Set-Cookie": clearMeosSessionCookie(req)
+        });
+        res.end();
+      } catch (error) {
+        sendJson(res, error.status || 403, {
+          ok: false,
+          error: error.message || "MEOS logout is geweigerd."
+        });
+      }
       return true;
     }
 
