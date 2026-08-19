@@ -294,6 +294,14 @@ button {
   background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
 }
 
+.meos-nav-icon.audit {
+  background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
+}
+
+.meos-nav-item.active .meos-nav-icon.audit {
+  background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
+}
+
 .meos-nav-icon.pv {
   background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
 }
@@ -319,6 +327,10 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.warrant {
 }
 
 html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.data {
+  background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
+}
+
+html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.audit {
   background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
 }
 
@@ -821,14 +833,17 @@ button.meos-result-card {
 }
 
 .meos-result-card[data-open-profile],
-.meos-result-card[data-open-vehicle] {
+.meos-result-card[data-open-vehicle],
+.meos-result-card[data-open-process-verbal] {
   cursor: pointer;
 }
 
 .meos-result-card[data-open-profile]:hover,
 .meos-result-card[data-open-vehicle]:hover,
+.meos-result-card[data-open-process-verbal]:hover,
 .meos-result-card[data-open-profile]:focus-visible,
-.meos-result-card[data-open-vehicle]:focus-visible {
+.meos-result-card[data-open-vehicle]:focus-visible,
+.meos-result-card[data-open-process-verbal]:focus-visible {
   z-index: 1;
   border-color: var(--meos-blue-soft);
   box-shadow: 0 10px 24px var(--meos-interactive-shadow);
@@ -867,6 +882,13 @@ button.meos-result-card {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+}
+
+.meos-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .meos-chip {
@@ -1733,6 +1755,23 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
   background: var(--meos-input-bg);
 }
 
+.meos-pv-form-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--meos-line);
+}
+
+.meos-pv-form-block h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.meos-pv-related-grid {
+  margin-top: 0;
+}
+
 .meos-pv-preview-block {
   display: grid;
   gap: 8px;
@@ -1762,8 +1801,44 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
   gap: 10px;
 }
 
+.meos-pv-list.compact {
+  gap: 8px;
+}
+
 .meos-pv-row {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.meos-audit-list {
+  display: grid;
+  gap: 10px;
+}
+
+.meos-audit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 14px;
+  padding: 12px;
+  border: 1px solid var(--meos-card-border);
+  border-left: 4px solid var(--meos-blue);
+  border-radius: 4px;
+  background: var(--meos-elevated-bg);
+}
+
+.meos-audit-row.failed {
+  border-left-color: var(--meos-red);
+}
+
+.meos-audit-row strong,
+.meos-audit-row p,
+.meos-audit-row small {
+  margin: 0;
+}
+
+.meos-audit-row span,
+.meos-audit-row p,
+.meos-audit-row small {
+  color: var(--meos-muted);
 }
 
 .meos-warrant-grid {
@@ -1919,6 +1994,8 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
   .meos-form-grid,
   .meos-record-body,
   .meos-result-card,
+  .meos-pv-row,
+  .meos-audit-row,
   .meos-health-check,
   .meos-health-summary,
   .meos-wetboek-result,

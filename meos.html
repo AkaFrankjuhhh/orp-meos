@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" href="/assets/meos-logo.png?v=20260818-site-logo" />
-  <link rel="stylesheet" href="/meos.css?v=20260819-pv-generator" />
+  <link rel="stylesheet" href="/meos.css?v=20260819-pv-links-audit" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -49,6 +49,11 @@
       </nav>
 
       <div class="meos-sidebar-footer">
+        <button id="meosAuditNav" class="meos-nav-item" type="button" data-section="auditlog" data-audit-only hidden>
+          <span class="meos-nav-icon audit" aria-hidden="true"></span>
+          <span>Auditlog</span>
+        </button>
+
         <button id="meosDataHealthNav" class="meos-nav-item" type="button" data-section="databron" data-health-only hidden>
           <span class="meos-nav-icon data" aria-hidden="true"></span>
           <span>Databron</span>
@@ -235,6 +240,20 @@
         </section>
       </section>
 
+      <section class="meos-page" data-page="auditlog" aria-labelledby="auditTitle">
+        <div class="meos-breadcrumb">Auditlog</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="auditTitle">Auditlog</h2>
+              <p>MEOS wijzigingen, toegang en beheeracties.</p>
+            </div>
+            <button class="meos-secondary" type="button" data-refresh-audit-log>Verversen</button>
+          </div>
+          <div id="auditLogView" aria-live="polite"></div>
+        </section>
+      </section>
+
       <section class="meos-page" data-page="databron" aria-labelledby="dataHealthTitle">
         <div class="meos-breadcrumb">Databron</div>
         <section class="meos-panel">
@@ -253,6 +272,6 @@
 
   <div id="meosRecordModal" class="meos-modal-backdrop" hidden></div>
 
-  <script type="module" src="/meos/app.js?v=20260819-pv-generator"></script>
+  <script type="module" src="/meos/app.js?v=20260819-pv-links-audit"></script>
 </body>
 </html>

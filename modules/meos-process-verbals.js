@@ -88,6 +88,25 @@ function normalizeProcessVerbalFields(fields = {}) {
     .filter(([key]) => key));
 }
 
+function normalizeProcessVerbalRelated(related = {}) {
+  if (!related || typeof related !== "object" || Array.isArray(related)) return {};
+  return {
+    personId: text(related.personId, 120),
+    personName: text(related.personName, 160),
+    personBsn: text(related.personBsn, 80),
+    personFingerprint: text(related.personFingerprint, 80),
+    vehiclePlate: text(related.vehiclePlate, 40).toUpperCase(),
+    vehicleLabel: text(related.vehicleLabel, 180),
+    warrantId: text(related.warrantId, 120),
+    warrantLabel: text(related.warrantLabel, 220),
+    entryType: text(related.entryType, 40),
+    entryId: text(related.entryId, 120),
+    entryLabel: text(related.entryLabel, 220),
+    parentProcessVerbalId: text(related.parentProcessVerbalId, 120),
+    parentProcessVerbalTitle: text(related.parentProcessVerbalTitle, 220)
+  };
+}
+
 function normalizeProcessVerbal(input = {}, options = {}) {
   const now = options.now || new Date().toISOString();
   const type = normalizeProcessVerbalType(input.type);
@@ -108,6 +127,7 @@ function normalizeProcessVerbal(input = {}, options = {}) {
     subjectFingerprint: text(input.subjectFingerprint, 80),
     summary: text(input.summary, 1000),
     fields: normalizeProcessVerbalFields(input.fields),
+    related: normalizeProcessVerbalRelated(input.related),
     document: text(input.document, 16000),
     createdAt: text(input.createdAt || now, 80),
     updatedAt: text(input.updatedAt || now, 80),
@@ -136,9 +156,42 @@ function filterProcessVerbals(rows = [], options = {}) {
   const type = normalizeProcessVerbalType(requestedType);
   const hasTypeFilter = Boolean(requestedType && normalizeKey(requestedType) !== "all" && PROCESS_VERBAL_TYPES[type]);
   const author = normalizeKey(options.author || "");
+  const query = normalizeKey(options.query || "");
   return sortProcessVerbals(rows)
     .filter((row) => canViewProcessVerbal(row, options))
     .filter((row) => !hasTypeFilter || row.type === type)
+    .filter((row) => {
+      if (!query) return true;
+      const createdBy = row.createdBy || {};
+      const related = row.related || {};
+      const fieldText = Object.values(row.fields || {}).join(" ");
+      return [
+        row.id,
+        row.typeLabel,
+        row.title,
+        row.status,
+        row.date,
+        row.location,
+        row.subjectName,
+        row.subjectBsn,
+        row.subjectFingerprint,
+        row.summary,
+        row.document,
+        fieldText,
+        createdBy.name,
+        createdBy.rank,
+        createdBy.serviceNumber,
+        related.personName,
+        related.personBsn,
+        related.personFingerprint,
+        related.vehiclePlate,
+        related.vehicleLabel,
+        related.warrantId,
+        related.warrantLabel,
+        related.entryLabel,
+        related.parentProcessVerbalTitle
+      ].some((value) => normalizeKey(value).includes(query));
+    })
     .filter((row) => {
       if (!author || !options.includeAll) return true;
       const createdBy = row.createdBy || {};
@@ -175,6 +228,7 @@ module.exports = {
   canViewProcessVerbal,
   filterProcessVerbals,
   normalizeProcessVerbal,
+  normalizeProcessVerbalRelated,
   normalizeProcessVerbalStatus,
   normalizeProcessVerbalType,
   processVerbalActorKey,

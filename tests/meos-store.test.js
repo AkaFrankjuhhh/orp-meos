@@ -108,6 +108,14 @@ test("MEOS demo store keeps process-verbaal visibility scoped to the author", as
     status: "concept",
     date: "18 aug. 2026",
     document: "Concept PV van Frank.",
+    related: {
+      personId: "ernie-nugz",
+      personName: "Ernie Nugz",
+      personBsn: "ORP-BSN-44499819",
+      personFingerprint: "ORP-V-38445989",
+      vehiclePlate: "WFX 403",
+      vehicleLabel: "BMX (velo) - Ernie Nugz"
+    },
     createdBy: frank,
     createdByKey: "discord:1"
   });
@@ -146,6 +154,10 @@ test("MEOS demo store keeps process-verbaal visibility scoped to the author", as
 
   const allRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "all" });
   assert.equal(allRows.length, 4);
+
+  const linkedRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, query: "WFX 403" });
+  assert.equal(linkedRows.length, 1);
+  assert.equal(linkedRows[0].related.personId, "ernie-nugz");
 
   const verhoorRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "verhoor" });
   assert.equal(verhoorRows.length, 1);
@@ -350,10 +362,16 @@ test("MEOS FiveM store writes dossier data outside the read-only FiveM views", a
     status: "concept",
     date: "18 aug. 2026",
     document: "Concept PV naast read-only FiveM views.",
+    related: {
+      personId: "citizen-1",
+      personName: "Test Speler",
+      personBsn: "ORP-BSN-100"
+    },
     createdBy: { name: "Frank Bright", serviceNumber: "70-04", discordId: "1" },
     createdByKey: "discord:1"
   });
   assert.equal(processVerbalResult.processVerbal.type, "onderzoek");
+  assert.equal(processVerbalResult.processVerbal.related.personId, "citizen-1");
 
   const ownProcessVerbals = await store.listProcessVerbals({ actorKey: "discord:1" });
   assert.equal(ownProcessVerbals.length, 1);
@@ -361,6 +379,8 @@ test("MEOS FiveM store writes dossier data outside the read-only FiveM views", a
   assert.equal(hiddenProcessVerbals.length, 0);
   const allProcessVerbals = await store.listProcessVerbals({ actorKey: "discord:2", includeAll: true });
   assert.equal(allProcessVerbals.length, 1);
+  const queriedProcessVerbals = await store.listProcessVerbals({ actorKey: "discord:2", includeAll: true, query: "ORP-BSN-100" });
+  assert.equal(queriedProcessVerbals.length, 1);
 
   const finalizedProcessVerbal = await store.updateProcessVerbal(processVerbalResult.processVerbal.id, {
     status: "definitief",

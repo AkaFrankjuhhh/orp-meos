@@ -144,7 +144,9 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /data-section="voertuigen"/);
   assert.match(html, /data-section="arrestatiebevelen"/);
   assert.match(html, /data-section="proces-verbaal"/);
+  assert.match(html, /data-section="auditlog"/);
   assert.match(html, /data-section="databron"/);
+  assert.match(html, /data-audit-only hidden/);
   assert.match(html, /data-health-only hidden/);
   assert.ok(html.indexOf('data-section="arrestatiebevelen"') < html.indexOf('data-section="proces-verbaal"'));
   assert.ok(html.indexOf('id="meosOptionsNavLabel"') < html.indexOf('id="meosDataHealthNav"'));
@@ -153,6 +155,9 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /data-page="proces-verbaal"/);
   assert.match(html, /id="procesVerbaalTitle">Proces Verbaal/);
   assert.match(html, /id="processVerbalView"/);
+  assert.match(html, /data-page="auditlog"/);
+  assert.match(html, /id="auditLogView"/);
+  assert.match(html, /data-refresh-audit-log/);
   assert.match(html, /id="dataHealthView"/);
   assert.match(html, /data-refresh-data-health/);
   assert.doesNotMatch(html, /AT Overzicht/);
@@ -167,9 +172,9 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosProfileLogout"/);
   assert.match(html, /id="meosRecordModal"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
-  assert.match(html, /meos\.css\?v=20260819-pv-generator/);
-  assert.match(html, /type="module" src="\/meos\/app\.js\?v=20260819-pv-generator"/);
-  assert.match(legacyScript, /import\("\/meos\/app\.js\?v=20260819-pv-generator"\)/);
+  assert.match(html, /meos\.css\?v=20260819-pv-links-audit/);
+  assert.match(html, /type="module" src="\/meos\/app\.js\?v=20260819-pv-links-audit"/);
+  assert.match(legacyScript, /import\("\/meos\/app\.js\?v=20260819-pv-links-audit"\)/);
   assert.match(script, /from "\.\/core\.js"/);
   assert.match(script, /from "\.\/api\.js"/);
   assert.match(script, /import \{ apiJson, setMeosCsrfToken \} from "\.\/api\.js"/);
@@ -226,13 +231,18 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-timeline/);
   assert.match(styles, /\.meos-info-link/);
   assert.match(styles, /\.meos-nav-icon\.data/);
+  assert.match(styles, /\.meos-nav-icon\.audit/);
   assert.match(styles, /\.meos-nav-icon\.pv/);
   assert.match(styles, /\.meos-pv-grid/);
   assert.match(styles, /\.meos-pv-card/);
   assert.match(styles, /\.meos-pv-layout/);
   assert.match(styles, /\.meos-pv-toolbar/);
+  assert.match(styles, /\.meos-pv-form-block/);
   assert.match(styles, /\.meos-pv-preview-block/);
   assert.match(styles, /\.meos-pv-row/);
+  assert.match(styles, /\.meos-row-actions/);
+  assert.match(styles, /\.meos-audit-list/);
+  assert.match(styles, /\.meos-audit-row/);
   assert.match(styles, /\.meos-sidebar-footer \{/);
   assert.match(styles, /align-self: end/);
   assert.match(styles, /\.meos-health-summary/);
@@ -262,6 +272,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /function setMeosPeople\(/);
   assert.match(meosClientCode, /function canWriteMeosEntries\(\)/);
   assert.match(meosClientCode, /function canViewAllProcessVerbals\(\)/);
+  assert.match(meosClientCode, /function canViewAudit\(\)/);
+  assert.match(meosClientCode, /function updateAuditAccess\(\)/);
   assert.match(meosClientCode, /function canViewDataHealth\(\)/);
   assert.match(meosClientCode, /function updateDataHealthAccess\(\)/);
   assert.match(meosClientCode, /function renderDataHealth\(\)/);
@@ -292,10 +304,22 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /Proces-verbaal van relaas/);
   assert.match(meosClientCode, /function renderProcessVerbalView\(/);
   assert.match(meosClientCode, /function composeProcessVerbalDocument\(/);
+  assert.match(meosClientCode, /function processVerbalRelatedFromForm\(/);
+  assert.match(meosClientCode, /function loadRelatedProcessVerbals\(/);
+  assert.match(meosClientCode, /function startSupplementalProcessVerbal\(/);
+  assert.match(meosClientCode, /function exportProcessVerbalPdf\(/);
+  assert.match(meosClientCode, /function renderAuditLog\(/);
+  assert.match(meosClientCode, /async function loadAuditLog\(/);
   assert.match(meosClientCode, /\/api\/meos\/process-verbals/);
+  assert.match(meosClientCode, /\/api\/meos\/audit/);
   assert.match(meosClientCode, /data-save-process-verbal/);
+  assert.match(meosClientCode, /data-supplement-process-verbal/);
+  assert.match(meosClientCode, /data-export-process-verbal/);
+  assert.match(meosClientCode, /data-pv-query/);
   assert.match(meosClientCode, /data-pv-scope/);
   assert.match(meosClientCode, /data-open-process-verbal/);
+  assert.match(meosClientCode, /Gekoppelde persoon/);
+  assert.match(meosClientCode, /Gerelateerde PV's/);
   assert.match(meosClientCode, /Dit document is een officieel ORP roleplay document/);
   assert.doesNotMatch(meosClientCode, /Dossiernummer|caseNumber|dossierNumber/);
   assert.match(meosClientCode, /articleModifiers/);
@@ -394,6 +418,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /arrestWarrants/);
   assert.match(meosClientCode, /\/arrestatiebevelen/);
   assert.match(meosClientCode, /\/proces-verbaal/);
+  assert.match(meosClientCode, /\/auditlog/);
   assert.match(meosClientCode, /\/databron/);
   assert.match(meosClientCode, /history\.pushState/);
   assert.match(meosClientCode, /function normalizeUploadedImageToPng\(/);
@@ -446,11 +471,13 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(serverCode, /meosRouteRoots/);
   assert.match(serverCode, /arrestatiebevelen/);
   assert.match(serverCode, /proces-verbaal/);
+  assert.match(serverCode, /auditlog/);
   assert.match(serverCode, /databron/);
   assert.match(meosServerCode, /function serveMeosStatic/);
   assert.match(meosServerCode, /function isMeosPageRoute/);
   assert.match(meosServerCode, /arrestatiebevelen/);
   assert.match(meosServerCode, /proces-verbaal/);
+  assert.match(meosServerCode, /auditlog/);
   assert.match(meosServerCode, /databron/);
   assert.match(meosServerCode, /portalIdentityForDiscordId/);
   assert.match(meosServerCode, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
@@ -462,6 +489,10 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosServerCode, /\/api\/meos\/data/);
   assert.match(meosServerCode, /\/api\/meos\/data-health/);
   assert.match(meosServerCode, /permission: "canViewDataHealth"/);
+  assert.match(meosServerCode, /\/api\/meos\/audit/);
+  assert.match(meosServerCode, /permission: "canViewAudit"/);
+  assert.match(meosServerCode, /readMeosAuditLog/);
+  assert.match(meosServerCode, /\.failed/);
   assert.match(meosServerCode, /\/api\/meos\/wetboek\/articles/);
   assert.match(meosServerCode, /fetchWetboekApiJson/);
   assert.match(meosServerCode, /MEOS_WETBOEK_API_BASE_URL/);
@@ -508,6 +539,9 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosProcessVerbalsCode, /Proces-verbaal van inbeslagneming/);
   assert.match(meosProcessVerbalsCode, /Proces-verbaal van aangifte/);
   assert.match(meosProcessVerbalsCode, /filterProcessVerbals/);
+  assert.match(meosProcessVerbalsCode, /normalizeProcessVerbalRelated/);
+  assert.match(meosProcessVerbalsCode, /parentProcessVerbalId/);
+  assert.match(meosProcessVerbalsCode, /vehiclePlate/);
   assert.match(meosProcessVerbalsCode, /canEditProcessVerbal/);
   assert.match(meosProcessVerbalsCode, /definitief/);
   assert.doesNotMatch(meosProcessVerbalsCode, /caseNumber|dossierNumber/);
@@ -706,6 +740,13 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
     });
     assert.equal(processVerbal.status, 302);
     assert.match(processVerbal.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Fproces-verbaal/);
+
+    const auditLog = await fetch(`${overheidBaseUrl}/auditlog`, {
+      headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
+      redirect: "manual"
+    });
+    assert.equal(auditLog.status, 302);
+    assert.match(auditLog.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Fauditlog/);
   } finally {
     server.kill();
   }

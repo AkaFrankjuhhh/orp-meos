@@ -35,6 +35,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       canViewEntries: false,
       canWriteEntries: false,
       canDeleteEntries: false,
+      canViewAudit: false,
       canViewAllProcessVerbals: false,
       canViewDataHealth: false
     }
@@ -164,10 +165,21 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     formError: "",
     activeType: "bevindingen",
     editingId: "",
+    supplementSource: null,
     scope: "mine",
     author: "",
+    query: "",
     typeFilter: "all",
+    relatedRows: [],
+    relatedLoaded: false,
+    relatedLoading: false,
     busy: false
+  };
+  const auditState = {
+    entries: [],
+    loaded: false,
+    loading: false,
+    error: ""
   };
 
   function personSlug(person) {
@@ -242,8 +254,25 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     return Boolean(currentMeosProfile?.permissions?.canViewDataHealth);
   }
 
+  function canViewAudit() {
+    return Boolean(currentMeosProfile?.permissions?.canViewAudit || currentMeosProfile?.permissions?.canDeleteEntries);
+  }
+
   function canViewAllProcessVerbals() {
     return Boolean(currentMeosProfile?.permissions?.canViewAllProcessVerbals || currentMeosProfile?.permissions?.canDeleteEntries);
+  }
+
+  function updateAuditAccess() {
+    const allowed = canViewAudit();
+    $$("[data-audit-only]").forEach((element) => {
+      element.hidden = !allowed;
+    });
+    if (!allowed) {
+      auditState.entries = [];
+      auditState.error = "";
+      auditState.loaded = false;
+      if (activePage === "auditlog") setPage("dashboard", { updateUrl: false });
+    }
   }
 
   function updateDataHealthAccess() {
@@ -280,6 +309,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (login) login.hidden = authenticated;
     if (logout) logout.hidden = !authenticated;
     renderDashboardProfile(nextProfile);
+    updateAuditAccess();
     updateDataHealthAccess();
     if ($("#processVerbalView")) renderProcessVerbalView();
   }
@@ -395,6 +425,81 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     } finally {
       meosDataHealthLoading = false;
       renderDataHealth();
+    }
+  }
+
+  function auditActorLine(entry = {}) {
+    const actor = entry.actor || {};
+    return [actor.name, actor.rank, actor.serviceNumber].map((value) => String(value || "").trim()).filter(Boolean).join(" - ") || "Onbekend";
+  }
+
+  function auditDetailLine(details = {}) {
+    return [
+      details.personName ? `Persoon ${details.personName}` : "",
+      details.personId && !details.personName ? `Persoon ${details.personId}` : "",
+      details.recordId ? `Strafblad ${details.recordId}` : "",
+      details.noteId ? `Notitie ${details.noteId}` : "",
+      details.fineId ? `Boete ${details.fineId}` : "",
+      details.processVerbalId ? `PV ${details.processVerbalId}` : "",
+      details.processVerbalStatus ? `Status ${details.processVerbalStatus}` : "",
+      details.deletedType ? `Verwijderd ${details.deletedType}` : "",
+      details.error ? `Fout: ${details.error}` : ""
+    ].filter(Boolean).join(" | ");
+  }
+
+  function renderAuditLog() {
+    const target = $("#auditLogView");
+    if (!target) return;
+    if (!canViewAudit()) {
+      target.innerHTML = '<div class="meos-empty">Je MEOS rol mag de auditlog niet bekijken.</div>';
+      return;
+    }
+    if (auditState.loading) {
+      target.innerHTML = '<div class="meos-empty">Auditlog laden...</div>';
+      return;
+    }
+    if (auditState.error) {
+      target.innerHTML = `<div class="meos-empty">${escapeHtml(auditState.error)}</div>`;
+      return;
+    }
+    if (!auditState.entries.length) {
+      target.innerHTML = '<div class="meos-empty">Nog geen auditregels gevonden.</div>';
+      return;
+    }
+    target.innerHTML = `<div class="meos-audit-list">
+      ${auditState.entries.map((entry) => `
+        <article class="meos-audit-row ${String(entry.action || "").includes(".failed") ? "failed" : ""}">
+          <strong>${escapeHtml(entry.action || "MEOS actie")}</strong>
+          <span>${escapeHtml(entry.at || "")}</span>
+          <p>${escapeHtml(auditActorLine(entry))}</p>
+          <small>${escapeHtml(auditDetailLine(entry.details || {}) || entry.path || "")}</small>
+        </article>
+      `).join("")}
+    </div>`;
+  }
+
+  async function loadAuditLog(force = false) {
+    if (!canViewAudit()) {
+      renderAuditLog();
+      return;
+    }
+    if (auditState.loading) return;
+    if (auditState.loaded && !force) {
+      renderAuditLog();
+      return;
+    }
+    auditState.loading = true;
+    auditState.error = "";
+    renderAuditLog();
+    try {
+      const payload = await apiJson("/api/meos/audit?limit=80");
+      auditState.entries = asArray(payload.audit?.entries);
+      auditState.loaded = true;
+    } catch (error) {
+      auditState.error = error.message || "Auditlog ophalen is mislukt.";
+    } finally {
+      auditState.loading = false;
+      renderAuditLog();
     }
   }
 
@@ -1216,6 +1321,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (page === "voertuigen") return "/voertuigen";
     if (page === "arrestatiebevelen") return "/arrestatiebevelen";
     if (page === "proces-verbaal") return "/proces-verbaal";
+    if (page === "auditlog") return "/auditlog";
     if (page === "databron") return "/databron";
     return "/dashboard";
   }
@@ -1229,6 +1335,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   }
 
   function setPage(page, options = {}) {
+    if (page === "auditlog" && !canViewAudit()) page = "dashboard";
     if (page === "databron" && !canViewDataHealth()) page = "dashboard";
     activePage = page;
     $$(".meos-page").forEach((element) => element.classList.toggle("active", element.dataset.page === page));
@@ -1237,6 +1344,8 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     document.body.classList.remove("sidebar-open");
     updatePageUrl(page, options);
     if (page === "proces-verbaal") loadProcessVerbals();
+    if (page === "profile" || page === "vehicle") loadRelatedProcessVerbals();
+    if (page === "auditlog") loadAuditLog();
     if (page === "databron") loadDataHealth();
   }
 
@@ -1498,6 +1607,13 @@ import { renderDataHealthHtml } from "./pages/databron.js";
             <div class="meos-info-field"><span>Dienst Auto</span><strong>${escapeHtml(vehicle.serviceVehicle)}</strong></div>
           </div>
         </article>
+
+        <article class="meos-panel">
+          <div class="meos-card-title">
+            <h2>Gerelateerde PV's</h2>
+          </div>
+          ${renderRelatedProcessVerbals(processVerbalRowsForVehicle(vehicle))}
+        </article>
       </div>
     `;
     $("#vehicleBreadcrumb").textContent = `Voertuigen / ${vehicle.plate}`;
@@ -1569,6 +1685,13 @@ import { renderDataHealthHtml } from "./pages/databron.js";
             <h2>Tijdlijn</h2>
           </div>
           ${renderProfileTimeline(person)}
+        </article>
+
+        <article class="meos-panel">
+          <div class="meos-card-title">
+            <h2>Gerelateerde PV's</h2>
+          </div>
+          ${renderRelatedProcessVerbals(processVerbalRowsForPerson(person))}
         </article>
 
         <article class="meos-panel">
@@ -1699,7 +1822,9 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   }
 
   function processVerbalById(id) {
-    return processVerbalState.rows.find((row) => row.id === id) || null;
+    return processVerbalState.rows.find((row) => row.id === id)
+      || processVerbalState.relatedRows.find((row) => row.id === id)
+      || null;
   }
 
   function processVerbalFieldValue(row, key) {
@@ -1711,23 +1836,100 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     return [createdBy.name, createdBy.rank, createdBy.serviceNumber].map((value) => String(value || "").trim()).filter(Boolean).join(" - ");
   }
 
+  function processVerbalRelatedLines(related = {}) {
+    return [
+      related.parentProcessVerbalId ? ["Aanvullend op", `${related.parentProcessVerbalId}${related.parentProcessVerbalTitle ? ` - ${related.parentProcessVerbalTitle}` : ""}`] : null,
+      related.personName ? ["Persoon", [related.personName, related.personBsn, related.personFingerprint].filter(Boolean).join(" - ")] : null,
+      related.vehiclePlate ? ["Voertuig", [related.vehiclePlate, related.vehicleLabel].filter(Boolean).join(" - ")] : null,
+      related.warrantId ? ["ArrestatieBevel", [related.warrantId, related.warrantLabel].filter(Boolean).join(" - ")] : null,
+      related.entryId ? ["Registratie", [related.entryType, related.entryLabel].filter(Boolean).join(" - ")] : null
+    ].filter(Boolean);
+  }
+
+  function processVerbalRelatedText(row = {}) {
+    return processVerbalRelatedLines(row.related || {}).map(([label, value]) => `${label}: ${value}`).join(" | ");
+  }
+
+  function processVerbalEntryId(entry, type, index) {
+    return entryIdentifier(entry, type, index);
+  }
+
+  function processVerbalEntryOptions() {
+    return people.flatMap((person) => [
+      ...(person.records || []).map((record, index) => ({
+        value: `record::${person.id}::${processVerbalEntryId(record, "record", index)}`,
+        label: `${person.name} - Strafblad - ${record.date || ""} - ${record.sanction || "PV"}`
+      })),
+      ...(person.notes || []).map((note, index) => ({
+        value: `note::${person.id}::${processVerbalEntryId(note, "note", index)}`,
+        label: `${person.name} - Notitie - ${note.date || ""} - ${note.author || "MEOS"}`
+      }))
+    ]).slice(0, 160);
+  }
+
+  function parseProcessVerbalEntryValue(value = "") {
+    const [entryType, personId, entryId] = String(value || "").split("::");
+    if (!entryType || !personId || !entryId) return null;
+    const person = findPerson(personId);
+    if (!person) return null;
+    const collection = entryType === "note" ? person.notes || [] : person.records || [];
+    const entry = collection.find((item, index) => processVerbalEntryId(item, entryType, index) === entryId);
+    if (!entry) return null;
+    return {
+      entryType,
+      entryId,
+      entryLabel: entryType === "note"
+        ? `${person.name} - Notitie - ${entry.date || ""} - ${entry.author || "MEOS"}`
+        : `${person.name} - Strafblad - ${entry.date || ""} - ${entry.sanction || "PV"}`
+    };
+  }
+
+  function processVerbalRelatedFromForm(data = {}) {
+    const person = findPerson(data.relatedPersonId);
+    const vehicle = findVehicle(data.relatedVehiclePlate);
+    const warrant = activeArrestWarrants().find((item) => item.id === data.relatedWarrantId);
+    const entry = parseProcessVerbalEntryValue(data.relatedEntry);
+    return {
+      personId: person?.id || "",
+      personName: person?.name || "",
+      personBsn: person?.bsn || "",
+      personFingerprint: person?.fingerprint || "",
+      vehiclePlate: vehicle?.plate || "",
+      vehicleLabel: vehicle ? `${vehicle.model || "Voertuig"} - ${vehicle.owner || ""}`.trim() : "",
+      warrantId: warrant?.id || "",
+      warrantLabel: warrant ? `${warrant.person?.name || ""} - ${warrant.reason || warrant.priority || ""}`.trim() : "",
+      entryType: entry?.entryType || "",
+      entryId: entry?.entryId || "",
+      entryLabel: entry?.entryLabel || "",
+      parentProcessVerbalId: data.parentProcessVerbalId || "",
+      parentProcessVerbalTitle: data.parentProcessVerbalTitle || ""
+    };
+  }
+
   function processVerbalDraftFromRow(row = null) {
     const type = row?.type || processVerbalState.activeType || "bevindingen";
     const config = processVerbalConfig(type);
     const createdBy = row?.createdBy || currentMeosProfile || defaultMeosProfile;
+    const supplement = !row && processVerbalState.supplementSource;
+    const supplementalRelated = supplement ? {
+      ...(supplement.related || {}),
+      parentProcessVerbalId: supplement.id || "",
+      parentProcessVerbalTitle: supplement.title || supplement.typeLabel || ""
+    } : null;
     return {
       id: row?.id || "",
       type,
       typeLabel: config.label,
-      title: row?.title || config.label,
+      title: row?.title || (supplement ? `Aanvullend PV - ${supplement.title || supplement.typeLabel || supplement.id}` : config.label),
       status: row?.status || "concept",
       date: row?.date || todayMeosDate(),
       location: row?.location || "",
-      subjectName: row?.subjectName || "",
-      subjectBsn: row?.subjectBsn || "",
-      subjectFingerprint: row?.subjectFingerprint || "",
-      summary: row?.summary || "",
+      subjectName: row?.subjectName || supplementalRelated?.personName || "",
+      subjectBsn: row?.subjectBsn || supplementalRelated?.personBsn || "",
+      subjectFingerprint: row?.subjectFingerprint || supplementalRelated?.personFingerprint || "",
+      summary: row?.summary || (supplement ? `Aanvullend op PV ${supplement.id || ""}: ${supplement.title || supplement.typeLabel || ""}`.trim() : ""),
       fields: row?.fields || {},
+      related: row?.related || supplementalRelated || {},
       document: row?.document || "",
       createdBy
     };
@@ -1736,10 +1938,12 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   function processVerbalDraftFromForm(form, status = "concept") {
     const data = formPayload(form);
     const type = data.type || processVerbalState.activeType;
+    const related = processVerbalRelatedFromForm(data);
     const fields = {};
     $$("[data-pv-field]", form).forEach((input) => {
       fields[input.name] = String(input.value || "").trim();
     });
+    const linkedPerson = related.personId ? findPerson(related.personId) : null;
     const draft = {
       id: form.dataset.processVerbalId || "",
       type,
@@ -1748,11 +1952,12 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       status,
       date: data.date || todayMeosDate(),
       location: data.location || "",
-      subjectName: data.subjectName || "",
-      subjectBsn: data.subjectBsn || "",
-      subjectFingerprint: data.subjectFingerprint || "",
+      subjectName: data.subjectName || linkedPerson?.name || "",
+      subjectBsn: data.subjectBsn || linkedPerson?.bsn || "",
+      subjectFingerprint: data.subjectFingerprint || linkedPerson?.fingerprint || "",
       summary: data.summary || "",
       fields,
+      related,
       createdBy: currentMeosProfile || defaultMeosProfile
     };
     return {
@@ -1795,6 +2000,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       draft.summary || ""
     ].filter(Boolean);
     const body = processVerbalFieldLines(type, draft.fields);
+    const related = processVerbalRelatedLines(draft.related || {}).map(([label, value]) => `${label}: ${value}`);
     const closing = [
       "Waarvan door mij is opgemaakt dit proces-verbaal.",
       `Opgemaakt en opgeslagen in MEOS door ${verbalist}${meta ? ` (${meta})` : ""}.`,
@@ -1804,6 +2010,8 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       ...header,
       subject.length ? "\nBETROKKENE" : "",
       ...subject,
+      related.length ? "\nKOPPELINGEN" : "",
+      ...related,
       "\nRELAAS VAN VERBALISANT",
       ...statement,
       body.length ? "\nINHOUD" : "",
@@ -1829,6 +2037,10 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     return `
       <div class="meos-pv-toolbar">
         <button class="meos-primary" type="button" data-pv-new>Nieuw PV opstellen</button>
+        <label>
+          <span>Zoeken</span>
+          <input data-pv-query type="search" value="${escapeHtml(processVerbalState.query)}" placeholder="Naam, kenteken, BSN, vingerafdruk of tekst" />
+        </label>
         <label>
           <span>Type</span>
           <select data-pv-type-filter>
@@ -1869,6 +2081,56 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         <span>${escapeHtml(label)}</span>
         <input name="${escapeHtml(name)}" data-pv-field type="text" value="${escapeHtml(value)}" maxlength="180" placeholder="${escapeHtml(placeholder || "")}" ${readonly ? "disabled" : ""} />
       </label>
+    `;
+  }
+
+  function renderProcessVerbalRelatedForm(draft, readonly) {
+    const related = draft.related || {};
+    const selectedEntry = related.entryId ? `${related.entryType || "record"}::${related.personId || ""}::${related.entryId}` : "";
+    const personOptions = people.map((person) => `<option value="${escapeHtml(person.id)}" ${related.personId === person.id ? "selected" : ""}>${escapeHtml(`${person.name} - ${person.bsn} - ${person.fingerprint}`)}</option>`).join("");
+    const vehicleOptions = allVehicles().map((vehicle) => `<option value="${escapeHtml(vehicle.plate)}" ${related.vehiclePlate === vehicle.plate ? "selected" : ""}>${escapeHtml(`${vehicle.plate} - ${vehicle.model} - ${vehicle.owner}`)}</option>`).join("");
+    const warrantOptions = activeArrestWarrants().map((warrant) => `<option value="${escapeHtml(warrant.id || "")}" ${related.warrantId === warrant.id ? "selected" : ""}>${escapeHtml(`${warrant.id || "ArrestatieBevel"} - ${warrant.person?.name || ""} - ${warrant.reason || ""}`)}</option>`).join("");
+    const entryOptions = processVerbalEntryOptions().map((entry) => `<option value="${escapeHtml(entry.value)}" ${selectedEntry === entry.value ? "selected" : ""}>${escapeHtml(entry.label)}</option>`).join("");
+    const parentLine = related.parentProcessVerbalId ? `
+      <label class="wide">
+        <span>Aanvullend op</span>
+        <input type="text" value="${escapeHtml(`${related.parentProcessVerbalId} - ${related.parentProcessVerbalTitle || ""}`)}" disabled />
+        <input name="parentProcessVerbalId" type="hidden" value="${escapeHtml(related.parentProcessVerbalId)}" />
+        <input name="parentProcessVerbalTitle" type="hidden" value="${escapeHtml(related.parentProcessVerbalTitle || "")}" />
+      </label>
+    ` : "";
+    return `
+      <div class="meos-form-grid meos-pv-related-grid">
+        ${parentLine}
+        <label>
+          <span>Gekoppelde persoon</span>
+          <select name="relatedPersonId" ${readonly ? "disabled" : ""}>
+            <option value="">Geen persoon koppelen</option>
+            ${personOptions}
+          </select>
+        </label>
+        <label>
+          <span>Gekoppeld voertuig</span>
+          <select name="relatedVehiclePlate" ${readonly ? "disabled" : ""}>
+            <option value="">Geen voertuig koppelen</option>
+            ${vehicleOptions}
+          </select>
+        </label>
+        <label>
+          <span>ArrestatieBevel</span>
+          <select name="relatedWarrantId" ${readonly ? "disabled" : ""}>
+            <option value="">Geen arrestatiebevel koppelen</option>
+            ${warrantOptions}
+          </select>
+        </label>
+        <label>
+          <span>Strafblad / notitie</span>
+          <select name="relatedEntry" ${readonly ? "disabled" : ""}>
+            <option value="">Geen registratie koppelen</option>
+            ${entryOptions}
+          </select>
+        </label>
+      </div>
     `;
   }
 
@@ -1916,6 +2178,10 @@ import { renderDataHealthHtml } from "./pages/databron.js";
           </label>
           ${config.fields.map((field) => renderProcessVerbalFieldInput(draft, field, readonly)).join("")}
         </div>
+        <div class="meos-pv-form-block">
+          <h3>Koppelingen</h3>
+          ${renderProcessVerbalRelatedForm(draft, readonly)}
+        </div>
         <p class="meos-form-error" data-form-error ${processVerbalState.formError ? "" : "hidden"}>${escapeHtml(processVerbalState.formError)}</p>
         <div class="meos-pv-preview-block">
           <h3>Live preview</h3>
@@ -1926,6 +2192,8 @@ import { renderDataHealthHtml } from "./pages/databron.js";
             <button class="meos-secondary muted" type="button" data-save-process-verbal="concept">Concept opslaan</button>
             <button class="meos-primary" type="button" data-save-process-verbal="definitief">Definitief opslaan</button>
           `}
+          ${readonly ? '<button class="meos-secondary" type="button" data-supplement-process-verbal>Aanvullend PV maken</button>' : ""}
+          <button class="meos-secondary" type="button" data-export-process-verbal>Print / PDF</button>
         </div>
       </form>
     `;
@@ -1937,7 +2205,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (!processVerbalState.rows.length) return '<div class="meos-empty">Nog geen processen-verbaal gevonden.</div>';
     return `<div class="meos-pv-list">
       ${processVerbalState.rows.map((row) => `
-        <button class="meos-result-card meos-pv-row" type="button" data-open-process-verbal="${escapeHtml(row.id)}">
+        <article class="meos-result-card meos-pv-row" role="button" tabindex="0" data-open-process-verbal="${escapeHtml(row.id)}">
           <span>
             <strong>${escapeHtml(row.title || row.typeLabel)}</strong>
             <span class="meos-result-meta">
@@ -1945,9 +2213,14 @@ import { renderDataHealthHtml } from "./pages/databron.js";
               <span class="meos-chip ${row.status === "definitief" ? "ok" : "info"}">${escapeHtml(row.status === "definitief" ? "Definitief" : "Concept")}</span>
               <span class="meos-chip">${escapeHtml(row.date || row.createdAt || "")}</span>
               <span class="meos-chip">Verbalisant ${escapeHtml(processVerbalAuthorLine(row) || "-")}</span>
+              ${processVerbalRelatedText(row) ? `<span class="meos-chip">${escapeHtml(processVerbalRelatedText(row))}</span>` : ""}
             </span>
           </span>
-        </button>
+          <span class="meos-row-actions">
+            ${row.status === "definitief" ? `<button class="meos-secondary muted" type="button" data-supplement-process-verbal="${escapeHtml(row.id)}">Aanvullend PV</button>` : ""}
+            <button class="meos-secondary muted" type="button" data-export-process-verbal="${escapeHtml(row.id)}">Print / PDF</button>
+          </span>
+        </article>
       `).join("")}
     </div>`;
   }
@@ -2000,6 +2273,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         scope: canViewAllProcessVerbals() ? processVerbalState.scope : "mine"
       });
       if (processVerbalState.typeFilter !== "all") params.set("type", processVerbalState.typeFilter);
+      if (processVerbalState.query) params.set("q", processVerbalState.query);
       if (canViewAllProcessVerbals() && processVerbalState.author) params.set("author", processVerbalState.author);
       const payload = await apiJson(`/api/meos/process-verbals?${params}`);
       processVerbalState.rows = asArray(payload.processVerbals);
@@ -2010,6 +2284,69 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       processVerbalState.loading = false;
       renderProcessVerbalView();
     }
+  }
+
+  async function loadRelatedProcessVerbals(force = false) {
+    if (!canWriteMeosEntries()) return;
+    if (processVerbalState.relatedLoading) return;
+    if (processVerbalState.relatedLoaded && !force) return;
+    processVerbalState.relatedLoading = true;
+    try {
+      const params = new URLSearchParams({
+        scope: canViewAllProcessVerbals() ? "all" : "mine"
+      });
+      const payload = await apiJson(`/api/meos/process-verbals?${params}`);
+      processVerbalState.relatedRows = asArray(payload.processVerbals);
+      processVerbalState.relatedLoaded = true;
+    } catch {
+      processVerbalState.relatedRows = [];
+    } finally {
+      processVerbalState.relatedLoading = false;
+      if (activePage === "profile") renderProfile(activePersonId, { updateUrl: false });
+      if (activePage === "vehicle") renderVehicleDetail(activeVehiclePlate, { updateUrl: false });
+    }
+  }
+
+  function processVerbalRowsForPerson(person) {
+    const bsn = normalize(person?.bsn);
+    const fingerprint = normalize(person?.fingerprint);
+    const name = normalize(person?.name);
+    return processVerbalState.relatedRows.filter((row) => {
+      const related = row.related || {};
+      return related.personId === person.id
+        || normalize(related.personBsn) === bsn
+        || normalize(related.personFingerprint) === fingerprint
+        || normalize(row.subjectBsn) === bsn
+        || normalize(row.subjectFingerprint) === fingerprint
+        || (name && normalize(row.subjectName) === name);
+    }).slice(0, 8);
+  }
+
+  function processVerbalRowsForVehicle(vehicle) {
+    const plate = normalize(vehicle?.plate);
+    return processVerbalState.relatedRows.filter((row) => {
+      const related = row.related || {};
+      return normalize(related.vehiclePlate) === plate || normalize(row.document).includes(plate);
+    }).slice(0, 8);
+  }
+
+  function renderRelatedProcessVerbals(rows) {
+    if (processVerbalState.relatedLoading) return '<div class="meos-empty">Gerelateerde PV\'s laden...</div>';
+    if (!rows.length) return '<div class="meos-empty">Geen gerelateerde processen-verbaal gevonden.</div>';
+    return `<div class="meos-pv-list compact">
+      ${rows.map((row) => `
+        <article class="meos-result-card meos-pv-row" role="button" tabindex="0" data-open-process-verbal="${escapeHtml(row.id)}">
+          <span>
+            <strong>${escapeHtml(row.title || row.typeLabel)}</strong>
+            <span class="meos-result-meta">
+              <span class="meos-chip">${escapeHtml(row.typeLabel || processVerbalConfig(row.type).label)}</span>
+              <span class="meos-chip ${row.status === "definitief" ? "ok" : "info"}">${escapeHtml(row.status === "definitief" ? "Definitief" : "Concept")}</span>
+              <span class="meos-chip">${escapeHtml(row.date || row.createdAt || "")}</span>
+            </span>
+          </span>
+        </article>
+      `).join("")}
+    </div>`;
   }
 
   function updateProcessVerbalPreview() {
@@ -2028,6 +2365,54 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     });
   }
 
+  function startSupplementalProcessVerbal(row) {
+    if (!row) return;
+    processVerbalState.supplementSource = row;
+    processVerbalState.editingId = "";
+    processVerbalState.activeType = row.type || "bevindingen";
+    processVerbalState.formError = "";
+    setPage("proces-verbaal");
+    renderProcessVerbalView();
+  }
+
+  function exportProcessVerbalPdf(row = null) {
+    const draft = row || processVerbalDraftFromForm($("[data-process-verbal-form]") || document.createElement("form"), "concept");
+    const title = String(draft.title || draft.typeLabel || "proces-verbaal").replace(/[^\w\s.-]+/g, "").trim() || "proces-verbaal";
+    const documentText = draft.document || composeProcessVerbalDocument(draft);
+    const exportWindow = window.open("", "_blank", "width=900,height=1100");
+    if (!exportWindow) {
+      const blob = new Blob([documentText], { type: "text/plain;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${title}.txt`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      return;
+    }
+    exportWindow.opener = null;
+    exportWindow.document.write(`<!doctype html>
+      <html lang="nl">
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(title)}</title>
+          <style>
+            body { font: 14px/1.5 Arial, sans-serif; color: #111; margin: 32px; }
+            h1 { font-size: 22px; margin: 0 0 18px; }
+            pre { white-space: pre-wrap; font: 13px/1.55 Consolas, monospace; }
+            @media print { button { display: none; } body { margin: 18mm; } }
+          </style>
+        </head>
+        <body>
+          <button onclick="window.print()">Print / opslaan als PDF</button>
+          <h1>${escapeHtml(title)}</h1>
+          <pre>${escapeHtml(documentText)}</pre>
+        </body>
+      </html>`);
+    exportWindow.document.close();
+    exportWindow.focus();
+    setTimeout(() => exportWindow.print(), 250);
+  }
+
   async function submitProcessVerbal(status = "concept") {
     const form = $("[data-process-verbal-form]");
     if (!form) return;
@@ -2043,7 +2428,9 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       });
       processVerbalState.editingId = payload.processVerbal?.id || "";
       processVerbalState.activeType = payload.processVerbal?.type || processVerbalState.activeType;
+      processVerbalState.supplementSource = null;
       processVerbalState.loaded = false;
+      processVerbalState.relatedLoaded = false;
       await loadProcessVerbals(true);
     } catch (error) {
       processVerbalState.formError = error.message || "Proces-verbaal opslaan is mislukt.";
@@ -2095,6 +2482,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (first === "voertuigen") return { page: "voertuigen" };
     if (first === "arrestatiebevelen") return { page: "arrestatiebevelen" };
     if (first === "proces-verbaal" || first === "procesverbaal" || first === "pv") return { page: "proces-verbaal", replace: first !== "proces-verbaal" };
+    if (first === "auditlog" || first === "audit") return { page: "auditlog", replace: first !== "auditlog" };
     if (first === "databron") return { page: "databron" };
     if (first === "at") return { page: "arrestatiebevelen", replace: true };
     return { page: "dashboard", replace: true };
@@ -2261,13 +2649,29 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         return;
       }
 
+      const exportProcessVerbal = event.target.closest("[data-export-process-verbal]");
+      if (exportProcessVerbal) {
+        const rowId = exportProcessVerbal.dataset.exportProcessVerbal || processVerbalState.editingId || "";
+        exportProcessVerbalPdf(rowId ? processVerbalById(rowId) : null);
+        return;
+      }
+
+      const supplementProcessVerbal = event.target.closest("[data-supplement-process-verbal]");
+      if (supplementProcessVerbal) {
+        const rowId = supplementProcessVerbal.dataset.supplementProcessVerbal || processVerbalState.editingId;
+        startSupplementalProcessVerbal(processVerbalById(rowId));
+        return;
+      }
+
       const openProcessVerbal = event.target.closest("[data-open-process-verbal]");
       if (openProcessVerbal) {
         const row = processVerbalById(openProcessVerbal.dataset.openProcessVerbal || "");
         if (!row) return;
         processVerbalState.editingId = row.id;
         processVerbalState.activeType = row.type || processVerbalState.activeType;
+        processVerbalState.supplementSource = null;
         processVerbalState.formError = "";
+        setPage("proces-verbaal");
         renderProcessVerbalView();
         return;
       }
@@ -2365,10 +2769,16 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         return;
       }
 
+      if (event.target.closest("[data-refresh-audit-log]")) {
+        loadAuditLog(true);
+        return;
+      }
+
       const selectProcessVerbalType = event.target.closest("[data-pv-select-type]");
       if (selectProcessVerbalType) {
         processVerbalState.activeType = selectProcessVerbalType.dataset.pvSelectType || "bevindingen";
         processVerbalState.editingId = "";
+        processVerbalState.supplementSource = null;
         processVerbalState.formError = "";
         renderProcessVerbalView();
         return;
@@ -2376,6 +2786,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
       if (event.target.closest("[data-pv-new]")) {
         processVerbalState.editingId = "";
+        processVerbalState.supplementSource = null;
         processVerbalState.formError = "";
         renderProcessVerbalView();
         return;
@@ -2411,6 +2822,11 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       if (event.target.closest?.("[data-process-verbal-form]")) updateProcessVerbalPreview();
       if (event.target.matches?.("[data-pv-author-filter]")) {
         processVerbalState.author = event.target.value || "";
+        processVerbalState.loaded = false;
+        loadProcessVerbals(true);
+      }
+      if (event.target.matches?.("[data-pv-query]")) {
+        processVerbalState.query = event.target.value || "";
         processVerbalState.loaded = false;
         loadProcessVerbals(true);
       }

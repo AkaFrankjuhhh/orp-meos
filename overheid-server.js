@@ -254,6 +254,24 @@ function appendMeosAudit(req, session, action, details = {}) {
   });
 }
 
+function readMeosAuditLog(options = {}) {
+  const filePath = meosAuditLogPath();
+  const limit = Math.max(1, Math.min(200, Number(options.limit || 80) || 80));
+  if (!filePath) return { enabled: false, entries: [] };
+  if (!fs.existsSync(filePath)) return { enabled: true, entries: [] };
+  const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/).filter(Boolean).slice(-limit).reverse();
+  return {
+    enabled: true,
+    entries: lines.map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return { at: "", action: "audit.parse_failed", details: { raw: line.slice(0, 500) } };
+      }
+    })
+  };
+}
+
 function deleteMeosSession(req) {
   const cookies = parseCookies(req);
   const sessionId = String(cookies[meosSessionCookieName] || "").trim();
@@ -275,7 +293,7 @@ function isMeosHost(req) {
 
 function isMeosPageRoute(pathname) {
   const firstSegment = String(pathname || "").split("/").filter(Boolean)[0]?.toLowerCase() || "";
-  return ["dashboard", "personen", "voertuigen", "arrestatiebevelen", "proces-verbaal", "procesverbaal", "pv", "databron", "at"].includes(firstSegment);
+  return ["dashboard", "personen", "voertuigen", "arrestatiebevelen", "proces-verbaal", "procesverbaal", "pv", "auditlog", "audit", "databron", "at"].includes(firstSegment);
 }
 
 function serveMeosStatic(req, res, url) {
@@ -937,6 +955,11 @@ async function sendMeosWetboekResponse(req, res, action, details, handler) {
       ...payload
     });
   } catch (error) {
+    appendMeosAudit(req, session, `${action}.failed`, {
+      ...details,
+      error: error.message || "Wetboek data ophalen is mislukt.",
+      status: error.status || 502
+    });
     console.error(`MEOS Wetboek API ${action} mislukt:`, error.message || error);
     sendJson(res, error.status || 502, {
       ok: false,
@@ -960,6 +983,11 @@ async function sendMeosStoreResponse(req, res, action, details, handler, options
       ...payload
     });
   } catch (error) {
+    appendMeosAudit(req, session, `${action}.failed`, {
+      ...details,
+      error: error.message || "MEOS data ophalen is mislukt.",
+      status: error.status || 500
+    });
     console.error(`MEOS API ${action} mislukt:`, error.message || error);
     sendJson(res, error.status || 500, {
       ok: false,
@@ -1007,6 +1035,11 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
       ...payload
     });
   } catch (error) {
+    appendMeosAudit(req, session, `${action}.failed`, {
+      ...details,
+      error: error.message || "MEOS wijziging opslaan is mislukt.",
+      status: error.status || 500
+    });
     console.error(`MEOS API ${action} mislukt:`, error.message || error);
     sendJson(res, error.status || 500, {
       ok: false,
@@ -1022,6 +1055,25 @@ function meosProcessVerbalFieldsFromBody(fields = {}) {
     .slice(0, 60)
     .map(([key, value]) => [meosText(key, "PV veld", { max: 80 }), meosText(value, "PV veldwaarde", { max: 2500 })])
     .filter(([key]) => key));
+}
+
+function meosProcessVerbalRelatedFromBody(related = {}) {
+  if (!related || typeof related !== "object" || Array.isArray(related)) return {};
+  return {
+    personId: meosText(related.personId, "PV persoon", { max: 120 }),
+    personName: meosText(related.personName, "PV persoon naam", { max: 160 }),
+    personBsn: meosText(related.personBsn, "PV persoon BSN", { max: 80 }),
+    personFingerprint: meosText(related.personFingerprint, "PV persoon vingerafdruk", { max: 80 }),
+    vehiclePlate: meosText(related.vehiclePlate, "PV voertuig", { max: 40 }).toUpperCase(),
+    vehicleLabel: meosText(related.vehicleLabel, "PV voertuig label", { max: 180 }),
+    warrantId: meosText(related.warrantId, "PV arrestatiebevel", { max: 120 }),
+    warrantLabel: meosText(related.warrantLabel, "PV arrestatiebevel label", { max: 220 }),
+    entryType: meosText(related.entryType, "PV registratie type", { max: 40 }),
+    entryId: meosText(related.entryId, "PV registratie", { max: 120 }),
+    entryLabel: meosText(related.entryLabel, "PV registratie label", { max: 220 }),
+    parentProcessVerbalId: meosText(related.parentProcessVerbalId, "Aanvullend PV", { max: 120 }),
+    parentProcessVerbalTitle: meosText(related.parentProcessVerbalTitle, "Aanvullend PV titel", { max: 220 })
+  };
 }
 
 function meosProcessVerbalFromBody(body = {}, session = null) {
@@ -1044,6 +1096,7 @@ function meosProcessVerbalFromBody(body = {}, session = null) {
     subjectFingerprint: meosText(body.subjectFingerprint, "Vingerafdruk", { max: 80 }),
     summary: meosText(body.summary, "Samenvatting", { max: 1000 }),
     fields: meosProcessVerbalFieldsFromBody(body.fields),
+    related: meosProcessVerbalRelatedFromBody(body.related),
     document: meosText(body.document, "Proces-verbaal", { max: 16000, required: true }),
     createdBy: meosCreatedBy(session),
     createdByKey: meosActorKey(session)
@@ -1071,6 +1124,7 @@ const { handleMeosApiRoute } = createMeosApiRoutes({
   meosNoteFromBody,
   meosProcessVerbalFromBody,
   meosProcessVerbalAccessFromSession,
+  readMeosAuditLog,
   getMeosSession,
   requireMeosCsrf,
   meosFallbackProfile,

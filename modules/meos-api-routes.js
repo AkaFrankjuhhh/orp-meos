@@ -24,6 +24,7 @@ function createMeosApiRoutes(context = {}) {
     meosNoteFromBody,
     meosProcessVerbalFromBody,
     meosProcessVerbalAccessFromSession,
+    readMeosAuditLog,
     getMeosSession,
     requireMeosCsrf,
     meosFallbackProfile,
@@ -90,6 +91,17 @@ function createMeosApiRoutes(context = {}) {
       return true;
     }
 
+    if (url.pathname === "/api/meos/audit" && req.method === "GET") {
+      const limit = url.searchParams.get("limit") || "";
+      await sendMeosStoreResponse(req, res, "audit.list", { limit }, async () => ({
+        audit: readMeosAuditLog({ limit })
+      }), {
+        permission: "canViewAudit",
+        permissionMessage: "Alleen kader, korpsleiding of OVJ kan de MEOS auditlog bekijken."
+      });
+      return true;
+    }
+
     if (url.pathname === "/api/meos/wetboek/articles" && req.method === "GET") {
       await sendMeosWetboekResponse(req, res, "wetboek.articles", {}, async () => {
         const payload = await fetchWetboekApiJson("/api/meos/articles");
@@ -114,7 +126,8 @@ function createMeosApiRoutes(context = {}) {
       const scope = String(url.searchParams.get("scope") || "mine").trim().toLowerCase();
       const author = url.searchParams.get("author") || "";
       const type = url.searchParams.get("type") || "";
-      await sendMeosStoreResponse(req, res, "processVerbals.list", { scope, author, type }, async (store, session) => {
+      const query = url.searchParams.get("q") || url.searchParams.get("query") || "";
+      await sendMeosStoreResponse(req, res, "processVerbals.list", { scope, author, type, query }, async (store, session) => {
         const access = meosProcessVerbalAccessFromSession(session);
         const includeAll = scope === "all";
         if (includeAll && !access.includeAll) {
@@ -127,7 +140,8 @@ function createMeosApiRoutes(context = {}) {
             actorKey: access.actorKey,
             includeAll,
             author,
-            type
+            type,
+            query
           })
         };
       });
