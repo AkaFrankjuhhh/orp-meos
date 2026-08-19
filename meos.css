@@ -1633,6 +1633,40 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
   background: var(--meos-subtle-bg);
 }
 
+.meos-pv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.meos-pv-card {
+  display: grid;
+  gap: 8px;
+  min-height: 126px;
+  padding: 16px;
+  border: 1px solid var(--meos-card-border);
+  border-left: 4px solid var(--meos-blue);
+  border-radius: 4px;
+  background: var(--meos-elevated-bg);
+  box-shadow: var(--meos-shadow);
+}
+
+.meos-pv-card h3,
+.meos-pv-card p {
+  margin: 0;
+}
+
+.meos-pv-card h3 {
+  color: var(--meos-text);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.meos-pv-card p {
+  color: var(--meos-secondary-text);
+  line-height: 1.45;
+}
+
 .meos-warrant-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1788,6 +1822,7 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
   .meos-health-summary,
   .meos-wetboek-result,
   .meos-wetboek-totals,
+  .meos-pv-grid,
   .meos-warrant-grid {
     grid-template-columns: minmax(0, 1fr);
   }

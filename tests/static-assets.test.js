@@ -151,6 +151,11 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /ArrestatieBevel Overzicht/);
   assert.match(html, /data-page="proces-verbaal"/);
   assert.match(html, /id="procesVerbaalTitle">Proces Verbaal/);
+  assert.match(html, /Proces-verbaal van bevindingen/);
+  assert.match(html, /Proces-verbaal van aanhouding/);
+  assert.match(html, /Proces-verbaal van verhoor/);
+  assert.match(html, /Proces-verbaal van onderzoek/);
+  assert.match(html, /Proces-verbaal van relaas/);
   assert.match(html, /id="dataHealthView"/);
   assert.match(html, /data-refresh-data-health/);
   assert.doesNotMatch(html, /AT Overzicht/);
@@ -224,6 +229,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-info-link/);
   assert.match(styles, /\.meos-nav-icon\.data/);
   assert.match(styles, /\.meos-nav-icon\.pv/);
+  assert.match(styles, /\.meos-pv-grid/);
+  assert.match(styles, /\.meos-pv-card/);
   assert.match(styles, /\.meos-sidebar-footer \{/);
   assert.match(styles, /\.meos-health-summary/);
   assert.match(styles, /\.meos-health-card/);
