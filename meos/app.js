@@ -1097,6 +1097,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (page === "personen") return "/personen";
     if (page === "voertuigen") return "/voertuigen";
     if (page === "arrestatiebevelen") return "/arrestatiebevelen";
+    if (page === "proces-verbaal") return "/proces-verbaal";
     if (page === "databron") return "/databron";
     return "/dashboard";
   }
@@ -1615,6 +1616,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     }
     if (first === "voertuigen") return { page: "voertuigen" };
     if (first === "arrestatiebevelen") return { page: "arrestatiebevelen" };
+    if (first === "proces-verbaal" || first === "procesverbaal" || first === "pv") return { page: "proces-verbaal", replace: first !== "proces-verbaal" };
     if (first === "databron") return { page: "databron" };
     if (first === "at") return { page: "arrestatiebevelen", replace: true };
     return { page: "dashboard", replace: true };

@@ -2101,7 +2101,7 @@ function serveStatic(req, res, url) {
   }
   const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].split(":")[0].trim().toLowerCase();
   const isMeosHost = host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
-  const meosRouteRoots = new Set(["dashboard", "personen", "voertuigen", "arrestatiebevelen", "databron", "at"]);
+  const meosRouteRoots = new Set(["dashboard", "personen", "voertuigen", "arrestatiebevelen", "proces-verbaal", "procesverbaal", "pv", "databron", "at"]);
   const isMeosPageRoute = isMeosHost && meosRouteRoots.has(firstSegment.toLowerCase());
   const isMeosRoute = isMeosHost || ["meos", "meos.html"].includes(firstSegment.toLowerCase());
   const publicFormConfig = publicFormForRequest(req, url);
