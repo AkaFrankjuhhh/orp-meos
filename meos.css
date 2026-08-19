@@ -310,8 +310,13 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.data {
   background-image: url("/assets/meos-icon-report.png?v=20260817-png-icons");
 }
 
-.meos-sidebar-status {
+.meos-sidebar-footer {
   margin-top: auto;
+  display: grid;
+  gap: 10px;
+}
+
+.meos-sidebar-status {
   padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;

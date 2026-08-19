@@ -144,6 +144,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /data-section="arrestatiebevelen"/);
   assert.match(html, /data-section="databron"/);
   assert.match(html, /data-health-only hidden/);
+  assert.ok(html.indexOf('id="meosOptionsNavLabel"') < html.indexOf('id="meosDataHealthNav"'));
+  assert.ok(html.indexOf('id="meosDataHealthNav"') < html.indexOf("Primaire ingang"));
   assert.match(html, /ArrestatieBevel Overzicht/);
   assert.match(html, /id="dataHealthView"/);
   assert.match(html, /data-refresh-data-health/);
@@ -217,6 +219,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-timeline/);
   assert.match(styles, /\.meos-info-link/);
   assert.match(styles, /\.meos-nav-icon\.data/);
+  assert.match(styles, /\.meos-sidebar-footer \{/);
   assert.match(styles, /\.meos-health-summary/);
   assert.match(styles, /\.meos-health-card/);
   assert.match(styles, /\.meos-health-pill/);
