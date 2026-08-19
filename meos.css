@@ -143,8 +143,10 @@ button {
   position: sticky;
   top: 0;
   height: 100vh;
-  display: flex;
-  flex-direction: column;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: stretch;
   gap: 22px;
   padding: 14px 10px;
   color: var(--meos-sidebar-text);
@@ -186,9 +188,11 @@ button {
 }
 
 .meos-nav {
+  min-height: 0;
   display: grid;
   align-content: start;
   gap: 20px;
+  overflow-y: auto;
 }
 
 .meos-nav-section {
@@ -323,7 +327,7 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.pv {
 }
 
 .meos-sidebar-footer {
-  margin-top: auto;
+  align-self: end;
   display: grid;
   gap: 10px;
 }

@@ -170,7 +170,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosProfileLogout"/);
   assert.match(html, /id="meosRecordModal"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
-  assert.match(html, /meos\.css\?v=20260818-meos-modules/);
+  assert.match(html, /meos\.css\?v=20260819-sidebar-footer/);
   assert.match(html, /type="module" src="\/meos\/app\.js\?v=20260818-meos-modules"/);
   assert.match(legacyScript, /import\("\/meos\/app\.js\?v=20260818-meos-modules"\)/);
   assert.match(script, /from "\.\/core\.js"/);
@@ -189,6 +189,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /--meos-sidebar-bg: #005493/);
   assert.match(styles, /--meos-sidebar-accent: #ffffff/);
   assert.match(styles, /--meos-sidebar-active-bg: #0b629d/);
+  assert.match(styles, /grid-template-rows: auto minmax\(0, 1fr\) auto/);
   const lightTheme = styles.slice(0, styles.indexOf('html[data-meos-theme="dark"]'));
   assert.doesNotMatch(lightTheme, /#101010|#151515|#181818|rgba\(0, 0, 0/);
   assert.doesNotMatch(styles, /#242b2d|#30383a|#1d2426/);
@@ -232,6 +233,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-pv-grid/);
   assert.match(styles, /\.meos-pv-card/);
   assert.match(styles, /\.meos-sidebar-footer \{/);
+  assert.match(styles, /align-self: end/);
   assert.match(styles, /\.meos-health-summary/);
   assert.match(styles, /\.meos-health-card/);
   assert.match(styles, /\.meos-health-pill/);
