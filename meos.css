@@ -1009,6 +1009,7 @@ html[data-meos-theme="dark"] .meos-person-row.wanted {
 }
 
 .meos-form-grid input,
+.meos-form-grid select,
 .meos-form-grid textarea {
   width: 100%;
   border: 1px solid var(--meos-input-border);
@@ -1652,7 +1653,17 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
   border-left: 4px solid var(--meos-blue);
   border-radius: 4px;
   background: var(--meos-elevated-bg);
+  color: var(--meos-text);
+  text-align: left;
   box-shadow: var(--meos-shadow);
+}
+
+.meos-pv-card.active,
+.meos-pv-card:hover,
+.meos-pv-card:focus-visible {
+  border-color: var(--meos-blue);
+  box-shadow: 0 10px 24px var(--meos-interactive-shadow);
+  outline: none;
 }
 
 .meos-pv-card h3,
@@ -1669,6 +1680,90 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
 .meos-pv-card p {
   color: var(--meos-secondary-text);
   line-height: 1.45;
+}
+
+.meos-pv-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.meos-pv-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.meos-pv-compose,
+.meos-pv-overview {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.meos-pv-form,
+.meos-pv-overview {
+  padding: 14px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  background: var(--meos-elevated-bg);
+}
+
+.meos-pv-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.meos-pv-toolbar label {
+  display: grid;
+  gap: 6px;
+  color: var(--meos-label-text);
+  font-size: 12px;
+}
+
+.meos-pv-toolbar input,
+.meos-pv-toolbar select {
+  width: 100%;
+  border: 1px solid var(--meos-input-border);
+  border-radius: 2px;
+  padding: 9px 10px;
+  color: var(--meos-text);
+  background: var(--meos-input-bg);
+}
+
+.meos-pv-preview-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.meos-pv-preview-block h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.meos-pv-preview-block pre {
+  max-height: 420px;
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--meos-card-border);
+  border-radius: 4px;
+  color: var(--meos-text);
+  background: var(--meos-subtle-bg);
+  font: 13px/1.45 Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+}
+
+.meos-pv-list {
+  display: grid;
+  gap: 10px;
+}
+
+.meos-pv-row {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .meos-warrant-grid {
@@ -1759,6 +1854,7 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
 
   .meos-dashboard-grid,
   .meos-profile-grid,
+  .meos-pv-layout,
   .meos-record-modal-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1815,6 +1911,7 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
   }
 
   .meos-tile-grid,
+  .meos-pv-toolbar,
   .meos-search-row,
   .meos-record-modal-tools,
   .meos-record-modal-fields,

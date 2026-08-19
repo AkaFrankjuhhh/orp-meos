@@ -22,6 +22,8 @@ function createMeosApiRoutes(context = {}) {
     meosShouldCreateFine,
     meosFineFromBody,
     meosNoteFromBody,
+    meosProcessVerbalFromBody,
+    meosProcessVerbalAccessFromSession,
     getMeosSession,
     requireMeosCsrf,
     meosFallbackProfile,
@@ -104,6 +106,54 @@ function createMeosApiRoutes(context = {}) {
       await sendMeosWetboekResponse(req, res, "wetboek.search", { query }, async () => {
         const payload = await fetchWetboekApiJson(payloadPath);
         return { wetboek: payload };
+      });
+      return true;
+    }
+
+    if (url.pathname === "/api/meos/process-verbals" && req.method === "GET") {
+      const scope = String(url.searchParams.get("scope") || "mine").trim().toLowerCase();
+      const author = url.searchParams.get("author") || "";
+      const type = url.searchParams.get("type") || "";
+      await sendMeosStoreResponse(req, res, "processVerbals.list", { scope, author, type }, async (store, session) => {
+        const access = meosProcessVerbalAccessFromSession(session);
+        const includeAll = scope === "all";
+        if (includeAll && !access.includeAll) {
+          const error = new Error("Alleen kader, korpsleiding of OVJ kan alle processen-verbaal bekijken.");
+          error.status = 403;
+          throw error;
+        }
+        return {
+          processVerbals: await store.listProcessVerbals({
+            actorKey: access.actorKey,
+            includeAll,
+            author,
+            type
+          })
+        };
+      });
+      return true;
+    }
+
+    if (url.pathname === "/api/meos/process-verbals" && req.method === "POST") {
+      await sendMeosMutationResponse(req, res, "processVerbals.add", {}, async (store, session, body) => {
+        return store.addProcessVerbal(meosProcessVerbalFromBody(body, session));
+      }, {
+        permission: "canWriteEntries",
+        permissionMessage: "Je MEOS rol mag geen proces-verbaal opmaken."
+      });
+      return true;
+    }
+
+    if (url.pathname.startsWith("/api/meos/process-verbals/") && req.method === "PUT") {
+      const processVerbalId = meosPathParam(url.pathname, "/api/meos/process-verbals/");
+      await sendMeosMutationResponse(req, res, "processVerbals.update", { processVerbalId }, async (store, session, body) => {
+        const access = meosProcessVerbalAccessFromSession(session);
+        return store.updateProcessVerbal(processVerbalId, meosProcessVerbalFromBody(body, session), {
+          actorKey: access.actorKey
+        });
+      }, {
+        permission: "canWriteEntries",
+        permissionMessage: "Je MEOS rol mag geen proces-verbaal wijzigen."
       });
       return true;
     }

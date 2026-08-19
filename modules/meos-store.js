@@ -216,6 +216,37 @@ class CachedMeosStore {
     return { people, vehicles };
   }
 
+  async listProcessVerbals(options = {}) {
+    if (typeof this.store.listProcessVerbals !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen proces-verbaal generator.");
+      error.status = 501;
+      throw error;
+    }
+    return this.store.listProcessVerbals(options);
+  }
+
+  async addProcessVerbal(processVerbal = {}) {
+    if (typeof this.store.addProcessVerbal !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen proces-verbaal writes.");
+      error.status = 501;
+      throw error;
+    }
+    const result = await this.store.addProcessVerbal(processVerbal);
+    this.clearCache();
+    return result;
+  }
+
+  async updateProcessVerbal(processVerbalId, patch = {}, options = {}) {
+    if (typeof this.store.updateProcessVerbal !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt nog geen proces-verbaal wijzigingen.");
+      error.status = 501;
+      throw error;
+    }
+    const result = await this.store.updateProcessVerbal(processVerbalId, patch, options);
+    this.clearCache();
+    return result;
+  }
+
   async addPersonRecord(personValue, record = {}) {
     if (typeof this.store.addPersonRecord !== "function") {
       const error = new Error("Deze MEOS databron ondersteunt nog geen strafblad-writes.");

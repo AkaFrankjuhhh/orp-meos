@@ -1,6 +1,7 @@
 "use strict";
 
 const { buildDemoMeosPeople, normalize, slugFromValue } = require("./meos-demo-data");
+const { filterProcessVerbals, normalizeProcessVerbal, updateProcessVerbal } = require("./meos-process-verbals");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -154,6 +155,7 @@ function deleteFromPersonCollection(person, collection, entryId, fallbackPrefix)
 class DemoMeosStore {
   constructor(options = {}) {
     this.people = Array.isArray(options.people) ? clone(options.people) : buildDemoMeosPeople();
+    this.processVerbals = Array.isArray(options.processVerbals) ? clone(options.processVerbals).map((entry) => normalizeProcessVerbal(entry)) : [];
     this.source = {
       type: "demo",
       label: "MEOS demo conceptdata",
@@ -248,6 +250,28 @@ class DemoMeosStore {
       people: people.slice(0, limit),
       vehicles: vehicles.slice(0, limit)
     };
+  }
+
+  async listProcessVerbals(options = {}) {
+    return clone(filterProcessVerbals(this.processVerbals, options));
+  }
+
+  async addProcessVerbal(processVerbal = {}) {
+    const nextProcessVerbal = normalizeProcessVerbal(processVerbal);
+    this.processVerbals = [nextProcessVerbal, ...this.processVerbals];
+    return { processVerbal: clone(nextProcessVerbal) };
+  }
+
+  async updateProcessVerbal(processVerbalId, patch = {}, options = {}) {
+    const index = this.processVerbals.findIndex((entry) => normalize(entry.id) === normalize(processVerbalId));
+    if (index === -1) {
+      const error = new Error("Proces-verbaal niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const nextProcessVerbal = updateProcessVerbal(this.processVerbals[index], patch, options);
+    this.processVerbals[index] = nextProcessVerbal;
+    return { processVerbal: clone(nextProcessVerbal) };
   }
 
   async sourceHealth() {

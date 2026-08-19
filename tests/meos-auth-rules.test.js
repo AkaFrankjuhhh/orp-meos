@@ -30,7 +30,9 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /canViewEntries: true/);
   assert.match(code, /canWriteEntries: true/);
   assert.match(code, /canViewAudit: canDeleteEntries/);
+  assert.match(code, /canViewAllProcessVerbals: canDeleteEntries/);
   assert.match(code, /canViewAudit: false/);
+  assert.match(code, /canViewAllProcessVerbals: false/);
   assert.match(code, /function configuredMeosHealthRoleIds/);
   assert.match(code, /MEOS_HEALTH_ROLE_IDS/);
   assert.match(code, /MEOS_DEFENSIE_HEALTH_ROLE_IDS/);

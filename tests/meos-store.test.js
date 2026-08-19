@@ -97,6 +97,56 @@ test("MEOS demo store can add profile records and notes", async () => {
   assert.equal(person.fines[0].fine, "Wetboek boete II-1");
 });
 
+test("MEOS demo store keeps process-verbaal visibility scoped to the author", async () => {
+  const store = createDemoMeosStore();
+  const frank = { name: "Frank Bright", rank: "Brigade-Generaal", serviceNumber: "70-04", discordId: "1" };
+  const slak = { name: "Slak G", rank: "Adjudant", serviceNumber: "73-01", discordId: "2" };
+
+  const own = await store.addProcessVerbal({
+    type: "bevindingen",
+    title: "PV bevindingen test",
+    status: "concept",
+    date: "18 aug. 2026",
+    document: "Concept PV van Frank.",
+    createdBy: frank,
+    createdByKey: "discord:1"
+  });
+  const other = await store.addProcessVerbal({
+    type: "verhoor",
+    title: "PV verhoor Slak",
+    status: "concept",
+    date: "18 aug. 2026",
+    document: "Concept PV van Slak.",
+    createdBy: slak,
+    createdByKey: "discord:2"
+  });
+
+  const ownRows = await store.listProcessVerbals({ actorKey: "discord:1" });
+  assert.equal(ownRows.length, 1);
+  assert.equal(ownRows[0].id, own.processVerbal.id);
+
+  const allRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "all" });
+  assert.equal(allRows.length, 2);
+
+  const verhoorRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "verhoor" });
+  assert.equal(verhoorRows.length, 1);
+  assert.equal(verhoorRows[0].id, other.processVerbal.id);
+
+  const finalized = await store.updateProcessVerbal(own.processVerbal.id, {
+    status: "definitief",
+    document: "Definitief PV van Frank."
+  }, { actorKey: "discord:1" });
+  assert.equal(finalized.processVerbal.status, "definitief");
+  assert.ok(finalized.processVerbal.finalizedAt);
+
+  await assert.rejects(() => store.updateProcessVerbal(own.processVerbal.id, {
+    document: "Wijzigen na definitief."
+  }, { actorKey: "discord:1" }), /definitief proces-verbaal/);
+  await assert.rejects(() => store.updateProcessVerbal(other.processVerbal.id, {
+    document: "Wijzigen van ander account."
+  }, { actorKey: "discord:1" }), /eigen concept-PV/);
+});
+
 test("MEOS demo store can delete records, notes and fines", async () => {
   const store = createDemoMeosStore();
 
@@ -267,6 +317,30 @@ test("MEOS FiveM store writes dossier data outside the read-only FiveM views", a
   });
   assert.equal(fineResult.fine.amount, "EUR 100");
 
+  const processVerbalResult = await store.addProcessVerbal({
+    type: "onderzoek",
+    title: "PV onderzoek live data",
+    status: "concept",
+    date: "18 aug. 2026",
+    document: "Concept PV naast read-only FiveM views.",
+    createdBy: { name: "Frank Bright", serviceNumber: "70-04", discordId: "1" },
+    createdByKey: "discord:1"
+  });
+  assert.equal(processVerbalResult.processVerbal.type, "onderzoek");
+
+  const ownProcessVerbals = await store.listProcessVerbals({ actorKey: "discord:1" });
+  assert.equal(ownProcessVerbals.length, 1);
+  const hiddenProcessVerbals = await store.listProcessVerbals({ actorKey: "discord:2" });
+  assert.equal(hiddenProcessVerbals.length, 0);
+  const allProcessVerbals = await store.listProcessVerbals({ actorKey: "discord:2", includeAll: true });
+  assert.equal(allProcessVerbals.length, 1);
+
+  const finalizedProcessVerbal = await store.updateProcessVerbal(processVerbalResult.processVerbal.id, {
+    status: "definitief",
+    document: "Definitief PV naast read-only FiveM views."
+  }, { actorKey: "discord:1" });
+  assert.equal(finalizedProcessVerbal.processVerbal.status, "definitief");
+
   const person = await store.getPerson("citizen-1");
   assert.equal(person.records.length, 1);
   assert.equal(person.notes.length, 1);
@@ -278,5 +352,7 @@ test("MEOS FiveM store writes dossier data outside the read-only FiveM views", a
 
   const saved = JSON.parse(fs.readFileSync(caseDataPath, "utf8"));
   assert.equal(saved.people["citizen-1"].records[0].note, "MEOS dossier blijft lokaal.");
+  assert.equal(saved.processVerbals[0].status, "definitief");
+  assert.equal(saved.processVerbals[0].createdByKey, "discord:1");
   assert.equal(store.source.caseDataPath, caseDataPath);
 });

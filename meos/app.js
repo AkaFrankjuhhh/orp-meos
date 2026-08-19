@@ -35,6 +35,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       canViewEntries: false,
       canWriteEntries: false,
       canDeleteEntries: false,
+      canViewAllProcessVerbals: false,
       canViewDataHealth: false
     }
   };
@@ -54,6 +55,90 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     extraNote: "",
     createFine: false,
     fineAmount: "",
+    busy: false
+  };
+  const processVerbalTypes = {
+    bevindingen: {
+      label: "Proces-verbaal van bevindingen",
+      shortLabel: "Bevindingen",
+      description: "Waarnemingen, constateringen en feiten die de verbalisant zelf heeft vastgesteld.",
+      fields: [
+        ["incidentDate", "Datum incident", "text", "Bijv. 19 aug. 2026"],
+        ["incidentTime", "Tijdstip", "text", "Bijv. 21:35"],
+        ["aanleiding", "Aanleiding", "textarea", "Melding, surveillance, controle of andere aanleiding."],
+        ["waarneming", "Eigen waarneming", "textarea", "Beschrijf wat je zag, hoorde, voelde of vaststelde."],
+        ["betrokkenen", "Betrokkenen", "textarea", "Personen, voertuigen, eenheden of getuigen."],
+        ["vervolg", "Vervolgactie", "textarea", "Aanhouding, inbeslagname, overdracht of andere opvolging."]
+      ]
+    },
+    aanhouding: {
+      label: "Proces-verbaal van aanhouding",
+      shortLabel: "Aanhouding",
+      description: "Waarom en hoe een verdachte is aangehouden binnen ORP roleplay.",
+      fields: [
+        ["arrestDate", "Datum aanhouding", "text", "Bijv. 19 aug. 2026"],
+        ["arrestTime", "Tijdstip aanhouding", "text", "Bijv. 21:35"],
+        ["suspectName", "Verdachte", "text", "Naam verdachte"],
+        ["reason", "Reden aanhouding", "textarea", "Op grond waarvan is de verdachte aangehouden?"],
+        ["method", "Wijze van aanhouding", "textarea", "Hoe is de aanhouding verlopen?"],
+        ["forceUsed", "Geweldsmiddelen", "textarea", "Geen, boeien, geweldsaanwending of bijzonderheden."],
+        ["transport", "Transport en overdracht", "textarea", "Waarheen is verdachte overgebracht en aan wie overgedragen?"]
+      ]
+    },
+    verhoor: {
+      label: "Proces-verbaal van verhoor",
+      shortLabel: "Verhoor",
+      description: "Schriftelijke weergave van vragen en antwoorden bij verdachte, getuige of aangever.",
+      fields: [
+        ["hearingDate", "Datum verhoor", "text", "Bijv. 19 aug. 2026"],
+        ["hearingTime", "Aanvang verhoor", "text", "Bijv. 22:10"],
+        ["heardPerson", "Gehoorde persoon", "text", "Naam gehoorde"],
+        ["role", "Rol gehoorde", "text", "Verdachte, getuige of aangever"],
+        ["caution", "Cautie / mededeling", "textarea", "Welke rechten of mededelingen zijn gegeven?"],
+        ["questionsAnswers", "Vragen en antwoorden", "textarea", "Noteer Q: en A: regels of een zakelijke weergave."],
+        ["closing", "Afsluiting", "textarea", "Ondertekening, weigering, opmerkingen of einde verhoor."]
+      ]
+    },
+    onderzoek: {
+      label: "Proces-verbaal van onderzoek",
+      shortLabel: "Onderzoek",
+      description: "Technisch, tactisch of forensisch onderzoek op locatie, voertuig of plaats delict.",
+      fields: [
+        ["researchDate", "Datum onderzoek", "text", "Bijv. 19 aug. 2026"],
+        ["researchType", "Soort onderzoek", "text", "Technisch, tactisch, forensisch of digitaal"],
+        ["assignment", "Opdracht / aanleiding", "textarea", "Waarom is dit onderzoek uitgevoerd?"],
+        ["method", "Werkwijze", "textarea", "Welke handelingen zijn verricht?"],
+        ["findings", "Bevindingen", "textarea", "Wat is aangetroffen of vastgesteld?"],
+        ["evidence", "Sporen / goederen", "textarea", "Sporen, goederen, voertuigen of bewijsstukken."],
+        ["conclusion", "Conclusie", "textarea", "Zakelijke conclusie voor het dossier."]
+      ]
+    },
+    relaas: {
+      label: "Proces-verbaal van relaas",
+      shortLabel: "Relaas",
+      description: "Samenhangende dossierlijn voor de officier van justitie.",
+      fields: [
+        ["dossierNumber", "Dossiernummer", "text", "Bijv. ORP-MEOS-2026-001"],
+        ["suspectName", "Verdachte", "text", "Naam verdachte"],
+        ["suspicion", "Verdenking", "textarea", "Welke verdenking staat centraal?"],
+        ["dossierSummary", "Dossieroverzicht", "textarea", "Chronologisch overzicht van de zaak."],
+        ["evidenceSummary", "Bewijs en stukken", "textarea", "Welke PV's, verklaringen of goederen dragen de verdenking?"],
+        ["legalSummary", "Wetboek / strafbare feiten", "textarea", "Artikelen, strafbare feiten of kwalificatie."],
+        ["ovjAdvice", "Voor OVJ", "textarea", "Openstaande vragen, advies of aandachtspunten."]
+      ]
+    }
+  };
+  const processVerbalState = {
+    rows: [],
+    loaded: false,
+    loading: false,
+    error: "",
+    formError: "",
+    activeType: "bevindingen",
+    editingId: "",
+    scope: "mine",
+    author: "",
+    typeFilter: "all",
     busy: false
   };
 
@@ -129,6 +214,10 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     return Boolean(currentMeosProfile?.permissions?.canViewDataHealth);
   }
 
+  function canViewAllProcessVerbals() {
+    return Boolean(currentMeosProfile?.permissions?.canViewAllProcessVerbals || currentMeosProfile?.permissions?.canDeleteEntries);
+  }
+
   function updateDataHealthAccess() {
     const allowed = canViewDataHealth();
     $$("[data-health-only]").forEach((element) => {
@@ -164,6 +253,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (logout) logout.hidden = !authenticated;
     renderDashboardProfile(nextProfile);
     updateDataHealthAccess();
+    if ($("#processVerbalView")) renderProcessVerbalView();
   }
 
   async function loadMeosSession() {
@@ -1118,6 +1208,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     $$(".meos-nav-item").forEach((button) => button.classList.toggle("active", button.dataset.section === navPage));
     document.body.classList.remove("sidebar-open");
     updatePageUrl(page, options);
+    if (page === "proces-verbaal") loadProcessVerbals();
     if (page === "databron") loadDataHealth();
   }
 
@@ -1575,6 +1666,372 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     `).join("");
   }
 
+  function processVerbalConfig(type = processVerbalState.activeType) {
+    return processVerbalTypes[type] || processVerbalTypes.bevindingen;
+  }
+
+  function processVerbalById(id) {
+    return processVerbalState.rows.find((row) => row.id === id) || null;
+  }
+
+  function processVerbalFieldValue(row, key) {
+    return String(row?.fields?.[key] || "").trim();
+  }
+
+  function processVerbalAuthorLine(row = {}) {
+    const createdBy = row.createdBy || {};
+    return [createdBy.name, createdBy.rank, createdBy.serviceNumber].map((value) => String(value || "").trim()).filter(Boolean).join(" - ");
+  }
+
+  function processVerbalDraftFromRow(row = null) {
+    const type = row?.type || processVerbalState.activeType || "bevindingen";
+    const config = processVerbalConfig(type);
+    const createdBy = row?.createdBy || currentMeosProfile || defaultMeosProfile;
+    return {
+      id: row?.id || "",
+      type,
+      typeLabel: config.label,
+      title: row?.title || config.label,
+      status: row?.status || "concept",
+      date: row?.date || todayMeosDate(),
+      location: row?.location || "",
+      caseNumber: row?.caseNumber || "",
+      subjectName: row?.subjectName || "",
+      subjectBsn: row?.subjectBsn || "",
+      subjectFingerprint: row?.subjectFingerprint || "",
+      summary: row?.summary || "",
+      fields: row?.fields || {},
+      document: row?.document || "",
+      createdBy
+    };
+  }
+
+  function processVerbalDraftFromForm(form, status = "concept") {
+    const data = formPayload(form);
+    const type = data.type || processVerbalState.activeType;
+    const fields = {};
+    $$("[data-pv-field]", form).forEach((input) => {
+      fields[input.name] = String(input.value || "").trim();
+    });
+    const draft = {
+      id: form.dataset.processVerbalId || "",
+      type,
+      typeLabel: processVerbalConfig(type).label,
+      title: data.title || processVerbalConfig(type).label,
+      status,
+      date: data.date || todayMeosDate(),
+      location: data.location || "",
+      caseNumber: data.caseNumber || "",
+      subjectName: data.subjectName || "",
+      subjectBsn: data.subjectBsn || "",
+      subjectFingerprint: data.subjectFingerprint || "",
+      summary: data.summary || "",
+      fields,
+      createdBy: currentMeosProfile || defaultMeosProfile
+    };
+    return {
+      ...draft,
+      document: composeProcessVerbalDocument(draft)
+    };
+  }
+
+  function processVerbalFieldLines(type, fields = {}) {
+    const config = processVerbalConfig(type);
+    return config.fields
+      .map(([name, label]) => [label, String(fields[name] || "").trim()])
+      .filter(([, value]) => value)
+      .map(([label, value]) => `${label}:\n${value}`);
+  }
+
+  function composeProcessVerbalDocument(draft = {}) {
+    const type = draft.type || "bevindingen";
+    const config = processVerbalConfig(type);
+    const createdBy = draft.createdBy || currentMeosProfile || defaultMeosProfile;
+    const verbalist = profileFullName(createdBy);
+    const meta = profileMetaLine(createdBy);
+    const header = [
+      "ORP OVERHEID",
+      "MEOS - PROCES-VERBAAL",
+      config.label.toUpperCase(),
+      "",
+      `PV-nummer: ${draft.id || "Wordt automatisch toegekend na opslaan"}`,
+      `Status: ${draft.status === "definitief" ? "Definitief" : "Concept"}`,
+      `Datum opmaak: ${draft.date || todayMeosDate()}`,
+      draft.caseNumber ? `Dossiernummer: ${draft.caseNumber}` : "",
+      draft.location ? `Locatie: ${draft.location}` : ""
+    ].filter(Boolean);
+    const subject = [
+      draft.subjectName ? `Betrokkene: ${draft.subjectName}` : "",
+      draft.subjectBsn ? `BSN: ${draft.subjectBsn}` : "",
+      draft.subjectFingerprint ? `Vingerafdruk: ${draft.subjectFingerprint}` : ""
+    ].filter(Boolean);
+    const statement = [
+      `Ik, verbalisant ${verbalist}${meta ? ` (${meta})` : ""}, verklaar het volgende binnen ORP roleplay:`,
+      draft.summary || ""
+    ].filter(Boolean);
+    const body = processVerbalFieldLines(type, draft.fields);
+    const closing = [
+      "Waarvan door mij is opgemaakt dit proces-verbaal.",
+      `Opgemaakt en opgeslagen in MEOS door ${verbalist}${meta ? ` (${meta})` : ""}.`,
+      "Dit document is een officieel ORP roleplay document en geen echt juridisch proces-verbaal buiten FiveM."
+    ];
+    return [
+      ...header,
+      subject.length ? "\nBETROKKENE" : "",
+      ...subject,
+      "\nRELAAS VAN VERBALISANT",
+      ...statement,
+      body.length ? "\nINHOUD" : "",
+      ...body,
+      "\nAFSLUITING",
+      ...closing
+    ].filter(Boolean).join("\n");
+  }
+
+  function renderProcessVerbalTypeCards() {
+    return `<div class="meos-pv-grid" aria-label="Proces-verbaal formats">
+      ${Object.entries(processVerbalTypes).map(([key, config]) => `
+        <button class="meos-pv-card ${processVerbalState.activeType === key ? "active" : ""}" type="button" data-pv-select-type="${escapeHtml(key)}">
+          <h3>${escapeHtml(config.label)}</h3>
+          <p>${escapeHtml(config.description)}</p>
+        </button>
+      `).join("")}
+    </div>`;
+  }
+
+  function renderProcessVerbalFilters() {
+    const canViewAll = canViewAllProcessVerbals();
+    return `
+      <div class="meos-pv-toolbar">
+        <button class="meos-primary" type="button" data-pv-new>Nieuw PV opstellen</button>
+        <label>
+          <span>Type</span>
+          <select data-pv-type-filter>
+            <option value="all" ${processVerbalState.typeFilter === "all" ? "selected" : ""}>Alle PV types</option>
+            ${Object.entries(processVerbalTypes).map(([key, config]) => `<option value="${escapeHtml(key)}" ${processVerbalState.typeFilter === key ? "selected" : ""}>${escapeHtml(config.shortLabel)}</option>`).join("")}
+          </select>
+        </label>
+        ${canViewAll ? `
+          <label>
+            <span>Scope</span>
+            <select data-pv-scope>
+              <option value="mine" ${processVerbalState.scope !== "all" ? "selected" : ""}>Mijn PV's</option>
+              <option value="all" ${processVerbalState.scope === "all" ? "selected" : ""}>Alles</option>
+            </select>
+          </label>
+          <label>
+            <span>Verbalisant</span>
+            <input data-pv-author-filter type="search" value="${escapeHtml(processVerbalState.author)}" placeholder="Zoek op naam of dienstnr." />
+          </label>
+        ` : ""}
+      </div>
+    `;
+  }
+
+  function renderProcessVerbalFieldInput(row, field, readonly) {
+    const [name, label, type, placeholder] = field;
+    const value = processVerbalFieldValue(row, name);
+    if (type === "textarea") {
+      return `
+        <label class="wide">
+          <span>${escapeHtml(label)}</span>
+          <textarea name="${escapeHtml(name)}" data-pv-field rows="4" maxlength="2500" placeholder="${escapeHtml(placeholder || "")}" ${readonly ? "disabled" : ""}>${escapeHtml(value)}</textarea>
+        </label>
+      `;
+    }
+    return `
+      <label>
+        <span>${escapeHtml(label)}</span>
+        <input name="${escapeHtml(name)}" data-pv-field type="text" value="${escapeHtml(value)}" maxlength="180" placeholder="${escapeHtml(placeholder || "")}" ${readonly ? "disabled" : ""} />
+      </label>
+    `;
+  }
+
+  function renderProcessVerbalForm() {
+    const row = processVerbalById(processVerbalState.editingId);
+    const draft = processVerbalDraftFromRow(row);
+    const config = processVerbalConfig(draft.type);
+    const readonly = draft.status === "definitief";
+    const preview = draft.document || composeProcessVerbalDocument(draft);
+    return `
+      <form class="meos-pv-form" data-process-verbal-form data-process-verbal-id="${escapeHtml(draft.id)}">
+        <div class="meos-card-title">
+          <h2>${escapeHtml(row ? "PV openen" : "Nieuw PV opstellen")}</h2>
+          <span class="meos-chip ${readonly ? "ok" : "info"}">${escapeHtml(readonly ? "Definitief" : "Concept")}</span>
+        </div>
+        <input name="type" type="hidden" value="${escapeHtml(draft.type)}" />
+        <div class="meos-form-grid">
+          <label>
+            <span>PV titel</span>
+            <input name="title" type="text" value="${escapeHtml(draft.title)}" maxlength="180" ${readonly ? "disabled" : ""} />
+          </label>
+          <label>
+            <span>Datum opmaak</span>
+            <input name="date" type="text" value="${escapeHtml(draft.date)}" maxlength="40" ${readonly ? "disabled" : ""} />
+          </label>
+          <label>
+            <span>Dossiernummer</span>
+            <input name="caseNumber" type="text" value="${escapeHtml(draft.caseNumber)}" maxlength="80" placeholder="ORP-MEOS-..." ${readonly ? "disabled" : ""} />
+          </label>
+          <label>
+            <span>Locatie</span>
+            <input name="location" type="text" value="${escapeHtml(draft.location)}" maxlength="160" ${readonly ? "disabled" : ""} />
+          </label>
+          <label>
+            <span>Betrokkene</span>
+            <input name="subjectName" type="text" value="${escapeHtml(draft.subjectName)}" maxlength="160" placeholder="Naam speler of verdachte" ${readonly ? "disabled" : ""} />
+          </label>
+          <label>
+            <span>BSN</span>
+            <input name="subjectBsn" type="text" value="${escapeHtml(draft.subjectBsn)}" maxlength="80" placeholder="ORP-BSN-..." ${readonly ? "disabled" : ""} />
+          </label>
+          <label>
+            <span>Vingerafdruk</span>
+            <input name="subjectFingerprint" type="text" value="${escapeHtml(draft.subjectFingerprint)}" maxlength="80" placeholder="ORP-V-..." ${readonly ? "disabled" : ""} />
+          </label>
+          <label class="wide">
+            <span>Samenvatting</span>
+            <textarea name="summary" rows="3" maxlength="1000" placeholder="Korte zakelijke samenvatting van dit PV." ${readonly ? "disabled" : ""}>${escapeHtml(draft.summary)}</textarea>
+          </label>
+          ${config.fields.map((field) => renderProcessVerbalFieldInput(draft, field, readonly)).join("")}
+        </div>
+        <p class="meos-form-error" data-form-error ${processVerbalState.formError ? "" : "hidden"}>${escapeHtml(processVerbalState.formError)}</p>
+        <div class="meos-pv-preview-block">
+          <h3>Live preview</h3>
+          <pre id="processVerbalPreview">${escapeHtml(preview)}</pre>
+        </div>
+        <div class="meos-form-actions">
+          ${readonly ? '<span class="meos-chip ok">Definitief opgeslagen - alleen aanvullend PV maken.</span>' : `
+            <button class="meos-secondary muted" type="button" data-save-process-verbal="concept">Concept opslaan</button>
+            <button class="meos-primary" type="button" data-save-process-verbal="definitief">Definitief opslaan</button>
+          `}
+        </div>
+      </form>
+    `;
+  }
+
+  function renderProcessVerbalRows() {
+    if (processVerbalState.loading) return '<div class="meos-empty">Processen-verbaal laden...</div>';
+    if (processVerbalState.error) return `<div class="meos-empty">${escapeHtml(processVerbalState.error)}</div>`;
+    if (!processVerbalState.rows.length) return '<div class="meos-empty">Nog geen processen-verbaal gevonden.</div>';
+    return `<div class="meos-pv-list">
+      ${processVerbalState.rows.map((row) => `
+        <button class="meos-result-card meos-pv-row" type="button" data-open-process-verbal="${escapeHtml(row.id)}">
+          <span>
+            <strong>${escapeHtml(row.title || row.typeLabel)}</strong>
+            <span class="meos-result-meta">
+              <span class="meos-chip">${escapeHtml(row.typeLabel || processVerbalConfig(row.type).label)}</span>
+              <span class="meos-chip ${row.status === "definitief" ? "ok" : "info"}">${escapeHtml(row.status === "definitief" ? "Definitief" : "Concept")}</span>
+              <span class="meos-chip">${escapeHtml(row.date || row.createdAt || "")}</span>
+              <span class="meos-chip">Verbalisant ${escapeHtml(processVerbalAuthorLine(row) || "-")}</span>
+            </span>
+          </span>
+        </button>
+      `).join("")}
+    </div>`;
+  }
+
+  function renderProcessVerbalView() {
+    const target = $("#processVerbalView");
+    if (!target) return;
+    if (!canWriteMeosEntries()) {
+      target.innerHTML = '<div class="meos-empty">Je MEOS rol mag geen processen-verbaal opmaken.</div>';
+      return;
+    }
+    if (!canViewAllProcessVerbals() && processVerbalState.scope === "all") {
+      processVerbalState.scope = "mine";
+      processVerbalState.author = "";
+    }
+    target.innerHTML = `
+      <div class="meos-pv-workspace">
+        ${renderProcessVerbalTypeCards()}
+        <div class="meos-pv-layout">
+          <section class="meos-pv-compose">
+            ${renderProcessVerbalForm()}
+          </section>
+          <aside class="meos-pv-overview">
+            <div class="meos-card-title">
+              <h2>${canViewAllProcessVerbals() && processVerbalState.scope === "all" ? "Alle PV's" : "Mijn PV's"}</h2>
+            </div>
+            ${renderProcessVerbalFilters()}
+            ${renderProcessVerbalRows()}
+          </aside>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadProcessVerbals(force = false) {
+    if (!canWriteMeosEntries()) {
+      renderProcessVerbalView();
+      return;
+    }
+    if (processVerbalState.loading) return;
+    if (processVerbalState.loaded && !force) {
+      renderProcessVerbalView();
+      return;
+    }
+    processVerbalState.loading = true;
+    processVerbalState.error = "";
+    renderProcessVerbalView();
+    try {
+      const params = new URLSearchParams({
+        scope: canViewAllProcessVerbals() ? processVerbalState.scope : "mine"
+      });
+      if (processVerbalState.typeFilter !== "all") params.set("type", processVerbalState.typeFilter);
+      if (canViewAllProcessVerbals() && processVerbalState.author) params.set("author", processVerbalState.author);
+      const payload = await apiJson(`/api/meos/process-verbals?${params}`);
+      processVerbalState.rows = asArray(payload.processVerbals);
+      processVerbalState.loaded = true;
+    } catch (error) {
+      processVerbalState.error = error.message || "Processen-verbaal ophalen is mislukt.";
+    } finally {
+      processVerbalState.loading = false;
+      renderProcessVerbalView();
+    }
+  }
+
+  function updateProcessVerbalPreview() {
+    const form = $("[data-process-verbal-form]");
+    const preview = $("#processVerbalPreview");
+    if (!form || !preview) return;
+    preview.textContent = composeProcessVerbalDocument(processVerbalDraftFromForm(form, "concept"));
+  }
+
+  function setProcessVerbalBusy(busy) {
+    processVerbalState.busy = busy;
+    const form = $("[data-process-verbal-form]");
+    if (!form) return;
+    $$("button, input, textarea, select", form).forEach((element) => {
+      element.disabled = busy;
+    });
+  }
+
+  async function submitProcessVerbal(status = "concept") {
+    const form = $("[data-process-verbal-form]");
+    if (!form) return;
+    if (status === "definitief" && !window.confirm("Definitief opslaan? Dit PV kan daarna niet meer worden gewijzigd.")) return;
+    processVerbalState.formError = "";
+    setProcessVerbalBusy(true);
+    try {
+      const body = processVerbalDraftFromForm(form, status);
+      const id = form.dataset.processVerbalId || "";
+      const payload = await apiJson(id ? `/api/meos/process-verbals/${encodeURIComponent(id)}` : "/api/meos/process-verbals", {
+        method: id ? "PUT" : "POST",
+        body
+      });
+      processVerbalState.editingId = payload.processVerbal?.id || "";
+      processVerbalState.activeType = payload.processVerbal?.type || processVerbalState.activeType;
+      processVerbalState.loaded = false;
+      await loadProcessVerbals(true);
+    } catch (error) {
+      processVerbalState.formError = error.message || "Proces-verbaal opslaan is mislukt.";
+      renderProcessVerbalView();
+    } finally {
+      setProcessVerbalBusy(false);
+    }
+  }
+
   function renderQuickSearch() {
     if (!meosDataLoaded) {
       const target = $("#dashboardSearchPreview");
@@ -1646,7 +2103,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   }
 
   function setFormBusy(form, busy) {
-    $$("button, input, textarea", form).forEach((element) => {
+    $$("button, input, textarea, select", form).forEach((element) => {
       element.disabled = busy;
     });
   }
@@ -1739,7 +2196,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         return;
       }
 
-      const clickableRow = event.target.closest?.(".meos-result-card[data-open-profile], .meos-result-card[data-open-vehicle]");
+      const clickableRow = event.target.closest?.(".meos-result-card[data-open-profile], .meos-result-card[data-open-vehicle], .meos-result-card[data-open-process-verbal]");
       if (clickableRow && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         clickableRow.click();
@@ -1780,6 +2237,17 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       const openVehicle = event.target.closest("[data-open-vehicle]");
       if (openVehicle) {
         renderVehicleDetail(openVehicle.dataset.openVehicle);
+        return;
+      }
+
+      const openProcessVerbal = event.target.closest("[data-open-process-verbal]");
+      if (openProcessVerbal) {
+        const row = processVerbalById(openProcessVerbal.dataset.openProcessVerbal || "");
+        if (!row) return;
+        processVerbalState.editingId = row.id;
+        processVerbalState.activeType = row.type || processVerbalState.activeType;
+        processVerbalState.formError = "";
+        renderProcessVerbalView();
         return;
       }
 
@@ -1876,6 +2344,28 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         return;
       }
 
+      const selectProcessVerbalType = event.target.closest("[data-pv-select-type]");
+      if (selectProcessVerbalType) {
+        processVerbalState.activeType = selectProcessVerbalType.dataset.pvSelectType || "bevindingen";
+        processVerbalState.editingId = "";
+        processVerbalState.formError = "";
+        renderProcessVerbalView();
+        return;
+      }
+
+      if (event.target.closest("[data-pv-new]")) {
+        processVerbalState.editingId = "";
+        processVerbalState.formError = "";
+        renderProcessVerbalView();
+        return;
+      }
+
+      const saveProcessVerbal = event.target.closest("[data-save-process-verbal]");
+      if (saveProcessVerbal) {
+        submitProcessVerbal(saveProcessVerbal.dataset.saveProcessVerbal || "concept");
+        return;
+      }
+
       if (event.target.closest("[data-toggle-sidebar]")) {
         document.body.classList.toggle("sidebar-open");
       }
@@ -1895,8 +2385,29 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       }
     });
 
-    document.addEventListener("input", handleWetboekRecordInput);
-    document.addEventListener("change", handleWetboekRecordChange);
+    document.addEventListener("input", (event) => {
+      handleWetboekRecordInput(event);
+      if (event.target.closest?.("[data-process-verbal-form]")) updateProcessVerbalPreview();
+      if (event.target.matches?.("[data-pv-author-filter]")) {
+        processVerbalState.author = event.target.value || "";
+        processVerbalState.loaded = false;
+        loadProcessVerbals(true);
+      }
+    });
+    document.addEventListener("change", (event) => {
+      handleWetboekRecordChange(event);
+      if (event.target.closest?.("[data-process-verbal-form]")) updateProcessVerbalPreview();
+      if (event.target.matches?.("[data-pv-scope]")) {
+        processVerbalState.scope = event.target.value === "all" ? "all" : "mine";
+        processVerbalState.loaded = false;
+        loadProcessVerbals(true);
+      }
+      if (event.target.matches?.("[data-pv-type-filter]")) {
+        processVerbalState.typeFilter = event.target.value || "all";
+        processVerbalState.loaded = false;
+        loadProcessVerbals(true);
+      }
+    });
     $("#personSearch")?.addEventListener("input", renderPeople);
     $("#personSearchField")?.addEventListener("change", renderPeople);
     $("#vehicleSearch")?.addEventListener("input", renderVehicles);

@@ -1,1 +1,1 @@
-import("/meos/app.js?v=20260818-meos-modules");
+import("/meos/app.js?v=20260819-pv-generator");

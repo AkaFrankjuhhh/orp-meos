@@ -10,6 +10,7 @@ const {
   normalizeVehiclePlate,
   normalizeVehicleVin
 } = require("./meos-normalization");
+const { filterProcessVerbals, normalizeProcessVerbal, updateProcessVerbal } = require("./meos-process-verbals");
 const { normalizeLimit, personMatchesSearch, personSearchQueries } = require("./meos-store-demo");
 
 function clone(value) {
@@ -124,7 +125,8 @@ function entryId(prefix) {
 
 function normalizeCaseData(data = {}) {
   const people = data.people && typeof data.people === "object" ? data.people : {};
-  return { people };
+  const processVerbals = Array.isArray(data.processVerbals) ? data.processVerbals.map((entry) => normalizeProcessVerbal(entry)) : [];
+  return { people, processVerbals };
 }
 
 function personCaseBucket(data, personId) {
@@ -507,6 +509,35 @@ class FiveMMeosStore {
       this.listVehicles({ query, limit })
     ]);
     return { people, vehicles };
+  }
+
+  async listProcessVerbals(options = {}) {
+    const data = await this.readCaseData();
+    return clone(filterProcessVerbals(data.processVerbals, options));
+  }
+
+  async addProcessVerbal(processVerbal = {}) {
+    const data = await this.readCaseData();
+    const nextProcessVerbal = normalizeProcessVerbal(processVerbal);
+    data.processVerbals = [nextProcessVerbal, ...(Array.isArray(data.processVerbals) ? data.processVerbals : [])];
+    await this.writeCaseData(data);
+    return { processVerbal: clone(nextProcessVerbal) };
+  }
+
+  async updateProcessVerbal(processVerbalId, patch = {}, options = {}) {
+    const data = await this.readCaseData();
+    const entries = Array.isArray(data.processVerbals) ? data.processVerbals : [];
+    const index = entries.findIndex((entry) => normalize(entry.id) === normalize(processVerbalId));
+    if (index === -1) {
+      const error = new Error("Proces-verbaal niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const nextProcessVerbal = updateProcessVerbal(entries[index], patch, options);
+    entries[index] = nextProcessVerbal;
+    data.processVerbals = entries;
+    await this.writeCaseData(data);
+    return { processVerbal: clone(nextProcessVerbal) };
   }
 
   async addPersonRecord(personValue, record = {}) {

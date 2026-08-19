@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" href="/assets/meos-logo.png?v=20260818-site-logo" />
-  <link rel="stylesheet" href="/meos.css?v=20260819-sidebar-footer" />
+  <link rel="stylesheet" href="/meos.css?v=20260819-pv-generator" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -231,28 +231,7 @@
               <p>Opstellen en beheren van processen-verbaal.</p>
             </div>
           </div>
-          <div class="meos-pv-grid" aria-label="Proces-verbaal soorten">
-            <article class="meos-pv-card">
-              <h3>Proces-verbaal van bevindingen</h3>
-              <p>Een beschrijving van wat een agent of militair zelf heeft gezien, gehoord of vastgesteld op een locatie.</p>
-            </article>
-            <article class="meos-pv-card">
-              <h3>Proces-verbaal van aanhouding</h3>
-              <p>Het officiële verslag waarin staat waarom en hoe een verdachte is aangehouden.</p>
-            </article>
-            <article class="meos-pv-card">
-              <h3>Proces-verbaal van verhoor</h3>
-              <p>Een schriftelijke weergave van de vragen en antwoorden tijdens het horen van een verdachte, getuige of aangever.</p>
-            </article>
-            <article class="meos-pv-card">
-              <h3>Proces-verbaal van onderzoek</h3>
-              <p>Een verslag van specifiek technisch, tactisch of forensisch onderzoek, bijvoorbeeld op een aanhoudings- of plaats delict.</p>
-            </article>
-            <article class="meos-pv-card">
-              <h3>Proces-verbaal van relaas</h3>
-              <p>Een samenvatting of overzicht waarin de verbalisant het hele strafdossier en de verdenking logisch aan elkaar verbindt voor de officier van justitie.</p>
-            </article>
-          </div>
+          <div id="processVerbalView" aria-live="polite"></div>
         </section>
       </section>
 
@@ -274,6 +253,6 @@
 
   <div id="meosRecordModal" class="meos-modal-backdrop" hidden></div>
 
-  <script type="module" src="/meos/app.js?v=20260818-meos-modules"></script>
+  <script type="module" src="/meos/app.js?v=20260819-pv-generator"></script>
 </body>
 </html>

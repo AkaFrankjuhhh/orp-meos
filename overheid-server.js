@@ -508,6 +508,7 @@ function meosPermissionsForMember(roles, organizations = [], userId = "") {
     canWriteEntries: true,
     canDeleteEntries,
     canViewAudit: canDeleteEntries,
+    canViewAllProcessVerbals: canDeleteEntries,
     canViewDataHealth
   };
 }
@@ -537,6 +538,7 @@ function meosFallbackProfile(user = null) {
       canWriteEntries: false,
       canDeleteEntries: false,
       canViewAudit: false,
+      canViewAllProcessVerbals: false,
       canViewDataHealth: false
     }
   };
@@ -765,6 +767,17 @@ function meosActorName(session) {
   return String(session?.profile?.name || session?.profile?.discordUsername || "MEOS").trim() || "MEOS";
 }
 
+function meosActorKey(session) {
+  const profile = session?.profile || {};
+  const discordId = String(profile.discordId || "").trim();
+  if (discordId) return `discord:${discordId}`;
+  const portalPersonId = String(profile.portalPersonId || "").trim();
+  if (portalPersonId) return `portal:${portalPersonId}`;
+  const serviceNumber = String(profile.serviceNumber || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (serviceNumber) return `service:${serviceNumber}`;
+  return `name:${meosActorName(session).toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
+}
+
 function meosCreatedBy(session) {
   return {
     name: meosActorName(session),
@@ -772,7 +785,15 @@ function meosCreatedBy(session) {
     serviceNumber: session?.profile?.serviceNumber || "",
     discordId: session?.profile?.discordId || "",
     organizationKey: session?.profile?.organizationKey || "",
-    portalPersonId: session?.profile?.portalPersonId || ""
+    portalPersonId: session?.profile?.portalPersonId || "",
+    actorKey: meosActorKey(session)
+  };
+}
+
+function meosProcessVerbalAccessFromSession(session) {
+  return {
+    actorKey: meosActorKey(session),
+    includeAll: Boolean(session?.profile?.permissions?.canViewAllProcessVerbals || session?.profile?.permissions?.canDeleteEntries)
   };
 }
 
@@ -972,6 +993,8 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
       recordId: payload.record?.id || "",
       noteId: payload.note?.id || "",
       fineId: payload.fine?.id || "",
+      processVerbalId: payload.processVerbal?.id || "",
+      processVerbalStatus: payload.processVerbal?.status || "",
       deletedId: payload.deleted?.id || "",
       deletedType: payload.deleted?.type || "",
       articleIds: payload.record?.articleIds || payload.fine?.articleIds || [],
@@ -993,6 +1016,41 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
   return true;
 }
 
+function meosProcessVerbalFieldsFromBody(fields = {}) {
+  if (!fields || typeof fields !== "object" || Array.isArray(fields)) return {};
+  return Object.fromEntries(Object.entries(fields)
+    .slice(0, 60)
+    .map(([key, value]) => [meosText(key, "PV veld", { max: 80 }), meosText(value, "PV veldwaarde", { max: 2500 })])
+    .filter(([key]) => key));
+}
+
+function meosProcessVerbalFromBody(body = {}, session = null) {
+  const allowedTypes = new Set(["bevindingen", "aanhouding", "verhoor", "onderzoek", "relaas"]);
+  const type = meosText(body.type, "PV soort", { max: 40, fallback: "bevindingen" });
+  if (!allowedTypes.has(type)) {
+    const error = new Error("Ongeldig proces-verbaal format.");
+    error.status = 400;
+    throw error;
+  }
+  const status = String(body.status || "concept").trim().toLowerCase() === "definitief" ? "definitief" : "concept";
+  return {
+    type,
+    status,
+    title: meosText(body.title, "PV titel", { max: 180 }),
+    date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
+    location: meosText(body.location, "Locatie", { max: 160 }),
+    caseNumber: meosText(body.caseNumber, "Dossiernummer", { max: 80 }),
+    subjectName: meosText(body.subjectName, "Betrokkene", { max: 160 }),
+    subjectBsn: meosText(body.subjectBsn, "BSN", { max: 80 }),
+    subjectFingerprint: meosText(body.subjectFingerprint, "Vingerafdruk", { max: 80 }),
+    summary: meosText(body.summary, "Samenvatting", { max: 1000 }),
+    fields: meosProcessVerbalFieldsFromBody(body.fields),
+    document: meosText(body.document, "Proces-verbaal", { max: 16000, required: true }),
+    createdBy: meosCreatedBy(session),
+    createdByKey: meosActorKey(session)
+  };
+}
+
 const { handleMeosApiRoute } = createMeosApiRoutes({
   requireMeosApiSession,
   appendMeosAudit,
@@ -1012,6 +1070,8 @@ const { handleMeosApiRoute } = createMeosApiRoutes({
   meosShouldCreateFine,
   meosFineFromBody,
   meosNoteFromBody,
+  meosProcessVerbalFromBody,
+  meosProcessVerbalAccessFromSession,
   getMeosSession,
   requireMeosCsrf,
   meosFallbackProfile,
