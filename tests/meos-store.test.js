@@ -120,17 +120,44 @@ test("MEOS demo store keeps process-verbaal visibility scoped to the author", as
     createdBy: slak,
     createdByKey: "discord:2"
   });
+  const seizure = await store.addProcessVerbal({
+    type: "inbeslagneming",
+    title: "PV inbeslagneming test",
+    status: "concept",
+    date: "18 aug. 2026",
+    document: "Concept PV van inbeslagneming.",
+    createdBy: frank,
+    createdByKey: "discord:1"
+  });
+  const report = await store.addProcessVerbal({
+    type: "aangifte",
+    title: "PV aangifte Slak",
+    status: "concept",
+    date: "18 aug. 2026",
+    document: "Concept PV van aangifte.",
+    createdBy: slak,
+    createdByKey: "discord:2"
+  });
 
   const ownRows = await store.listProcessVerbals({ actorKey: "discord:1" });
-  assert.equal(ownRows.length, 1);
-  assert.equal(ownRows[0].id, own.processVerbal.id);
+  assert.equal(ownRows.length, 2);
+  assert.ok(ownRows.some((row) => row.id === own.processVerbal.id));
+  assert.ok(ownRows.some((row) => row.id === seizure.processVerbal.id));
 
   const allRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "all" });
-  assert.equal(allRows.length, 2);
+  assert.equal(allRows.length, 4);
 
   const verhoorRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "verhoor" });
   assert.equal(verhoorRows.length, 1);
   assert.equal(verhoorRows[0].id, other.processVerbal.id);
+
+  const seizureRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "inbeslagneming" });
+  assert.equal(seizureRows.length, 1);
+  assert.equal(seizureRows[0].id, seizure.processVerbal.id);
+
+  const reportRows = await store.listProcessVerbals({ actorKey: "discord:1", includeAll: true, type: "aangifte" });
+  assert.equal(reportRows.length, 1);
+  assert.equal(reportRows[0].id, report.processVerbal.id);
 
   const finalized = await store.updateProcessVerbal(own.processVerbal.id, {
     status: "definitief",

@@ -17,6 +17,14 @@ const PROCESS_VERBAL_TYPES = {
     label: "Proces-verbaal van onderzoek",
     shortLabel: "Onderzoek"
   },
+  inbeslagneming: {
+    label: "Proces-verbaal van inbeslagneming",
+    shortLabel: "Inbeslagneming"
+  },
+  aangifte: {
+    label: "Proces-verbaal van aangifte",
+    shortLabel: "Aangifte"
+  },
   relaas: {
     label: "Proces-verbaal van relaas",
     shortLabel: "Relaas"
@@ -65,6 +73,8 @@ function normalizeProcessVerbalType(value) {
   if (normalized.includes("aanhouding")) return "aanhouding";
   if (normalized.includes("verhoor")) return "verhoor";
   if (normalized.includes("onderzoek")) return "onderzoek";
+  if (normalized.includes("inbeslag")) return "inbeslagneming";
+  if (normalized.includes("aangifte")) return "aangifte";
   if (normalized.includes("relaas")) return "relaas";
   if (normalized.includes("bevinding")) return "bevindingen";
   return PROCESS_VERBAL_TYPES[value] ? value : "bevindingen";

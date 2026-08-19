@@ -287,6 +287,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /Proces-verbaal van aanhouding/);
   assert.match(meosClientCode, /Proces-verbaal van verhoor/);
   assert.match(meosClientCode, /Proces-verbaal van onderzoek/);
+  assert.match(meosClientCode, /Proces-verbaal van inbeslagneming/);
+  assert.match(meosClientCode, /Proces-verbaal van aangifte/);
   assert.match(meosClientCode, /Proces-verbaal van relaas/);
   assert.match(meosClientCode, /function renderProcessVerbalView\(/);
   assert.match(meosClientCode, /function composeProcessVerbalDocument\(/);
@@ -465,6 +467,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosServerCode, /\/api\/meos\/process-verbals/);
   assert.match(meosServerCode, /meosProcessVerbalFromBody/);
   assert.match(meosServerCode, /meosProcessVerbalAccessFromSession/);
+  assert.match(meosServerCode, /inbeslagneming/);
+  assert.match(meosServerCode, /aangifte/);
   assert.match(meosServerCode, /canViewAllProcessVerbals/);
   assert.match(meosServerCode, /\/api\/meos\/people\/"\, "\/records"/);
   assert.match(meosServerCode, /\/api\/meos\/people\/"\, "\/fines"/);
@@ -499,6 +503,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosServerCode, /processVerbals\.update/);
   assert.match(meosServerCode, /\/api\/meos\/session\/debug/);
   assert.match(meosProcessVerbalsCode, /PROCESS_VERBAL_TYPES/);
+  assert.match(meosProcessVerbalsCode, /Proces-verbaal van inbeslagneming/);
+  assert.match(meosProcessVerbalsCode, /Proces-verbaal van aangifte/);
   assert.match(meosProcessVerbalsCode, /filterProcessVerbals/);
   assert.match(meosProcessVerbalsCode, /canEditProcessVerbal/);
   assert.match(meosProcessVerbalsCode, /definitief/);

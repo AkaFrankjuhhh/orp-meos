@@ -113,6 +113,35 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         ["conclusion", "Conclusie", "textarea", "Zakelijke conclusie voor het dossier."]
       ]
     },
+    inbeslagneming: {
+      label: "Proces-verbaal van inbeslagneming",
+      shortLabel: "Inbeslagneming",
+      description: "Lijst en beschrijving van goederen die door de dienst in beslag zijn genomen.",
+      fields: [
+        ["seizureDate", "Datum inbeslagneming", "text", "Bijv. 19 aug. 2026"],
+        ["seizureTime", "Tijdstip", "text", "Bijv. 21:35"],
+        ["seizureLocation", "Locatie", "text", "Waar zijn de goederen aangetroffen?"],
+        ["seizedFrom", "In beslag genomen bij", "text", "Naam persoon, voertuig of locatie"],
+        ["reason", "Reden inbeslagneming", "textarea", "Waarom hebben de goederen met het strafbare feit te maken?"],
+        ["items", "Goederenlijst", "textarea", "Omschrijf per item: soort, aantal, kenmerken en bijzonderheden."],
+        ["storage", "Bewaring / overdracht", "textarea", "Waar zijn de goederen opgeslagen of aan wie overgedragen?"]
+      ]
+    },
+    aangifte: {
+      label: "Proces-verbaal van aangifte",
+      shortLabel: "Aangifte",
+      description: "Het op schrift gestelde verhaal van iemand die slachtoffer is geworden van een strafbaar feit.",
+      fields: [
+        ["reportDate", "Datum aangifte", "text", "Bijv. 19 aug. 2026"],
+        ["reportTime", "Tijdstip", "text", "Bijv. 21:35"],
+        ["reporterName", "Aangever", "text", "Naam aangever"],
+        ["victimName", "Slachtoffer", "text", "Naam slachtoffer indien anders dan aangever"],
+        ["offense", "Strafbaar feit", "textarea", "Waarvan wordt aangifte gedaan?"],
+        ["statement", "Verklaring aangever", "textarea", "Zakelijke weergave van het verhaal van de aangever."],
+        ["damage", "Schade / goederen", "textarea", "Schade, gestolen goederen, letsel of overige gevolgen."],
+        ["suspectInfo", "Verdachte / signalement", "textarea", "Bekende verdachte, signalement, voertuig of aanknopingspunten."]
+      ]
+    },
     relaas: {
       label: "Proces-verbaal van relaas",
       shortLabel: "Relaas",

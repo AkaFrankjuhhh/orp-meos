@@ -1025,7 +1025,7 @@ function meosProcessVerbalFieldsFromBody(fields = {}) {
 }
 
 function meosProcessVerbalFromBody(body = {}, session = null) {
-  const allowedTypes = new Set(["bevindingen", "aanhouding", "verhoor", "onderzoek", "relaas"]);
+  const allowedTypes = new Set(["bevindingen", "aanhouding", "verhoor", "onderzoek", "inbeslagneming", "aangifte", "relaas"]);
   const type = meosText(body.type, "PV soort", { max: 40, fallback: "bevindingen" });
   if (!allowedTypes.has(type)) {
     const error = new Error("Ongeldig proces-verbaal format.");
