@@ -297,6 +297,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /data-pv-scope/);
   assert.match(meosClientCode, /data-open-process-verbal/);
   assert.match(meosClientCode, /Dit document is een officieel ORP roleplay document/);
+  assert.doesNotMatch(meosClientCode, /Dossiernummer|caseNumber|dossierNumber/);
   assert.match(meosClientCode, /articleModifiers/);
   assert.match(meosClientCode, /officialInDuty/);
   assert.match(meosClientCode, /attempted/);
@@ -470,6 +471,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosServerCode, /inbeslagneming/);
   assert.match(meosServerCode, /aangifte/);
   assert.match(meosServerCode, /canViewAllProcessVerbals/);
+  assert.doesNotMatch(meosServerCode, /Dossiernummer|caseNumber|dossierNumber/);
   assert.match(meosServerCode, /\/api\/meos\/people\/"\, "\/records"/);
   assert.match(meosServerCode, /\/api\/meos\/people\/"\, "\/fines"/);
   assert.match(meosServerCode, /\/api\/meos\/people\/"\, "\/notes"/);
@@ -508,6 +510,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosProcessVerbalsCode, /filterProcessVerbals/);
   assert.match(meosProcessVerbalsCode, /canEditProcessVerbal/);
   assert.match(meosProcessVerbalsCode, /definitief/);
+  assert.doesNotMatch(meosProcessVerbalsCode, /caseNumber|dossierNumber/);
   assert.match(meosServerCode, /appendMeosAudit/);
   assert.match(meosServerCode, /getMeosStore/);
   assert.match(meosServerCode, /\/api\/meos\/login\?returnTo=/);

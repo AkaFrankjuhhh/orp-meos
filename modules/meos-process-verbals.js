@@ -103,7 +103,6 @@ function normalizeProcessVerbal(input = {}, options = {}) {
     status,
     date: text(input.date, 40),
     location: text(input.location, 160),
-    caseNumber: text(input.caseNumber, 80),
     subjectName: text(input.subjectName, 160),
     subjectBsn: text(input.subjectBsn, 80),
     subjectFingerprint: text(input.subjectFingerprint, 80),

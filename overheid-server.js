@@ -1039,7 +1039,6 @@ function meosProcessVerbalFromBody(body = {}, session = null) {
     title: meosText(body.title, "PV titel", { max: 180 }),
     date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
     location: meosText(body.location, "Locatie", { max: 160 }),
-    caseNumber: meosText(body.caseNumber, "Dossiernummer", { max: 80 }),
     subjectName: meosText(body.subjectName, "Betrokkene", { max: 160 }),
     subjectBsn: meosText(body.subjectBsn, "BSN", { max: 80 }),
     subjectFingerprint: meosText(body.subjectFingerprint, "Vingerafdruk", { max: 80 }),

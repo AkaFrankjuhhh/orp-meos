@@ -147,7 +147,6 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       shortLabel: "Relaas",
       description: "Samenhangende dossierlijn voor de officier van justitie.",
       fields: [
-        ["dossierNumber", "Dossiernummer", "text", "Bijv. ORP-MEOS-2026-001"],
         ["suspectName", "Verdachte", "text", "Naam verdachte"],
         ["suspicion", "Verdenking", "textarea", "Welke verdenking staat centraal?"],
         ["dossierSummary", "Dossieroverzicht", "textarea", "Chronologisch overzicht van de zaak."],
@@ -1724,7 +1723,6 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       status: row?.status || "concept",
       date: row?.date || todayMeosDate(),
       location: row?.location || "",
-      caseNumber: row?.caseNumber || "",
       subjectName: row?.subjectName || "",
       subjectBsn: row?.subjectBsn || "",
       subjectFingerprint: row?.subjectFingerprint || "",
@@ -1750,7 +1748,6 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       status,
       date: data.date || todayMeosDate(),
       location: data.location || "",
-      caseNumber: data.caseNumber || "",
       subjectName: data.subjectName || "",
       subjectBsn: data.subjectBsn || "",
       subjectFingerprint: data.subjectFingerprint || "",
@@ -1786,7 +1783,6 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       `PV-nummer: ${draft.id || "Wordt automatisch toegekend na opslaan"}`,
       `Status: ${draft.status === "definitief" ? "Definitief" : "Concept"}`,
       `Datum opmaak: ${draft.date || todayMeosDate()}`,
-      draft.caseNumber ? `Dossiernummer: ${draft.caseNumber}` : "",
       draft.location ? `Locatie: ${draft.location}` : ""
     ].filter(Boolean);
     const subject = [
@@ -1897,10 +1893,6 @@ import { renderDataHealthHtml } from "./pages/databron.js";
           <label>
             <span>Datum opmaak</span>
             <input name="date" type="text" value="${escapeHtml(draft.date)}" maxlength="40" ${readonly ? "disabled" : ""} />
-          </label>
-          <label>
-            <span>Dossiernummer</span>
-            <input name="caseNumber" type="text" value="${escapeHtml(draft.caseNumber)}" maxlength="80" placeholder="ORP-MEOS-..." ${readonly ? "disabled" : ""} />
           </label>
           <label>
             <span>Locatie</span>
