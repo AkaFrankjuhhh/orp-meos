@@ -81,8 +81,8 @@
           <section class="meos-discord-profile" aria-label="Discord profiel">
             <img id="meosProfileAvatar" src="/assets/meos-logo.png?v=20260818-site-logo" alt="" />
             <div class="meos-discord-profile-copy">
-              <strong id="meosProfileName">Frank Bright</strong>
-              <span id="meosProfileMeta">Brigadegeneraal &middot; 70-04</span>
+              <strong id="meosProfileName">Sessie controleren...</strong>
+              <span id="meosProfileMeta"></span>
             </div>
             <a id="meosProfileLogin" class="meos-profile-action" href="/api/meos/login" hidden>Koppelen</a>
             <button id="meosProfileLogout" class="meos-profile-action" type="button">Uitloggen</button>
@@ -102,7 +102,7 @@
             <span class="meos-tile-icon vehicle"></span>
             <span>Vervoermiddel</span>
           </button>
-          <button class="meos-tile" type="button">
+          <button class="meos-tile" type="button" data-section-shortcut="proces-verbaal" data-pv-shortcut="aangifte">
             <span class="meos-tile-icon report"></span>
             <span>Aangifte</span>
           </button>
@@ -114,20 +114,21 @@
 
         <section class="meos-dashboard-grid">
           <article class="meos-panel meos-welcome-panel">
-            <h2 id="dashboardTitle">Welkom Frank Bright.</h2>
+            <h2 id="dashboardTitle">Welkom in MEOS.</h2>
             <p>In het MEOS systeem van ORP Overheid.</p>
             <small>Dit systeem is uitsluitend voor geautoriseerd gebruik binnen FiveM roleplay.</small>
 
             <div class="meos-note-form">
               <label for="generalNote">Algemene Notities</label>
               <textarea id="generalNote" placeholder="Notitie"></textarea>
-              <button class="meos-primary" type="button">Opslaan</button>
+              <button class="meos-primary" id="generalNoteSave" type="button">Opslaan</button>
+              <span id="generalNoteStatus" role="status" aria-live="polite"></span>
             </div>
 
             <div class="meos-feed">
-              <p id="dashboardWelcomeLine">Hallo Frank Bright, welkom in MEOS vandaag.</p>
+              <p id="dashboardWelcomeLine">Je sessie wordt gecontroleerd.</p>
               <p>Je hebt toegang tot personen, voertuigen en arrestatiebevelen.</p>
-              <p>Momenteel staan er 4 actieve signaleringen open.</p>
+              <p id="dashboardWarrantCount">Actieve signaleringen worden geladen.</p>
               <p id="dashboardSyncLine">Laatste synchronisatie: conceptdata voor ORP Overheid.</p>
             </div>
           </article>

@@ -9,7 +9,11 @@ MEOS_DATA_SOURCE=fivem
 MEOS_FIVEM_DB_DRIVER=postgres
 MEOS_FIVEM_DATABASE_URL=postgres://meos_readonly:<wachtwoord>@127.0.0.1:5432/fivem
 MEOS_FIVEM_DATABASE_SSL=false
-MEOS_CASE_DATA_PATH=/opt/orp/meos-data/meos-case-data.json
+# Eigen schrijfbare MEOS database. Dit is niet de read-only FiveM verbinding.
+MEOS_CASE_DATABASE_URL=postgres://meos_app:<wachtwoord>@127.0.0.1:5432/meos
+MEOS_CASE_DATABASE_SSL=false
+MEOS_AUDIT_STORAGE=postgres
+MEOS_AUDIT_DATABASE_URL=postgres://meos_app:<wachtwoord>@127.0.0.1:5432/meos
 
 MEOS_FIVEM_PLAYERS_VIEW=meos_people_view
 MEOS_FIVEM_VEHICLES_VIEW=meos_vehicles_view
@@ -55,7 +59,7 @@ grant select on meos_housing_view to meos_readonly;
 grant select on meos_arrest_warrants_view to meos_readonly;
 ```
 
-MEOS gebruikt alleen `select` voor FiveM basisdata. Strafbladen, notities en boetes worden opgeslagen in `MEOS_CASE_DATA_PATH`; auditlogs blijven in `MEOS_AUDIT_LOG_PATH`.
+MEOS gebruikt alleen `select` voor FiveM basisdata. Strafbladen, notities, boetes, PV's en persoonlijke dashboardnotities staan transactioneel in de eigen MEOS database. Zolang `MEOS_DATA_SOURCE=demo` actief is, bewaart MEOS de volledige actuele demo-dataset atomisch via `MEOS_CASE_DATA_PATH` zodat serviceherstarts geen wijzigingen wissen.
 
 MEOS normaliseert server-side:
 
@@ -72,8 +76,8 @@ create or replace view meos_people_view as
 select
   p.citizenid::text as id,
   concat_ws(' ', p.firstname, p.lastname)::text as name,
-  coalesce(p.bsn, 'ORP-BSN-' || p.citizenid)::text as bsn,
-  coalesce(p.fingerprint, 'ORP-V-' || p.citizenid)::text as fingerprint,
+  p.bsn::text as bsn,
+  p.fingerprint::text as fingerprint,
   p.birthdate::text as birth_date,
   coalesce(p.height, '')::text as height,
   coalesce(p.status, 'Geen signalering')::text as status,
@@ -129,3 +133,41 @@ left join players p on p.citizenid = w.citizenid;
 `meos_people_view` en `meos_vehicles_view` zijn verplicht. `meos_housing_view` en `meos_arrest_warrants_view` mogen tijdelijk ontbreken; `/databron` toont ze dan als optioneel missend.
 
 `npm run meos:check-db` gebruikt hetzelfde contract als `/databron`, maar is sneller voor onderhoud op de VPS.
+
+## Eigen MEOS database aanmaken
+
+Kies zelf sterke, unieke wachtwoorden en voer op de VPS uit:
+
+```bash
+sudo -u postgres psql
+```
+
+```sql
+CREATE ROLE meos_app WITH LOGIN PASSWORD '<sterk-uniek-wachtwoord>';
+CREATE DATABASE meos OWNER meos_app;
+\q
+```
+
+Daarna, vanuit `/opt/orp/meos`:
+
+```bash
+psql "postgres://meos_app:<url-encoded-wachtwoord>@127.0.0.1:5432/meos" -v ON_ERROR_STOP=1 -f db/meos-schema.sql
+```
+
+Het schema is herhaalbaar: `CREATE TABLE IF NOT EXISTS` en `CREATE INDEX IF NOT EXISTS` maken opnieuw uitvoeren veilig.
+
+## Bestaande JSON dossiers migreren
+
+Maak eerst een back-up van `MEOS_CASE_DATA_PATH`. Bekijk daarna zonder te schrijven wat wordt gevonden:
+
+```bash
+npm run meos:migrate-cases
+```
+
+Na controle voer je de idempotente import uit:
+
+```bash
+npm run meos:migrate-cases -- --apply
+```
+
+Zet `MEOS_CASE_DATABASE_URL` pas na een geslaagde import in de actieve serviceconfiguratie en herstart daarna MEOS.

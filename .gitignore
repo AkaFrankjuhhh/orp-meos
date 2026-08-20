@@ -19,6 +19,7 @@ backups/
 db/postgres-state-export.json
 db/*.dump
 wetboek-orp/
+wetboek-backups/
 
 # Temporary files
 .data-*.tmp

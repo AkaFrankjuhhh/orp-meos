@@ -7,6 +7,8 @@ const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic, shoul
 const { portalIdentityForDiscordId, hasPortalIdentityDatabase, portalPersonDisplayName } = require("./modules/side-tasks-portal-identity");
 const { createMeosApiRoutes } = require("./modules/meos-api-routes");
 const { getMeosStore, meosStoreConfigFromEnv } = require("./modules/meos-store");
+const { calculateWetboekPenalty } = require("./modules/meos-penalty-engine");
+const { createMeosAuditStore } = require("./modules/meos-audit-store");
 
 loadEnv();
 
@@ -48,11 +50,20 @@ const internalComplaintHosts = new Set(["interne-klacht.orpoverheid.nl", "intern
 const oauthStateTtlMs = 10 * 60 * 1000;
 const pendingOAuthStates = new Map();
 const meosSessionCookieName = "orp_meos_session";
-const meosSessionTtlMs = Number(process.env.MEOS_SESSION_MAX_AGE_SECONDS || 7 * 24 * 60 * 60) * 1000;
+function boundedNumber(value, fallback, minimum, maximum) {
+  const parsed = Number(value);
+  const safeValue = Number.isFinite(parsed) ? parsed : fallback;
+  return Math.max(minimum, Math.min(maximum, safeValue));
+}
+
+const meosSessionTtlMs = boundedNumber(process.env.MEOS_SESSION_MAX_AGE_SECONDS, 60 * 60, 5 * 60, 24 * 60 * 60) * 1000;
+const meosAuthorizationRefreshMs = boundedNumber(process.env.MEOS_AUTHORIZATION_REFRESH_MS, 5 * 60 * 1000, 60 * 1000, 15 * 60 * 1000);
+const meosAuthorizationMaxStaleMs = boundedNumber(process.env.MEOS_AUTHORIZATION_MAX_STALE_MS, 30 * 60 * 1000, meosAuthorizationRefreshMs, 2 * 60 * 60 * 1000);
 const meosSessions = new Map();
 const meosRateLimitHits = new Map();
 const defaultMeosDeleteRoleIds = ["1426544463043362937"];
 const wetboekApiCache = new Map();
+const meosAuditStore = createMeosAuditStore();
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -111,6 +122,19 @@ function takeOAuthState(state) {
   return value || null;
 }
 
+function getOAuthState(state) {
+  cleanupPendingOAuthStates();
+  return state ? pendingOAuthStates.get(state) || null : null;
+}
+
+function timingSafeTextEqual(left, right) {
+  const leftBuffer = Buffer.from(String(left || ""));
+  const rightBuffer = Buffer.from(String(right || ""));
+  return leftBuffer.length > 0
+    && leftBuffer.length === rightBuffer.length
+    && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
 function cleanupMeosSessions() {
   const now = Date.now();
   for (const [sessionId, session] of meosSessions) {
@@ -126,6 +150,7 @@ function rememberMeosSession(profile) {
     csrfToken: crypto.randomBytes(32).toString("hex"),
     profile,
     createdAt: new Date().toISOString(),
+    authorizationCheckedAt: Date.now(),
     expiresAt: Date.now() + meosSessionTtlMs
   });
   return sessionId;
@@ -177,6 +202,11 @@ function meosRateLimitIdentity(session) {
 
 function meosRateLimitAllows(req, scope, limit, windowMs, identity = "") {
   const now = Date.now();
+  if (meosRateLimitHits.size > 5000) {
+    for (const [storedKey, timestamps] of meosRateLimitHits) {
+      if (!timestamps.some((timestamp) => now - timestamp < windowMs)) meosRateLimitHits.delete(storedKey);
+    }
+  }
   const actor = String(identity || "").trim();
   const key = `${scope}:${actor || meosClientIp(req) || "unknown"}`;
   const recent = (meosRateLimitHits.get(key) || []).filter((timestamp) => now - timestamp < windowMs);
@@ -215,15 +245,7 @@ function requireMeosCsrf(req, session) {
   throw error;
 }
 
-function meosAuditLogPath() {
-  const configured = String(process.env.MEOS_AUDIT_LOG_PATH || "meos-audit.log").trim();
-  if (!configured || configured.toLowerCase() === "off") return "";
-  return path.isAbsolute(configured) ? configured : path.join(__dirname, configured);
-}
-
-function appendMeosAudit(req, session, action, details = {}) {
-  const filePath = meosAuditLogPath();
-  if (!filePath) return;
+async function appendMeosAudit(req, session, action, details = {}) {
   const entry = {
     at: new Date().toISOString(),
     action,
@@ -243,34 +265,11 @@ function appendMeosAudit(req, session, action, details = {}) {
     },
     details
   };
-  const line = `${JSON.stringify(entry)}\n`;
-  fs.mkdir(path.dirname(filePath), { recursive: true }, (mkdirError) => {
-    if (mkdirError) {
-      console.error("MEOS audit map maken mislukt:", mkdirError.message || mkdirError);
-      return;
-    }
-    fs.appendFile(filePath, line, (appendError) => {
-      if (appendError) console.error("MEOS audit schrijven mislukt:", appendError.message || appendError);
-    });
-  });
+  await meosAuditStore.append(entry);
 }
 
-function readMeosAuditLog(options = {}) {
-  const filePath = meosAuditLogPath();
-  const limit = Math.max(1, Math.min(200, Number(options.limit || 80) || 80));
-  if (!filePath) return { enabled: false, entries: [] };
-  if (!fs.existsSync(filePath)) return { enabled: true, entries: [] };
-  const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/).filter(Boolean).slice(-limit).reverse();
-  return {
-    enabled: true,
-    entries: lines.map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch {
-        return { at: "", action: "audit.parse_failed", details: { raw: line.slice(0, 500) } };
-      }
-    })
-  };
+async function readMeosAuditLog(options = {}) {
+  return meosAuditStore.list(options);
 }
 
 function deleteMeosSession(req) {
@@ -343,6 +342,10 @@ function authCookie(name, value, maxAgeSeconds = 600, req = null) {
   return `${name}=${encodeURIComponent(String(value || ""))}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${cookieDomainSuffix(req)}${secureCookieSuffix(req)}`;
 }
 
+function hostAuthCookie(name, value, maxAgeSeconds = 600, req = null) {
+  return `${name}=${encodeURIComponent(String(value || ""))}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${secureCookieSuffix(req)}`;
+}
+
 function clearCookie(name, req = null) {
   return `${name}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${cookieDomainSuffix(req)}${secureCookieSuffix(req)}`;
 }
@@ -356,11 +359,17 @@ function clearOverheidCookies(names, req = null) {
 }
 
 function meosSessionCookie(sessionId, req = null) {
-  return authCookie(meosSessionCookieName, sessionId, Math.floor(meosSessionTtlMs / 1000), req);
+  return hostAuthCookie(meosSessionCookieName, sessionId, Math.floor(meosSessionTtlMs / 1000), req);
+}
+
+function meosErrorResponseHeaders(req, error) {
+  return Number(error?.status || 0) === 401
+    ? { "Set-Cookie": clearMeosSessionCookie(req) }
+    : {};
 }
 
 function clearMeosSessionCookie(req = null) {
-  return clearCookie(meosSessionCookieName, req);
+  return [clearHostCookie(meosSessionCookieName, req), clearCookie(meosSessionCookieName, req)];
 }
 
 function choiceCookie(routes, req = null) {
@@ -576,7 +585,8 @@ async function meosProfileForDiscordUser(user, matches = [], member = {}) {
     organizationPriority,
     discordUser: user,
     guildMember: member,
-    linkMissingDiscordId: true
+    allowProfileHints: false,
+    linkMissingDiscordId: false
   });
   if (!identity && !allowMeosDemoProfileFallback()) return null;
   const person = identity?.person || {};
@@ -641,6 +651,80 @@ async function getGuildMember(accessToken) {
   return discordFetch(`https://discord.com/api/users/@me/guilds/${process.env.DISCORD_GUILD_ID}/member`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
+}
+
+async function getGuildMemberAsBot(discordId) {
+  const botToken = String(process.env.MEOS_DISCORD_BOT_TOKEN || "").trim();
+  if (!botToken) {
+    const error = new Error("MEOS_DISCORD_BOT_TOKEN ontbreekt; Discord-rollen kunnen niet opnieuw worden gecontroleerd.");
+    error.status = 503;
+    throw error;
+  }
+  return discordFetch(`https://discord.com/api/guilds/${process.env.DISCORD_GUILD_ID}/members/${encodeURIComponent(discordId)}`, {
+    headers: { Authorization: `Bot ${botToken}` }
+  });
+}
+
+async function refreshMeosSessionAuthorization(session, options = {}) {
+  if (!session?.profile?.discordId) {
+    const error = new Error("MEOS sessie heeft geen gekoppeld Discord-account.");
+    error.status = 401;
+    throw error;
+  }
+  const now = Date.now();
+  const lastCheckedAt = Number(session.authorizationCheckedAt || 0);
+  if (!options.force && now - lastCheckedAt < meosAuthorizationRefreshMs) return session;
+
+  try {
+    const member = await getGuildMemberAsBot(session.profile.discordId);
+    const roles = new Set(member?.roles || []);
+    const matches = matchingRoutesForRoles(meosRoleRoutes, roles, session.profile.discordId);
+    if (!matches.length) {
+      const error = new Error("Je hebt geen geldige MEOS-rol meer op Discord.");
+      error.status = 401;
+      throw error;
+    }
+    const organizationPriority = meosOrganizationPriority(matches);
+    const identity = await portalIdentityForDiscordId(session.profile.discordId, {
+      organizationPriority,
+      allowProfileHints: false,
+      linkMissingDiscordId: false
+    });
+    if (!identity?.person) {
+      const error = new Error("Je gekoppelde personeelsprofiel is niet meer actief.");
+      error.status = 401;
+      throw error;
+    }
+    const person = identity.person;
+    session.profile = {
+      ...session.profile,
+      name: portalPersonDisplayName(person, { fallbackNickname: identity.nickname || "" }),
+      rank: String(person.rank || "").trim(),
+      serviceNumber: String(person.service_number || person.previous_service_number || "").trim(),
+      organizationKey: identity.organizationKey || organizationPriority[0] || "overheid",
+      matchedOrganizations: organizationPriority,
+      portalPersonId: String(person.id || "").trim(),
+      identityLinkedBy: "discord_id",
+      portalNickname: String(identity.nickname || "").trim(),
+      permissions: meosPermissionsForMember(roles, organizationPriority, session.profile.discordId)
+    };
+    session.authorizationCheckedAt = now;
+    meosSessions.set(session.id, session);
+    return session;
+  } catch (error) {
+    if (error.status === 404 || (error.status === 401 && !String(error.message || "").includes("BOT_TOKEN"))) {
+      meosSessions.delete(session.id);
+      const revoked = new Error(error.message || "Je MEOS toegang is ingetrokken.");
+      revoked.status = 401;
+      throw revoked;
+    }
+    if (now - lastCheckedAt >= meosAuthorizationMaxStaleMs) {
+      const stale = new Error("MEOS kon je Discord-rollen niet veilig opnieuw controleren. Probeer later opnieuw in te loggen.");
+      stale.status = 503;
+      throw stale;
+    }
+    return session;
+  }
 }
 
 function targetLoginUrl(route, returnTo = "/") {
@@ -838,28 +922,28 @@ function meosArticleSelectionsFromBody(body = {}) {
   })).filter((selection) => selection.articleId);
 }
 
-function meosCalculatedTotalsFromBody(body = {}) {
-  if (!body.calculatedTotals || typeof body.calculatedTotals !== "object") return null;
-  const totals = body.calculatedTotals;
-  return {
-    fine: meosText(totals.fine, "Berekende boete", { max: 40 }),
-    jailMonths: meosText(totals.jailMonths, "Berekende celstraf", { max: 40 }),
-    taskHours: meosText(totals.taskHours, "Berekende taakstraf", { max: 40 }),
-    drivingBanMonths: meosText(totals.drivingBanMonths, "Berekende rijontzegging", { max: 40 }),
-    taskConverted: Boolean(totals.taskConverted)
-  };
-}
-
-function meosRecordFromBody(body = {}, session = null) {
+async function meosRecordFromBody(body = {}, session = null) {
+  const requestedSelections = meosArticleSelectionsFromBody(body);
+  let officialPenalty = null;
+  if (requestedSelections.length) {
+    const wetboek = await fetchWetboekApiJson("/api/meos/v1/articles");
+    officialPenalty = calculateWetboekPenalty(wetboek, requestedSelections);
+  } else if (String(body.source || "").trim().toLowerCase() === "wetboek" || Array.isArray(body.articleIds) && body.articleIds.length) {
+    const error = new Error("Een Wetboek-strafblad moet minimaal één geldige strafregel bevatten.");
+    error.status = 400;
+    throw error;
+  }
   return {
     date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
     sanction: meosText(body.sanction, "Sanctie", { max: 80, required: true }),
-    verbalist: meosText(body.verbalist, "Verbalisant", { max: 120, fallback: meosActorName(session) }),
+    verbalist: meosActorName(session),
     note: meosText(body.note, "Notitie", { max: 2000, required: true }),
-    source: meosText(body.source, "Bron", { max: 80 }),
-    articleIds: Array.isArray(body.articleIds) ? body.articleIds.map((value) => meosText(value, "Wetboek artikel", { max: 40 })).filter(Boolean).slice(0, 20) : [],
-    articleSelections: meosArticleSelectionsFromBody(body),
-    calculatedTotals: meosCalculatedTotalsFromBody(body),
+    source: officialPenalty ? "wetboek" : meosText(body.source, "Bron", { max: 80 }),
+    articleIds: officialPenalty?.articleIds || [],
+    articleSelections: officialPenalty?.selections || [],
+    calculatedTotals: officialPenalty?.totals || null,
+    wetboekRevision: officialPenalty?.revision || null,
+    wetboekUpdatedAt: officialPenalty?.updatedAt || null,
     createdBy: meosCreatedBy(session)
   };
 }
@@ -867,19 +951,30 @@ function meosRecordFromBody(body = {}, session = null) {
 function meosNoteFromBody(body = {}, session = null) {
   return {
     date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
-    author: meosText(body.author, "Verbalisant", { max: 120, fallback: meosActorName(session) }),
+    author: meosActorName(session),
     note: meosText(body.note, "Notitie", { max: 2000, required: true }),
     createdBy: meosCreatedBy(session)
   };
 }
 
-function meosFineFromBody(body = {}, session = null) {
+function meosFineFromBody(body = {}, session = null, officialRecord = null) {
+  const officialFine = Number(officialRecord?.calculatedTotals?.fine || 0);
+  if (officialRecord && officialFine <= 0) {
+    const error = new Error("De geselecteerde Wetboek-regels bevatten geen boetebedrag.");
+    error.status = 400;
+    throw error;
+  }
   return {
-    fine: meosText(body.fine || body.title, "Boete", { max: 160, required: true }),
-    amount: meosText(body.amount, "Bedrag", { max: 80, required: true }),
+    fine: officialRecord
+      ? `Wetboek ${officialRecord.articleIds.join(", ")}`
+      : meosText(body.fine || body.title, "Boete", { max: 160, required: true }),
+    amount: officialRecord
+      ? `EUR ${officialFine}`
+      : meosText(body.amount, "Bedrag", { max: 80, required: true }),
     writtenAt: meosText(body.writtenAt || body.date, "Uitgeschreven op", { max: 40, fallback: meosTodayDate() }),
-    writtenBy: meosText(body.writtenBy || body.verbalist, "Uitgeschreven door", { max: 120, fallback: meosActorName(session) }),
-    articleIds: Array.isArray(body.articleIds) ? body.articleIds.map((value) => meosText(value, "Wetboek artikel", { max: 40 })).filter(Boolean).slice(0, 20) : [],
+    writtenBy: meosActorName(session),
+    articleIds: officialRecord?.articleIds || (Array.isArray(body.articleIds) ? body.articleIds.map((value) => meosText(value, "Wetboek artikel", { max: 40 })).filter(Boolean).slice(0, 20) : []),
+    wetboekRevision: officialRecord?.wetboekRevision || null,
     createdBy: meosCreatedBy(session)
   };
 }
@@ -947,8 +1042,9 @@ async function sendMeosWetboekResponse(req, res, action, details, handler) {
   const session = requireMeosApiSession(req, res);
   if (!session) return true;
   try {
+    await refreshMeosSessionAuthorization(session);
     const payload = await handler(session);
-    appendMeosAudit(req, session, action, details);
+    await appendMeosAudit(req, session, action, details);
     sendJson(res, 200, {
       ok: true,
       authenticated: true,
@@ -956,16 +1052,16 @@ async function sendMeosWetboekResponse(req, res, action, details, handler) {
       ...payload
     });
   } catch (error) {
-    appendMeosAudit(req, session, `${action}.failed`, {
+    await appendMeosAudit(req, session, `${action}.failed`, {
       ...details,
       error: error.message || "Wetboek data ophalen is mislukt.",
       status: error.status || 502
-    });
+    }).catch((auditError) => console.error("MEOS auditfout:", auditError.message || auditError));
     console.error(`MEOS Wetboek API ${action} mislukt:`, error.message || error);
     sendJson(res, error.status || 502, {
       ok: false,
       error: error.message || "Wetboek data ophalen is mislukt."
-    });
+    }, meosErrorResponseHeaders(req, error));
   }
   return true;
 }
@@ -974,9 +1070,10 @@ async function sendMeosStoreResponse(req, res, action, details, handler, options
   const session = requireMeosApiSession(req, res);
   if (!session) return true;
   try {
+    await refreshMeosSessionAuthorization(session);
     if (options.permission) requireMeosPermission(session, options.permission, options.permissionMessage);
     const payload = await handler(getMeosStore(), session);
-    appendMeosAudit(req, session, action, details);
+    await appendMeosAudit(req, session, action, details);
     sendJson(res, 200, {
       ok: true,
       authenticated: true,
@@ -984,16 +1081,16 @@ async function sendMeosStoreResponse(req, res, action, details, handler, options
       ...payload
     });
   } catch (error) {
-    appendMeosAudit(req, session, `${action}.failed`, {
+    await appendMeosAudit(req, session, `${action}.failed`, {
       ...details,
       error: error.message || "MEOS data ophalen is mislukt.",
       status: error.status || 500
-    });
+    }).catch((auditError) => console.error("MEOS auditfout:", auditError.message || auditError));
     console.error(`MEOS API ${action} mislukt:`, error.message || error);
     sendJson(res, error.status || 500, {
       ok: false,
       error: error.message || "MEOS data ophalen is mislukt."
-    });
+    }, meosErrorResponseHeaders(req, error));
   }
   return true;
 }
@@ -1002,6 +1099,7 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
   const session = requireMeosApiSession(req, res);
   if (!session) return true;
   try {
+    await refreshMeosSessionAuthorization(session);
     if (!meosRateLimitAllows(
       req,
       "meos-mutation-user",
@@ -1015,7 +1113,7 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
     if (options.permission) requireMeosPermission(session, options.permission, options.permissionMessage);
     const body = options.readBody === false ? {} : await readMeosBody(req);
     const payload = await handler(getMeosStore(), session, body);
-    appendMeosAudit(req, session, action, {
+    await appendMeosAudit(req, session, action, {
       ...details,
       personId: payload.person?.id || "",
       personName: payload.person?.name || "",
@@ -1036,16 +1134,16 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
       ...payload
     });
   } catch (error) {
-    appendMeosAudit(req, session, `${action}.failed`, {
+    await appendMeosAudit(req, session, `${action}.failed`, {
       ...details,
       error: error.message || "MEOS wijziging opslaan is mislukt.",
       status: error.status || 500
-    });
+    }).catch((auditError) => console.error("MEOS auditfout:", auditError.message || auditError));
     console.error(`MEOS API ${action} mislukt:`, error.message || error);
     sendJson(res, error.status || 500, {
       ok: false,
       error: error.message || "MEOS wijziging opslaan is mislukt."
-    });
+    }, meosErrorResponseHeaders(req, error));
   }
   return true;
 }
@@ -1078,7 +1176,7 @@ function meosProcessVerbalRelatedFromBody(related = {}) {
   };
 }
 
-function meosProcessVerbalFromBody(body = {}, session = null) {
+function meosProcessVerbalFromBody(body = {}, session = null, options = {}) {
   const allowedTypes = new Set(["bevindingen", "aanhouding", "verhoor", "onderzoek", "inbeslagneming", "aangifte", "relaas"]);
   const type = meosText(body.type, "PV soort", { max: 40, fallback: "bevindingen" });
   if (!allowedTypes.has(type)) {
@@ -1087,20 +1185,28 @@ function meosProcessVerbalFromBody(body = {}, session = null) {
     throw error;
   }
   const status = String(body.status || "concept").trim().toLowerCase() === "definitief" ? "definitief" : "concept";
+  const linkedPerson = options.person || null;
+  const related = meosProcessVerbalRelatedFromBody(body.related);
+  if (linkedPerson) {
+    related.personId = String(linkedPerson.id || "").trim();
+    related.personName = String(linkedPerson.name || "").trim();
+    related.personBirthDate = String(linkedPerson.birthDate || "").trim();
+    related.personBsn = String(linkedPerson.bsn || "").trim();
+    related.personFingerprint = String(linkedPerson.fingerprint || "").trim();
+  }
   return {
     type,
     status,
     title: meosText(body.title, "PV titel", { max: 180 }),
     date: meosText(body.date, "Datum", { max: 40, fallback: meosTodayDate() }),
     location: meosText(body.location, "Locatie", { max: 160 }),
-    subjectName: meosText(body.subjectName, "Betrokkene", { max: 160 }),
-    subjectBirthDate: meosText(body.subjectBirthDate, "Geboortedatum", { max: 80 }),
-    subjectBsn: meosText(body.subjectBsn, "BSN", { max: 80 }),
-    subjectFingerprint: meosText(body.subjectFingerprint, "Vingerafdruk", { max: 80 }),
+    subjectName: linkedPerson?.name || meosText(body.subjectName, "Betrokkene", { max: 160 }),
+    subjectBirthDate: linkedPerson?.birthDate || meosText(body.subjectBirthDate, "Geboortedatum", { max: 80 }),
+    subjectBsn: linkedPerson?.bsn || meosText(body.subjectBsn, "BSN", { max: 80 }),
+    subjectFingerprint: linkedPerson?.fingerprint || meosText(body.subjectFingerprint, "Vingerafdruk", { max: 80 }),
     summary: meosText(body.summary, "Samenvatting", { max: 1000 }),
     fields: meosProcessVerbalFieldsFromBody(body.fields),
-    related: meosProcessVerbalRelatedFromBody(body.related),
-    document: meosText(body.document, "Proces-verbaal", { max: 16000, required: true }),
+    related,
     createdBy: meosCreatedBy(session),
     createdByKey: meosActorKey(session)
   };
@@ -1129,6 +1235,7 @@ const { handleMeosApiRoute } = createMeosApiRoutes({
   meosProcessVerbalAccessFromSession,
   readMeosAuditLog,
   getMeosSession,
+  refreshMeosSessionAuthorization,
   requireMeosCsrf,
   meosFallbackProfile,
   deleteMeosSession,
@@ -1140,6 +1247,7 @@ const { handleMeosApiRoute } = createMeosApiRoutes({
   meosHomeUrl,
   clearOverheidCookies,
   authCookie,
+  hostAuthCookie,
   returnToCookie,
   loginPage
 });
@@ -1260,16 +1368,18 @@ async function handleRequest(req, res) {
     try {
       const cookies = parseCookies(req);
       const returnedState = url.searchParams.get("state");
-      const rememberedState = takeOAuthState(returnedState);
+      const rememberedState = getOAuthState(returnedState);
       const expectedState = cookies.orp_overheid_state;
-      if (!rememberedState && (!expectedState || expectedState !== returnedState)) {
+      if (!rememberedState || !timingSafeTextEqual(expectedState, returnedState)) {
         writeHeadSecure(res, 400, {
           "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store, private",
           "Set-Cookie": clearOverheidCookies(["orp_overheid_state", "orp_overheid_redirect", "orp_overheid_return_to", "orp_overheid_choices"], req)
         });
         res.end(loginPage("Discord login sessie klopt niet. Probeer opnieuw."));
         return;
       }
+      takeOAuthState(returnedState);
       const returnTo = rememberedState?.returnTo || returnToFromCookie(req);
       const isMeosLogin = rememberedState?.surface === "meos" || isMeosHost(req) || returnTo === "/meos";
       const redirectUri = rememberedState?.redirectUri || (isMeosLogin ? meosCallbackUrl(req) : cookies.orp_overheid_redirect || callbackUrl(req));

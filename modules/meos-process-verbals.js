@@ -31,6 +31,16 @@ const PROCESS_VERBAL_TYPES = {
   }
 };
 
+const PROCESS_VERBAL_FIELD_LABELS = {
+  bevindingen: { incidentDate: "Datum incident", incidentTime: "Tijdstip", aanleiding: "Aanleiding", waarneming: "Eigen waarneming", betrokkenen: "Betrokkenen", vervolg: "Vervolgactie" },
+  aanhouding: { arrestDate: "Datum aanhouding", arrestTime: "Tijdstip aanhouding", suspectName: "Verdachte", reason: "Reden aanhouding", method: "Wijze van aanhouding", forceUsed: "Geweldsmiddelen", transport: "Transport en overdracht" },
+  verhoor: { hearingDate: "Datum verhoor", hearingTime: "Aanvang verhoor", heardPerson: "Gehoorde persoon", role: "Rol gehoorde", caution: "Cautie / mededeling", questionsAnswers: "Vragen en antwoorden", closing: "Afsluiting" },
+  onderzoek: { researchDate: "Datum onderzoek", researchType: "Soort onderzoek", assignment: "Opdracht / aanleiding", method: "Werkwijze", findings: "Bevindingen", evidence: "Sporen / goederen", conclusion: "Conclusie" },
+  inbeslagneming: { seizureDate: "Datum inbeslagneming", seizureTime: "Tijdstip", seizureLocation: "Locatie", seizedFrom: "In beslag genomen bij", reason: "Reden inbeslagneming", items: "Goederenlijst", storage: "Bewaring / overdracht" },
+  aangifte: { reportDate: "Datum aangifte", reportTime: "Tijdstip", reporterName: "Aangever", victimName: "Slachtoffer", offense: "Strafbaar feit", statement: "Verklaring aangever", damage: "Schade / goederen", suspectInfo: "Verdachte / signalement" },
+  relaas: { suspectName: "Verdachte", suspicion: "Verdenking", dossierSummary: "Dossieroverzicht", evidenceSummary: "Bewijs en stukken", legalSummary: "Wetboek / strafbare feiten", ovjAdvice: "Voor OVJ" }
+};
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -108,6 +118,61 @@ function normalizeProcessVerbalRelated(related = {}) {
   };
 }
 
+function processVerbalDocument(input = {}) {
+  const type = normalizeProcessVerbalType(input.type);
+  const createdBy = input.createdBy || {};
+  const fieldLabels = PROCESS_VERBAL_FIELD_LABELS[type] || {};
+  const fieldLines = Object.entries(input.fields || {})
+    .filter(([, value]) => String(value || "").trim())
+    .map(([key, value]) => `${fieldLabels[key] || key}:\n${String(value).trim()}`);
+  const related = input.related || {};
+  const relatedLines = [
+    ["Gekoppelde persoon", related.personName],
+    ["BSN", related.personBsn],
+    ["Vingerafdruk", related.personFingerprint],
+    ["Geboortedatum", related.personBirthDate],
+    ["Voertuig", related.vehiclePlate || related.vehicleLabel],
+    ["Arrestatiebevel", related.warrantLabel || related.warrantId],
+    ["Aanvullend op", related.parentProcessVerbalTitle || related.parentProcessVerbalId]
+  ].filter(([, value]) => String(value || "").trim()).map(([label, value]) => `${label}: ${String(value).trim()}`);
+  return [
+    "ORP OVERHEID",
+    "MEOS - PROCES-VERBAAL",
+    PROCESS_VERBAL_TYPES[type].label.toUpperCase(),
+    "",
+    `PV-nummer: ${input.id || "Wordt automatisch toegekend"}`,
+    `Status: ${normalizeProcessVerbalStatus(input.status) === "definitief" ? "Definitief" : "Concept"}`,
+    `Datum opmaak: ${input.date || "-"}`,
+    `Locatie: ${input.location || "-"}`,
+    "",
+    `Verbalisant: ${createdBy.name || "-"}`,
+    `Rang / dienstnummer: ${[createdBy.rank, createdBy.serviceNumber].filter(Boolean).join(" / ") || "-"}`,
+    "",
+    input.subjectName ? `Betrokkene: ${input.subjectName}` : "",
+    input.subjectBirthDate ? `Geboortedatum: ${input.subjectBirthDate}` : "",
+    input.subjectBsn ? `BSN: ${input.subjectBsn}` : "",
+    input.subjectFingerprint ? `Vingerafdruk: ${input.subjectFingerprint}` : "",
+    relatedLines.length ? `\nKOPPELINGEN\n${relatedLines.join("\n")}` : "",
+    fieldLines.length ? `\nBEVINDINGEN EN VERKLARINGEN\n${fieldLines.join("\n\n")}` : "",
+    input.summary ? `\nSAMENVATTING\n${input.summary}` : "",
+    "",
+    "Naar waarheid opgemaakt binnen Oranjestad Roleplay.",
+    `Verbalisant: ${createdBy.name || "-"}`
+  ].filter((line) => line !== "").join("\n");
+}
+
+function validateFinalProcessVerbal(input = {}) {
+  if (normalizeProcessVerbalStatus(input.status) !== "definitief") return;
+  const hasContent = Boolean(String(input.summary || "").trim()
+    || String(input.document || "").trim()
+    || Object.values(input.fields || {}).some((value) => String(value || "").trim()));
+  if (!String(input.date || "").trim() || !hasContent || !String(input.createdByKey || "").trim()) {
+    const error = new Error("Een definitief proces-verbaal vereist een datum, inhoud en gekoppelde verbalisant.");
+    error.status = 400;
+    throw error;
+  }
+}
+
 function normalizeProcessVerbal(input = {}, options = {}) {
   const now = options.now || new Date().toISOString();
   const type = normalizeProcessVerbalType(input.type);
@@ -115,7 +180,7 @@ function normalizeProcessVerbal(input = {}, options = {}) {
   const createdBy = input.createdBy && typeof input.createdBy === "object" ? clone(input.createdBy) : {};
   const createdByKey = text(input.createdByKey || options.actorKey || processVerbalActorKey(createdBy), 160);
   const finalizedAt = status === "definitief" ? text(input.finalizedAt || now, 80) : "";
-  return {
+  const normalized = {
     id: text(input.id || entryId(), 80),
     type,
     typeLabel: PROCESS_VERBAL_TYPES[type].label,
@@ -137,6 +202,12 @@ function normalizeProcessVerbal(input = {}, options = {}) {
     createdBy,
     createdByKey
   };
+  validateFinalProcessVerbal(normalized);
+  const hasStructuredContent = Boolean(normalized.summary || Object.values(normalized.fields).some(Boolean));
+  if (hasStructuredContent || !normalized.document) {
+    normalized.document = text(processVerbalDocument(normalized), 16000);
+  }
+  return normalized;
 }
 
 function canViewProcessVerbal(processVerbal = {}, options = {}) {
@@ -228,6 +299,7 @@ function updateProcessVerbal(existing = {}, patch = {}, options = {}) {
 
 module.exports = {
   PROCESS_VERBAL_TYPES,
+  PROCESS_VERBAL_FIELD_LABELS,
   canEditProcessVerbal,
   canViewProcessVerbal,
   filterProcessVerbals,
@@ -236,6 +308,7 @@ module.exports = {
   normalizeProcessVerbalStatus,
   normalizeProcessVerbalType,
   processVerbalActorKey,
+  processVerbalDocument,
   sortProcessVerbals,
   updateProcessVerbal
 };

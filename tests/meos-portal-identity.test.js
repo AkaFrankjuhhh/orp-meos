@@ -46,3 +46,13 @@ test("MEOS profile names prefer full portal names over compact Discord fallbacks
     "Slak G."
   );
 });
+
+test("MEOS identity hints never match on a first name alone", () => {
+  const hints = portalIdentitySearchHints(
+    { id: "123", username: "frank", global_name: "Frank" },
+    { nick: "Frank", user: { username: "frank", global_name: "Frank" } }
+  );
+
+  assert.equal(portalPersonMatchesSearchHints({ name: "Frank Bright", discord_username: "" }, hints), false);
+  assert.equal(portalPersonMatchesSearchHints({ name: "Frank Bos", discord_username: "" }, hints), false);
+});

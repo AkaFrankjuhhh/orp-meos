@@ -2,6 +2,7 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const crypto = require("node:crypto");
 
 const { normalize, slugFromValue } = require("./meos-demo-data");
 const {
@@ -11,6 +12,7 @@ const {
   normalizeVehicleVin
 } = require("./meos-normalization");
 const { filterProcessVerbals, normalizeProcessVerbal, updateProcessVerbal } = require("./meos-process-verbals");
+const { createPostgresMeosCaseRepository } = require("./meos-case-repository");
 const { normalizeLimit, personMatchesSearch, personSearchQueries } = require("./meos-store-demo");
 
 function clone(value) {
@@ -50,8 +52,8 @@ function mapPersonRow(row = {}) {
     id: String(row.id || row.citizenid || row.identifier || slugFromValue(name)).trim(),
     name,
     gender: String(row.gender || row.sex || "-"),
-    bsn: normalizeOrpBsn(row.bsn || row.orp_bsn || row.citizenid || ""),
-    fingerprint: normalizeOrpFingerprint(row.fingerprint || row.orp_fingerprint || row.identifier || ""),
+    bsn: normalizeOrpBsn(row.bsn || row.orp_bsn || ""),
+    fingerprint: normalizeOrpFingerprint(row.fingerprint || row.orp_fingerprint || ""),
     birthDate: String(row.birth_date || row.birthDate || row.dateofbirth || ""),
     height: String(row.height || row.length || ""),
     status: String(row.status || row.signalering || "Geen signalering"),
@@ -72,16 +74,16 @@ function mapVehicleRow(row = {}) {
     model: String(row.model || row.vehicle_model || row.voertuig || ""),
     ownerId: String(row.owner_id || row.ownerId || row.citizenid || row.identifier || ""),
     owner: String(row.owner || row.owner_name || row.eigenaar || ""),
-    impounded: yesNo(row.impounded || row.inbeslaggenomen),
-    wok: yesNo(row.wok || row.wok_status),
+    impounded: yesNo(row.impounded ?? row.inbeslaggenomen),
+    wok: yesNo(row.wok ?? row.wok_status),
     apkStatus: String(row.apk_status || row.apkStatus || row.apk || ""),
     primaryColor: String(row.primary_color || row.primaryColor || row.kleur || ""),
     secondaryColor: String(row.secondary_color || row.secondaryColor || ""),
     pearlColor: String(row.pearl_color || row.pearlColor || ""),
-    stolen: yesNo(row.stolen || row.gestolen),
+    stolen: yesNo(row.stolen ?? row.gestolen),
     stolenReason: String(row.stolen_reason || row.stolenReason || row.gestolen_reden || ""),
     stolenDate: String(row.stolen_date || row.stolenDate || row.gestolen_datum || ""),
-    serviceVehicle: yesNo(row.service_vehicle || row.serviceVehicle || row.dienst_auto),
+    serviceVehicle: yesNo(row.service_vehicle ?? row.serviceVehicle ?? row.dienst_auto),
     vin: normalizeVehicleVin(row.vin || row.vehicle_id || "")
   };
 }
@@ -123,10 +125,15 @@ function entryId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 }
 
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 function normalizeCaseData(data = {}) {
   const people = data.people && typeof data.people === "object" ? data.people : {};
   const processVerbals = Array.isArray(data.processVerbals) ? data.processVerbals.map((entry) => normalizeProcessVerbal(entry)) : [];
-  return { people, processVerbals };
+  const generalNotes = data.generalNotes && typeof data.generalNotes === "object" ? data.generalNotes : {};
+  return { people, processVerbals, generalNotes };
 }
 
 function personCaseBucket(data, personId) {
@@ -164,12 +171,58 @@ function deleteCaseEntry(bucket, collection, entryIdValue, fallbackPrefix) {
   return deleted || null;
 }
 
+function createCaseRecord(record = {}) {
+  return {
+    id: record.id || entryId("PV"),
+    date: String(record.date || "").trim(),
+    sanction: String(record.sanction || "").trim(),
+    verbalist: String(record.verbalist || "").trim(),
+    note: String(record.note || "").trim(),
+    source: String(record.source || "").trim(),
+    articleIds: Array.isArray(record.articleIds) ? record.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+    articleSelections: Array.isArray(record.articleSelections) ? clone(record.articleSelections) : [],
+    calculatedTotals: record.calculatedTotals && typeof record.calculatedTotals === "object" ? clone(record.calculatedTotals) : null,
+    wetboekRevision: record.wetboekRevision || null,
+    wetboekUpdatedAt: record.wetboekUpdatedAt || null,
+    createdAt: new Date().toISOString(),
+    createdBy: record.createdBy || null
+  };
+}
+
+function createCaseNote(note = {}) {
+  return {
+    id: note.id || entryId("NT"),
+    date: String(note.date || "").trim(),
+    author: String(note.author || "").trim(),
+    note: String(note.note || "").trim(),
+    createdAt: new Date().toISOString(),
+    createdBy: note.createdBy || null
+  };
+}
+
+function createCaseFine(fine = {}) {
+  return {
+    id: fine.id || entryId("BT"),
+    fine: String(fine.fine || "").trim(),
+    amount: String(fine.amount || "").trim(),
+    writtenAt: String(fine.writtenAt || "").trim(),
+    writtenBy: String(fine.writtenBy || "").trim(),
+    articleIds: Array.isArray(fine.articleIds) ? fine.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+    wetboekRevision: fine.wetboekRevision || null,
+    createdAt: new Date().toISOString(),
+    createdBy: fine.createdBy || null
+  };
+}
+
 class FiveMMeosStore {
   constructor(options = {}) {
     this.databaseUrl = options.databaseUrl || process.env.MEOS_FIVEM_DATABASE_URL || "";
     this.caseDataPath = path.resolve(options.caseDataPath || process.env.MEOS_CASE_DATA_PATH || "meos-case-data.json");
     this.driver = String(options.driver || process.env.MEOS_FIVEM_DB_DRIVER || "postgres").trim().toLowerCase();
     this.framework = String(options.framework || process.env.MEOS_FIVEM_FRAMEWORK || "custom").trim().toLowerCase();
+    this.caseRepository = options.caseRepository || (String(process.env.MEOS_CASE_DATABASE_URL || "").trim()
+      ? createPostgresMeosCaseRepository({ databaseUrl: process.env.MEOS_CASE_DATABASE_URL })
+      : null);
     this.playersView = sqlIdentifier(options.playersView || process.env.MEOS_FIVEM_PLAYERS_VIEW || options.peopleView || process.env.MEOS_FIVEM_PEOPLE_VIEW, "meos_people_view");
     this.peopleView = this.playersView;
     this.vehiclesView = sqlIdentifier(options.vehiclesView || process.env.MEOS_FIVEM_VEHICLES_VIEW, "meos_vehicles_view");
@@ -181,6 +234,9 @@ class FiveMMeosStore {
       live: true,
       driver: this.driver,
       caseDataPath: this.caseDataPath,
+      caseStorage: this.caseRepository
+        ? { type: "postgres", label: "PostgreSQL dossieropslag" }
+        : { type: "json", label: "Lokale JSON dossieropslag", path: this.caseDataPath },
       views: {
         players: this.playersView,
         vehicles: this.vehiclesView,
@@ -246,7 +302,13 @@ class FiveMMeosStore {
         max: Number(process.env.MEOS_FIVEM_DATABASE_POOL_MAX || 2),
         idleTimeoutMillis: Number(process.env.MEOS_FIVEM_DATABASE_IDLE_MS || 30000),
         connectionTimeoutMillis: Number(process.env.MEOS_FIVEM_DATABASE_CONNECT_MS || 10000),
-        ssl: String(process.env.MEOS_FIVEM_DATABASE_SSL || "false").toLowerCase() === "true" ? { rejectUnauthorized: false } : false
+        statement_timeout: Number(process.env.MEOS_FIVEM_DATABASE_STATEMENT_TIMEOUT_MS || 10000),
+        query_timeout: Number(process.env.MEOS_FIVEM_DATABASE_QUERY_TIMEOUT_MS || 12000),
+        application_name: "orp-meos-readonly",
+        options: "-c default_transaction_read_only=on",
+        ssl: String(process.env.MEOS_FIVEM_DATABASE_SSL || "false").toLowerCase() === "true"
+          ? { rejectUnauthorized: String(process.env.MEOS_FIVEM_DATABASE_SSL_REJECT_UNAUTHORIZED || "true").toLowerCase() !== "false" }
+          : false
       });
     }
     return this.pool;
@@ -297,6 +359,50 @@ class FiveMMeosStore {
     }
   }
 
+  async checkDataIntegrity() {
+    const checks = [
+      {
+        key: "players.identifiers",
+        label: "Geldige BSN- en vingerafdrukformaten",
+        sql: `select count(*)::int as count from ${this.playersView} where bsn !~ '^ORP-BSN-[0-9]+$' or fingerprint !~ '^ORP-V-[0-9]+$'`
+      },
+      {
+        key: "players.unique_bsn",
+        label: "Unieke BSN-nummers",
+        sql: `select count(*)::int as count from (select bsn from ${this.playersView} where coalesce(bsn, '') <> '' group by bsn having count(*) > 1) duplicates`
+      },
+      {
+        key: "players.unique_fingerprint",
+        label: "Unieke vingerafdrukken",
+        sql: `select count(*)::int as count from (select fingerprint from ${this.playersView} where coalesce(fingerprint, '') <> '' group by fingerprint having count(*) > 1) duplicates`
+      },
+      {
+        key: "vehicles.unique_plate",
+        label: "Unieke kentekens",
+        sql: `select count(*)::int as count from (select upper(trim(plate)) as value from ${this.vehiclesView} where coalesce(trim(plate), '') <> '' group by upper(trim(plate)) having count(*) > 1) duplicates`
+      },
+      {
+        key: "vehicles.unique_vin",
+        label: "Unieke VIN-nummers",
+        sql: `select count(*)::int as count from (select upper(trim(vin)) as value from ${this.vehiclesView} where coalesce(trim(vin), '') <> '' group by upper(trim(vin)) having count(*) > 1) duplicates`
+      },
+      {
+        key: "vehicles.owner_relation",
+        label: "Voertuigen met bestaande eigenaar",
+        sql: `select count(*)::int as count from ${this.vehiclesView} vehicle left join ${this.playersView} person on person.id = vehicle.owner_id where coalesce(trim(vehicle.owner_id), '') <> '' and person.id is null`
+      }
+    ];
+    return Promise.all(checks.map(async (check) => {
+      try {
+        const rows = await this.query(check.sql);
+        const issues = Number(rows[0]?.count || 0);
+        return { key: check.key, label: check.label, ok: issues === 0, issues };
+      } catch (error) {
+        return { key: check.key, label: check.label, ok: false, issues: null, error: sanitizeHealthError(error) };
+      }
+    }));
+  }
+
   async sourceHealth() {
     const checkedAt = new Date().toISOString();
     const contracts = this.viewContracts();
@@ -310,6 +416,7 @@ class FiveMMeosStore {
       framework: this.framework,
       views: this.source.views,
       caseDataPath: this.caseDataPath,
+      caseStorage: this.source.caseStorage,
       checks: [],
       counts: {},
       durationMs: 0
@@ -327,12 +434,37 @@ class FiveMMeosStore {
     }
 
     const checks = await Promise.all(contracts.map((contract) => this.checkViewContract(contract)));
-    const ok = checks.every((check) => check.ok);
+    if (this.caseRepository) {
+      try {
+        const repositoryHealth = await this.caseRepository.health();
+        checks.push({
+          key: "case_storage",
+          label: "MEOS dossieropslag",
+          required: true,
+          available: repositoryHealth.ok,
+          ok: repositoryHealth.ok,
+          details: repositoryHealth.tables
+        });
+      } catch (error) {
+        checks.push({
+          key: "case_storage",
+          label: "MEOS dossieropslag",
+          required: true,
+          available: false,
+          ok: false,
+          error: sanitizeHealthError(error)
+        });
+      }
+    }
+    const requiredViewsAvailable = checks.filter((check) => check.required).every((check) => check.available);
+    const integrity = requiredViewsAvailable ? await this.checkDataIntegrity() : [];
+    const ok = checks.every((check) => check.ok) && integrity.every((check) => check.ok);
     return {
       ...base,
       ok,
       status: ok ? "healthy" : "degraded",
       checks,
+      integrity,
       counts: Object.fromEntries(checks.map((check) => [check.key, Number.isFinite(check.count) ? check.count : null])),
       missingOptionalViews: checks.filter((check) => !check.required && check.missing).map((check) => check.key),
       durationMs: Date.now() - started
@@ -340,18 +472,30 @@ class FiveMMeosStore {
   }
 
   async loadPeople() {
-    const rows = await this.query(`select * from ${this.playersView} order by name limit 1000`);
+    const limit = Math.max(100, Number(process.env.MEOS_FIVEM_SNAPSHOT_PEOPLE_MAX || 5000));
+    const rows = await this.query(`select * from ${this.playersView} order by name limit $1`, [limit + 1]);
+    if (rows.length > limit) {
+      const error = new Error(`De FiveM spelersbron bevat meer dan ${limit} personen. Gebruik de gepagineerde MEOS zoekroutes voordat deze bron live gaat.`);
+      error.status = 503;
+      throw error;
+    }
     return rows.map(mapPersonRow);
   }
 
   async loadVehicles() {
-    const rows = await this.query(`select * from ${this.vehiclesView} order by plate limit 2000`);
+    const limit = Math.max(100, Number(process.env.MEOS_FIVEM_SNAPSHOT_VEHICLES_MAX || 10000));
+    const rows = await this.query(`select * from ${this.vehiclesView} order by plate limit $1`, [limit + 1]);
+    if (rows.length > limit) {
+      const error = new Error(`De FiveM voertuigbron bevat meer dan ${limit} voertuigen. Gebruik de gepagineerde MEOS zoekroutes voordat deze bron live gaat.`);
+      error.status = 503;
+      throw error;
+    }
     return rows.map(mapVehicleRow);
   }
 
   async loadWarrants() {
     try {
-      const rows = await this.query(`select * from ${this.warrantsView} where coalesce(status, 'Actief') <> 'Gesloten' order by issued_at desc limit 500`);
+      const rows = await this.query(`select * from ${this.warrantsView} where lower(coalesce(status, 'actief')) <> 'gesloten' order by issued_at desc limit 500`);
       return rows.map(mapWarrantRow);
     } catch (error) {
       if (this.isMissingOptionalView(error, this.warrantsView)) return [];
@@ -361,7 +505,13 @@ class FiveMMeosStore {
 
   async loadHouses() {
     try {
-      const rows = await this.query(`select * from ${this.housingView} order by location limit 2000`);
+      const limit = Math.max(100, Number(process.env.MEOS_FIVEM_SNAPSHOT_HOUSES_MAX || 10000));
+      const rows = await this.query(`select * from ${this.housingView} order by location limit $1`, [limit + 1]);
+      if (rows.length > limit) {
+        const error = new Error(`De FiveM woningbron bevat meer dan ${limit} woningen. Gebruik paginering voordat deze bron live gaat.`);
+        error.status = 503;
+        throw error;
+      }
       return rows.map(mapHouseRow);
     } catch (error) {
       if (this.isMissingOptionalView(error, this.housingView)) return [];
@@ -370,7 +520,7 @@ class FiveMMeosStore {
   }
 
   isMissingOptionalView(error, viewName) {
-    return error?.code === "42P01" || String(error?.message || "").includes(viewName);
+    return error?.code === "42P01";
   }
 
   async readCaseData() {
@@ -385,9 +535,58 @@ class FiveMMeosStore {
 
   async writeCaseData(data) {
     await fs.mkdir(path.dirname(this.caseDataPath), { recursive: true });
-    const tempPath = `${this.caseDataPath}.${process.pid}.tmp`;
-    await fs.writeFile(tempPath, `${JSON.stringify(normalizeCaseData(data), null, 2)}\n`, "utf8");
-    await fs.rename(tempPath, this.caseDataPath);
+    const tempPath = `${this.caseDataPath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+    try {
+      await fs.writeFile(tempPath, `${JSON.stringify(normalizeCaseData(data), null, 2)}\n`, "utf8");
+      await fs.rename(tempPath, this.caseDataPath);
+    } finally {
+      await fs.unlink(tempPath).catch((error) => {
+        if (error?.code !== "ENOENT") throw error;
+      });
+    }
+  }
+
+  async acquireCaseDataLock() {
+    const lockPath = `${this.caseDataPath}.lock`;
+    const timeoutMs = Math.max(500, Number(process.env.MEOS_CASE_LOCK_TIMEOUT_MS || 10000));
+    const staleMs = Math.max(timeoutMs, Number(process.env.MEOS_CASE_LOCK_STALE_MS || 30000));
+    const startedAt = Date.now();
+    await fs.mkdir(path.dirname(this.caseDataPath), { recursive: true });
+    while (Date.now() - startedAt < timeoutMs) {
+      try {
+        const handle = await fs.open(lockPath, "wx");
+        await handle.writeFile(JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }));
+        return async () => {
+          await handle.close().catch(() => {});
+          await fs.unlink(lockPath).catch((error) => {
+            if (error?.code !== "ENOENT") throw error;
+          });
+        };
+      } catch (error) {
+        if (error?.code !== "EEXIST") throw error;
+        const stats = await fs.stat(lockPath).catch(() => null);
+        if (stats && Date.now() - stats.mtimeMs > staleMs) {
+          await fs.unlink(lockPath).catch(() => {});
+          continue;
+        }
+        await delay(50);
+      }
+    }
+    const error = new Error("MEOS opslag is tijdelijk bezet. Probeer de wijziging opnieuw.");
+    error.status = 503;
+    throw error;
+  }
+
+  async mutateCaseData(mutator) {
+    const release = await this.acquireCaseDataLock();
+    try {
+      const data = await this.readCaseData();
+      const result = await mutator(data);
+      await this.writeCaseData(data);
+      return result;
+    } finally {
+      await release();
+    }
   }
 
   mergeCaseData(people, caseData) {
@@ -401,13 +600,15 @@ class FiveMMeosStore {
   }
 
   async snapshot() {
-    const [people, vehicles, warrants, houses, caseData] = await Promise.all([
+    const [people, vehicles, warrants, houses] = await Promise.all([
       this.loadPeople(),
       this.loadVehicles(),
       this.loadWarrants(),
-      this.loadHouses(),
-      this.readCaseData()
+      this.loadHouses()
     ]);
+    const caseData = this.caseRepository
+      ? await this.caseRepository.loadCaseData(people.map((person) => person.id))
+      : await this.readCaseData();
     this.mergeCaseData(people, caseData);
     const peopleById = new Map(people.map((person) => [normalize(person.id), person]));
     const peopleByName = new Map(people.map((person) => [normalize(person.name), person]));
@@ -512,31 +713,62 @@ class FiveMMeosStore {
   }
 
   async listProcessVerbals(options = {}) {
+    if (this.caseRepository) return this.caseRepository.listProcessVerbals(options);
     const data = await this.readCaseData();
     return clone(filterProcessVerbals(data.processVerbals, options));
   }
 
-  async addProcessVerbal(processVerbal = {}) {
+  async getGeneralNote(actorKey) {
+    if (this.caseRepository) return { note: await this.caseRepository.getGeneralNote(actorKey) };
     const data = await this.readCaseData();
+    return { note: String(data.generalNotes[String(actorKey || "")] || "") };
+  }
+
+  async saveGeneralNote(actorKey, note) {
+    const key = String(actorKey || "").trim();
+    if (!key) {
+      const error = new Error("MEOS identiteit ontbreekt.");
+      error.status = 401;
+      throw error;
+    }
+    const value = String(note || "").trim().slice(0, 2000);
+    if (this.caseRepository) {
+      return { note: await this.caseRepository.saveGeneralNote(key, value) };
+    }
+    await this.mutateCaseData((data) => {
+      data.generalNotes[key] = value;
+    });
+    return { note: value };
+  }
+
+  async addProcessVerbal(processVerbal = {}) {
     const nextProcessVerbal = normalizeProcessVerbal(processVerbal);
-    data.processVerbals = [nextProcessVerbal, ...(Array.isArray(data.processVerbals) ? data.processVerbals : [])];
-    await this.writeCaseData(data);
+    if (this.caseRepository) {
+      return { processVerbal: await this.caseRepository.addProcessVerbal(nextProcessVerbal) };
+    }
+    await this.mutateCaseData((data) => {
+      data.processVerbals = [nextProcessVerbal, ...(Array.isArray(data.processVerbals) ? data.processVerbals : [])];
+    });
     return { processVerbal: clone(nextProcessVerbal) };
   }
 
   async updateProcessVerbal(processVerbalId, patch = {}, options = {}) {
-    const data = await this.readCaseData();
-    const entries = Array.isArray(data.processVerbals) ? data.processVerbals : [];
-    const index = entries.findIndex((entry) => normalize(entry.id) === normalize(processVerbalId));
-    if (index === -1) {
-      const error = new Error("Proces-verbaal niet gevonden.");
-      error.status = 404;
-      throw error;
+    if (this.caseRepository) {
+      return { processVerbal: await this.caseRepository.updateProcessVerbal(processVerbalId, patch, options) };
     }
-    const nextProcessVerbal = updateProcessVerbal(entries[index], patch, options);
-    entries[index] = nextProcessVerbal;
-    data.processVerbals = entries;
-    await this.writeCaseData(data);
+    const nextProcessVerbal = await this.mutateCaseData((data) => {
+      const entries = Array.isArray(data.processVerbals) ? data.processVerbals : [];
+      const index = entries.findIndex((entry) => normalize(entry.id) === normalize(processVerbalId));
+      if (index === -1) {
+        const error = new Error("Proces-verbaal niet gevonden.");
+        error.status = 404;
+        throw error;
+      }
+      const updated = updateProcessVerbal(entries[index], patch, options);
+      entries[index] = updated;
+      data.processVerbals = entries;
+      return updated;
+    });
     return { processVerbal: clone(nextProcessVerbal) };
   }
 
@@ -547,26 +779,46 @@ class FiveMMeosStore {
       error.status = 404;
       throw error;
     }
-    const data = await this.readCaseData();
-    const bucket = personCaseBucket(data, person.id);
-    const nextRecord = {
-      id: record.id || entryId("PV"),
-      date: String(record.date || "").trim(),
-      sanction: String(record.sanction || "").trim(),
-      verbalist: String(record.verbalist || "").trim(),
-      note: String(record.note || "").trim(),
-      source: String(record.source || "").trim(),
-      articleIds: Array.isArray(record.articleIds) ? record.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
-      articleSelections: Array.isArray(record.articleSelections) ? clone(record.articleSelections) : [],
-      calculatedTotals: record.calculatedTotals && typeof record.calculatedTotals === "object" ? clone(record.calculatedTotals) : null,
-      createdAt: new Date().toISOString(),
-      createdBy: record.createdBy || null
-    };
-    bucket.records = [nextRecord, ...bucket.records];
-    await this.writeCaseData(data);
+    const nextRecord = createCaseRecord(record);
+    if (this.caseRepository) {
+      await this.caseRepository.addPersonEntries(person.id, [{ type: "record", payload: nextRecord }]);
+      return { record: clone(nextRecord), person: await this.getPerson(person.id) };
+    }
+    await this.mutateCaseData((data) => {
+      const bucket = personCaseBucket(data, person.id);
+      bucket.records = [nextRecord, ...bucket.records];
+    });
     return {
       record: clone(nextRecord),
-      person: { ...person, records: [clone(nextRecord), ...asArray(person.records)] }
+      person: await this.getPerson(person.id)
+    };
+  }
+
+  async addPersonRecordWithFine(personValue, record = {}, fine = {}) {
+    const person = await this.getPerson(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const nextRecord = createCaseRecord(record);
+    const nextFine = createCaseFine(fine);
+    if (this.caseRepository) {
+      await this.caseRepository.addPersonEntries(person.id, [
+        { type: "record", payload: nextRecord },
+        { type: "fine", payload: nextFine }
+      ]);
+      return { record: clone(nextRecord), fine: clone(nextFine), person: await this.getPerson(person.id) };
+    }
+    await this.mutateCaseData((data) => {
+      const bucket = personCaseBucket(data, person.id);
+      bucket.records = [nextRecord, ...bucket.records];
+      bucket.fines = [nextFine, ...bucket.fines];
+    });
+    return {
+      record: clone(nextRecord),
+      fine: clone(nextFine),
+      person: await this.getPerson(person.id)
     };
   }
 
@@ -577,21 +829,18 @@ class FiveMMeosStore {
       error.status = 404;
       throw error;
     }
-    const data = await this.readCaseData();
-    const bucket = personCaseBucket(data, person.id);
-    const nextNote = {
-      id: note.id || entryId("NT"),
-      date: String(note.date || "").trim(),
-      author: String(note.author || "").trim(),
-      note: String(note.note || "").trim(),
-      createdAt: new Date().toISOString(),
-      createdBy: note.createdBy || null
-    };
-    bucket.notes = [nextNote, ...bucket.notes];
-    await this.writeCaseData(data);
+    const nextNote = createCaseNote(note);
+    if (this.caseRepository) {
+      await this.caseRepository.addPersonEntries(person.id, [{ type: "note", payload: nextNote }]);
+      return { note: clone(nextNote), person: await this.getPerson(person.id) };
+    }
+    await this.mutateCaseData((data) => {
+      const bucket = personCaseBucket(data, person.id);
+      bucket.notes = [nextNote, ...bucket.notes];
+    });
     return {
       note: clone(nextNote),
-      person: { ...person, notes: [clone(nextNote), ...asArray(person.notes)] }
+      person: await this.getPerson(person.id)
     };
   }
 
@@ -602,23 +851,18 @@ class FiveMMeosStore {
       error.status = 404;
       throw error;
     }
-    const data = await this.readCaseData();
-    const bucket = personCaseBucket(data, person.id);
-    const nextFine = {
-      id: fine.id || entryId("BT"),
-      fine: String(fine.fine || "").trim(),
-      amount: String(fine.amount || "").trim(),
-      writtenAt: String(fine.writtenAt || "").trim(),
-      writtenBy: String(fine.writtenBy || "").trim(),
-      articleIds: Array.isArray(fine.articleIds) ? fine.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
-      createdAt: new Date().toISOString(),
-      createdBy: fine.createdBy || null
-    };
-    bucket.fines = [nextFine, ...bucket.fines];
-    await this.writeCaseData(data);
+    const nextFine = createCaseFine(fine);
+    if (this.caseRepository) {
+      await this.caseRepository.addPersonEntries(person.id, [{ type: "fine", payload: nextFine }]);
+      return { fine: clone(nextFine), person: await this.getPerson(person.id) };
+    }
+    await this.mutateCaseData((data) => {
+      const bucket = personCaseBucket(data, person.id);
+      bucket.fines = [nextFine, ...bucket.fines];
+    });
     return {
       fine: clone(nextFine),
-      person: { ...person, fines: [clone(nextFine), ...asArray(person.fines)] }
+      person: await this.getPerson(person.id)
     };
   }
 
@@ -629,13 +873,15 @@ class FiveMMeosStore {
       error.status = 404;
       throw error;
     }
-    const data = await this.readCaseData();
-    const bucket = personCaseBucket(data, person.id);
-    const deleted = deleteCaseEntry(bucket, "records", recordId, "record");
-    await this.writeCaseData(data);
+    const deleted = this.caseRepository
+      ? await this.caseRepository.deletePersonEntry(person.id, "record", recordId)
+      : await this.mutateCaseData((data) => {
+      const bucket = personCaseBucket(data, person.id);
+      return deleteCaseEntry(bucket, "records", recordId, "record");
+      });
     return {
       deleted: { type: "record", id: recordId, entry: clone(deleted) },
-      person: { ...person, records: asArray(person.records).filter((record) => normalize(record?.id) !== normalize(recordId)) }
+      person: await this.getPerson(person.id)
     };
   }
 
@@ -646,13 +892,15 @@ class FiveMMeosStore {
       error.status = 404;
       throw error;
     }
-    const data = await this.readCaseData();
-    const bucket = personCaseBucket(data, person.id);
-    const deleted = deleteCaseEntry(bucket, "notes", noteId, "note");
-    await this.writeCaseData(data);
+    const deleted = this.caseRepository
+      ? await this.caseRepository.deletePersonEntry(person.id, "note", noteId)
+      : await this.mutateCaseData((data) => {
+      const bucket = personCaseBucket(data, person.id);
+      return deleteCaseEntry(bucket, "notes", noteId, "note");
+      });
     return {
       deleted: { type: "note", id: noteId, entry: clone(deleted) },
-      person: { ...person, notes: asArray(person.notes).filter((note) => normalize(note?.id) !== normalize(noteId)) }
+      person: await this.getPerson(person.id)
     };
   }
 
@@ -663,13 +911,15 @@ class FiveMMeosStore {
       error.status = 404;
       throw error;
     }
-    const data = await this.readCaseData();
-    const bucket = personCaseBucket(data, person.id);
-    const deleted = deleteCaseEntry(bucket, "fines", fineId, "fine");
-    await this.writeCaseData(data);
+    const deleted = this.caseRepository
+      ? await this.caseRepository.deletePersonEntry(person.id, "fine", fineId)
+      : await this.mutateCaseData((data) => {
+      const bucket = personCaseBucket(data, person.id);
+      return deleteCaseEntry(bucket, "fines", fineId, "fine");
+      });
     return {
       deleted: { type: "fine", id: fineId, entry: clone(deleted) },
-      person: { ...person, fines: asArray(person.fines).filter((fine) => normalize(fine?.id) !== normalize(fineId)) }
+      person: await this.getPerson(person.id)
     };
   }
 }

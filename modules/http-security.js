@@ -61,17 +61,23 @@ function createHttpResponder({ appBaseUrl }) {
     res.writeHead(status, { ...securityHeaders(appBaseUrl, headers["Content-Type"] || ""), ...headers });
   }
 
-  function sendJson(res, status, body) {
+  function sendJson(res, status, body, headers = {}) {
     const payload = JSON.stringify(body);
     writeHeadSecure(res, status, {
       "Content-Type": "application/json; charset=utf-8",
-      "Content-Length": Buffer.byteLength(payload)
+      "Content-Length": Buffer.byteLength(payload),
+      "Cache-Control": "no-store, private",
+      ...headers
     });
     res.end(payload);
   }
 
-  function sendHtml(res, status, html) {
-    writeHeadSecure(res, status, { "Content-Type": "text/html; charset=utf-8" });
+  function sendHtml(res, status, html, headers = {}) {
+    writeHeadSecure(res, status, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store, private",
+      ...headers
+    });
     res.end(html);
   }
 
@@ -142,7 +148,7 @@ function serveWhitelistedStatic({ root, requested, res, writeHeadSecure, publicR
     }
     const extension = path.extname(filePath).toLowerCase();
     const cacheControl = extension === ".html"
-      ? "no-cache"
+      ? "no-store, private"
       : "public, max-age=300, stale-while-revalidate=86400";
     writeHeadSecure(res, 200, {
       "Content-Type": contentTypeForPath(filePath),

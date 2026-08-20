@@ -37,6 +37,7 @@ export function renderDataHealthHtml({ health, loading = false, error = "", canV
   const counts = health.counts || {};
   const cache = health.cache || {};
   const checks = Array.isArray(health.checks) ? health.checks : [];
+  const integrity = Array.isArray(health.integrity) ? health.integrity : [];
   const source = health.dataSource || {};
   const cacheText = cache.lastSnapshotSuccessAt
     ? `Laatste goede data: ${cache.lastSnapshotSuccessAt}`
@@ -75,5 +76,18 @@ export function renderDataHealthHtml({ health, loading = false, error = "", canV
         </article>
       `).join("") || '<div class="meos-empty">Geen viewchecks beschikbaar.</div>'}
     </div>
+    ${integrity.length ? `
+      <h3>Gegevensintegriteit</h3>
+      <div class="meos-health-checks">
+        ${integrity.map((check) => `
+          <article class="meos-health-check">
+            <div><span>${escapeHtml(check.label || check.key)}</span><strong>Datacontract</strong></div>
+            <div><span>Problemen</span><strong>${escapeHtml(healthCount(check.issues))}</strong></div>
+            <div>${renderHealthPill(check.ok ? "healthy" : "error", check.ok)}</div>
+            ${check.error ? `<small>${escapeHtml(check.error)}</small>` : ""}
+          </article>
+        `).join("")}
+      </div>
+    ` : ""}
   `;
 }

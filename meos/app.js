@@ -25,11 +25,12 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   let meosDataHealthLoading = false;
   let meosDataHealthError = "";
   let currentMeosProfile = null;
+  let modalReturnFocus = null;
   const themeStorageKey = "orp-meos-theme";
   const defaultMeosProfile = {
-    name: "Frank Bright",
-    rank: "Brigadegeneraal",
-    serviceNumber: "70-04",
+    name: "Niet aangemeld",
+    rank: "",
+    serviceNumber: "",
     avatarUrl: "/assets/meos-logo.png?v=20260818-site-logo",
     permissions: {
       canViewEntries: false,
@@ -185,12 +186,13 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
   function personSlug(person) {
     const raw = String(person?.name || person?.id || "persoon").trim();
-    const slug = raw
+    const nameSlug = raw
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/gi, "-")
       .replace(/^-+|-+$/g, "");
-    return slug || "persoon";
+    const personId = String(person?.id || "").trim();
+    return personId ? `${nameSlug || "persoon"}--${encodeURIComponent(personId)}` : nameSlug || "persoon";
   }
 
   function vehicleSlug(vehicle) {
@@ -324,11 +326,28 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       if (!response.ok) throw new Error(`MEOS sessie ophalen mislukt (${response.status})`);
       const payload = await response.json();
       setMeosCsrfToken(payload.csrfToken || "");
-      renderMeosProfile(payload.profile, Boolean(payload.authenticated));
+      const authenticated = Boolean(payload.authenticated && payload.profile);
+      renderMeosProfile(payload.profile, authenticated);
+      return authenticated;
     } catch {
       setMeosCsrfToken("");
-      renderMeosProfile(defaultMeosProfile, false);
+      renderMeosProfile(null, false);
+      return false;
     }
+  }
+
+  function clearSensitiveMeosState() {
+    people = [];
+    activePersonId = "";
+    activeVehiclePlate = "";
+    meosDataLoaded = false;
+    meosDataError = "";
+    meosDataSource = null;
+    meosDataHealth = null;
+    processVerbalState.rows = [];
+    processVerbalState.relatedRows = [];
+    auditState.entries = [];
+    currentMeosProfile = null;
   }
 
   async function logoutMeosProfile() {
@@ -337,7 +356,9 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     try {
       await apiJson("/api/meos/logout", { method: "POST" });
       setMeosCsrfToken("");
-      renderMeosProfile(defaultMeosProfile, false);
+      clearSensitiveMeosState();
+      document.body.replaceChildren();
+      window.location.replace("/api/meos/login?returnTo=%2Fdashboard");
     } finally {
       if (logout) logout.disabled = false;
     }
@@ -392,6 +413,35 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     const live = meosDataSource?.live ? "live" : "conceptdata";
     const stale = meosDataSource?.stale ? "laatste cache" : live;
     syncLine.textContent = `Laatste synchronisatie: ${label} (${stale}).`;
+  }
+
+  async function loadGeneralNote() {
+    const field = $("#generalNote");
+    if (!field) return;
+    try {
+      const payload = await apiJson("/api/meos/general-note");
+      field.value = String(payload.note || "");
+    } catch {
+      field.value = "";
+    }
+  }
+
+  async function saveGeneralNote() {
+    const field = $("#generalNote");
+    const button = $("#generalNoteSave");
+    const status = $("#generalNoteStatus");
+    if (!field || !button) return;
+    button.disabled = true;
+    if (status) status.textContent = "Opslaan...";
+    try {
+      const payload = await apiJson("/api/meos/general-note", { method: "PUT", body: { note: field.value } });
+      field.value = String(payload.note || "");
+      if (status) status.textContent = "Opgeslagen";
+    } catch (error) {
+      if (status) status.textContent = error.message || "Opslaan mislukt";
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function renderDataHealth() {
@@ -608,11 +658,17 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     return Number.isFinite(parsed) ? Math.round(parsed) : 0;
   }
 
-  function parseDurationValue(value) {
-    const match = String(value || "").match(/\d+(?:[.,]\d+)?/);
+  function parseDurationValue(value, type = "months") {
+    const text = String(value || "").trim().toLowerCase();
+    const match = text.match(/\d+(?:[.,]\d+)?/);
     if (!match) return 0;
     const parsed = Number(match[0].replace(",", "."));
-    return Number.isFinite(parsed) ? parsed : 0;
+    if (!Number.isFinite(parsed)) return 0;
+    if (type === "hours") return /dag|dagen/.test(text) ? parsed * 8 : parsed;
+    if (/jaar|jaren/.test(text)) return parsed * 12;
+    if (/week|weken/.test(text)) return parsed * 7 / 30;
+    if (/dag|dagen/.test(text)) return parsed / 30;
+    return parsed;
   }
 
   function formatPenaltyNumber(value) {
@@ -625,11 +681,11 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     const labels = [];
     let factor = 1;
     if (item.officialInDuty) {
-      factor *= 1.33;
+      factor += 0.33;
       labels.push("Ambtenaar in functie +33%");
     }
     if (item.attempted) {
-      factor *= 0.67;
+      factor -= 0.33;
       labels.push("Poging tot -33%");
     }
     return { factor, labels };
@@ -665,9 +721,9 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       const choice = selectedWetboekChoice(item);
       const row = choice?.row || {};
       const fine = parseEuroAmount(row.Boete || row.Bedrag);
-      const jailMonths = parseDurationValue(row.Celstraf);
-      const taskHours = parseDurationValue(row.Taakstraf);
-      const drivingBanMonths = parseDurationValue(row.Rijontzegging || row.Rijverbod);
+      const jailMonths = parseDurationValue(row.Celstraf, "months");
+      const taskHours = parseDurationValue(row.Taakstraf, "hours");
+      const drivingBanMonths = parseDurationValue(row.Rijontzegging || row.Rijverbod, "months");
       const modifier = wetboekPenaltyModifier(item);
       totals.rawFine += fine;
       totals.rawJailMonths += jailMonths;
@@ -979,6 +1035,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       window.alert("Je MEOS rol mag geen strafbladen toevoegen.");
       return;
     }
+    modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     wetboekRecordState.personId = personId;
     wetboekRecordState.formError = "";
     wetboekRecordState.query = "";
@@ -1005,6 +1062,8 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     wetboekRecordState.formError = "";
     wetboekRecordState.busy = false;
     document.body.classList.remove("meos-modal-open");
+    modalReturnFocus?.focus?.();
+    modalReturnFocus = null;
   }
 
   function addWetboekArticle(articleId) {
@@ -1191,7 +1250,9 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   }
 
   function findPerson(id) {
-    return people.find((person) => person.id === id) || people[0] || null;
+    const personId = String(id || "").trim();
+    if (!personId) return people[0] || null;
+    return people.find((person) => person.id === personId) || null;
   }
 
   function findPersonStrict(id) {
@@ -1201,8 +1262,17 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   }
 
   function findPersonBySlug(slug) {
-    const normalizedSlug = String(slug || "").trim().toLowerCase();
-    return people.find((person) => personSlug(person).toLowerCase() === normalizedSlug || person.id.toLowerCase() === normalizedSlug) || null;
+    const rawSlug = String(slug || "").trim();
+    const separatorIndex = rawSlug.lastIndexOf("--");
+    if (separatorIndex >= 0) {
+      const personId = rawSlug.slice(separatorIndex + 2);
+      const exactMatch = findPersonStrict(personId);
+      if (exactMatch) return exactMatch;
+    }
+    const normalizedSlug = rawSlug.toLowerCase();
+    return people.find((person) => personSlug(person).toLowerCase() === normalizedSlug
+      || String(person.id || "").toLowerCase() === normalizedSlug
+      || personSlug({ ...person, id: "" }).toLowerCase() === normalizedSlug) || null;
   }
 
   function findVehicle(value) {
@@ -1810,6 +1880,8 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     const warrants = activeArrestWarrants();
     const count = $("#warrantCount");
     if (count) count.textContent = `${warrants.length} ${warrants.length === 1 ? "bevel" : "bevelen"} actief`;
+    const dashboardCount = $("#dashboardWarrantCount");
+    if (dashboardCount) dashboardCount.textContent = `Momenteel ${warrants.length === 1 ? "staat" : "staan"} er ${warrants.length} actieve ${warrants.length === 1 ? "signalering" : "signaleringen"} open.`;
     const target = $("#warrantOverview");
     if (!target) return;
     if (!warrants.length) {
@@ -2234,6 +2306,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   function renderProcessVerbalModal() {
     const modal = $("#meosProcessVerbalModal");
     if (!modal || !processVerbalState.prefillPersonId) return;
+    if (modal.hidden) modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const person = findPersonStrict(processVerbalState.prefillPersonId);
     const config = processVerbalConfig(processVerbalState.activeType);
     modal.innerHTML = `
@@ -2281,7 +2354,9 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     processVerbalState.formError = "";
     processVerbalState.busy = false;
     if ($("#meosRecordModal")?.hidden !== false) {
-      document.body.classList.remove("meos-modal-open");
+    document.body.classList.remove("meos-modal-open");
+    modalReturnFocus?.focus?.();
+    modalReturnFocus = null;
     }
   }
 
@@ -2727,18 +2802,31 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     }
   }
 
+  function trapVisibleModalFocus(event) {
+    if (event.key !== "Tab") return false;
+    const modal = [$("#meosProcessVerbalModal"), $("#meosRecordModal")].find((element) => element && !element.hidden);
+    if (!modal) return false;
+    const focusable = $$('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', modal)
+      .filter((element) => !element.hidden);
+    if (!focusable.length) return false;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+      return true;
+    }
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+      return true;
+    }
+    return false;
+  }
+
   function bindInterfaceGuards() {
-    document.addEventListener("contextmenu", (event) => event.preventDefault());
     document.addEventListener("keydown", (event) => {
-      const key = String(event.key || "").toLowerCase();
-      const blockedDevToolsShortcut = event.key === "F12"
-        || (event.ctrlKey && event.shiftKey && ["i", "j", "c"].includes(key))
-        || (event.ctrlKey && ["u", "s"].includes(key));
-      if (blockedDevToolsShortcut) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
+      if (trapVisibleModalFocus(event)) return;
 
       if (event.key === "Escape" && $("#meosProcessVerbalModal") && !$("#meosProcessVerbalModal").hidden) {
         closeProcessVerbalModal();
@@ -2772,6 +2860,10 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
       const shortcut = event.target.closest("[data-section-shortcut]");
       if (shortcut) {
+        if (shortcut.dataset.pvShortcut && processVerbalTypes[shortcut.dataset.pvShortcut]) {
+          processVerbalState.activeType = shortcut.dataset.pvShortcut;
+          processVerbalState.editingId = "";
+        }
         setPage(shortcut.dataset.sectionShortcut);
         return;
       }
@@ -3036,6 +3128,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       setTheme(event.target.checked ? "dark" : "light");
     });
     $("#meosProfileLogout")?.addEventListener("click", logoutMeosProfile);
+    $("#generalNoteSave")?.addEventListener("click", saveGeneralNote);
     $("#meosProfileAvatar")?.addEventListener("error", (event) => {
       event.currentTarget.src = defaultMeosProfile.avatarUrl;
     }, { once: true });
@@ -3044,12 +3137,17 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
   async function init() {
     applyTheme(preferredTheme());
-    renderMeosProfile(defaultMeosProfile, true);
+    renderMeosProfile(null, false);
     bindInterfaceGuards();
     bindEvents();
-    await loadMeosSession();
+    const authenticated = await loadMeosSession();
+    if (!authenticated) {
+      window.location.replace(`/api/meos/login?returnTo=${encodeURIComponent(window.location.pathname || "/dashboard")}`);
+      return;
+    }
     try {
       await loadMeosData();
+      await loadGeneralNote();
       applyRouteFromLocation();
     } catch {
       setPage("dashboard", { updateUrl: false });

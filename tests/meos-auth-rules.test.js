@@ -21,7 +21,13 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(meosServerCode, /const redirectUri = meosCallbackUrl\(req\);/);
   assert.match(code, /if \(isMeosHost\(req\)\) \{\s+const returnTo = safeMeosReturnTo/);
   assert.match(callbackBlock, /isMeosLogin \? meosCallbackUrl\(req\) : cookies\.orp_overheid_redirect \|\| callbackUrl\(req\)/);
-  assert.match(code, /portalIdentityForDiscordId\(user\?\.id, \{[\s\S]*organizationPriority,[\s\S]*guildMember: member,[\s\S]*linkMissingDiscordId: true/);
+  assert.match(code, /portalIdentityForDiscordId\(user\?\.id, \{/);
+  assert.match(code, /guildMember: member,[\s\S]*allowProfileHints: false,[\s\S]*linkMissingDiscordId: false/);
+  assert.match(code, /async function refreshMeosSessionAuthorization/);
+  assert.match(code, /MEOS_AUTHORIZATION_REFRESH_MS/);
+  assert.match(code, /MEOS_DISCORD_BOT_TOKEN/);
+  assert.match(code, /crypto\.timingSafeEqual/);
+  assert.match(code, /hostAuthCookie/);
   assert.match(code, /portalPersonDisplayName\(person, \{[\s\S]*fallbackNickname: member\?\.nick \|\| identity\?\.nickname \|\| ""/);
   assert.match(code, /hasPortalIdentityDatabase\(\)/);
   assert.match(code, /function allowMeosDemoProfileFallback\(\)/);
@@ -53,7 +59,6 @@ test("MEOS login is limited to the configured police and defensie role allowlist
   assert.match(code, /function requireMeosCsrf/);
   assert.match(code, /function meosRateLimitIdentity/);
   assert.match(code, /MEOS_MUTATION_USER_RATE_LIMIT_MAX/);
-  assert.match(code, /crypto\.timingSafeEqual/);
   assert.match(meosServerCode, /csrfToken: session\?\.csrfToken \|\| ""/);
   assert.match(meosServerCode, /requireMeosCsrf\(req, session\)/);
   assert.match(code, /Geen actief personeelsprofiel gevonden in Defensie of Politie/);

@@ -16,8 +16,9 @@ function normalizePrefixedNumber(value, prefix) {
   const escapedPrefix = normalizedPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = compact.match(new RegExp(`^${escapedPrefix}-(\\d+)$`));
   if (match) return `${normalizedPrefix}-${match[1]}`;
+  if (!/^\d+$/.test(raw)) return "";
   const digits = digitsOnly(raw);
-  return digits ? `${normalizedPrefix}-${digits}` : raw;
+  return digits ? `${normalizedPrefix}-${digits}` : "";
 }
 
 function normalizeOrpBsn(value) {

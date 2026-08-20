@@ -1,5 +1,9 @@
 "use strict";
 
+const crypto = require("node:crypto");
+const fs = require("node:fs/promises");
+const path = require("node:path");
+
 const { buildDemoMeosPeople, normalize, slugFromValue } = require("./meos-demo-data");
 const { filterProcessVerbals, normalizeProcessVerbal, updateProcessVerbal } = require("./meos-process-verbals");
 
@@ -156,11 +160,59 @@ class DemoMeosStore {
   constructor(options = {}) {
     this.people = Array.isArray(options.people) ? clone(options.people) : buildDemoMeosPeople();
     this.processVerbals = Array.isArray(options.processVerbals) ? clone(options.processVerbals).map((entry) => normalizeProcessVerbal(entry)) : [];
+    this.generalNotes = new Map();
+    this.persistCaseData = Boolean(options.persistCaseData);
+    this.caseDataPath = path.resolve(options.caseDataPath || process.env.MEOS_CASE_DATA_PATH || "meos-case-data.json");
+    this.persistenceReady = null;
+    this.persistenceQueue = Promise.resolve();
     this.source = {
       type: "demo",
       label: "MEOS demo conceptdata",
-      live: false
+      live: false,
+      caseStorage: this.persistCaseData
+        ? { type: "json", label: "Atomaire demo dossieropslag", path: this.caseDataPath }
+        : { type: "memory", label: "Geisoleerde testopslag" }
     };
+  }
+
+  async ensurePersistedState() {
+    if (!this.persistCaseData) return;
+    if (!this.persistenceReady) {
+      this.persistenceReady = fs.readFile(this.caseDataPath, "utf8").then((content) => {
+        const data = JSON.parse(content);
+        if (Array.isArray(data.demoPeople)) this.people = clone(data.demoPeople);
+        if (Array.isArray(data.processVerbals)) this.processVerbals = data.processVerbals.map((entry) => normalizeProcessVerbal(entry));
+        if (data.generalNotes && typeof data.generalNotes === "object") this.generalNotes = new Map(Object.entries(data.generalNotes));
+      }).catch((error) => {
+        if (error?.code !== "ENOENT") throw error;
+      });
+    }
+    await this.persistenceReady;
+  }
+
+  async persistState() {
+    if (!this.persistCaseData) return;
+    const snapshot = {
+      version: 1,
+      demoPeople: clone(this.people),
+      processVerbals: clone(this.processVerbals),
+      generalNotes: Object.fromEntries(this.generalNotes)
+    };
+    const write = async () => {
+      await fs.mkdir(path.dirname(this.caseDataPath), { recursive: true });
+      const tempPath = `${this.caseDataPath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+      try {
+        await fs.writeFile(tempPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+        await fs.rename(tempPath, this.caseDataPath);
+      } finally {
+        await fs.unlink(tempPath).catch((error) => {
+          if (error?.code !== "ENOENT") throw error;
+        });
+      }
+    };
+    const pending = this.persistenceQueue.then(write, write);
+    this.persistenceQueue = pending.catch(() => {});
+    return pending;
   }
 
   allVehicles() {
@@ -184,6 +236,7 @@ class DemoMeosStore {
   }
 
   async listPeople(options = {}) {
+    await this.ensurePersistedState();
     const query = String(options.query || "");
     const field = options.field || "all";
     const limit = normalizeLimit(options.limit);
@@ -194,6 +247,7 @@ class DemoMeosStore {
   }
 
   async getPerson(value) {
+    await this.ensurePersistedState();
     const person = this.findPersonRef(value);
     return person ? clone(person) : null;
   }
@@ -214,6 +268,7 @@ class DemoMeosStore {
   }
 
   async listVehicles(options = {}) {
+    await this.ensurePersistedState();
     const query = normalize(options.query);
     const limit = normalizeLimit(options.limit);
     const vehicles = this.allVehicles();
@@ -224,6 +279,7 @@ class DemoMeosStore {
   }
 
   async getVehicle(value) {
+    await this.ensurePersistedState();
     const normalized = normalize(value);
     const slug = String(value || "").trim().toLowerCase();
     const vehicle = this.allVehicles().find((candidate) => {
@@ -235,11 +291,13 @@ class DemoMeosStore {
   }
 
   async listWarrants(options = {}) {
+    await this.ensurePersistedState();
     const limit = normalizeLimit(options.limit);
     return clone(this.activeArrestWarrants().slice(0, limit));
   }
 
   async search(options = {}) {
+    await this.ensurePersistedState();
     const limit = normalizeLimit(options.limit, 8, 50);
     const query = options.query || "";
     const [people, vehicles] = await Promise.all([
@@ -252,17 +310,40 @@ class DemoMeosStore {
     };
   }
 
+  async getGeneralNote(actorKey) {
+    await this.ensurePersistedState();
+    return { note: this.generalNotes.get(String(actorKey || "")) || "" };
+  }
+
+  async saveGeneralNote(actorKey, note) {
+    await this.ensurePersistedState();
+    const key = String(actorKey || "").trim();
+    if (!key) {
+      const error = new Error("MEOS identiteit ontbreekt.");
+      error.status = 401;
+      throw error;
+    }
+    const value = String(note || "").trim().slice(0, 2000);
+    this.generalNotes.set(key, value);
+    await this.persistState();
+    return { note: value };
+  }
+
   async listProcessVerbals(options = {}) {
+    await this.ensurePersistedState();
     return clone(filterProcessVerbals(this.processVerbals, options));
   }
 
   async addProcessVerbal(processVerbal = {}) {
+    await this.ensurePersistedState();
     const nextProcessVerbal = normalizeProcessVerbal(processVerbal);
     this.processVerbals = [nextProcessVerbal, ...this.processVerbals];
+    await this.persistState();
     return { processVerbal: clone(nextProcessVerbal) };
   }
 
   async updateProcessVerbal(processVerbalId, patch = {}, options = {}) {
+    await this.ensurePersistedState();
     const index = this.processVerbals.findIndex((entry) => normalize(entry.id) === normalize(processVerbalId));
     if (index === -1) {
       const error = new Error("Proces-verbaal niet gevonden.");
@@ -271,10 +352,12 @@ class DemoMeosStore {
     }
     const nextProcessVerbal = updateProcessVerbal(this.processVerbals[index], patch, options);
     this.processVerbals[index] = nextProcessVerbal;
+    await this.persistState();
     return { processVerbal: clone(nextProcessVerbal) };
   }
 
   async sourceHealth() {
+    await this.ensurePersistedState();
     const vehicles = this.allVehicles();
     const warrants = this.activeArrestWarrants();
     const housingCount = this.people.reduce((total, person) => total + (Array.isArray(person.houses) ? person.houses.length : 0), 0);
@@ -303,6 +386,7 @@ class DemoMeosStore {
   }
 
   async addPersonRecord(personValue, record = {}) {
+    await this.ensurePersistedState();
     const person = this.findPersonRef(personValue);
     if (!person) {
       const error = new Error("Persoon niet gevonden.");
@@ -319,17 +403,66 @@ class DemoMeosStore {
       articleIds: Array.isArray(record.articleIds) ? record.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
       articleSelections: Array.isArray(record.articleSelections) ? clone(record.articleSelections) : [],
       calculatedTotals: record.calculatedTotals && typeof record.calculatedTotals === "object" ? clone(record.calculatedTotals) : null,
+      wetboekRevision: record.wetboekRevision || null,
+      wetboekUpdatedAt: record.wetboekUpdatedAt || null,
       createdAt: new Date().toISOString(),
       createdBy: record.createdBy || null
     };
     person.records = [nextRecord, ...(person.records || [])];
+    await this.persistState();
     return {
       record: clone(nextRecord),
       person: clone(person)
     };
   }
 
+  async addPersonRecordWithFine(personValue, record = {}, fine = {}) {
+    await this.ensurePersistedState();
+    const person = this.findPersonRef(personValue);
+    if (!person) {
+      const error = new Error("Persoon niet gevonden.");
+      error.status = 404;
+      throw error;
+    }
+    const now = new Date().toISOString();
+    const nextRecord = {
+      id: record.id || entryId("PV"),
+      date: String(record.date || "").trim(),
+      sanction: String(record.sanction || "").trim(),
+      verbalist: String(record.verbalist || "").trim(),
+      note: String(record.note || "").trim(),
+      source: String(record.source || "").trim(),
+      articleIds: Array.isArray(record.articleIds) ? record.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+      articleSelections: Array.isArray(record.articleSelections) ? clone(record.articleSelections) : [],
+      calculatedTotals: record.calculatedTotals && typeof record.calculatedTotals === "object" ? clone(record.calculatedTotals) : null,
+      wetboekRevision: record.wetboekRevision || null,
+      wetboekUpdatedAt: record.wetboekUpdatedAt || null,
+      createdAt: now,
+      createdBy: record.createdBy || null
+    };
+    const nextFine = {
+      id: fine.id || entryId("BT"),
+      fine: String(fine.fine || "").trim(),
+      amount: String(fine.amount || "").trim(),
+      writtenAt: String(fine.writtenAt || "").trim(),
+      writtenBy: String(fine.writtenBy || "").trim(),
+      articleIds: Array.isArray(fine.articleIds) ? fine.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+      wetboekRevision: fine.wetboekRevision || null,
+      createdAt: now,
+      createdBy: fine.createdBy || null
+    };
+    person.records = [nextRecord, ...(person.records || [])];
+    person.fines = [nextFine, ...(person.fines || [])];
+    await this.persistState();
+    return {
+      record: clone(nextRecord),
+      fine: clone(nextFine),
+      person: clone(person)
+    };
+  }
+
   async addPersonNote(personValue, note = {}) {
+    await this.ensurePersistedState();
     const person = this.findPersonRef(personValue);
     if (!person) {
       const error = new Error("Persoon niet gevonden.");
@@ -345,6 +478,7 @@ class DemoMeosStore {
       createdBy: note.createdBy || null
     };
     person.notes = [nextNote, ...(person.notes || [])];
+    await this.persistState();
     return {
       note: clone(nextNote),
       person: clone(person)
@@ -352,6 +486,7 @@ class DemoMeosStore {
   }
 
   async addPersonFine(personValue, fine = {}) {
+    await this.ensurePersistedState();
     const person = this.findPersonRef(personValue);
     if (!person) {
       const error = new Error("Persoon niet gevonden.");
@@ -365,10 +500,12 @@ class DemoMeosStore {
       writtenAt: String(fine.writtenAt || "").trim(),
       writtenBy: String(fine.writtenBy || "").trim(),
       articleIds: Array.isArray(fine.articleIds) ? fine.articleIds.map((value) => String(value || "").trim()).filter(Boolean) : [],
+      wetboekRevision: fine.wetboekRevision || null,
       createdAt: new Date().toISOString(),
       createdBy: fine.createdBy || null
     };
     person.fines = [nextFine, ...(person.fines || [])];
+    await this.persistState();
     return {
       fine: clone(nextFine),
       person: clone(person)
@@ -376,6 +513,7 @@ class DemoMeosStore {
   }
 
   async deletePersonRecord(personValue, recordId) {
+    await this.ensurePersistedState();
     const person = this.findPersonRef(personValue);
     if (!person) {
       const error = new Error("Persoon niet gevonden.");
@@ -383,6 +521,7 @@ class DemoMeosStore {
       throw error;
     }
     const deleted = deleteFromPersonCollection(person, "records", recordId, "record");
+    await this.persistState();
     return {
       deleted: { type: "record", id: recordId, entry: clone(deleted) },
       person: clone(person)
@@ -390,6 +529,7 @@ class DemoMeosStore {
   }
 
   async deletePersonNote(personValue, noteId) {
+    await this.ensurePersistedState();
     const person = this.findPersonRef(personValue);
     if (!person) {
       const error = new Error("Persoon niet gevonden.");
@@ -397,6 +537,7 @@ class DemoMeosStore {
       throw error;
     }
     const deleted = deleteFromPersonCollection(person, "notes", noteId, "note");
+    await this.persistState();
     return {
       deleted: { type: "note", id: noteId, entry: clone(deleted) },
       person: clone(person)
@@ -404,6 +545,7 @@ class DemoMeosStore {
   }
 
   async deletePersonFine(personValue, fineId) {
+    await this.ensurePersistedState();
     const person = this.findPersonRef(personValue);
     if (!person) {
       const error = new Error("Persoon niet gevonden.");
@@ -411,6 +553,7 @@ class DemoMeosStore {
       throw error;
     }
     const deleted = deleteFromPersonCollection(person, "fines", fineId, "fine");
+    await this.persistState();
     return {
       deleted: { type: "fine", id: fineId, entry: clone(deleted) },
       person: clone(person)
@@ -418,6 +561,7 @@ class DemoMeosStore {
   }
 
   async snapshot() {
+    await this.ensurePersistedState();
     return {
       dataSource: this.source,
       generatedAt: new Date().toISOString(),

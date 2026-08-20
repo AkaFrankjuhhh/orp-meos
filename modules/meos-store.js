@@ -19,7 +19,8 @@ function meosStoreConfigFromEnv(env = process.env) {
     fivemVehiclesView: String(env.MEOS_FIVEM_VEHICLES_VIEW || "meos_vehicles_view").trim(),
     fivemHousingView: String(env.MEOS_FIVEM_HOUSING_VIEW || "meos_housing_view").trim(),
     fivemWarrantsView: String(env.MEOS_FIVEM_WARRANTS_VIEW || "meos_arrest_warrants_view").trim(),
-    meosCaseDataPath: String(env.MEOS_CASE_DATA_PATH || "meos-case-data.json").trim()
+    meosCaseDataPath: String(env.MEOS_CASE_DATA_PATH || "meos-case-data.json").trim(),
+    caseStorage: String(env.MEOS_CASE_DATABASE_URL || "").trim() ? "postgres" : "json"
   };
 }
 
@@ -247,6 +248,20 @@ class CachedMeosStore {
     return result;
   }
 
+  async getGeneralNote(actorKey) {
+    if (typeof this.store.getGeneralNote !== "function") return { note: "" };
+    return this.store.getGeneralNote(actorKey);
+  }
+
+  async saveGeneralNote(actorKey, note) {
+    if (typeof this.store.saveGeneralNote !== "function") {
+      const error = new Error("Deze MEOS databron ondersteunt geen algemene notities.");
+      error.status = 501;
+      throw error;
+    }
+    return this.store.saveGeneralNote(actorKey, note);
+  }
+
   async addPersonRecord(personValue, record = {}) {
     if (typeof this.store.addPersonRecord !== "function") {
       const error = new Error("Deze MEOS databron ondersteunt nog geen strafblad-writes.");
@@ -254,6 +269,17 @@ class CachedMeosStore {
       throw error;
     }
     const result = await this.store.addPersonRecord(personValue, record);
+    this.clearCache();
+    return result;
+  }
+
+  async addPersonRecordWithFine(personValue, record = {}, fine = {}) {
+    if (typeof this.store.addPersonRecordWithFine !== "function") {
+      const recordResult = await this.addPersonRecord(personValue, record);
+      const fineResult = await this.addPersonFine(personValue, fine);
+      return { ...recordResult, fine: fineResult.fine, person: fineResult.person };
+    }
+    const result = await this.store.addPersonRecordWithFine(personValue, record, fine);
     this.clearCache();
     return result;
   }
@@ -324,7 +350,8 @@ function createMeosStore(options = {}) {
     vehiclesView: config.vehiclesView || config.fivemVehiclesView,
     housingView: config.housingView || config.fivemHousingView,
     warrantsView: config.warrantsView || config.fivemWarrantsView,
-    caseDataPath: config.caseDataPath || config.meosCaseDataPath
+    caseDataPath: config.caseDataPath || config.meosCaseDataPath,
+    persistCaseData: config.persistCaseData === true || config.runtime === true
   };
   const baseStore = config.dataSource === "fivem"
     ? createFiveMMeosStore(storeOptions)
@@ -339,7 +366,7 @@ function getMeosStore() {
   const config = meosStoreConfigFromEnv();
   const key = JSON.stringify(config);
   if (!defaultStore || defaultStoreKey !== key) {
-    defaultStore = createMeosStore(config);
+    defaultStore = createMeosStore({ ...config, runtime: true });
     defaultStoreKey = key;
   }
   return defaultStore;

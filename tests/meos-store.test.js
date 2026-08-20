@@ -216,6 +216,8 @@ test("MEOS store factory defaults to cached demo data", async () => {
   assert.equal(config.dataSource, "demo");
   assert.equal(config.cacheTtlMs, 2500);
   assert.equal(config.fivemDriver, "postgres");
+  assert.equal(config.caseStorage, "json");
+  assert.equal(meosStoreConfigFromEnv({ MEOS_CASE_DATABASE_URL: "postgres://configured" }).caseStorage, "postgres");
 
   const store = createMeosStore({ dataSource: "demo", cacheTtlMs: 2500 });
   const snapshot = await store.snapshot();

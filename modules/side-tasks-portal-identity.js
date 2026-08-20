@@ -221,7 +221,6 @@ function firstIdentityToken(value) {
 function portalPersonMatchesSearchHints(person, hints = {}) {
   const names = new Set(hints.names || []);
   const usernames = new Set(hints.usernames || []);
-  const singleTokenNames = new Set(hints.singleTokenNames || []);
   const personDisplayName = portalPersonDisplayName(person);
   const personName = normalizeIdentityText(personDisplayName || person?.name || "");
   const formattedName = normalizeIdentityText(formatNameForDiscordNickname(personDisplayName || person?.name || ""));
@@ -230,8 +229,7 @@ function portalPersonMatchesSearchHints(person, hints = {}) {
   if (personName && names.has(personName)) return true;
   if (formattedName && names.has(formattedName)) return true;
   if (personUsername && (usernames.has(personUsername) || names.has(personUsername))) return true;
-  const firstName = firstIdentityToken(personDisplayName || person?.name || "");
-  return Boolean(firstName && singleTokenNames.has(firstName));
+  return false;
 }
 
 function uniquePortalPerson(rows = [], predicate = () => true) {
@@ -260,7 +258,10 @@ async function linkMissingPortalDiscordId(pool, person, discordId, user = {}) {
       user?.id && user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${String(user.avatar).startsWith("a_") ? "gif" : "png"}?size=128` : ""
     ]
   );
-  return result.rows[0] || person;
+  if (result.rows[0]) return result.rows[0];
+  const error = new Error("Dit personeelsprofiel is ondertussen aan een ander Discord-account gekoppeld.");
+  error.status = 409;
+  throw error;
 }
 
 async function findPortalIdentityByProfileHints(pool, organizationKey, discordId, hints, options = {}) {
@@ -312,7 +313,9 @@ async function portalIdentityForDiscordId(discordId, options = {}) {
     options.organizationPriority,
     normalizeOrganizationPriority(process.env.SIDE_TASK_PORTAL_NICKNAME_PRIORITY, ["defensie", "politie"])
   );
-  const hints = portalIdentitySearchHints(options.discordUser, options.guildMember);
+  const hints = options.allowProfileHints
+    ? portalIdentitySearchHints(options.discordUser, options.guildMember)
+    : null;
   for (const organizationKey of priorities) {
     const pool = poolForOrganization(organizationKey);
     if (!pool) continue;
@@ -330,8 +333,10 @@ async function portalIdentityForDiscordId(discordId, options = {}) {
         const nickname = nicknameForPortalPerson(result.rows[0], organizationKey);
         if (nickname) return { organizationKey, nickname, person: result.rows[0] };
       }
-      const hintedIdentity = await findPortalIdentityByProfileHints(pool, organizationKey, normalizedDiscordId, hints, options);
-      if (hintedIdentity) return hintedIdentity;
+      if (hints) {
+        const hintedIdentity = await findPortalIdentityByProfileHints(pool, organizationKey, normalizedDiscordId, hints, options);
+        if (hintedIdentity) return hintedIdentity;
+      }
     } catch (error) {
       if (!queryWarningLogged) {
         queryWarningLogged = true;

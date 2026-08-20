@@ -101,6 +101,10 @@ function createSessionStore() {
     });
   }
 
+  async function flush() {
+    await writeQueue;
+  }
+
   return {
     get,
     set,
@@ -108,6 +112,7 @@ function createSessionStore() {
     save,
     load,
     cleanup,
+    flush,
     size: () => cache.size
   };
 }
