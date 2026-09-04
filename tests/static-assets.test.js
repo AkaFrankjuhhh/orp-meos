@@ -134,6 +134,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   const meosFivemDocs = fs.readFileSync(path.join(process.cwd(), "docs", "meos-fivem-database.md"), "utf8");
   const meosClientCode = [script, meosCoreCode, meosApiCode, meosDataHealthCode].join("\n");
   const meosServerCode = [overheidServerCode, meosRoutesCode].join("\n");
+  assert.match(overheidServerCode, /process\.env\.ORP_BIND_HOST/);
+  assert.match(overheidServerCode, /server\.listen\(port, bindHost/);
   const vehicleDetailStart = script.indexOf("function renderVehicleDetail");
   const vehicleDetailEnd = script.indexOf("function renderVehicles", vehicleDetailStart);
   const vehicleDetailCode = script.slice(vehicleDetailStart, vehicleDetailEnd);

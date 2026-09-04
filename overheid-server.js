@@ -11,6 +11,7 @@ const { getMeosStore, meosStoreConfigFromEnv } = require("./modules/meos-store")
 loadEnv();
 
 const port = Number(process.env.OVERHEID_PORT || process.env.PORT || 3020);
+const bindHost = String(process.env.ORP_BIND_HOST || process.env.HOST || "127.0.0.1").trim() || "127.0.0.1";
 const appBaseUrl = process.env.OVERHEID_APP_BASE_URL || `http://localhost:${port}`;
 const { writeHeadSecure, sendJson, sendHtml } = createHttpResponder({ appBaseUrl });
 const readMeosBody = createJsonBodyReader(Number(process.env.MEOS_MAX_BODY_BYTES || process.env.MAX_BODY_BYTES || 65536));
@@ -1346,7 +1347,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(port, () => {
+server.listen(port, bindHost, () => {
   console.log(`ORP Overheid router draait op ${appBaseUrl}`);
 });
 
