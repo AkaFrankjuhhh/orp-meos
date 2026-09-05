@@ -68,7 +68,7 @@ function intervalMsFromEnv(value, fallback) {
 
 const root = __dirname;
 const organization = currentOrganization();
-const dataPath = path.join(root, "data.json");
+const dataPath = path.resolve(process.env.ORP_PORTAL_DATA_PATH || path.join(root, "data.json"));
 const storageMode = String(process.env.STORAGE_MODE || "json").toLowerCase();
 const storage = storageMode === "postgres" ? createPostgresReadStorage() : createJsonStorage(dataPath);
 const { readState, writeState } = storage;
