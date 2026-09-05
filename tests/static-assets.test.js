@@ -594,7 +594,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(envExample, /MEOS_FIVEM_PLAYERS_VIEW=meos_people_view/);
   assert.match(envExample, /MEOS_FIVEM_PEOPLE_VIEW=meos_people_view/);
   assert.match(envExample, /MEOS_FIVEM_HOUSING_VIEW=meos_housing_view/);
-  assert.match(envExample, /MEOS_AUDIT_LOG_PATH=meos-audit\.log/);
+  assert.match(envExample, /MEOS_AUDIT_LOG_PATH=\/var\/lib\/orp-meos\/meos-audit\.log/);
   assert.match(caddy, /meos\.orpoverheid\.nl/);
   assert.match(caddy, /meos\.orpdefensie\.nl, meos\.orppolitie\.nl/);
   assert.match(caddy, /redir https:\/\/meos\.orpoverheid\.nl\{uri\} permanent/);
