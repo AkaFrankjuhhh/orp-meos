@@ -5,6 +5,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const { calculateWetboekPenalty, modifierForSelection } = require("../modules/meos-penalty-engine");
+const { createMeosApiRoutes } = require("../modules/meos-api-routes");
 const { normalizeOrpBsn, normalizeOrpFingerprint } = require("../modules/meos-normalization");
 const { normalizeProcessVerbal, updateProcessVerbal } = require("../modules/meos-process-verbals");
 const { createDemoMeosStore } = require("../modules/meos-store-demo");
@@ -30,6 +31,36 @@ function wetboekFixture() {
     ]
   };
 }
+
+test("MEOS general note route saves the personal dashboard note", async () => {
+  const saved = [];
+  const store = {
+    async saveGeneralNote(actorKey, note) {
+      saved.push({ actorKey, note });
+      return { note };
+    }
+  };
+  const session = { profile: { discordId: "123", permissions: { canWriteEntries: true } } };
+  const response = {};
+  const { handleMeosApiRoute } = createMeosApiRoutes({
+    meosProcessVerbalAccessFromSession: () => ({ actorKey: "discord:123", includeAll: false }),
+    async sendMeosMutationResponse(req, res, action, details, handler, options) {
+      assert.equal(action, "generalNote.save");
+      assert.equal(options.permission, "canWriteEntries");
+      res.payload = await handler(store, session, { note: "Operationele notitie" });
+    }
+  });
+
+  const handled = await handleMeosApiRoute(
+    { method: "PUT" },
+    response,
+    new URL("https://meos.orpoverheid.nl/api/meos/general-note")
+  );
+
+  assert.equal(handled, true);
+  assert.deepEqual(saved, [{ actorKey: "discord:123", note: "Operationele notitie" }]);
+  assert.deepEqual(response.payload, { note: "Operationele notitie" });
+});
 
 test("MEOS calculates Wetboek totals on official server rows", () => {
   const result = calculateWetboekPenalty(wetboekFixture(), [

@@ -485,9 +485,9 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.pv {
 .meos-discord-profile {
   position: relative;
   min-height: 100%;
-  min-width: 230px;
+  min-width: 290px;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 8px 14px 8px 10px;
@@ -533,9 +533,7 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.pv {
 }
 
 .meos-profile-action {
-  position: absolute;
-  right: 8px;
-  top: 50%;
+  position: static;
   min-width: 0;
   min-height: 28px;
   display: inline-flex;
@@ -551,7 +549,6 @@ html[data-meos-theme="dark"] .meos-nav-item.active .meos-nav-icon.pv {
   text-decoration: none;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-50%);
   box-shadow: 0 8px 20px var(--meos-profile-action-shadow);
   transition: opacity 140ms ease, background 140ms ease;
 }
@@ -1641,6 +1638,51 @@ html[data-meos-theme="dark"] .meos-health-pill.danger {
 .meos-timeline {
   display: grid;
   gap: 8px;
+}
+
+.meos-timeline-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.meos-timeline-summary {
+  margin: 0;
+  padding: 18px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background-color 140ms ease;
+}
+
+.meos-timeline-summary::-webkit-details-marker {
+  display: none;
+}
+
+.meos-timeline-summary:hover {
+  background: var(--meos-subtle-bg);
+}
+
+.meos-timeline-summary:focus-visible {
+  outline: 2px solid var(--meos-blue);
+  outline-offset: -3px;
+}
+
+.meos-timeline-chevron {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-right: 2px solid var(--meos-blue);
+  border-bottom: 2px solid var(--meos-blue);
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.meos-timeline-panel[open] .meos-timeline-chevron {
+  transform: rotate(225deg);
+}
+
+.meos-timeline-content {
+  padding: 0 18px 18px;
 }
 
 .meos-timeline-item {

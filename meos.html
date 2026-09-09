@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/png" href="/assets/meos-logo.png?v=20260818-site-logo" />
-  <link rel="stylesheet" href="/meos.css?v=20260819-pv-person-search" />
+  <link rel="stylesheet" href="/meos.css?v=20260909-profile-fit" />
   <title>ORP Overheid MEOS</title>
 </head>
 <body>
@@ -102,7 +102,7 @@
             <span class="meos-tile-icon vehicle"></span>
             <span>Vervoermiddel</span>
           </button>
-          <button class="meos-tile" type="button" data-section-shortcut="proces-verbaal" data-pv-shortcut="aangifte">
+          <button class="meos-tile" type="button" data-section-shortcut="aangifte">
             <span class="meos-tile-icon report"></span>
             <span>Aangifte</span>
           </button>
@@ -118,12 +118,12 @@
             <p>In het MEOS systeem van ORP Overheid.</p>
             <small>Dit systeem is uitsluitend voor geautoriseerd gebruik binnen FiveM roleplay.</small>
 
-            <div class="meos-note-form">
+            <form class="meos-note-form" id="generalNoteForm">
               <label for="generalNote">Algemene Notities</label>
-              <textarea id="generalNote" placeholder="Notitie"></textarea>
-              <button class="meos-primary" id="generalNoteSave" type="button">Opslaan</button>
+              <textarea id="generalNote" maxlength="2000" placeholder="Notitie" aria-describedby="generalNoteStatus"></textarea>
+              <button class="meos-primary" id="generalNoteSave" type="submit">Opslaan</button>
               <span id="generalNoteStatus" role="status" aria-live="polite"></span>
-            </div>
+            </form>
 
             <div class="meos-feed">
               <p id="dashboardWelcomeLine">Je sessie wordt gecontroleerd.</p>
@@ -241,6 +241,19 @@
         </section>
       </section>
 
+      <section class="meos-page" data-page="aangifte" aria-labelledby="aangifteTitle">
+        <div class="meos-breadcrumb">Proces Verbaal / Aangifte</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="aangifteTitle">Proces-verbaal van aangifte</h2>
+              <p>Leg de verklaring van een aangever vast in een officieel ORP proces-verbaal.</p>
+            </div>
+          </div>
+          <div id="aangifteView" aria-live="polite"></div>
+        </section>
+      </section>
+
       <section class="meos-page" data-page="auditlog" aria-labelledby="auditTitle">
         <div class="meos-breadcrumb">Auditlog</div>
         <section class="meos-panel">
@@ -274,6 +287,6 @@
   <div id="meosRecordModal" class="meos-modal-backdrop" hidden></div>
   <div id="meosProcessVerbalModal" class="meos-modal-backdrop" hidden></div>
 
-  <script type="module" src="/meos/app.js?v=20260819-pv-person-search"></script>
+  <script type="module" src="/meos/app.js?v=20260909-profile-fit"></script>
 </body>
 </html>

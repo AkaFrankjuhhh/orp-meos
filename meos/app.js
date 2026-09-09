@@ -21,6 +21,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   let meosDataLoaded = false;
   let meosDataError = "";
   let meosDataSource = null;
+  let arrestWarrants = null;
   let meosDataHealth = null;
   let meosDataHealthLoading = false;
   let meosDataHealthError = "";
@@ -343,6 +344,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     meosDataLoaded = false;
     meosDataError = "";
     meosDataSource = null;
+    arrestWarrants = null;
     meosDataHealth = null;
     processVerbalState.rows = [];
     processVerbalState.relatedRows = [];
@@ -417,16 +419,20 @@ import { renderDataHealthHtml } from "./pages/databron.js";
 
   async function loadGeneralNote() {
     const field = $("#generalNote");
+    const status = $("#generalNoteStatus");
     if (!field) return;
     try {
       const payload = await apiJson("/api/meos/general-note");
       field.value = String(payload.note || "");
-    } catch {
+      if (status) status.textContent = "";
+    } catch (error) {
       field.value = "";
+      if (status) status.textContent = error.message || "Notitie laden mislukt";
     }
   }
 
-  async function saveGeneralNote() {
+  async function saveGeneralNote(event) {
+    event?.preventDefault();
     const field = $("#generalNote");
     const button = $("#generalNoteSave");
     const status = $("#generalNoteStatus");
@@ -1226,6 +1232,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       meosDataLoaded = true;
       meosDataError = "";
       setMeosPeople(data.people || []);
+      arrestWarrants = Array.isArray(data.warrants) ? data.warrants : null;
       renderPeople();
       renderVehicles();
       renderWarrantOverview();
@@ -1244,9 +1251,19 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   }
 
   function activeArrestWarrants() {
-    return people.flatMap((person) => (person.arrestWarrants || [])
-      .filter((warrant) => normalize(warrant.status || "actief") !== "gesloten")
+    const embeddedWarrants = () => people.flatMap((person) => (person.arrestWarrants || [])
       .map((warrant) => ({ ...warrant, person })));
+    const source = arrestWarrants === null ? embeddedWarrants() : arrestWarrants;
+    return source
+      .filter((warrant) => normalize(warrant.status || "actief") !== "gesloten")
+      .map((warrant) => {
+        const suppliedPerson = warrant.person || {};
+        const person = findPersonStrict(suppliedPerson.id || warrant.personId)
+          || people.find((row) => normalize(row.name) === normalize(suppliedPerson.name || warrant.personName))
+          || suppliedPerson;
+        return person?.id ? { ...warrant, person } : null;
+      })
+      .filter(Boolean);
   }
 
   function findPerson(id) {
@@ -1398,6 +1415,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (page === "voertuigen") return "/voertuigen";
     if (page === "arrestatiebevelen") return "/arrestatiebevelen";
     if (page === "proces-verbaal") return "/proces-verbaal";
+    if (page === "aangifte") return "/aangifte";
     if (page === "auditlog") return "/auditlog";
     if (page === "databron") return "/databron";
     return "/dashboard";
@@ -1414,13 +1432,15 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   function setPage(page, options = {}) {
     if (page === "auditlog" && !canViewAudit()) page = "dashboard";
     if (page === "databron" && !canViewDataHealth()) page = "dashboard";
+    if (page === "aangifte" && options.preserveProcessVerbalDraft !== true) resetAangifteDraft();
     activePage = page;
     $$(".meos-page").forEach((element) => element.classList.toggle("active", element.dataset.page === page));
-    const navPage = options.nav || (page === "profile" ? "personen" : page === "vehicle" ? "voertuigen" : page);
+    const navPage = options.nav || (page === "profile" ? "personen" : page === "vehicle" ? "voertuigen" : page === "aangifte" ? "proces-verbaal" : page);
     $$(".meos-nav-item").forEach((button) => button.classList.toggle("active", button.dataset.section === navPage));
     document.body.classList.remove("sidebar-open");
     updatePageUrl(page, options);
     if (page === "proces-verbaal") loadProcessVerbals();
+    if (page === "aangifte") renderAangifteView();
     if (page === "profile" || page === "vehicle") loadRelatedProcessVerbals();
     if (page === "auditlog") loadAuditLog();
     if (page === "databron") loadDataHealth();
@@ -1770,12 +1790,13 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       </div>
 
       <div class="meos-profile-col">
-        <article class="meos-panel">
-          <div class="meos-card-title">
+        <details class="meos-panel meos-timeline-panel">
+          <summary class="meos-card-title meos-timeline-summary">
             <h2>Tijdlijn</h2>
-          </div>
-          ${renderProfileTimeline(person)}
-        </article>
+            <span class="meos-timeline-chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="meos-timeline-content">${renderProfileTimeline(person)}</div>
+        </details>
 
         <article class="meos-panel">
           <div class="meos-card-title">
@@ -2416,19 +2437,49 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     `;
   }
 
+  function resetAangifteDraft() {
+    processVerbalState.activeType = "aangifte";
+    processVerbalState.editingId = "";
+    processVerbalState.supplementSource = null;
+    processVerbalState.prefillPersonId = "";
+    processVerbalState.formError = "";
+  }
+
+  function renderAangifteView() {
+    const target = $("#aangifteView");
+    if (!target) return;
+    if (!canWriteMeosEntries()) {
+      target.innerHTML = '<div class="meos-empty">Je MEOS rol mag geen proces-verbaal van aangifte opmaken.</div>';
+      return;
+    }
+    processVerbalState.activeType = "aangifte";
+    target.innerHTML = `
+      <div class="meos-pv-workspace meos-aangifte-workspace">
+        <section class="meos-pv-compose">
+          ${renderProcessVerbalForm()}
+        </section>
+      </div>
+    `;
+  }
+
+  function renderActiveProcessVerbalView() {
+    if (activePage === "aangifte") renderAangifteView();
+    else renderProcessVerbalView();
+  }
+
   async function loadProcessVerbals(force = false) {
     if (!canWriteMeosEntries()) {
-      renderProcessVerbalView();
+      renderActiveProcessVerbalView();
       return;
     }
     if (processVerbalState.loading) return;
     if (processVerbalState.loaded && !force) {
-      renderProcessVerbalView();
+      renderActiveProcessVerbalView();
       return;
     }
     processVerbalState.loading = true;
     processVerbalState.error = "";
-    renderProcessVerbalView();
+    renderActiveProcessVerbalView();
     try {
       const params = new URLSearchParams({
         scope: canViewAllProcessVerbals() ? processVerbalState.scope : "mine"
@@ -2443,7 +2494,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       processVerbalState.error = error.message || "Processen-verbaal ophalen is mislukt.";
     } finally {
       processVerbalState.loading = false;
-      renderProcessVerbalView();
+      renderActiveProcessVerbalView();
     }
   }
 
@@ -2649,7 +2700,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     } catch (error) {
       processVerbalState.formError = error.message || "Proces-verbaal opslaan is mislukt.";
       if (isModalForm) renderProcessVerbalModal();
-      else renderProcessVerbalView();
+      else renderActiveProcessVerbalView();
     } finally {
       setProcessVerbalBusy(false, form);
     }
@@ -2697,6 +2748,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (first === "voertuigen") return { page: "voertuigen" };
     if (first === "arrestatiebevelen") return { page: "arrestatiebevelen" };
     if (first === "proces-verbaal" || first === "procesverbaal" || first === "pv") return { page: "proces-verbaal", replace: first !== "proces-verbaal" };
+    if (first === "aangifte") return { page: "aangifte" };
     if (first === "auditlog" || first === "audit") return { page: "auditlog", replace: first !== "auditlog" };
     if (first === "databron") return { page: "databron" };
     if (first === "at") return { page: "arrestatiebevelen", replace: true };
@@ -3128,7 +3180,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       setTheme(event.target.checked ? "dark" : "light");
     });
     $("#meosProfileLogout")?.addEventListener("click", logoutMeosProfile);
-    $("#generalNoteSave")?.addEventListener("click", saveGeneralNote);
+    $("#generalNoteForm")?.addEventListener("submit", saveGeneralNote);
     $("#meosProfileAvatar")?.addEventListener("error", (event) => {
       event.currentTarget.src = defaultMeosProfile.avatarUrl;
     }, { once: true });

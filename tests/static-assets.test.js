@@ -154,6 +154,11 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.ok(html.indexOf('id="meosOptionsNavLabel"') < html.indexOf('id="meosDataHealthNav"'));
   assert.ok(html.indexOf('id="meosDataHealthNav"') < html.indexOf("Primaire ingang"));
   assert.match(html, /ArrestatieBevel Overzicht/);
+  assert.match(html, /data-section-shortcut="aangifte"/);
+  assert.doesNotMatch(html, /data-pv-shortcut="aangifte"/);
+  assert.match(html, /data-page="aangifte"/);
+  assert.match(html, /id="aangifteTitle">Proces-verbaal van aangifte/);
+  assert.match(html, /id="aangifteView"/);
   assert.match(html, /data-page="proces-verbaal"/);
   assert.match(html, /id="procesVerbaalTitle">Proces Verbaal/);
   assert.match(html, /id="processVerbalView"/);
@@ -175,9 +180,9 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(html, /id="meosRecordModal"/);
   assert.match(html, /id="meosProcessVerbalModal"/);
   assert.match(html, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
-  assert.match(html, /meos\.css\?v=20260819-pv-person-search/);
-  assert.match(html, /type="module" src="\/meos\/app\.js\?v=20260819-pv-person-search"/);
-  assert.match(legacyScript, /import\("\/meos\/app\.js\?v=20260819-pv-person-search"\)/);
+  assert.match(html, /meos\.css\?v=20260909-profile-fit/);
+  assert.match(html, /type="module" src="\/meos\/app\.js\?v=20260909-profile-fit"/);
+  assert.match(legacyScript, /import\("\/meos\/app\.js\?v=20260909-profile-fit"\)/);
   assert.match(script, /from "\.\/core\.js"/);
   assert.match(script, /from "\.\/api\.js"/);
   assert.match(script, /import \{ apiJson, setMeosCsrfToken \} from "\.\/api\.js"/);
@@ -194,6 +199,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /--meos-sidebar-bg: #005493/);
   assert.match(styles, /--meos-sidebar-accent: #ffffff/);
   assert.match(styles, /--meos-sidebar-active-bg: #0b629d/);
+  assert.match(styles, /\.meos-discord-profile \{[\s\S]*?grid-template-columns: 32px minmax\(0, 1fr\) auto;/);
+  assert.match(styles, /\.meos-profile-action \{[\s\S]*?position: static;/);
   assert.match(styles, /grid-template-rows: auto minmax\(0, 1fr\) auto/);
   const lightTheme = styles.slice(0, styles.indexOf('html[data-meos-theme="dark"]'));
   assert.doesNotMatch(lightTheme, /#101010|#151515|#181818|rgba\(0, 0, 0/);
@@ -232,6 +239,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-record-actions/);
   assert.match(styles, /\.meos-badge-row/);
   assert.match(styles, /\.meos-timeline/);
+  assert.match(styles, /\.meos-timeline-panel\[open\] \.meos-timeline-chevron/);
   assert.match(styles, /\.meos-info-link/);
   assert.match(styles, /\.meos-profile-pv-action/);
   assert.match(styles, /\.meos-nav-icon\.data/);
@@ -269,6 +277,11 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
   assert.match(meosClientCode, /\/api\/meos\/session/);
   assert.match(meosClientCode, /\/api\/meos\/logout/);
+  assert.match(html, /meos\.css\?v=20260909-profile-fit/);
+  assert.match(html, /meos\/app\.js\?v=20260909-profile-fit/);
+  assert.match(html, /id="generalNoteForm"/);
+  assert.match(html, /id="generalNoteSave" type="submit"/);
+  assert.match(meosClientCode, /\$\("#generalNoteForm"\)\?\.addEventListener\("submit", saveGeneralNote\)/);
   assert.match(meosClientCode, /setMeosCsrfToken\(payload\.csrfToken \|\| ""\)/);
   assert.match(meosClientCode, /\/api\/meos\/data/);
   assert.match(meosClientCode, /\/api\/meos\/data-health/);
@@ -360,6 +373,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /function canDeleteMeosEntries\(\)/);
   assert.match(meosClientCode, /function renderProfileTimeline\(person\)/);
   assert.match(meosClientCode, /function profileTimelineItems\(person\)/);
+  assert.match(meosClientCode, /<details class="meos-panel meos-timeline-panel">/);
+  assert.match(meosClientCode, /<summary class="meos-card-title meos-timeline-summary">/);
   assert.match(meosClientCode, /function deleteEntryButton\(person, type, entry, index/);
   assert.match(meosClientCode, /async function deleteMeosEntry\(button\)/);
   assert.match(meosClientCode, /data-delete-entry/);
@@ -435,10 +450,18 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosNormalizationCode, /function normalizeVehiclePlate/);
   assert.match(meosClientCode, /function routeFromLocation\(/);
   assert.match(meosClientCode, /function activeArrestWarrants\(/);
+  assert.match(meosClientCode, /arrestWarrants = Array\.isArray\(data\.warrants\) \? data\.warrants : null/);
+  assert.match(meosClientCode, /const source = arrestWarrants === null \? embeddedWarrants\(\) : arrestWarrants/);
+  assert.doesNotMatch(html, /Momenteel staan er 4 actieve signaleringen open/);
   assert.match(meosClientCode, /function renderWarrantOverview\(/);
   assert.match(meosClientCode, /arrestWarrants/);
   assert.match(meosClientCode, /\/arrestatiebevelen/);
   assert.match(meosClientCode, /\/proces-verbaal/);
+  assert.match(meosClientCode, /if \(page === "aangifte"\) return "\/aangifte"/);
+  assert.match(meosClientCode, /if \(first === "aangifte"\) return \{ page: "aangifte" \}/);
+  assert.match(meosClientCode, /function resetAangifteDraft\(\)/);
+  assert.match(meosClientCode, /processVerbalState\.activeType = "aangifte"/);
+  assert.match(meosClientCode, /function renderAangifteView\(\)/);
   assert.match(meosClientCode, /\/auditlog/);
   assert.match(meosClientCode, /\/databron/);
   assert.match(meosClientCode, /history\.pushState/);
@@ -765,6 +788,13 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
     });
     assert.equal(processVerbal.status, 302);
     assert.match(processVerbal.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Fproces-verbaal/);
+
+    const aangifte = await fetch(`${overheidBaseUrl}/aangifte`, {
+      headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
+      redirect: "manual"
+    });
+    assert.equal(aangifte.status, 302);
+    assert.match(aangifte.headers.get("location") || "", /\/api\/meos\/login\?returnTo=%2Faangifte/);
 
     const auditLog = await fetch(`${overheidBaseUrl}/auditlog`, {
       headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
