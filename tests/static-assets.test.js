@@ -466,7 +466,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /\/databron/);
   assert.match(meosClientCode, /history\.pushState/);
   assert.match(meosClientCode, /function normalizeUploadedImageToPng\(/);
-  assert.match(meosClientCode, /event\.key === "F12"/);
+  assert.doesNotMatch(meosClientCode, /event\.key === "F12"/);
+  assert.doesNotMatch(meosClientCode, /contextmenu/);
   assert.match(meosClientCode, /class="meos-result-card meos-person-row/);
   assert.doesNotMatch(meosClientCode, /statusChip/);
   assert.doesNotMatch(meosClientCode, /atTeams/);
@@ -490,8 +491,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosClientCode, /data-open-vehicle/);
   assert.match(meosClientCode, /subjectFingerprint/);
   assert.match(meosClientCode, /\/voertuigen\/\$\{vehicleSlug/);
-  assert.match(html, /id="meosProfileName">Frank Bright</);
-  assert.match(html, /id="dashboardTitle">Welkom Frank Bright\./);
+  assert.match(html, /id="meosProfileName">Sessie controleren\.\.\.</);
+  assert.match(html, /id="dashboardTitle">Welkom in MEOS\./);
   assert.match(meosClientCode, /function profileFullName\(profile\)/);
   assert.match(meosClientCode, /name\.textContent = profileFullName\(nextProfile\)/);
   assert.doesNotMatch(meosClientCode, /compactProfileName/);
@@ -562,7 +563,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosServerCode, /configuredMeosHealthRoleIds/);
   assert.match(meosServerCode, /canViewDataHealth/);
   assert.match(meosServerCode, /meosArticleSelectionsFromBody/);
-  assert.match(meosServerCode, /meosCalculatedTotalsFromBody/);
+  assert.match(meosServerCode, /calculateWetboekPenalty/);
   assert.match(meosServerCode, /MEOS_REQUIRE_PORTAL_IDENTITY/);
   assert.match(meosServerCode, /shouldRejectMutation/);
   assert.match(meosServerCode, /meosRateLimitAllows/);
@@ -696,7 +697,7 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
     assert.match(session.headers.get("content-type") || "", /application\/json/);
     const payload = await session.json();
     assert.equal(payload.authenticated, false);
-    assert.equal(payload.profile.name, "Frank Bright");
+    assert.equal(payload.profile, null);
 
     const data = await fetch(`${overheidBaseUrl}/api/meos/data`, {
       headers: { "x-forwarded-host": "meos.orpoverheid.nl" },
