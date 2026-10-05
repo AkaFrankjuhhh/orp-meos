@@ -40,7 +40,8 @@ function createMeosApiRoutes(context = {}) {
     authCookie,
     hostAuthCookie,
     returnToCookie,
-    loginPage
+    loginPage,
+    isLspdPublicDemoRequest
   } = context;
 
   async function processVerbalFromRequest(store, session, body = {}) {
@@ -121,6 +122,10 @@ function createMeosApiRoutes(context = {}) {
     if (!String(url.pathname || "").startsWith("/api/meos/")) return false;
 
     if (url.pathname === "/api/meos/session/debug" && req.method === "GET") {
+      if (isLspdPublicDemoRequest?.(req)) {
+        sendJson(res, 404, { ok: false, error: "Debug information is disabled in the public demo." });
+        return true;
+      }
       const session = requireMeosApiSession(req, res);
       if (!session) return true;
       await refreshMeosSessionAuthorization(session);
@@ -455,6 +460,13 @@ function createMeosApiRoutes(context = {}) {
     }
 
     if (url.pathname === "/api/meos/login" && req.method === "GET") {
+      if (isLspdPublicDemoRequest?.(req)) {
+        writeHeadSecure(res, 302, {
+          Location: safeMeosReturnTo(url.searchParams.get("returnTo") || "/dashboard")
+        });
+        res.end();
+        return true;
+      }
       if (!discordConfigured()) {
         sendHtml(res, 500, loginPage("Discord of organisatie rollen ontbreken in .env."));
         return true;

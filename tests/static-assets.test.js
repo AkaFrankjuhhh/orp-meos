@@ -273,7 +273,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(styles, /\.meos-wetboek-totals/);
   assert.match(styles, /transform: scale\(1\.01\)/);
   assert.match(styles, /\.meos-profile-grid/);
-  assert.match(meosClientCode, /const themeStorageKey = "orp-meos-theme"/);
+  assert.match(meosClientCode, /const themeStorageKey = isLspdVariant \? "lspd-mdt-theme" : "orp-meos-theme"/);
   assert.match(meosClientCode, /\/assets\/meos-logo\.png\?v=20260818-site-logo/);
   assert.match(meosClientCode, /\/api\/meos\/session/);
   assert.match(meosClientCode, /\/api\/meos\/logout/);
@@ -511,8 +511,8 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosDemoDataCode, /stolenReason: "Aangifte diefstal bij Vespucci"/);
   assert.doesNotMatch(meosClientCode, /Eigenaar openen|data-owner-profile/);
   assert.match(serverCode, /meos\.orpoverheid\.nl/);
-  assert.match(serverCode, /"meos\.html", "meos\.css", "meos\.js"/);
-  assert.match(serverCode, /isAllowedFeatureScript:[\s\S]*\^meos\\\/\(\?:\[\^\/\]\+\|pages\\\/\[\^\/\]\+\)\\\.js\$/);
+  assert.match(serverCode, /"meos\.html", "meos\.css", "meos\.js", "lspd\.html", "lspd\.css"/);
+  assert.match(serverCode, /isAllowedFeatureScript:[\s\S]*\(\?:meos\|lspd\)/);
   assert.match(serverCode, /meosRouteRoots/);
   assert.match(serverCode, /arrestatiebevelen/);
   assert.match(serverCode, /proces-verbaal/);
@@ -599,6 +599,7 @@ test("MEOS concept is wired as primary overheid surface", () => {
   assert.match(meosServerCode, /\/api\/meos\/login\?returnTo=/);
   assert.match(meosServerCode, /orp_meos_session/);
   assert.match(envExample, /MEOS_DISCORD_REDIRECT_URI=https:\/\/meos\.orpoverheid\.nl\/auth\/discord\/callback/);
+  assert.match(envExample, /LSPD_MDT_PUBLIC_DEMO=true/);
   assert.match(envExample, /MEOS_DISCORD_BOT_TOKEN=/);
   assert.match(envExample, /MEOS_REQUIRE_PORTAL_IDENTITY=true/);
   assert.match(envExample, /MEOS_DELETE_ROLE_IDS=1426544463043362937/);
@@ -654,6 +655,40 @@ test("MEOS concept is wired as primary overheid surface", () => {
     const stat = fs.statSync(path.join(process.cwd(), "assets", asset));
     assert.ok(stat.size > 100, `${asset} should be a generated PNG asset`);
   }
+});
+
+test("LSPD MDT preview keeps its branding isolated from the primary MEOS shell", () => {
+  const html = fs.readFileSync(path.join(process.cwd(), "lspd.html"), "utf8");
+  const styles = fs.readFileSync(path.join(process.cwd(), "lspd.css"), "utf8");
+  const locale = fs.readFileSync(path.join(process.cwd(), "lspd", "locale.js"), "utf8");
+  const meosClientCode = fs.readFileSync(path.join(process.cwd(), "meos", "app.js"), "utf8");
+  const overheidServerCode = fs.readFileSync(path.join(process.cwd(), "overheid-server.js"), "utf8");
+  const logo = fs.readFileSync(path.join(process.cwd(), "assets", "lspd-logo.png"));
+
+  assert.match(html, /<title>LSPD Mobile Data Terminal<\/title>/);
+  assert.match(html, /assets\/lspd-logo\.png/);
+  assert.match(html, /Mobile Data Terminal/);
+  assert.match(html, /Profile Search/);
+  assert.match(html, /Vehicle Search/);
+  assert.match(html, /Active Warrants/);
+  assert.match(html, /Officer Reports/);
+  assert.match(html, /data-meos-variant="lspd"/);
+  assert.match(html, /lspd\/locale\.js/);
+  assert.doesNotMatch(html, /ORP MEOS|ORP Overheid|assets\/meos-logo\.png/);
+  assert.match(styles, /--meos-blue: #d7a936/);
+  assert.match(styles, /\.lspd-mdt \.meos-brand img/);
+  assert.match(locale, /"BSN": "Citizen ID"/);
+  assert.match(locale, /"Proces-verbaal van aanhouding": "Arrest Report"/);
+  assert.match(locale, /"Waarnemingen, constateringen en feiten die de verbalisant zelf heeft vastgesteld\.": "Firsthand observations/);
+  assert.match(meosClientCode, /LOS SANTOS POLICE DEPARTMENT/);
+  assert.match(meosClientCode, /MOBILE DATA TERMINAL - OFFICER REPORT/);
+  assert.match(meosClientCode, /This is a fictional FiveM roleplay document and has no legal standing\./);
+  assert.match(overheidServerCode, /meos2\.orpoverheid\.nl/);
+  assert.match(overheidServerCode, /const lspdDemoStore = createMeosStore/);
+  assert.match(overheidServerCode, /function isLspdPublicDemoRequest/);
+  assert.match(overheidServerCode, /LSPD_MDT_PUBLIC_DEMO/);
+  assert.doesNotMatch(overheidServerCode, /LSPD_MDT_DISCORD_REDIRECT_URI/);
+  assert.equal(logo.subarray(1, 4).toString("ascii"), "PNG");
 });
 
 test("MEOS demo dataset adds fifty varied fake accounts", () => {
@@ -808,7 +843,7 @@ test("MEOS overheid host serves API routes before static fallback", async () => 
   }
 });
 
-test("MEOS Discord login uses the public callback redirect URI", async () => {
+test("MEOS keeps Discord auth while the isolated LSPD demo is public", async () => {
   const overheidPort = 4139;
   const overheidBaseUrl = `http://127.0.0.1:${overheidPort}`;
   const publicCallback = "https://meos.orpoverheid.nl/auth/discord/callback";
@@ -820,6 +855,7 @@ test("MEOS Discord login uses the public callback redirect URI", async () => {
       OVERHEID_APP_BASE_URL: overheidBaseUrl,
       MEOS_APP_BASE_URL: "https://meos.orpoverheid.nl",
       MEOS_DISCORD_REDIRECT_URI: publicCallback,
+      LSPD_MDT_PUBLIC_DEMO: "true",
       DISCORD_CLIENT_ID: "test-client-id",
       DISCORD_CLIENT_SECRET: "test-client-secret",
       DISCORD_GUILD_ID: "test-guild-id",
@@ -853,6 +889,68 @@ test("MEOS Discord login uses the public callback redirect URI", async () => {
     assert.equal(location.hostname, "discord.com");
     assert.equal(location.searchParams.get("redirect_uri"), publicCallback);
     assert.notEqual(location.searchParams.get("redirect_uri"), `${overheidBaseUrl}/auth/discord/callback`);
+
+    const lspdLogin = await fetch(`${overheidBaseUrl}/api/meos/login?returnTo=/dashboard`, {
+      headers: {
+        "x-forwarded-host": "meos2.orpoverheid.nl",
+        "x-forwarded-proto": "https"
+      },
+      redirect: "manual"
+    });
+    assert.equal(lspdLogin.status, 302);
+    assert.equal(lspdLogin.headers.get("location"), "/dashboard");
+
+    const lspdSession = await fetch(`${overheidBaseUrl}/api/meos/session`, {
+      headers: { "x-forwarded-host": "meos2.orpoverheid.nl" }
+    });
+    assert.equal(lspdSession.status, 200);
+    const lspdSessionPayload = await lspdSession.json();
+    assert.equal(lspdSessionPayload.authenticated, true);
+    assert.equal(lspdSessionPayload.profile.name, "Jordan Hayes");
+    assert.equal(lspdSessionPayload.profile.organizationKey, "lspd");
+    assert.ok(lspdSessionPayload.csrfToken);
+
+    const lspdData = await fetch(`${overheidBaseUrl}/api/meos/data`, {
+      headers: { "x-forwarded-host": "meos2.orpoverheid.nl" }
+    });
+    assert.equal(lspdData.status, 200);
+    const lspdDataPayload = await lspdData.json();
+    assert.equal(lspdDataPayload.authenticated, true);
+    assert.equal(lspdDataPayload.data.dataSource.type, "demo");
+    assert.equal(lspdDataPayload.data.dataSource.label, "LSPD public demo records");
+    assert.equal(lspdDataPayload.data.people.length, 53);
+
+    const lspdSaveNote = await fetch(`${overheidBaseUrl}/api/meos/general-note`, {
+      method: "PUT",
+      headers: {
+        "x-forwarded-host": "meos2.orpoverheid.nl",
+        origin: overheidBaseUrl,
+        "content-type": "application/json",
+        "x-meos-csrf": lspdSessionPayload.csrfToken
+      },
+      body: JSON.stringify({ note: "Public demo note" })
+    });
+    const lspdSaveNoteBody = await lspdSaveNote.text();
+    assert.equal(lspdSaveNote.status, 200, lspdSaveNoteBody);
+
+    const lspdDebug = await fetch(`${overheidBaseUrl}/api/meos/session/debug`, {
+      headers: { "x-forwarded-host": "meos2.orpoverheid.nl" }
+    });
+    assert.equal(lspdDebug.status, 404);
+
+    const lspdDashboard = await fetch(`${overheidBaseUrl}/dashboard`, {
+      headers: { "x-forwarded-host": "meos2.orpoverheid.nl" },
+      redirect: "manual"
+    });
+    assert.equal(lspdDashboard.status, 200);
+    assert.match(await lspdDashboard.text(), /LSPD Mobile Data Terminal/);
+
+    for (const asset of ["/lspd.css", "/lspd/locale.js", "/assets/lspd-logo.png"]) {
+      const response = await fetch(`${overheidBaseUrl}${asset}`, {
+        headers: { "x-forwarded-host": "meos2.orpoverheid.nl" }
+      });
+      assert.equal(response.status, 200, `${asset} should be served for the LSPD MDT host`);
+    }
   } finally {
     server.kill();
   }

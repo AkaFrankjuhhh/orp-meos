@@ -1,0 +1,391 @@
+const exactText = new Map(Object.entries({
+  "Welkom in MEOS.": "Welcome to the LSPD MDT.",
+  "Algemene Notities": "Officer Notes",
+  "Opslaan": "Save",
+  "Opslaan...": "Saving...",
+  "Opgeslagen": "Saved",
+  "Opslaan mislukt": "Save failed",
+  "Notitie laden mislukt": "Unable to load note",
+  "Personen": "Profiles",
+  "Persoon": "Profile",
+  "Personen zoeken": "Profile Search",
+  "Voertuigen": "Vehicles",
+  "Voertuig": "Vehicle",
+  "Voertuigen zoeken": "Vehicle Search",
+  "Voertuig informatie": "Vehicle Status",
+  "Terug naar personen": "Back to Profiles",
+  "Terug naar voertuigen": "Back to Vehicles",
+  "Zoeken": "Search",
+  "Veld": "Field",
+  "Alles": "All fields",
+  "Naam": "Name",
+  "BSN": "Citizen ID",
+  "Vingerafdruk": "Fingerprint",
+  "Geboortedatum": "Date of Birth",
+  "Geslacht": "Sex",
+  "Lengte": "Height",
+  "Status": "Status",
+  "Locatie": "Location",
+  "Kenteken": "License Plate",
+  "Eigenaar": "Registered Owner",
+  "Kleur van voertuig": "Vehicle Color",
+  "APK Status": "Inspection Status",
+  "WOK status": "Roadworthiness Hold",
+  "WOK": "Roadworthiness Hold",
+  "APK": "Inspection",
+  "Gestolen": "Stolen",
+  "Inbeslaggenomen": "Impounded",
+  "Dienst Auto": "Department Vehicle",
+  "Ja": "Yes",
+  "Nee": "No",
+  "Geen": "None",
+  "Goedgekeurd": "Valid",
+  "Herkeuring nodig": "Inspection Required",
+  "Geen signalering": "Clear",
+  "Gezocht voor verhoor": "Wanted for Questioning",
+  "Rijbewijzen": "Licenses",
+  "Theorie": "Written Test",
+  "Auto": "Driver License",
+  "Motor": "Motorcycle Endorsement",
+  "Vrachtwagen": "Commercial Driver License",
+  "Vaarbewijs": "Boating License",
+  "Vliegbrevet": "Pilot License",
+  "Strafbladen": "Criminal Records",
+  "Strafblad": "Criminal Record",
+  "Strafblad toevoegen": "Add Criminal Record",
+  "Notitie's": "Notes",
+  "Notitie": "Note",
+  "Openstaande boete's": "Outstanding Fines",
+  "Boete": "Fine",
+  "Boetebedrag": "Fine Amount",
+  "Bedrag": "Amount",
+  "Huisvestigingen": "Properties",
+  "Geen huisvestigingen gevonden.": "No properties found.",
+  "Geen voertuigen gekoppeld.": "No registered vehicles.",
+  "Geen personen gevonden.": "No profiles found.",
+  "Geen voertuigen gevonden.": "No vehicles found.",
+  "Geen actieve arrestatiebevelen gevonden.": "No active warrants found.",
+  "Geen strafbladen gevonden.": "No criminal records found.",
+  "Geen notities gevonden.": "No notes found.",
+  "Geen openstaande boetes gevonden.": "No outstanding fines found.",
+  "Geen matches gevonden.": "No matches found.",
+  "Geen persoon geselecteerd.": "No profile selected.",
+  "Geen voertuig geselecteerd.": "No vehicle selected.",
+  "Geen strafblad geselecteerd.": "No criminal record selected.",
+  "Geen gerelateerde processen-verbaal gevonden.": "No related reports found.",
+  "Geen Wetboek artikelen gevonden.": "No charge codes found.",
+  "Geen omschrijving beschikbaar.": "No description available.",
+  "ArrestatieBevel": "Warrant",
+  "ArrestatieBevel Overzicht": "Active Warrants",
+  "Proces Verbaal": "Officer Reports",
+  "Mijn PV's": "My Reports",
+  "Alle PV's": "All Reports",
+  "Alle PV types": "All Report Types",
+  "Nieuw PV opstellen": "Create New Report",
+  "Maak PV": "Create Report",
+  "PV titel": "Report Title",
+  "Proces-verbaal van bevindingen": "Observation Report",
+  "Bevindingen": "Observations",
+  "Proces-verbaal van aanhouding": "Arrest Report",
+  "Aanhouding": "Arrest",
+  "Proces-verbaal van verhoor": "Interview Report",
+  "Verhoor": "Interview",
+  "Proces-verbaal van onderzoek": "Investigation Report",
+  "Onderzoek": "Investigation",
+  "Proces-verbaal van inbeslagneming": "Evidence Seizure Report",
+  "Inbeslagneming": "Evidence Seizure",
+  "Proces-verbaal van aangifte": "Citizen Incident Report",
+  "Aangifte": "Citizen Report",
+  "Proces-verbaal van relaas": "Case Narrative",
+  "Relaas": "Case Narrative",
+  "Concept": "Draft",
+  "Definitief": "Final",
+  "Concept opslaan": "Save Draft",
+  "Definitief opslaan": "Finalize Report",
+  "Definitief opgeslagen - alleen aanvullend PV maken.": "Final report locked. Create a supplemental report to add information.",
+  "Aanvullend PV": "Supplemental Report",
+  "Aanvullend PV maken": "Create Supplemental Report",
+  "Aanvullend op": "Supplement to",
+  "Annuleren": "Cancel",
+  "Sluiten": "Close",
+  "Verwijderen": "Delete",
+  "Toevoegen": "Add",
+  "Opnieuw laden": "Reload",
+  "Verversen": "Refresh",
+  "Print / PDF": "Print / PDF",
+  "Print / opslaan als PDF": "Print / Save as PDF",
+  "Live preview": "Live Preview",
+  "Datum": "Date",
+  "Datum opmaak": "Report Date",
+  "Verbalisant": "Reporting Officer",
+  "Betrokkene zoeken": "Subject Search",
+  "Gerelateerde PV's": "Related Reports",
+  "Gerelateerde PV's laden...": "Loading related reports...",
+  "Processen-verbaal laden...": "Loading reports...",
+  "Nog geen processen-verbaal gevonden.": "No reports found.",
+  "Nog geen tijdlijngegevens gevonden.": "No timeline entries found.",
+  "Tijdlijn": "Timeline",
+  "Samenvatting": "Summary",
+  "Reden": "Reason",
+  "Categorie": "Category",
+  "Alle categorieen": "All categories",
+  "Wetboek zoeken": "Search Charge Codes",
+  "Wetboek artikelen laden...": "Loading charge codes...",
+  "Strafberekening": "Charge Calculator",
+  "Strafbepaling": "Sentencing",
+  "Strafregel": "Charge Level",
+  "Sanctie": "Disposition",
+  "Berekend totaal": "Calculated Total",
+  "Samengestelde strafbladtekst": "Combined Record Summary",
+  "Ambtenaar in functie (+33%)": "Against an On-Duty Officer (+33%)",
+  "Poging tot (-33%)": "Attempted Offense (-33%)",
+  "Direct openstaande boete toevoegen aan deze persoon": "Add the calculated fine to this profile",
+  "Extra notitie": "Additional Narrative",
+  "Celstraf": "Jail Sentence",
+  "Taakstraf": "Community Service",
+  "Rijontzegging": "License Suspension",
+  "Inbeslagname": "Seizure",
+  "Uitgegeven door": "Issued By",
+  "Uitgegeven op": "Issued On",
+  "Uitgeschreven door": "Issued By",
+  "Uitgeschreven op": "Issued On",
+  "Auditlog laden...": "Loading activity log...",
+  "Nog geen auditregels gevonden.": "No activity entries found.",
+  "Je MEOS rol mag de auditlog niet bekijken.": "Your role does not permit access to the activity log.",
+  "Je MEOS rol mag geen processen-verbaal opmaken.": "Your role does not permit report creation.",
+  "Je MEOS rol mag geen proces-verbaal van aangifte opmaken.": "Your role does not permit incident report creation.",
+  "Typ een zoekterm om personen en voertuigen te vinden.": "Enter a name, citizen ID, fingerprint or license plate.",
+  "MEOS data laden...": "Loading department records...",
+  "Type": "Type",
+  "Scope": "Scope",
+  "Beheer": "Administration",
+  "Instructie": "Instructions",
+  "Pand": "Property",
+  "Model": "Model",
+  "VIN": "VIN"
+}));
+
+const lspdReportCopy = new Map(Object.entries({
+  "Waarnemingen, constateringen en feiten die de verbalisant zelf heeft vastgesteld.": "Firsthand observations, findings and facts documented by the reporting officer.",
+  "Waarom en hoe een verdachte is aangehouden binnen ORP roleplay.": "The probable cause, circumstances and method of a suspect's arrest.",
+  "Schriftelijke weergave van vragen en antwoorden bij verdachte, getuige of aangever.": "A written record of questions and answers from a suspect, witness or reporting party.",
+  "Technisch, tactisch of forensisch onderzoek op locatie, voertuig of plaats delict.": "Technical, tactical or forensic examination of a location, vehicle or crime scene.",
+  "Lijst en beschrijving van goederen die door de dienst in beslag zijn genomen.": "An itemized record of property seized by the department as evidence.",
+  "Het op schrift gestelde verhaal van iemand die slachtoffer is geworden van een strafbaar feit.": "The written statement of a person reporting that they were the victim of a crime.",
+  "Samenhangende dossierlijn voor de officier van justitie.": "A complete investigative narrative prepared for prosecutorial review.",
+  "Datum incident": "Incident Date",
+  "Tijdstip": "Time",
+  "Aanleiding": "Call / Reason",
+  "Eigen waarneming": "Officer Observations",
+  "Betrokkenen": "Involved Parties",
+  "Vervolgactie": "Enforcement Action",
+  "Datum aanhouding": "Arrest Date",
+  "Tijdstip aanhouding": "Arrest Time",
+  "Verdachte": "Suspect",
+  "Reden aanhouding": "Probable Cause",
+  "Wijze van aanhouding": "Arrest Details",
+  "Geweldsmiddelen": "Use of Force",
+  "Transport en overdracht": "Transport and Booking",
+  "Datum verhoor": "Interview Date",
+  "Aanvang verhoor": "Interview Start",
+  "Gehoorde persoon": "Interviewee",
+  "Rol gehoorde": "Interviewee Role",
+  "Cautie / mededeling": "Rights Advisement",
+  "Vragen en antwoorden": "Questions and Answers",
+  "Afsluiting": "Interview Closing",
+  "Datum onderzoek": "Investigation Date",
+  "Soort onderzoek": "Investigation Type",
+  "Opdracht / aanleiding": "Assignment / Reason",
+  "Werkwijze": "Method",
+  "Bevindingen": "Findings",
+  "Sporen / goederen": "Evidence / Property",
+  "Conclusie": "Conclusion",
+  "Datum inbeslagneming": "Seizure Date",
+  "In beslag genomen bij": "Seized From",
+  "Reden inbeslagneming": "Reason for Seizure",
+  "Goederenlijst": "Property Inventory",
+  "Bewaring / overdracht": "Evidence Storage / Transfer",
+  "Datum aangifte": "Report Date",
+  "Aangever": "Reporting Party",
+  "Slachtoffer": "Victim",
+  "Strafbaar feit": "Reported Offense",
+  "Verklaring aangever": "Reporting Party Statement",
+  "Schade / goederen": "Loss / Property",
+  "Verdachte / signalement": "Suspect Information",
+  "Verdenking": "Alleged Offense",
+  "Dossieroverzicht": "Case Summary",
+  "Bewijs en stukken": "Evidence and Reports",
+  "Wetboek / strafbare feiten": "Charges",
+  "Voor OVJ": "For Prosecutor Review",
+  "Bijv. 19 aug. 2026": "Example: Aug. 19, 2026",
+  "Bijv. 21:35": "Example: 9:35 PM",
+  "Bijv. 22:10": "Example: 10:10 PM",
+  "Melding, surveillance, controle of andere aanleiding.": "Dispatch call, patrol observation, traffic stop or other reason.",
+  "Beschrijf wat je zag, hoorde, voelde of vaststelde.": "Document what you personally saw, heard or otherwise observed.",
+  "Personen, voertuigen, eenheden of getuigen.": "People, vehicles, units or witnesses involved.",
+  "Aanhouding, inbeslagname, overdracht of andere opvolging.": "Arrest, seizure, transfer or other follow-up action.",
+  "Naam verdachte": "Suspect name",
+  "Op grond waarvan is de verdachte aangehouden?": "State the probable cause for the arrest.",
+  "Hoe is de aanhouding verlopen?": "Describe how the arrest was conducted.",
+  "Geen, boeien, geweldsaanwending of bijzonderheden.": "None, restraints, force used or other relevant details.",
+  "Waarheen is verdachte overgebracht en aan wie overgedragen?": "State where the suspect was transported and booked.",
+  "Naam gehoorde": "Interviewee name",
+  "Verdachte, getuige of aangever": "Suspect, witness or reporting party",
+  "Welke rechten of mededelingen zijn gegeven?": "Document the rights and advisements that were provided.",
+  "Noteer Q: en A: regels of een zakelijke weergave.": "Record question-and-answer lines or a concise factual summary.",
+  "Ondertekening, weigering, opmerkingen of einde verhoor.": "Signature, refusal, comments or interview conclusion.",
+  "Technisch, tactisch, forensisch of digitaal": "Technical, tactical, forensic or digital",
+  "Waarom is dit onderzoek uitgevoerd?": "Explain why this investigation was conducted.",
+  "Welke handelingen zijn verricht?": "Document the investigative actions performed.",
+  "Wat is aangetroffen of vastgesteld?": "Document what was located or established.",
+  "Sporen, goederen, voertuigen of bewijsstukken.": "Trace evidence, property, vehicles or other evidence.",
+  "Zakelijke conclusie voor het dossier.": "Provide a concise conclusion for the case file.",
+  "Waar zijn de goederen aangetroffen?": "Where was the property located?",
+  "Naam persoon, voertuig of locatie": "Person, vehicle or location",
+  "Waarom hebben de goederen met het strafbare feit te maken?": "Explain the property's connection to the alleged offense.",
+  "Omschrijf per item: soort, aantal, kenmerken en bijzonderheden.": "List each item, quantity, identifying features and condition.",
+  "Waar zijn de goederen opgeslagen of aan wie overgedragen?": "State where the evidence was stored or to whom it was transferred.",
+  "Naam aangever": "Reporting party name",
+  "Naam slachtoffer indien anders dan aangever": "Victim name, if different from the reporting party",
+  "Waarvan wordt aangifte gedaan?": "What offense is being reported?",
+  "Zakelijke weergave van het verhaal van de aangever.": "Provide a factual account of the reporting party's statement.",
+  "Schade, gestolen goederen, letsel of overige gevolgen.": "Damage, stolen property, injuries or other loss.",
+  "Bekende verdachte, signalement, voertuig of aanknopingspunten.": "Known suspect, description, vehicle or investigative leads.",
+  "Welke verdenking staat centraal?": "What alleged offense is central to this case?",
+  "Chronologisch overzicht van de zaak.": "Provide a chronological overview of the case.",
+  "Welke PV's, verklaringen of goederen dragen de verdenking?": "List the reports, statements and evidence supporting the charges.",
+  "Artikelen, strafbare feiten of kwalificatie.": "Applicable charges, statutes or offense classifications.",
+  "Openstaande vragen, advies of aandachtspunten.": "Outstanding questions, recommendations or points for review.",
+  "Naam, kenteken, BSN, vingerafdruk of tekst": "Name, license plate, citizen ID, fingerprint or keyword",
+  "Zoek op naam of dienstnr.": "Search by officer name or badge number",
+  "Naam, ORP-BSN-... of ORP-V-...": "Name, LS-CID-... or LS-FP-...",
+  "ORP-BSN-...": "LS-CID-...",
+  "ORP-V-...": "LS-FP-...",
+  "Bijv. 17-03-1945": "Example: 03/17/1945",
+  "Korte zakelijke samenvatting van dit PV.": "Provide a concise factual summary of this report."
+}));
+
+const exactAttributes = new Map(Object.entries({
+  "Notitie": "Note",
+  "Zoeken": "Search",
+  "Bijv. rijden onder invloed, diefstal...": "Search charge title, code or keyword...",
+  "Naam, BSN, vingerafdruk of kenteken": "Name, citizen ID, fingerprint or license plate",
+  "Dark mode": "Display mode",
+  "Dark mode inschakelen": "Toggle display mode",
+  "Discord profiel": "Officer profile",
+  "MEOS navigatie": "LSPD MDT navigation"
+}));
+
+const textPatterns = [
+  [/^BSN ORP-BSN-(\d+)$/, "Citizen ID $1"],
+  [/^Vingerafdruk ORP-V-(\d+)$/, "Fingerprint $1"],
+  [/^ORP-BSN-(\d+)$/, "LS-CID-$1"],
+  [/^ORP-V-(\d+)$/, "LS-FP-$1"],
+  [/^ORP-([A-Z0-9-]+)$/, "LS-$1"],
+  [/^ORP-(\d+) - (.+)$/, "LS-$1 - $2"],
+  [/^Voertuig openen (.+)$/, "Open vehicle $1"],
+  [/^Persoonsprofiel openen (.+)$/, "Open profile $1"],
+  [/^VIN ORP-(.+)$/, "VIN LS-$1"],
+  [/^Kleur (.+) \/ Secundair (.+) \/ Parelmoer (.+)$/, "Color $1 / Secondary $2 / Pearlescent $3"],
+  [/^Kleur (.+) \/ Secundair (.+)$/, "Color $1 / Secondary $2"],
+  [/^Kleur (.+)$/, "Color $1"],
+  [/^(.+) \/ Secundair (.+) \/ Parelmoer (.+)$/, "$1 / Secondary $2 / Pearlescent $3"],
+  [/^(.+) \/ Secundair (.+)$/, "$1 / Secondary $2"],
+  [/^APK Goedgekeurd$/, "Inspection Valid"],
+  [/^APK Herkeuring nodig$/, "Inspection Required"],
+  [/^APK Afgekeurd$/, "Inspection Failed"],
+  [/^WOK Ja$/, "Roadworthiness Hold Yes"],
+  [/^WOK Nee$/, "Roadworthiness Hold No"],
+  [/^Gestolen Ja$/, "Stolen Yes"],
+  [/^Gestolen Nee$/, "Stolen No"],
+  [/^Inbeslag Ja$/, "Impounded Yes"],
+  [/^Inbeslag Nee$/, "Impounded No"],
+  [/^Welkom (.+)\.$/, "Welcome back, $1."],
+  [/^Hallo (.+), welkom in MEOS vandaag\.$/, "Welcome back, $1. Your terminal is ready."],
+  [/^Laatste synchronisatie: (.+) \((.+)\)\.$/, "Last data sync: $1 ($2)."],
+  [/^(\d+) resultaat$/, "$1 result"],
+  [/^(\d+) resultaten$/, "$1 results"],
+  [/^(\d+) bevel actief$/, "$1 active warrant"],
+  [/^(\d+) bevelen actief$/, "$1 active warrants"],
+  [/^Momenteel staat er (\d+) actieve signalering open\.$/, "$1 active warrant requires attention."],
+  [/^Momenteel staan er (\d+) actieve signaleringen open\.$/, "$1 active warrants require attention."],
+  [/^Voertuigen aantal: (\d+)$/, "Registered Vehicles: $1"],
+  [/^Personen \/ (.+)$/, "Profiles / $1"],
+  [/^Voertuigen \/ (.+)$/, "Vehicles / $1"],
+  [/^Persoon (.+)$/, "Profile $1"],
+  [/^Voertuig (.+)$/, "Vehicle $1"],
+  [/^Kenteken: (.+)$/, "License Plate: $1"],
+  [/^Eigenaar (.+)$/, "Registered Owner $1"],
+  [/^Geboren (.+)$/, "Born $1"],
+  [/^Verbalisant (.+)$/, "Reporting Officer $1"],
+  [/^Strafblad toevoegen voor (.+)$/, "Add Criminal Record for $1"],
+  [/^Ambtenaar \+33%$/, "On-Duty Officer +33%"],
+  [/^Poging -33%$/, "Attempt -33%"],
+  [/^Boete totaal: (.+)$/, "Total Fine: $1"],
+  [/^Taakstraf totaal: (.+) uur$/, "Community Service: $1 hours"],
+  [/^Celstraf totaal: (.+) maand\(en\)$/, "Jail Sentence: $1 months"],
+  [/^Geen straf berekend$/, "No sentence calculated"],
+  [/^MEOS data niet beschikbaar: (.+)$/, "Department records unavailable: $1"]
+];
+
+function translateCore(value) {
+  if (!value) return value;
+  if (exactText.has(value)) return exactText.get(value);
+  if (lspdReportCopy.has(value)) return lspdReportCopy.get(value);
+  for (const [pattern, replacement] of textPatterns) {
+    if (pattern.test(value)) return value.replace(pattern, replacement);
+  }
+  return value;
+}
+
+function translateTextNode(node) {
+  const raw = node.nodeValue || "";
+  const core = raw.trim();
+  if (!core) return;
+  const translated = translateCore(core);
+  if (translated === core) return;
+  const leading = raw.match(/^\s*/)?.[0] || "";
+  const trailing = raw.match(/\s*$/)?.[0] || "";
+  node.nodeValue = `${leading}${translated}${trailing}`;
+}
+
+function translateAttributes(element) {
+  for (const attribute of ["placeholder", "title", "aria-label"]) {
+    const value = element.getAttribute?.(attribute);
+    if (!value) continue;
+    const translated = exactAttributes.get(value) || translateCore(value);
+    if (translated !== value) element.setAttribute(attribute, translated);
+  }
+}
+
+function translateTree(root) {
+  if (!root) return;
+  if (root.nodeType === Node.TEXT_NODE) {
+    translateTextNode(root);
+    return;
+  }
+  if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_NODE) return;
+  if (root.nodeType === Node.ELEMENT_NODE) translateAttributes(root);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  let node = walker.currentNode;
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) translateTextNode(node);
+    else translateAttributes(node);
+    node = walker.nextNode();
+  }
+}
+
+const observer = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    if (mutation.type === "characterData") translateTextNode(mutation.target);
+    for (const node of mutation.addedNodes) translateTree(node);
+  }
+});
+
+function startLocalization() {
+  translateTree(document.body);
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", startLocalization, { once: true });
+else startLocalization();

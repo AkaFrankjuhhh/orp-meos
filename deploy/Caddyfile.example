@@ -62,8 +62,8 @@ hovj.orpdefensie.nl, hovj.orppolitie.nl {
   redir https://hovj.orpoverheid.nl{uri} permanent
 }
 
-# Centrale MEOS plek. Politie/Defensie aliassen sturen naar ORP Overheid.
-meos.orpoverheid.nl {
+# Centrale MEOS plek en tijdelijke LSPD MDT-presentatie op dezelfde beveiligde backend.
+meos.orpoverheid.nl, meos2.orpoverheid.nl {
   encode zstd gzip
   reverse_proxy 127.0.0.1:3020
 

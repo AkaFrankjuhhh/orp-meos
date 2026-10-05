@@ -6,7 +6,7 @@ const { URLSearchParams } = require("node:url");
 const { createHttpResponder, createJsonBodyReader, serveWhitelistedStatic, shouldRejectMutation } = require("./modules/http-security");
 const { portalIdentityForDiscordId, hasPortalIdentityDatabase, portalPersonDisplayName } = require("./modules/side-tasks-portal-identity");
 const { createMeosApiRoutes } = require("./modules/meos-api-routes");
-const { getMeosStore, meosStoreConfigFromEnv } = require("./modules/meos-store");
+const { createMeosStore, getMeosStore, meosStoreConfigFromEnv } = require("./modules/meos-store");
 const { calculateWetboekPenalty } = require("./modules/meos-penalty-engine");
 const { createMeosAuditStore } = require("./modules/meos-audit-store");
 
@@ -64,6 +64,45 @@ const meosRateLimitHits = new Map();
 const defaultMeosDeleteRoleIds = ["1426544463043362937"];
 const wetboekApiCache = new Map();
 const meosAuditStore = createMeosAuditStore();
+const lspdDemoStore = createMeosStore({
+  dataSource: "demo",
+  cacheTtlMs: 0,
+  persistCaseData: false,
+  runtime: false
+});
+Object.assign(lspdDemoStore.source, {
+  label: "LSPD public demo records",
+  publicDemo: true
+});
+Object.assign(lspdDemoStore.store.source, {
+  label: "LSPD public demo records",
+  publicDemo: true
+});
+const lspdDemoSession = {
+  id: "lspd-public-demo",
+  publicDemo: true,
+  csrfToken: crypto.randomBytes(32).toString("hex"),
+  createdAt: new Date().toISOString(),
+  authorizationCheckedAt: Date.now(),
+  expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+  profile: {
+    name: "Jordan Hayes",
+    rank: "Sergeant II",
+    serviceNumber: "3-L-21",
+    avatarUrl: "/assets/lspd-logo.png?v=20261005",
+    organizationKey: "lspd",
+    matchedOrganizations: ["lspd"],
+    identityLinkedBy: "public_demo",
+    permissions: {
+      canViewEntries: true,
+      canWriteEntries: true,
+      canDeleteEntries: false,
+      canViewAudit: false,
+      canViewAllProcessVerbals: true,
+      canViewDataHealth: true
+    }
+  }
+};
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -157,6 +196,7 @@ function rememberMeosSession(profile) {
 }
 
 function getMeosSession(req) {
+  if (isLspdPublicDemoRequest(req)) return lspdDemoSession;
   cleanupMeosSessions();
   const cookies = parseCookies(req);
   const sessionId = String(cookies[meosSessionCookieName] || "").trim();
@@ -246,6 +286,7 @@ function requireMeosCsrf(req, session) {
 }
 
 async function appendMeosAudit(req, session, action, details = {}) {
+  if (session?.publicDemo) return null;
   const entry = {
     at: new Date().toISOString(),
     action,
@@ -286,9 +327,26 @@ function forwardedHost(req) {
     .toLowerCase();
 }
 
+function isLspdMdtHost(req) {
+  return forwardedHost(req) === "meos2.orpoverheid.nl";
+}
+
+function lspdPublicDemoEnabled() {
+  const value = String(process.env.LSPD_MDT_PUBLIC_DEMO || "true").trim().toLowerCase();
+  return !["0", "false", "off", "no"].includes(value);
+}
+
+function isLspdPublicDemoRequest(req) {
+  return isLspdMdtHost(req) && lspdPublicDemoEnabled();
+}
+
+function meosStoreForRequest(req) {
+  return isLspdPublicDemoRequest(req) ? lspdDemoStore : getMeosStore();
+}
+
 function isMeosHost(req) {
   const host = forwardedHost(req);
-  return host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
+  return isLspdMdtHost(req) || host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
 }
 
 function isMeosPageRoute(pathname) {
@@ -297,9 +355,10 @@ function isMeosPageRoute(pathname) {
 }
 
 function serveMeosStatic(req, res, url) {
-  const meosStaticPaths = new Set(["/", "/meos", "/meos.html", "/meos.css", "/meos.js"]);
+  const lspdMdt = isLspdMdtHost(req);
+  const meosStaticPaths = new Set(["/", "/meos", "/meos.html", "/meos.css", "/meos.js", "/lspd.html", "/lspd.css"]);
   const isMeosAsset = url.pathname.startsWith("/assets/");
-  const isMeosFeatureScript = /^\/meos\/(?:[^/]+|pages\/[^/]+)\.js$/.test(url.pathname);
+  const isMeosFeatureScript = /^\/(?:meos|lspd)\/(?:[^/]+|pages\/[^/]+)\.js$/.test(url.pathname);
   const isMeosPage = isMeosPageRoute(url.pathname);
   const isMeosShell = ["/", "/meos", "/meos.html"].includes(url.pathname) || isMeosPage;
   if (isMeosHost(req)) {
@@ -311,18 +370,21 @@ function serveMeosStatic(req, res, url) {
       res.end();
       return true;
     }
-  } else if (!["/meos", "/meos.html", "/meos.css", "/meos.js"].includes(url.pathname) && !isMeosFeatureScript) {
+  } else if (!["/meos", "/meos.html", "/meos.css", "/meos.js", "/lspd.html", "/lspd.css"].includes(url.pathname) && !isMeosFeatureScript) {
     return false;
   }
-  const requested = url.pathname === "/" || url.pathname === "/meos" || isMeosPage ? "/meos.html" : url.pathname;
-  const publicRootFiles = new Set(["meos.html", "meos.css", "meos.js"]);
+  const requested = url.pathname === "/" || url.pathname === "/meos" || url.pathname === "/meos.html" || isMeosPage
+    ? (lspdMdt ? "/lspd.html" : "/meos.html")
+    : url.pathname;
+  const publicRootFiles = new Set(["meos.html", "meos.css", "meos.js", "lspd.html", "lspd.css"]);
   serveWhitelistedStatic({
     root: __dirname,
     requested,
     res,
     writeHeadSecure,
     publicRootFiles,
-    isAllowedFeatureScript: (relativePath) => /^meos\/(?:[^/]+|pages\/[^/]+)\.js$/.test(relativePath)
+    versioned: url.searchParams.has("v"),
+    isAllowedFeatureScript: (relativePath) => /^(?:meos|lspd)\/(?:[^/]+|pages\/[^/]+)\.js$/.test(relativePath)
   });
   return true;
 }
@@ -417,6 +479,11 @@ function callbackUrl(req) {
 }
 
 function meosAppBaseUrl(req) {
+  if (isLspdMdtHost(req)) {
+    const proto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();
+    const host = String(req.headers["x-forwarded-host"] || req.headers.host || `localhost:${port}`).split(",")[0].trim();
+    return `${proto}://${host}`.replace(/\/+$/, "");
+  }
   if (process.env.MEOS_APP_BASE_URL) return process.env.MEOS_APP_BASE_URL.replace(/\/+$/, "");
   const proto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();
   const host = String(req.headers["x-forwarded-host"] || req.headers.host || `localhost:${port}`).split(",")[0].trim();
@@ -666,6 +733,7 @@ async function getGuildMemberAsBot(discordId) {
 }
 
 async function refreshMeosSessionAuthorization(session, options = {}) {
+  if (session?.publicDemo) return session;
   if (!session?.profile?.discordId) {
     const error = new Error("MEOS sessie heeft geen gekoppeld Discord-account.");
     error.status = 401;
@@ -1072,7 +1140,7 @@ async function sendMeosStoreResponse(req, res, action, details, handler, options
   try {
     await refreshMeosSessionAuthorization(session);
     if (options.permission) requireMeosPermission(session, options.permission, options.permissionMessage);
-    const payload = await handler(getMeosStore(), session);
+    const payload = await handler(meosStoreForRequest(req), session);
     await appendMeosAudit(req, session, action, details);
     sendJson(res, 200, {
       ok: true,
@@ -1112,7 +1180,7 @@ async function sendMeosMutationResponse(req, res, action, details, handler, opti
     requireMeosCsrf(req, session);
     if (options.permission) requireMeosPermission(session, options.permission, options.permissionMessage);
     const body = options.readBody === false ? {} : await readMeosBody(req);
-    const payload = await handler(getMeosStore(), session, body);
+    const payload = await handler(meosStoreForRequest(req), session, body);
     await appendMeosAudit(req, session, action, {
       ...details,
       personId: payload.person?.id || "",
@@ -1249,7 +1317,8 @@ const { handleMeosApiRoute } = createMeosApiRoutes({
   authCookie,
   hostAuthCookie,
   returnToCookie,
-  loginPage
+  loginPage,
+  isLspdPublicDemoRequest
 });
 
 async function handleRequest(req, res) {

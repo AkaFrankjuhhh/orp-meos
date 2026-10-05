@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en" data-meos-variant="lspd">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/png" href="/assets/lspd-logo.png?v=20261005-lspd-preview" />
+  <link rel="stylesheet" href="/meos.css?v=20260909-profile-fit" />
+  <link rel="stylesheet" href="/lspd.css?v=20261005-lspd-preview-5" />
+  <title>LSPD Mobile Data Terminal</title>
+</head>
+<body class="lspd-mdt">
+  <div class="meos-app">
+    <aside class="meos-sidebar" aria-label="LSPD MDT navigation">
+      <div class="meos-brand">
+        <img src="/assets/lspd-logo.png?v=20261005-lspd-preview" alt="Los Santos Police Department" />
+      </div>
+
+      <nav class="meos-nav">
+        <section class="meos-nav-section" aria-labelledby="meosGeneralNavLabel">
+          <h2 id="meosGeneralNavLabel" class="meos-nav-label">Command</h2>
+          <button class="meos-nav-item active" type="button" data-section="dashboard">
+            <span class="meos-nav-icon dashboard" aria-hidden="true"></span>
+            <span>Dashboard</span>
+          </button>
+        </section>
+
+        <section class="meos-nav-section" aria-labelledby="meosOptionsNavLabel">
+          <h2 id="meosOptionsNavLabel" class="meos-nav-label">Records</h2>
+          <button class="meos-nav-item" type="button" data-section="personen">
+            <span class="meos-nav-icon people" aria-hidden="true"></span>
+            <span>Profiles</span>
+          </button>
+          <button class="meos-nav-item" type="button" data-section="voertuigen">
+            <span class="meos-nav-icon vehicle" aria-hidden="true"></span>
+            <span>Vehicles</span>
+          </button>
+          <button class="meos-nav-item" type="button" data-section="arrestatiebevelen">
+            <span class="meos-nav-icon warrant" aria-hidden="true"></span>
+            <span>Warrants</span>
+          </button>
+          <button class="meos-nav-item" type="button" data-section="proces-verbaal">
+            <span class="meos-nav-icon pv" aria-hidden="true"></span>
+            <span>Reports</span>
+          </button>
+        </section>
+      </nav>
+
+      <div class="meos-sidebar-footer">
+        <button id="meosAuditNav" class="meos-nav-item" type="button" data-section="auditlog" data-audit-only hidden>
+          <span class="meos-nav-icon audit" aria-hidden="true"></span>
+          <span>Activity Log</span>
+        </button>
+
+        <button id="meosDataHealthNav" class="meos-nav-item" type="button" data-section="databron" data-health-only hidden>
+          <span class="meos-nav-icon data" aria-hidden="true"></span>
+          <span>Data Source</span>
+        </button>
+
+        <div class="meos-sidebar-status">
+          <span></span>
+          <p>Public demo</p>
+          <strong>meos2.orpoverheid.nl</strong>
+        </div>
+      </div>
+    </aside>
+
+    <main class="meos-shell">
+      <header class="meos-topbar">
+        <button class="meos-menu-button" type="button" data-toggle-sidebar aria-label="Open navigation">
+          <span class="meos-menu-icon" aria-hidden="true"></span>
+        </button>
+        <h1>Mobile Data Terminal</h1>
+        <div class="meos-topbar-actions">
+          <label class="meos-theme-toggle" title="Display mode">
+            <input id="meosThemeToggle" type="checkbox" aria-label="Toggle display mode" />
+            <span class="meos-theme-icon" aria-hidden="true"></span>
+          </label>
+          <section class="meos-discord-profile" aria-label="Officer profile">
+            <img id="meosProfileAvatar" src="/assets/lspd-logo.png?v=20261005-lspd-preview" alt="" />
+            <div class="meos-discord-profile-copy">
+              <strong id="meosProfileName">Checking credentials...</strong>
+              <span id="meosProfileMeta"></span>
+            </div>
+            <a id="meosProfileLogin" class="meos-profile-action" href="/api/meos/login" hidden>Sign in</a>
+            <button id="meosProfileLogout" class="meos-profile-action" type="button">Sign out</button>
+          </section>
+        </div>
+      </header>
+
+      <section class="meos-page active" data-page="dashboard" aria-labelledby="dashboardTitle">
+        <div class="meos-breadcrumb">Dashboard</div>
+
+        <div class="meos-tile-grid" aria-label="Quick actions">
+          <button class="meos-tile" type="button" data-section-shortcut="personen">
+            <span class="meos-tile-icon person"></span>
+            <span>Profile Search</span>
+          </button>
+          <button class="meos-tile" type="button" data-section-shortcut="voertuigen">
+            <span class="meos-tile-icon vehicle"></span>
+            <span>Vehicle Search</span>
+          </button>
+          <button class="meos-tile" type="button" data-section-shortcut="aangifte">
+            <span class="meos-tile-icon report"></span>
+            <span>File a Report</span>
+          </button>
+          <button class="meos-tile" type="button" data-section-shortcut="arrestatiebevelen">
+            <span class="meos-tile-icon lock"></span>
+            <span>Active Warrants</span>
+          </button>
+        </div>
+
+        <section class="meos-dashboard-grid">
+          <article class="meos-panel meos-welcome-panel">
+            <p class="lspd-eyebrow">LOS SANTOS POLICE DEPARTMENT</p>
+            <h2 id="dashboardTitle">Welcome to the LSPD MDT.</h2>
+            <p>Secure records and field operations terminal.</p>
+            <small>Public test environment. All records are fictional and reset when the service restarts.</small>
+
+            <form class="meos-note-form" id="generalNoteForm">
+              <label for="generalNote">Officer Notes</label>
+              <textarea id="generalNote" maxlength="2000" placeholder="Private shift note" aria-describedby="generalNoteStatus"></textarea>
+              <button class="meos-primary" id="generalNoteSave" type="submit">Save Note</button>
+              <span id="generalNoteStatus" role="status" aria-live="polite"></span>
+            </form>
+
+            <div class="meos-feed">
+              <p id="dashboardWelcomeLine">Officer credentials are being verified.</p>
+              <p>Profiles, vehicles, reports and warrants are available from this terminal.</p>
+              <p id="dashboardWarrantCount">Loading active warrants.</p>
+              <p id="dashboardSyncLine">Data source status is being checked.</p>
+            </div>
+          </article>
+
+          <aside class="meos-panel meos-search-panel">
+            <h2>Quick Search</h2>
+            <div class="meos-inline-search">
+              <input id="dashboardQuickSearch" type="search" placeholder="Name, citizen ID, fingerprint or plate" />
+              <button class="meos-primary" type="button" data-dashboard-search>Search</button>
+            </div>
+            <div id="dashboardSearchPreview" class="meos-search-preview" aria-live="polite"></div>
+          </aside>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="personen" aria-labelledby="peopleTitle">
+        <div class="meos-breadcrumb">Records / Profiles</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="peopleTitle">Profile Search</h2>
+              <p>Search by name, citizen ID, fingerprint or date of birth.</p>
+            </div>
+            <span class="meos-count" id="peopleCount">0 results</span>
+          </div>
+
+          <div class="meos-search-row">
+            <label>
+              <span>Search</span>
+              <input id="personSearch" type="search" placeholder="Name, citizen ID, fingerprint or date of birth" />
+            </label>
+            <label>
+              <span>Field</span>
+              <select id="personSearchField">
+                <option value="all">All fields</option>
+                <option value="name">Name</option>
+                <option value="bsn">Citizen ID</option>
+                <option value="fingerprint">Fingerprint</option>
+                <option value="birthDate">Date of birth</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="personResults" class="meos-results" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="profile" aria-labelledby="profileTitle">
+        <div class="meos-profile-toolbar">
+          <button class="meos-secondary" type="button" data-profile-back>Back to Profiles</button>
+          <span id="profileBreadcrumb">Profiles / Record</span>
+        </div>
+        <div id="profileView" class="meos-profile-grid"></div>
+      </section>
+
+      <section class="meos-page" data-page="voertuigen" aria-labelledby="vehicleTitle">
+        <div class="meos-breadcrumb">Records / Vehicles</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="vehicleTitle">Vehicle Search</h2>
+              <p>Search by license plate, registered owner, model, color or status.</p>
+            </div>
+            <span class="meos-count" id="vehicleCount">0 results</span>
+          </div>
+
+          <div class="meos-search-row one">
+            <label>
+              <span>Search</span>
+              <input id="vehicleSearch" type="search" placeholder="Plate, owner, model, color or stolen status" />
+            </label>
+          </div>
+
+          <div id="vehicleResults" class="meos-results vehicle-results" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="vehicle" aria-labelledby="vehicleDetailTitle">
+        <div class="meos-profile-toolbar">
+          <button class="meos-secondary" type="button" data-vehicle-back>Back to Vehicles</button>
+          <span id="vehicleBreadcrumb">Vehicles / Record</span>
+        </div>
+        <div id="vehicleDetailView" class="meos-profile-grid"></div>
+      </section>
+
+      <section class="meos-page" data-page="arrestatiebevelen" aria-labelledby="warrantTitle">
+        <div class="meos-breadcrumb">Records / Warrants</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="warrantTitle">Active Warrants</h2>
+              <p>Subjects currently wanted by the Los Santos Police Department.</p>
+            </div>
+            <span class="meos-count" id="warrantCount">0 active warrants</span>
+          </div>
+          <div id="warrantOverview" class="meos-warrant-grid" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="proces-verbaal" aria-labelledby="procesVerbaalTitle">
+        <div class="meos-breadcrumb">Records / Reports</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="procesVerbaalTitle">Officer Reports</h2>
+              <p>Create, review and finalize department reports.</p>
+            </div>
+          </div>
+          <div id="processVerbalView" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="aangifte" aria-labelledby="aangifteTitle">
+        <div class="meos-breadcrumb">Reports / Citizen Report</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="aangifteTitle">Citizen Incident Report</h2>
+              <p>Record a complainant or victim statement in an official LSPD report.</p>
+            </div>
+          </div>
+          <div id="aangifteView" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="auditlog" aria-labelledby="auditTitle">
+        <div class="meos-breadcrumb">Staff / Activity Log</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="auditTitle">Activity Log</h2>
+              <p>Access, record changes and administrative actions.</p>
+            </div>
+            <button class="meos-secondary" type="button" data-refresh-audit-log>Refresh</button>
+          </div>
+          <div id="auditLogView" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section class="meos-page" data-page="databron" aria-labelledby="dataHealthTitle">
+        <div class="meos-breadcrumb">Staff / Data Source</div>
+        <section class="meos-panel">
+          <div class="meos-section-head">
+            <div>
+              <h2 id="dataHealthTitle">Data Source Status</h2>
+              <p>FiveM integration, database views and cache health.</p>
+            </div>
+            <button class="meos-secondary" type="button" data-refresh-data-health>Refresh</button>
+          </div>
+          <div id="dataHealthView" aria-live="polite"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="meosRecordModal" class="meos-modal-backdrop" hidden></div>
+  <div id="meosProcessVerbalModal" class="meos-modal-backdrop" hidden></div>
+
+  <script type="module" src="/meos/app.js?v=20261005-lspd-preview-6"></script>
+  <script type="module" src="/lspd/locale.js?v=20261005-lspd-preview-6"></script>
+</body>
+</html>

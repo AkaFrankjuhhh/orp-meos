@@ -2100,7 +2100,8 @@ function serveStatic(req, res, url) {
     return;
   }
   const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].split(":")[0].trim().toLowerCase();
-  const isMeosHost = host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
+  const isLspdMdtHost = host === "meos2.orpoverheid.nl";
+  const isMeosHost = isLspdMdtHost || host === "meos.orpoverheid.nl" || host === "meos.orpdefensie.nl" || host === "meos.orppolitie.nl";
   const meosRouteRoots = new Set(["dashboard", "personen", "voertuigen", "arrestatiebevelen", "proces-verbaal", "procesverbaal", "pv", "aangifte", "auditlog", "audit", "databron", "at"]);
   const isMeosPageRoute = isMeosHost && meosRouteRoots.has(firstSegment.toLowerCase());
   const isMeosRoute = isMeosHost || ["meos", "meos.html"].includes(firstSegment.toLowerCase());
@@ -2108,7 +2109,7 @@ function serveStatic(req, res, url) {
   const portalRouteRoots = new Set(["dashboard", "medewerkers", "mijn-profiel", "afwezigheid", "beschikbaarheids-agenda", "i8-formulier", "ontslag-formulier", "voertuiginbeslagname", "i8-controleren", "i8-archief", "mentor-overzicht", "mentor-traject", "mentor-toets", "mentor-toetsen", "mentor-checklist", "mentor-logboek", "trainer-overzicht", "trainer-ibt", "trainer-logboek", "hovj-logboek", "personeel-aannemen", "personeel", "afwezigheid-overzicht", "ontslag-overzicht", "ops-tijden", "personeels-archief", "logboek", "systeemstatus"]);
   const publicFormAssets = new Set(["/public-forms.css", "/public-forms.js", "/client-guard.js"]);
   const requested = isMeosRoute && (url.pathname === "/" || ["/meos", "/meos.html"].includes(url.pathname) || isMeosPageRoute)
-    ? "/meos.html"
+    ? (isLspdMdtHost ? "/lspd.html" : "/meos.html")
     : publicFormConfig
       ? (publicFormAssets.has(url.pathname) || url.pathname.startsWith("/assets/") ? url.pathname : "/public-forms.html")
       : url.pathname === "/" || portalRouteRoots.has(firstSegment.toLowerCase())
@@ -2130,14 +2131,15 @@ function serveStatic(req, res, url) {
     res.end(portoClientDataScript(organization));
     return;
   }
-  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "client-guard.js", "portal-boot.js", "portal-client-errors.js", "portal-loader-failsafe.js", "boot-failsafe.js", "public-forms.html", "public-forms.css", "public-forms.js", "meos.html", "meos.css", "meos.js"]);
+  const publicRootFiles = new Set(["index.html", "styles.css", "shared.css", "personeelsportaal.css", "app.js", "personeelsportaal-data.js", "porto-config.js", "shared-ui.js", "client-guard.js", "portal-boot.js", "portal-client-errors.js", "portal-loader-failsafe.js", "boot-failsafe.js", "public-forms.html", "public-forms.css", "public-forms.js", "meos.html", "meos.css", "meos.js", "lspd.html", "lspd.css"]);
   serveWhitelistedStatic({
     root,
     requested,
     res,
     writeHeadSecure,
     publicRootFiles,
-    isAllowedFeatureScript: (relativePath) => /^personeelsportaal\/[^/]+\.js$/.test(relativePath) || /^meos\/(?:[^/]+|pages\/[^/]+)\.js$/.test(relativePath)
+    versioned: url.searchParams.has("v"),
+    isAllowedFeatureScript: (relativePath) => /^personeelsportaal\/[^/]+\.js$/.test(relativePath) || /^(?:meos|lspd)\/(?:[^/]+|pages\/[^/]+)\.js$/.test(relativePath)
   });
 }
 

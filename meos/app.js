@@ -14,6 +14,7 @@ import {
 import { renderDataHealthHtml } from "./pages/databron.js";
 
 (function () {
+  const isLspdVariant = document.documentElement.dataset.meosVariant === "lspd";
   let people = [];
   let activePage = "dashboard";
   let activePersonId = "";
@@ -27,12 +28,12 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   let meosDataHealthError = "";
   let currentMeosProfile = null;
   let modalReturnFocus = null;
-  const themeStorageKey = "orp-meos-theme";
+  const themeStorageKey = isLspdVariant ? "lspd-mdt-theme" : "orp-meos-theme";
   const defaultMeosProfile = {
     name: "Niet aangemeld",
     rank: "",
     serviceNumber: "",
-    avatarUrl: "/assets/meos-logo.png?v=20260818-site-logo",
+    avatarUrl: isLspdVariant ? "/assets/lspd-logo.png?v=20261005" : "/assets/meos-logo.png?v=20260818-site-logo",
     permissions: {
       canViewEntries: false,
       canWriteEntries: false,
@@ -159,6 +160,60 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       ]
     }
   };
+  const lspdReportTerms = new Map(Object.entries({
+    "Proces-verbaal van bevindingen": "Observation Report",
+    "Proces-verbaal van aanhouding": "Arrest Report",
+    "Proces-verbaal van verhoor": "Interview Report",
+    "Proces-verbaal van onderzoek": "Investigation Report",
+    "Proces-verbaal van inbeslagneming": "Evidence Seizure Report",
+    "Proces-verbaal van aangifte": "Citizen Incident Report",
+    "Proces-verbaal van relaas": "Case Narrative",
+    "Datum incident": "Incident Date",
+    "Tijdstip": "Time",
+    "Aanleiding": "Call / Reason",
+    "Eigen waarneming": "Officer Observations",
+    "Betrokkenen": "Involved Parties",
+    "Vervolgactie": "Enforcement Action",
+    "Datum aanhouding": "Arrest Date",
+    "Tijdstip aanhouding": "Arrest Time",
+    "Verdachte": "Suspect",
+    "Reden aanhouding": "Probable Cause",
+    "Wijze van aanhouding": "Arrest Details",
+    "Geweldsmiddelen": "Use of Force",
+    "Transport en overdracht": "Transport and Booking",
+    "Datum verhoor": "Interview Date",
+    "Aanvang verhoor": "Interview Start",
+    "Gehoorde persoon": "Interviewee",
+    "Rol gehoorde": "Interviewee Role",
+    "Cautie / mededeling": "Rights Advisement",
+    "Vragen en antwoorden": "Questions and Answers",
+    "Afsluiting": "Interview Closing",
+    "Datum onderzoek": "Investigation Date",
+    "Soort onderzoek": "Investigation Type",
+    "Opdracht / aanleiding": "Assignment / Reason",
+    "Werkwijze": "Method",
+    "Bevindingen": "Findings",
+    "Sporen / goederen": "Evidence / Property",
+    "Conclusie": "Conclusion",
+    "Datum inbeslagneming": "Seizure Date",
+    "In beslag genomen bij": "Seized From",
+    "Reden inbeslagneming": "Reason for Seizure",
+    "Goederenlijst": "Property Inventory",
+    "Bewaring / overdracht": "Evidence Storage / Transfer",
+    "Datum aangifte": "Report Date",
+    "Aangever": "Reporting Party",
+    "Slachtoffer": "Victim",
+    "Strafbaar feit": "Reported Offense",
+    "Verklaring aangever": "Reporting Party Statement",
+    "Schade / goederen": "Loss / Property",
+    "Verdachte / signalement": "Suspect Information",
+    "Verdenking": "Alleged Offense",
+    "Dossieroverzicht": "Case Summary",
+    "Bewijs en stukken": "Evidence and Reports",
+    "Wetboek / strafbare feiten": "Charges",
+    "Voor OVJ": "For Prosecutor Review",
+    "Aanvullend op": "Supplement to"
+  }));
   const processVerbalState = {
     rows: [],
     loaded: false,
@@ -184,6 +239,34 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     loading: false,
     error: ""
   };
+
+  function lspdReportTerm(value) {
+    if (!isLspdVariant) return value;
+    return lspdReportTerms.get(value) || value;
+  }
+
+  function displayMeosIdentity(value) {
+    const raw = String(value || "");
+    if (!isLspdVariant) return raw;
+    return raw
+      .replace(/ORP-BSN-/g, "LS-CID-")
+      .replace(/ORP-V-/g, "LS-FP-");
+  }
+
+  function canonicalMeosIdentity(value) {
+    return String(value || "")
+      .replace(/LS-CID-/gi, "ORP-BSN-")
+      .replace(/LS-FP-/gi, "ORP-V-");
+  }
+
+  function todayInterfaceDate() {
+    if (!isLspdVariant) return todayMeosDate();
+    return new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    }).format(new Date());
+  }
 
   function personSlug(person) {
     const raw = String(person?.name || person?.id || "persoon").trim();
@@ -310,8 +393,8 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     if (avatar) avatar.src = nextProfile.avatarUrl || defaultMeosProfile.avatarUrl;
     if (name) name.textContent = profileFullName(nextProfile);
     if (meta) meta.textContent = profileMetaLine(nextProfile);
-    if (login) login.hidden = authenticated;
-    if (logout) logout.hidden = !authenticated;
+    if (login) login.hidden = isLspdVariant || authenticated;
+    if (logout) logout.hidden = isLspdVariant || !authenticated;
     renderDashboardProfile(nextProfile);
     updateAuditAccess();
     updateDataHealthAccess();
@@ -989,7 +1072,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
             <div class="meos-record-modal-fields">
               <label>
                 <span>Datum</span>
-                <input data-wetboek-field="date" type="text" maxlength="40" value="${escapeHtml(wetboekRecordState.date || todayMeosDate())}" />
+                <input data-wetboek-field="date" type="text" maxlength="40" value="${escapeHtml(wetboekRecordState.date || todayInterfaceDate())}" />
               </label>
               <label>
                 <span>Sanctie</span>
@@ -1048,7 +1131,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     wetboekRecordState.category = "all";
     wetboekRecordState.articleModifiers = {};
     wetboekRecordState.selected = [];
-    wetboekRecordState.date = todayMeosDate();
+    wetboekRecordState.date = todayInterfaceDate();
     wetboekRecordState.sanction = "PV";
     wetboekRecordState.extraNote = "";
     wetboekRecordState.createFine = false;
@@ -1161,7 +1244,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     }
     const totals = calculateWetboekTotals();
     const body = {
-      date: wetboekRecordState.date || todayMeosDate(),
+      date: wetboekRecordState.date || todayInterfaceDate(),
       sanction: wetboekRecordState.sanction || "PV",
       verbalist: currentVerbalistName(),
       note,
@@ -1625,7 +1708,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         <div class="meos-form-grid">
           <label>
             <span>Datum</span>
-            <input name="date" type="text" value="${escapeHtml(todayMeosDate())}" maxlength="40" />
+            <input name="date" type="text" value="${escapeHtml(todayInterfaceDate())}" maxlength="40" />
           </label>
           <label>
             <span>Sanctie</span>
@@ -1655,7 +1738,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
         <div class="meos-form-grid">
           <label>
             <span>Datum</span>
-            <input name="date" type="text" value="${escapeHtml(todayMeosDate())}" maxlength="40" />
+            <input name="date" type="text" value="${escapeHtml(todayInterfaceDate())}" maxlength="40" />
           </label>
           <label>
             <span>Verbalisant</span>
@@ -2059,16 +2142,20 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     return {
       id: row?.id || "",
       type,
-      typeLabel: config.label,
-      title: row?.title || (supplement ? `Aanvullend PV - ${supplement.title || supplement.typeLabel || supplement.id}` : config.label),
+      typeLabel: lspdReportTerm(config.label),
+      title: row?.title || (supplement
+        ? `${isLspdVariant ? "Supplemental Report" : "Aanvullend PV"} - ${supplement.title || supplement.typeLabel || supplement.id}`
+        : lspdReportTerm(config.label)),
       status: row?.status || "concept",
-      date: row?.date || todayMeosDate(),
+      date: row?.date || todayInterfaceDate(),
       location: row?.location || "",
       subjectName: row?.subjectName || related.personName || "",
       subjectBirthDate: row?.subjectBirthDate || related.personBirthDate || "",
       subjectBsn: row?.subjectBsn || related.personBsn || "",
       subjectFingerprint: row?.subjectFingerprint || related.personFingerprint || "",
-      summary: row?.summary || (supplement ? `Aanvullend op PV ${supplement.id || ""}: ${supplement.title || supplement.typeLabel || ""}`.trim() : ""),
+      summary: row?.summary || (supplement
+        ? `${isLspdVariant ? "Supplement to Report" : "Aanvullend op PV"} ${supplement.id || ""}: ${supplement.title || supplement.typeLabel || ""}`.trim()
+        : ""),
       fields: row?.fields || defaultFields,
       related,
       document: row?.document || "",
@@ -2088,15 +2175,15 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     const draft = {
       id: form.dataset.processVerbalId || "",
       type,
-      typeLabel: processVerbalConfig(type).label,
-      title: data.title || processVerbalConfig(type).label,
+      typeLabel: lspdReportTerm(processVerbalConfig(type).label),
+      title: data.title || lspdReportTerm(processVerbalConfig(type).label),
       status,
-      date: data.date || todayMeosDate(),
+      date: data.date || todayInterfaceDate(),
       location: data.location || "",
       subjectName: data.subjectName || linkedPerson?.name || "",
       subjectBirthDate: data.subjectBirthDate || linkedPerson?.birthDate || "",
-      subjectBsn: data.subjectBsn || linkedPerson?.bsn || "",
-      subjectFingerprint: data.subjectFingerprint || linkedPerson?.fingerprint || "",
+      subjectBsn: canonicalMeosIdentity(data.subjectBsn || linkedPerson?.bsn || ""),
+      subjectFingerprint: canonicalMeosIdentity(data.subjectFingerprint || linkedPerson?.fingerprint || ""),
       summary: data.summary || "",
       fields,
       related,
@@ -2111,7 +2198,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
   function processVerbalFieldLines(type, fields = {}) {
     const config = processVerbalConfig(type);
     return config.fields
-      .map(([name, label]) => [label, String(fields[name] || "").trim()])
+      .map(([name, label]) => [lspdReportTerm(label), String(fields[name] || "").trim()])
       .filter(([, value]) => value)
       .map(([label, value]) => `${label}:\n${value}`);
   }
@@ -2122,6 +2209,49 @@ import { renderDataHealthHtml } from "./pages/databron.js";
     const createdBy = draft.createdBy || currentMeosProfile || defaultMeosProfile;
     const verbalist = profileFullName(createdBy);
     const meta = profileMetaLine(createdBy);
+    if (isLspdVariant) {
+      const header = [
+        "LOS SANTOS POLICE DEPARTMENT",
+        "MOBILE DATA TERMINAL - OFFICER REPORT",
+        lspdReportTerm(config.label).toUpperCase(),
+        "",
+        `Report ID: ${draft.id || "Assigned automatically when saved"}`,
+        `Status: ${draft.status === "definitief" ? "Final" : "Draft"}`,
+        `Report Date: ${draft.date || todayInterfaceDate()}`,
+        draft.location ? `Location: ${draft.location}` : ""
+      ].filter(Boolean);
+      const subject = [
+        draft.subjectName ? `Subject: ${draft.subjectName}` : "",
+        draft.subjectBirthDate ? `Date of Birth: ${draft.subjectBirthDate}` : "",
+        draft.subjectBsn ? `Citizen ID: ${displayMeosIdentity(draft.subjectBsn)}` : "",
+        draft.subjectFingerprint ? `Fingerprint: ${displayMeosIdentity(draft.subjectFingerprint)}` : ""
+      ].filter(Boolean);
+      const statement = [
+        `I, Officer ${verbalist}${meta ? ` (${meta})` : ""}, document the following facts and circumstances:`,
+        draft.summary || ""
+      ].filter(Boolean);
+      const body = processVerbalFieldLines(type, draft.fields);
+      const related = processVerbalRelatedLines(draft.related || {})
+        .map(([label, value]) => `${lspdReportTerm(label)}: ${value}`);
+      const closing = [
+        "I certify that this report is accurate to the best of my knowledge.",
+        `Prepared and stored in the LSPD MDT by ${verbalist}${meta ? ` (${meta})` : ""}.`,
+        "This is a fictional FiveM roleplay document and has no legal standing."
+      ];
+      return [
+        ...header,
+        subject.length ? "\nSUBJECT" : "",
+        ...subject,
+        related.length ? "\nRELATED REPORTS" : "",
+        ...related,
+        "\nOFFICER NARRATIVE",
+        ...statement,
+        body.length ? "\nREPORT DETAILS" : "",
+        ...body,
+        "\nCERTIFICATION",
+        ...closing
+      ].filter(Boolean).join("\n");
+    }
     const header = [
       "ORP OVERHEID",
       "MEOS - PROCES-VERBAAL",
@@ -2129,7 +2259,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       "",
       `PV-nummer: ${draft.id || "Wordt automatisch toegekend na opslaan"}`,
       `Status: ${draft.status === "definitief" ? "Definitief" : "Concept"}`,
-      `Datum opmaak: ${draft.date || todayMeosDate()}`,
+      `Datum opmaak: ${draft.date || todayInterfaceDate()}`,
       draft.location ? `Locatie: ${draft.location}` : ""
     ].filter(Boolean);
     const subject = [
@@ -2196,7 +2326,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
             <span>Scope</span>
             <select data-pv-scope>
               <option value="mine" ${processVerbalState.scope !== "all" ? "selected" : ""}>Mijn PV's</option>
-              <option value="all" ${processVerbalState.scope === "all" ? "selected" : ""}>Alles</option>
+              <option value="all" ${processVerbalState.scope === "all" ? "selected" : ""}>${isLspdVariant ? "All Reports" : "Alles"}</option>
             </select>
           </label>
           <label>
@@ -2235,7 +2365,7 @@ import { renderDataHealthHtml } from "./pages/databron.js";
       ${suggestions.map((person) => `
         <button type="button" data-pv-person-select="${escapeHtml(person.id)}">
           <strong>${escapeHtml(person.name)}</strong>
-          <span>${escapeHtml([person.bsn, person.fingerprint, person.birthDate].filter(Boolean).join(" - "))}</span>
+          <span>${escapeHtml(displayMeosIdentity([person.bsn, person.fingerprint, person.birthDate].filter(Boolean).join(" - ")))}</span>
         </button>
       `).join("")}
     </div>`;
@@ -2295,11 +2425,11 @@ import { renderDataHealthHtml } from "./pages/databron.js";
           </label>
           <label>
             <span>BSN</span>
-            <input name="subjectBsn" data-pv-person-identity type="text" value="${escapeHtml(draft.subjectBsn)}" maxlength="80" placeholder="ORP-BSN-..." ${readonly ? "disabled" : ""} />
+            <input name="subjectBsn" data-pv-person-identity type="text" value="${escapeHtml(displayMeosIdentity(draft.subjectBsn))}" maxlength="80" placeholder="ORP-BSN-..." ${readonly ? "disabled" : ""} />
           </label>
           <label>
             <span>Vingerafdruk</span>
-            <input name="subjectFingerprint" data-pv-person-identity type="text" value="${escapeHtml(draft.subjectFingerprint)}" maxlength="80" placeholder="ORP-V-..." ${readonly ? "disabled" : ""} />
+            <input name="subjectFingerprint" data-pv-person-identity type="text" value="${escapeHtml(displayMeosIdentity(draft.subjectFingerprint))}" maxlength="80" placeholder="ORP-V-..." ${readonly ? "disabled" : ""} />
           </label>
           <label class="wide">
             <span>Samenvatting</span>
