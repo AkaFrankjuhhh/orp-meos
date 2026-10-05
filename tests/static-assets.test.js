@@ -677,6 +677,9 @@ test("LSPD MDT preview keeps its branding isolated from the primary MEOS shell",
   assert.doesNotMatch(html, /ORP MEOS|ORP Overheid|assets\/meos-logo\.png/);
   assert.match(styles, /--meos-blue: #d7a936/);
   assert.match(styles, /\.lspd-mdt \.meos-brand img/);
+  assert.match(styles, /max-width: none/);
+  assert.doesNotMatch(styles, /max-width: 1920px/);
+  assert.match(html, /lspd\.css\?v=20261005-lspd-full-width/);
   assert.match(locale, /"BSN": "Citizen ID"/);
   assert.match(locale, /"Proces-verbaal van aanhouding": "Arrest Report"/);
   assert.match(locale, /"Waarnemingen, constateringen en feiten die de verbalisant zelf heeft vastgesteld\.": "Firsthand observations/);
